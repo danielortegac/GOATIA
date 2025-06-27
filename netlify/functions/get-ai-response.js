@@ -29,13 +29,15 @@ exports.handler = async (event, context) => {
         }
 
         // 4. Determinar a qué API llamar basado en el modelo seleccionado
-        if (model.includes('sonar')) {
+        // --- FIX: Se corrige la condición para que reconozca el modelo 'perplexity' enviado desde el frontend ---
+        if (model === 'perplexity' || model.includes('sonar')) {
             // --- LÓGICA PARA PERPLEXITY API ---
             const PERPLEXITY_API_KEY = process.env.PERPLEXITY_API_KEY;
             if (!PERPLEXITY_API_KEY) throw new Error('La clave de API de Perplexity no está configurada.');
 
             const body = {
-                model: model, // p.ej. 'sonar-medium-32k-online'
+                // Usamos un modelo de Perplexity real, no el valor 'perplexity'
+                model: 'sonar-medium-32k-online', 
                 messages: [
                     { role: 'system', content: 'Eres un asistente de búsqueda web preciso y conciso. Responde en español.' },
                     ...history,
