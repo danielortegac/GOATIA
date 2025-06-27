@@ -181,7 +181,7 @@
             const userMessage = dom.msgInput.value.trim();
             if (!userMessage && !selectedImageBase64 && !selectedPdfText) return;
 
-            // --- Lógica de Límites ---
+            // Lógica de Límites
             if (!currentUser) {
                 if (getMessageCount() >= GUEST_MESSAGE_LIMIT && !forceSend) {
                     pendingMessage = { userMessage, image: selectedImageBase64, pdf: selectedPdfText };
@@ -209,8 +209,6 @@
             try {
                 const responseData = await getAIResponse(userMessage, state.chats[chatIdToUpdate].messages.slice(0, -1), image, pdf);
                 
-                // El backend ahora siempre devuelve un objeto JSON.
-                // Si tiene la propiedad 'reply', todo fue bien.
                 if (responseData.reply) {
                     const botResponse = responseData.reply;
                     state.chats[chatIdToUpdate].messages.push({ role: 'assistant', content: botResponse });
@@ -221,13 +219,11 @@
                         updateUserMessageCount(responseData.new_message_count);
                     }
                 } else if (responseData.error) {
-                    // Si tiene la propiedad 'error', mostramos el error detallado.
                     const errorMessage = `❌ **${responseData.error}**<br><small>${responseData.details || 'No hay más detalles.'}</small>`;
                     updateMessageInUI(thinkingBubble, errorMessage);
                 }
 
             } catch (error) { 
-                 // Este catch es para errores de red o si la respuesta NO es JSON.
                 const errorMessage = `❌ **Error de Conexión**<br><small>${error.message}. Asegúrate de que el backend está desplegado y funcionando.</small>`;
                 updateMessageInUI(thinkingBubble, errorMessage); 
             }
@@ -237,43 +233,21 @@
             updateMessageCounter();
         }
         
-        // --- START: MODIFIED FUNCTION ---
         async function getAIResponse(prompt, history, image, pdf) {
             const token = currentUser ? await currentUser.jwt() : null;
-            const selectedModel = dom.modelSelector.value;
-
-            // Base payload for the request
-            let payload = {
-                prompt,
-                history: history.map(m=>({role: m.role, content: m.content})),
-                model: selectedModel,
-                imageData: image,
-                pdfText: pdf
-            };
-
-            // If the web search model is selected, adjust the payload.
-            // The value 'perplexity' is used as a flag from the UI.
-            if (selectedModel === 'perplexity') {
-                // The backend needs a specific, valid Perplexity model name.
-                // 'sonar-medium-32k-online' is a powerful model for web searches.
-                payload.model = 'sonar-medium-32k-online'; 
-                
-                // Perplexity API for search does not support image or PDF data.
-                // We must remove them from the payload to avoid errors.
-                delete payload.imageData;
-                delete payload.pdfText;
-            }
-
             const response = await fetch('/.netlify/functions/get-ai-response', {
                 method: 'POST', 
                 headers: { 'Content-Type': 'application/json', ...(token && { 'Authorization': `Bearer ${token}` }) },
-                body: JSON.stringify(payload)
+                body: JSON.stringify({ 
+                    prompt, 
+                    history: history.map(m=>({role: m.role, content: m.content})), 
+                    model: dom.modelSelector.value, 
+                    imageData: image, 
+                    pdfText: pdf 
+                })
             });
-
-            // The backend should always return a JSON response, even for errors.
             return await response.json();
         }
-        // --- END: MODIFIED FUNCTION ---
         
         // --- MANEJO DE ESTADO Y UI ---
         function getMessageCount() { 
@@ -345,9 +319,17 @@
         async function deleteItem(type, id) { const item = type === 'chat' ? state.chats[id] : state.folders[id]; const conf = await showModal({ title: `Eliminar ${item.title}?`, message: 'Esta acción no se puede deshacer.', confirmText: 'Eliminar' }); if (conf) { state.structure = state.structure.filter(i => i !== id); if (type === 'folder') { (item.chatIds || []).forEach(cid => delete state.chats[cid]); delete state.folders[id]; } else { delete state.chats[id]; Object.values(state.folders).forEach(f => { if(f.chatIds) f.chatIds = f.chatIds.filter(cid => cid !== id)}); } if(currentChatId === id || (type === 'folder' && (item.chatIds || []).includes(currentChatId))) resetChatView(); saveState(); renderSidebar(); } hideModal(); }
         function updateActiveChatHighlight() { document.querySelectorAll('.chat-item').forEach(item => { item.style.backgroundColor = item.dataset.id === currentChatId ? 'var(--current-primary)' : 'transparent'; }); }
         function sendMessageIfPending() { if (pendingMessage) { dom.msgInput.value = pendingMessage.userMessage; selectedImageBase64 = pendingMessage.image; selectedPdfText = pendingMessage.pdf; sendMessage(true); pendingMessage = null; } }
-        function clearImageData() { dom.imageUploadInput.value = ''; dom.imagePreviewContainer.classList.add('hidden'); selectedImageBase64 = null; updateModelSelection(); }
-        function clearPdfData() { dom.pdfUploadInput.value = ''; dom.pdfPreviewContainer.classList.add('hidden'); selectedPdfText = null; updateModelSelection(); }
-        function updateModelSelection() { const hasFile = selectedImageBase64 || selectedPdfText; dom.modelSelector.disabled = hasFile; if (hasFile) { dom.modelSelector.value = 'gpt-4o'; } else if (dom.modelSelector.value === 'gpt-4o') { dom.modelSelector.value = 'gpt-3.5-turbo'; } }
+        
+        // Lógica de archivos y modelos
+        function hasFile() { return selectedImageBase64 || selectedPdfText; }
+        function clearImageData() { dom.imageUploadInput.value = ''; dom.imagePreviewContainer.classList.add('hidden'); selectedImageBase64 = null; updateModelAndUI(); }
+        function clearPdfData() { dom.pdfUploadInput.value = ''; dom.pdfPreviewContainer.classList.add('hidden'); selectedPdfText = null; updateModelAndUI(); }
+        function updateModelAndUI() {
+            dom.modelSelector.disabled = hasFile(); // Bloquea el selector si hay un archivo
+            if (hasFile()) {
+                dom.modelSelector.value = 'gpt-4o'; // Fuerza el modelo de archivos si hay uno
+            }
+        }
         
         // --- EVENT LISTENERS ---
         function setupEventListeners() {
@@ -366,9 +348,21 @@
             dom.pdfUploadBtn.addEventListener('click', () => dom.pdfUploadInput.click());
             dom.clearImageBtn.addEventListener('click', clearImageData);
             dom.clearPdfBtn.addEventListener('click', clearPdfData);
-            dom.imageUploadInput.addEventListener('change', (e) => { if (e.target.files && e.target.files[0]) { clearPdfData(); const reader = new FileReader(); reader.onload = (ev) => { selectedImageBase64 = ev.target.result; dom.imagePreview.src = selectedImageBase64; dom.imagePreviewContainer.classList.remove('hidden'); updateModelSelection(); }; reader.readAsDataURL(e.target.files[0]); } });
-            dom.pdfUploadInput.addEventListener('change', (e) => { const file = e.target.files[0]; if (!file || file.type !== 'application/pdf') return; clearImageData(); dom.pdfNameEl.textContent = file.name; dom.pdfStatusEl.textContent = 'Leyendo...'; dom.pdfPreviewContainer.classList.remove('hidden'); updateModelSelection(); const reader = new FileReader(); reader.onload = async (ev) => { dom.pdfStatusEl.textContent = 'Procesando...'; try { const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(ev.target.result) }).promise; let text = ''; for (let i = 1; i <= pdf.numPages; i++) { const page = await pdf.getPage(i); const content = await page.getTextContent(); text += content.items.map(item => item.str).join(' ') + '\n'; } selectedPdfText = text; dom.pdfStatusEl.textContent = `✅ Listo (${pdf.numPages} pág.)`; } catch (err) { console.error("Error al procesar el PDF:", err); dom.pdfStatusEl.textContent = '❌ Error al leer PDF.'; selectedPdfText = null; setTimeout(() => { if (dom.pdfStatusEl.textContent.includes('Error')) { clearPdfData(); } }, 2000); } }; reader.readAsArrayBuffer(file); });
-            dom.modelSelector.addEventListener('change', updateModelSelection);
+            dom.imageUploadInput.addEventListener('change', (e) => { if (e.target.files && e.target.files[0]) { clearPdfData(); const reader = new FileReader(); reader.onload = (ev) => { selectedImageBase64 = ev.target.result; dom.imagePreview.src = selectedImageBase64; dom.imagePreviewContainer.classList.remove('hidden'); updateModelAndUI(); }; reader.readAsDataURL(e.target.files[0]); } });
+            dom.pdfUploadInput.addEventListener('change', (e) => { const file = e.target.files[0]; if (!file || file.type !== 'application/pdf') return; clearImageData(); dom.pdfNameEl.textContent = file.name; dom.pdfStatusEl.textContent = 'Leyendo...'; dom.pdfPreviewContainer.classList.remove('hidden'); updateModelAndUI(); const reader = new FileReader(); reader.onload = async (ev) => { dom.pdfStatusEl.textContent = 'Procesando...'; try { const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(ev.target.result) }).promise; let text = ''; for (let i = 1; i <= pdf.numPages; i++) { const page = await pdf.getPage(i); const content = await page.getTextContent(); text += content.items.map(item => item.str).join(' ') + '\n'; } selectedPdfText = text; dom.pdfStatusEl.textContent = `✅ Listo (${pdf.numPages} pág.)`; } catch (err) { console.error("Error al procesar el PDF:", err); dom.pdfStatusEl.textContent = '❌ Error al leer PDF.'; selectedPdfText = null; setTimeout(() => { if (dom.pdfStatusEl.textContent.includes('Error')) { clearPdfData(); } }, 2000); } }; reader.readAsArrayBuffer(file); });
+            
+            // Lógica mejorada para el selector de modelos
+            dom.modelSelector.addEventListener('change', (e) => {
+                if (e.target.value === 'gpt-4o' && !hasFile()) {
+                    showModal({
+                        title: 'Modelo de Archivos',
+                        message: 'Goatify Nebula (gpt-4o) es solo para analizar archivos. Por favor, sube una imagen o un PDF para usar este modelo.',
+                        confirmText: 'Entendido'
+                    }).then(() => hideModal());
+                    e.target.value = 'gpt-3.5-turbo'; // Revierte al modelo por defecto
+                }
+            });
+
             dom.menuToggle.addEventListener('click', () => dom.sidebar.classList.toggle('-translate-x-full'));
         }
         
