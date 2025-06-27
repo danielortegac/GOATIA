@@ -35,8 +35,8 @@ exports.handler = async (event, context) => {
             if (!PERPLEXITY_API_KEY) throw new Error('La clave de API de Perplexity no está configurada.');
 
             const body = {
-                // --- FIX: Se actualiza al nombre de modelo en línea correcto de Perplexity ---
-                model: 'llama-3-sonar-large-32k-online', 
+                // --- FIX 3: Se actualiza a otro nombre de modelo en línea válido para asegurar compatibilidad. ---
+                model: 'sonar-small-32k-online', 
                 messages: [
                     { role: 'system', content: 'Eres un asistente de búsqueda web preciso y conciso. Responde en español.' },
                     ...history,
