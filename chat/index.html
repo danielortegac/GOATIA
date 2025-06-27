@@ -89,7 +89,7 @@
                 </div>
            </header>
            <div id="chat-messages" class="flex-1 overflow-y-auto p-3 sm:p-6">
-                <!-- **NEW**: Welcome message container -->
+                <!-- Welcome message container -->
                 <div class="flex justify-center items-center h-full" id="initial-message-container">
                     <div id="welcome-message-wrapper" class="text-center text-text-medium">
                         <img src="./logo-goatify-header.png" alt="GOATIFY Logo" class="w-24 h-24 object-contain mx-auto mb-4" onerror="this.onerror=null;this.src='https://placehold.co/96x96/2c2c2c/e0e0e0?text=LOGO';">
@@ -160,7 +160,6 @@
     
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script type="module">
-        // --- CONSTANTES Y DOM ---
         const GUEST_MESSAGE_LIMIT = 5;
         const FREE_PLAN_MESSAGE_LIMIT = 15;
         const dom = {
@@ -190,11 +189,9 @@
             userName: document.getElementById('user-name')
         };
 
-        // --- ESTADO DE LA APLICACIÓN ---
         let state = { chats: {}, folders: {}, structure: [] };
         let currentChatId = null, currentUser = null, pendingMessage = null, speechOn = true, availableVoices = [], isRecognizing = false, selectedImageBase64 = null, selectedPdfText = null;
         
-        // --- MODALES ---
         let modalResolve = null;
         function showModal({ title, message, useInput = false, placeholder = '', confirmText = 'Confirmar' }) {
             const modalTitle = dom.genericModal.querySelector('#modal-title'), modalMessage = dom.genericModal.querySelector('#modal-message'), modalInput = dom.genericModal.querySelector('#modal-input'), modalConfirm = dom.genericModal.querySelector('#modal-confirm');
@@ -207,7 +204,6 @@
         function showPricingModal() { dom.pricingModal.classList.remove('hidden'); dom.pricingModal.classList.add('flex'); setTimeout(() => { dom.pricingModal.querySelector('.modal-content').classList.remove('scale-95'); }, 10); }
         function hidePricingModal() { dom.pricingModal.querySelector('.modal-content').classList.add('scale-95'); setTimeout(() => { dom.pricingModal.classList.add('hidden'); dom.pricingModal.classList.remove('flex'); }, 300); }
 
-        // --- INICIALIZACIÓN Y AUTENTICACIÓN ---
         function initApp() {
             setTheme(localStorage.getItem('theme') === 'dark' || (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches));
             netlifyIdentity.on('init', user => {
@@ -249,7 +245,6 @@
         function speak(text) { if (!speechOn || !('speechSynthesis' in window) || !text) return; speechSynthesis.cancel(); const cleanText = text.replace(/[*_`#~[\]()🔍]|(-{3,})|(\*\*Fuente:\*\*.*)/g, ''); const utterance = new SpeechSynthesisUtterance(cleanText); utterance.voice = availableVoices.find(v => v.lang.startsWith('es')) || availableVoices[0]; speechSynthesis.speak(utterance); }
         function populateVoiceList() { if (typeof speechSynthesis === 'undefined') return; availableVoices = speechSynthesis.getVoices(); if (speechSynthesis.onvoiceschanged !== undefined) speechSynthesis.onvoiceschanged = () => availableVoices = speechSynthesis.getVoices(); }
 
-        // --- LÓGICA PRINCIPAL DEL CHAT ---
         async function sendMessage(forceSend = false) {
             const userMessage = dom.msgInput.value.trim();
             if (!userMessage && !selectedImageBase64 && !selectedPdfText) return;
@@ -319,7 +314,6 @@
             return response.json();
         }
 
-        // --- MANEJO DE ESTADO Y UI ---
         function getMessageCount() { return currentUser ? (currentUser.app_metadata.message_count || 0) : parseInt(localStorage.getItem('guestMessageCount') || '0'); }
         function updateUserMessageCount(newCount) { if (currentUser) currentUser.app_metadata.message_count = newCount; }
         function incrementGuestCount() { if (!currentUser) localStorage.setItem('guestMessageCount', String(getMessageCount() + 1)); }
@@ -380,9 +374,8 @@
 
         function setTheme(isDark) { document.body.classList.toggle('dark-theme', isDark); document.body.classList.toggle('light-theme', !isDark); dom.themeIcon.className = `fas fa-${isDark ? 'sun' : 'moon'}`; localStorage.setItem('theme', isDark ? 'dark' : 'light'); }
         
-        // --- LÓGICA DE SIDEBAR (CHATS Y CARPETAS) ---
         function createNewChat() { const id = 'chat-' + crypto.randomUUID(); state.chats[id] = { id, title: "Nuevo Chat", messages: [] }; state.structure.unshift(id); selectChat(id); saveState(); renderSidebar(); return id; }
-        function selectChat(chatId) { if (!chatId || !state.chats[chatId]) { resetChatView(); return; } currentChatId = chatId; dom.initialMessageContainer.style.display = 'none'; dom.chatMessages.innerHTML = ''; const chat = state.chats[chatId]; dom.chatTitle.textContent = chat.title; chat.messages.forEach((msg, i) => addMessageToUI(msg.role, msg.content, msg.image, i)); updateActiveChatHighlight(); saveState(); }
+        function selectChat(chatId) { if (!chatId || !state.chats[chatId]) { resetChatView(); return; } currentChatId = chatId; dom.initialMessageContainer.style.display = 'none'; dom.chatMessages.innerHTML = ''; const chat = state.chats[chatId]; dom.chatTitle.textContent = chat.title; chat.messages.forEach((msg) => addMessageToUI(msg.role, msg.content, msg.image)); updateActiveChatHighlight(); saveState(); }
         function resetChatView() { currentChatId = null; dom.chatTitle.textContent = "GOATBOT Pro"; dom.chatMessages.innerHTML = ''; dom.initialMessageContainer.style.display = 'flex'; updateUserUI(); updateActiveChatHighlight(); }
         function addMessageToUI(role, content, imageSrc) { const wrapper = document.createElement('div'); wrapper.className = `chat-bubble-wrapper flex items-start gap-2 my-2 ${role === 'user' ? 'justify-end' : 'justify-start'}`; const bubble = document.createElement('div'); bubble.className = `p-4 rounded-xl max-w-xl ${role === 'user' ? 'chat-bubble-user' : 'chat-bubble-bot'}`; if (imageSrc) { const img = document.createElement('img'); img.src = imageSrc; img.className = 'rounded-lg mb-2 max-w-xs h-auto'; bubble.appendChild(img); } const contentDiv = document.createElement('div'); contentDiv.className = 'markdown-content'; contentDiv.innerHTML = content === '…' ? `<div class="flex items-center space-x-2"><div class="w-2 h-2 bg-gray-400 rounded-full animate-pulse"></div><div class="w-2 h-2 bg-gray-400 rounded-full animate-pulse" style="animation-delay: .2s;"></div><div class="w-2 h-2 bg-gray-400 rounded-full animate-pulse" style="animation-delay: .4s;"></div></div>` : marked.parse(content || ""); bubble.appendChild(contentDiv); wrapper.appendChild(bubble); dom.chatMessages.appendChild(wrapper); dom.chatMessages.scrollTop = dom.chatMessages.scrollHeight; return bubble; }
         function updateMessageInUI(bubble, content) { const md = bubble.querySelector('.markdown-content'); if (md) md.innerHTML = marked.parse(content); }
@@ -395,7 +388,6 @@
         async function deleteItem(type, id) { const item = type === 'chat' ? state.chats[id] : state.folders[id]; const conf = await showModal({ title: `Eliminar ${item.title}?`, message: 'Esta acción no se puede deshacer.', confirmText: 'Eliminar' }); if (conf) { state.structure = state.structure.filter(i => i !== id); if (type === 'folder') { (item.chatIds || []).forEach(cid => delete state.chats[cid]); delete state.folders[id]; } else { delete state.chats[id]; Object.values(state.folders).forEach(f => { if(f.chatIds) f.chatIds = f.chatIds.filter(cid => cid !== id)}); } if(currentChatId === id || (type === 'folder' && (item.chatIds || []).includes(currentChatId))) resetChatView(); saveState(); renderSidebar(); } hideModal(); }
         function updateActiveChatHighlight() { document.querySelectorAll('.chat-item').forEach(item => { item.style.backgroundColor = item.dataset.id === currentChatId ? 'var(--current-primary)' : 'transparent'; }); }
         
-        // --- LÓGICA DE ARCHIVOS Y EVENT LISTENERS ---
         function sendMessageIfPending() { if (pendingMessage) { dom.msgInput.value = pendingMessage.userMessage; selectedImageBase64 = pendingMessage.image; selectedPdfText = pendingMessage.pdf; sendMessage(true); pendingMessage = null; } }
         function hasFile() { return selectedImageBase64 || selectedPdfText; }
         function clearImageData() { dom.imageUploadInput.value = ''; dom.imagePreviewContainer.classList.add('hidden'); selectedImageBase64 = null; updateModelAndUI(); }
