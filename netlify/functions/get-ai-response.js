@@ -1,6 +1,5 @@
 // --- Netlify Function: get-ai-response.js ---
-// VERSIÓN CON LA CORRECCIÓN DEFINITIVA BASADA EN LA INVESTIGACIÓN DEL USUARIO.
-// El problema era el formato del nombre del modelo de Perplexity.
+// VERSIÓN A PRUEBA DE BALAS
 
 const FREE_PLAN_MESSAGE_LIMIT = 15;
 
@@ -15,14 +14,9 @@ exports.handler = async (event, context) => {
         const { user } = context.clientContext;
         let botReply = '';
 
-        // 2. Verificar límite de mensajes ANTES de llamar a cualquier API
-        // Esta es la guarda de seguridad principal.
+        // 2. Guarda de seguridad para el límite de mensajes
         if (user && user.app_metadata.plan === 'free' && (user.app_metadata.message_count || 0) >= FREE_PLAN_MESSAGE_LIMIT) {
-            // Envía un error 403 (Prohibido) que el frontend ahora sabe cómo interpretar.
-            return {
-                statusCode: 403,
-                body: JSON.stringify({ error: 'Límite de mensajes alcanzado' }),
-            };
+            return { statusCode: 403, body: JSON.stringify({ error: 'Límite de mensajes alcanzado' }) };
         }
 
         // 3. Lógica de enrutamiento a la API correcta
@@ -31,7 +25,7 @@ exports.handler = async (event, context) => {
             if (!PERPLEXITY_API_KEY) throw new Error('La clave de API de Perplexity no está configurada en Netlify.');
 
             const perplexityBody = {
-                model: 'sonar', // Usando el nombre correcto y limpio
+                model: 'sonar', // Nombre de modelo correcto y limpio.
                 messages: [
                     { role: 'system', content: 'Eres un asistente de búsqueda web preciso y conciso. Responde en español.' },
                     ...(history || []),
@@ -98,8 +92,6 @@ exports.handler = async (event, context) => {
             const currentCount = user.app_metadata.message_count || 0;
             newMessageCount = currentCount + 1;
             
-            // **FIX CLAVE**: La actualización de los metadatos del usuario se hace en segundo plano.
-            // No esperamos a que termine, evitando que la app se "cuelgue" si esto falla.
             const adminAuthHeader = `Bearer ${context.clientContext.identity.token}`;
             const userUpdateUrl = `${context.clientContext.identity.url}/admin/users/${user.sub}`;
             fetch(userUpdateUrl, {
