@@ -1,6 +1,6 @@
 // --- Netlify Function: get-ai-response.js ---
-// VERSIÓN FINAL DE DIAGNÓSTICO
 // Esta función actúa como un backend seguro que se comunica con las APIs de IA.
+// Utiliza las variables de entorno configuradas en Netlify.
 
 const FREE_PLAN_MESSAGE_LIMIT = 15;
 
@@ -11,32 +11,26 @@ exports.handler = async (event, context) => {
     }
 
     try {
-        const bodyData = JSON.parse(event.body);
-        
-        // --- PASO DE DIAGNÓSTICO ---
-        // Vamos a registrar exactamente lo que el frontend está enviando.
-        console.log("Datos recibidos del frontend:", JSON.stringify(bodyData, null, 2));
-
-        const { prompt, history, model, imageData, pdfText } = bodyData;
+        const { prompt, history, model, imageData, pdfText } = JSON.parse(event.body);
         const { user } = context.clientContext;
         let botReply = '';
 
-        // 3. Verificar límite de mensajes
+        // 2. Verificar límite de mensajes
         if (user && user.app_metadata.plan === 'free' && (user.app_metadata.message_count || 0) >= FREE_PLAN_MESSAGE_LIMIT) {
             return {
                 statusCode: 403,
-                body: JSON.stringify({ error: 'Límite de mensajes alcanzado', details: 'Por favor, actualiza tu plan.' }),
+                body: JSON.stringify({ error: 'Límite de mensajes alcanzado', details: 'Por favor, actualiza tu plan para continuar.' }),
             };
         }
 
-        // 4. Lógica de enrutamiento a la API correcta
+        // 3. Lógica de enrutamiento a la API correcta
+        // Si el modelo es 'perplexity', usa esa API. Si no, usa OpenAI.
         if (model === 'perplexity') {
-            console.log(">>> Entrando en la lógica de PERPLEXITY...");
             const PERPLEXITY_API_KEY = process.env.PERPLEXITY_API_KEY;
-            if (!PERPLEXITY_API_KEY) throw new Error('La clave de API de Perplexity no está configurada.');
+            if (!PERPLEXITY_API_KEY) throw new Error('La clave de API de Perplexity no está configurada en Netlify.');
 
             const perplexityBody = {
-                model: 'llama-3-sonar-small-32k-online',
+                model: 'llama-3-sonar-small-32k-online', // Modelo oficial para búsquedas online
                 messages: [
                     { role: 'system', content: 'Eres un asistente de búsqueda web preciso y conciso. Responde en español.' },
                     ...(history || []),
@@ -46,39 +40,38 @@ exports.handler = async (event, context) => {
 
             const apiResponse = await fetch('https://api.perplexity.ai/chat/completions', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${PERPLEXITY_API_KEY}`,
-                },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${PERPLEXITY_API_KEY}` },
                 body: JSON.stringify(perplexityBody),
             });
             
             if (!apiResponse.ok) {
                  const errorData = await apiResponse.json();
-                 console.error('Error desde la API de Perplexity:', errorData);
                  throw new Error(`Error de Perplexity: ${errorData.error?.message || apiResponse.statusText}`);
             }
             
             const data = await apiResponse.json();
             botReply = data.choices[0].message.content;
 
-        } else {
-            console.log(`>>> Entrando en la lógica de OPENAI para el modelo: ${model}...`);
+        } else { // Para cualquier otro modelo (gpt-3.5-turbo, gpt-4o)
             const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-            if (!OPENAI_API_KEY) throw new Error('La clave de API de OpenAI no está configurada.');
+            if (!OPENAI_API_KEY) throw new Error('La clave de API de OpenAI no está configurada en Netlify.');
 
+            // Prepara el mensaje del usuario, que puede contener texto, imagen y/o PDF.
             let userMessageContent = [];
-            let requestPrompt = pdfText 
-                ? `Analiza el siguiente texto extraído de un PDF y luego responde a la pregunta del usuario.\n\n--- CONTENIDO DEL PDF ---\n${pdfText}\n--- FIN DEL PDF ---\n\nPregunta: ${prompt}`
+            
+            // Combina el prompt del usuario con el texto del PDF si existe.
+            const fullPrompt = pdfText 
+                ? `Analiza el siguiente texto de un PDF y responde a la pregunta.\n\n--- INICIO PDF ---\n${pdfText}\n--- FIN PDF ---\n\nPregunta: ${prompt}`
                 : prompt;
-            userMessageContent.push({ type: 'text', text: requestPrompt });
+            userMessageContent.push({ type: 'text', text: fullPrompt });
 
+            // Añade la URL de la imagen si existe.
             if (imageData) {
                 userMessageContent.push({ type: 'image_url', image_url: { "url": imageData } });
             }
             
             const openAIBody = {
-                model: model,
+                model: model, // Aquí irá 'gpt-3.5-turbo' o 'gpt-4o'
                 messages: [
                     { role: 'system', content: 'Eres GOATBOT, un asistente experto y amigable. Responde en español.' },
                     ...(history || []),
@@ -89,16 +82,12 @@ exports.handler = async (event, context) => {
 
             const apiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${OPENAI_API_KEY}`,
-                },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${OPENAI_API_KEY}` },
                 body: JSON.stringify(openAIBody),
             });
             
             if (!apiResponse.ok) {
                 const errorData = await apiResponse.json();
-                console.error('Error desde la API de OpenAI:', errorData);
                 throw new Error(`Error de OpenAI: ${errorData.error?.message || apiResponse.statusText}`);
             }
 
@@ -106,7 +95,7 @@ exports.handler = async (event, context) => {
             botReply = data.choices[0].message.content;
         }
 
-        // 5. Actualizar contador de mensajes
+        // 4. Actualizar contador de mensajes si el usuario está logueado
         let newMessageCount = null;
         if (user) {
             const currentCount = user.app_metadata.message_count || 0;
@@ -121,7 +110,7 @@ exports.handler = async (event, context) => {
             });
         }
         
-        // 6. Enviar respuesta al frontend
+        // 5. Enviar respuesta final al frontend
         return {
             statusCode: 200,
             body: JSON.stringify({ reply: botReply, new_message_count: newMessageCount }),
