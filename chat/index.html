@@ -183,7 +183,7 @@
                     return;
                 }
             }
-
+            
             let chatIdToUpdate = currentChatId || createNewChat();
             if (!state.chats[chatIdToUpdate]) return;
             
@@ -196,11 +196,10 @@
             try {
                 const responseData = await getAIResponse(userMessage, state.chats[chatIdToUpdate].messages.slice(0, -1), image, pdf);
                 
-                // **FIX**: Check for specific LIMIT_REACHED error to show pricing modal
                 if (responseData.error === 'LIMIT_REACHED') {
                     updateMessageInUI(thinkingBubble, `Has alcanzado el límite de ${FREE_PLAN_MESSAGE_LIMIT} mensajes de tu plan gratuito. ¡Actualiza para continuar!`);
                     showPricingModal();
-                    return; // Stop further execution for this message
+                    return;
                 }
 
                 if (responseData.reply) {
@@ -210,12 +209,14 @@
                     speak(botResponse);
 
                     if (currentUser && typeof responseData.new_message_count !== 'undefined') {
+                        // **FIX**: Actualiza el contador en memoria Y el display inmediatamente.
                         updateUserMessageCount(responseData.new_message_count);
+                        updateMessageCounter();
                     } else if (!currentUser) {
                         incrementGuestCount();
+                        updateMessageCounter();
                     }
                     saveState();
-                    updateMessageCounter();
                 } else if (responseData.error) {
                     const errorMessage = `❌ **${responseData.error}**<br><small>${responseData.details || 'No hay más detalles.'}</small>`;
                     updateMessageInUI(thinkingBubble, errorMessage);
@@ -235,7 +236,7 @@
                 body: JSON.stringify({ prompt, history, model: dom.modelSelector.value, imageData: image, pdfText: pdf })
             });
             
-            // **FIX**: Handle specific HTTP status codes for better error handling
+            // **FIX**: Maneja el error 403 para saber cuándo mostrar la ventana de precios.
             if (response.status === 403) {
                 return { error: 'LIMIT_REACHED' };
             }
@@ -259,7 +260,7 @@
             if (saved) { const parsed = JSON.parse(saved); state = parsed.state || { chats: {}, folders: {}, structure: [] }; currentChatId = parsed.currentChatId; } 
             else { state = { chats: {}, folders: {}, structure: [] }; currentChatId = null; }
 
-            if (currentUser && !currentUser.app_metadata.plan) {
+            if (currentUser && typeof currentUser.app_metadata.plan === 'undefined') {
                 try {
                     const updatedUser = await netlifyIdentity.gotrue.user.update({ data: { plan: 'free', message_count: 0 } });
                     currentUser = updatedUser;
