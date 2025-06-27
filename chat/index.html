@@ -56,7 +56,7 @@
             <!-- Bottom Section (User Menu) -->
             <div id="user-section" class="flex-shrink-0 border-t border-themed mt-2 pt-3">
                 <!-- Logged Out View -->
-                <div id="login-view" class="hidden">
+                <div id="login-view">
                     <button id="login-btn" class="w-full flex items-center justify-center font-semibold p-3 rounded-lg btn-primary transition-colors">
                         <i class="fas fa-sign-in-alt mr-2"></i>
                         <span>Iniciar Sesión / Registrarse</span>
@@ -185,7 +185,6 @@
             loginBtn: document.getElementById('login-btn'), userMenuBtn: document.getElementById('user-menu-btn'),
             userMenuPopup: document.getElementById('user-menu-popup'), userEmail: document.getElementById('user-email'),
             logoutBtn: document.getElementById('logout-btn'), settingsBtn: document.getElementById('settings-btn'),
-            // **NEW**: Welcome message elements
             personalizedWelcome: document.getElementById('personalized-welcome'),
             genericWelcome: document.getElementById('generic-welcome'),
             userName: document.getElementById('user-name')
@@ -349,14 +348,12 @@
 
         function saveState() { localStorage.setItem(currentUser ? `goatbotState_${currentUser.id}` : 'guestState', JSON.stringify({ state, currentChatId })); }
         
-        // **REWORKED**: Centralized function to handle all user-related UI changes
         function updateUserUI() {
             if (currentUser) {
-                // Logged In State
                 dom.loginView.classList.add('hidden');
                 dom.userMenuView.classList.remove('hidden');
                 
-                const userName = currentUser.user_metadata.full_name?.split(' ')[0] || currentUser.email;
+                const userName = currentUser.user_metadata.full_name?.split(' ')[0] || currentUser.email.split('@')[0];
                 dom.userEmail.textContent = currentUser.user_metadata.full_name || currentUser.email;
                 dom.userName.textContent = userName;
 
@@ -365,7 +362,6 @@
                 
                 dom.upgradePlanBtn.classList.toggle('hidden', (currentUser.app_metadata.plan || 'free') !== 'free');
             } else {
-                // Logged Out State
                 dom.loginView.classList.remove('hidden');
                 dom.userMenuView.classList.add('hidden');
                 
@@ -387,7 +383,7 @@
         // --- LÓGICA DE SIDEBAR (CHATS Y CARPETAS) ---
         function createNewChat() { const id = 'chat-' + crypto.randomUUID(); state.chats[id] = { id, title: "Nuevo Chat", messages: [] }; state.structure.unshift(id); selectChat(id); saveState(); renderSidebar(); return id; }
         function selectChat(chatId) { if (!chatId || !state.chats[chatId]) { resetChatView(); return; } currentChatId = chatId; dom.initialMessageContainer.style.display = 'none'; dom.chatMessages.innerHTML = ''; const chat = state.chats[chatId]; dom.chatTitle.textContent = chat.title; chat.messages.forEach((msg, i) => addMessageToUI(msg.role, msg.content, msg.image, i)); updateActiveChatHighlight(); saveState(); }
-        function resetChatView() { currentChatId = null; dom.chatTitle.textContent = "GOATBOT Pro"; dom.chatMessages.innerHTML = ''; dom.initialMessageContainer.style.display = 'flex'; updateUserUI(); /* Ensure correct welcome message shows */ updateActiveChatHighlight(); }
+        function resetChatView() { currentChatId = null; dom.chatTitle.textContent = "GOATBOT Pro"; dom.chatMessages.innerHTML = ''; dom.initialMessageContainer.style.display = 'flex'; updateUserUI(); updateActiveChatHighlight(); }
         function addMessageToUI(role, content, imageSrc) { const wrapper = document.createElement('div'); wrapper.className = `chat-bubble-wrapper flex items-start gap-2 my-2 ${role === 'user' ? 'justify-end' : 'justify-start'}`; const bubble = document.createElement('div'); bubble.className = `p-4 rounded-xl max-w-xl ${role === 'user' ? 'chat-bubble-user' : 'chat-bubble-bot'}`; if (imageSrc) { const img = document.createElement('img'); img.src = imageSrc; img.className = 'rounded-lg mb-2 max-w-xs h-auto'; bubble.appendChild(img); } const contentDiv = document.createElement('div'); contentDiv.className = 'markdown-content'; contentDiv.innerHTML = content === '…' ? `<div class="flex items-center space-x-2"><div class="w-2 h-2 bg-gray-400 rounded-full animate-pulse"></div><div class="w-2 h-2 bg-gray-400 rounded-full animate-pulse" style="animation-delay: .2s;"></div><div class="w-2 h-2 bg-gray-400 rounded-full animate-pulse" style="animation-delay: .4s;"></div></div>` : marked.parse(content || ""); bubble.appendChild(contentDiv); wrapper.appendChild(bubble); dom.chatMessages.appendChild(wrapper); dom.chatMessages.scrollTop = dom.chatMessages.scrollHeight; return bubble; }
         function updateMessageInUI(bubble, content) { const md = bubble.querySelector('.markdown-content'); if (md) md.innerHTML = marked.parse(content); }
         function renderSidebar() { dom.sidebarContent.innerHTML = ''; const frag = document.createDocumentFragment(); (state.structure || []).forEach(id => { if (id.startsWith('folder-')) frag.appendChild(createFolderElement(id)); else if (id.startsWith('chat-')) frag.appendChild(createChatItemElement(id)); }); dom.sidebarContent.appendChild(frag); updateActiveChatHighlight(); }
