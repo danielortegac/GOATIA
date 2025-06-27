@@ -30,8 +30,8 @@ exports.handler = async (event, context) => {
             if (!PERPLEXITY_API_KEY) throw new Error('La clave de API de Perplexity no está configurada en Netlify.');
 
             const perplexityBody = {
-                // **FIX**: Usando el modelo correcto y más económico de Perplexity para búsquedas web.
-                model: 'perplexity/sonar', 
+                // **DIAGNÓSTICO**: Probando con el modelo 'pro' de la investigación del usuario.
+                model: 'perplexity/sonar-pro', 
                 messages: [
                     { role: 'system', content: 'Eres un asistente de búsqueda web preciso y conciso. Responde en español.' },
                     ...(history || []),
@@ -95,14 +95,9 @@ exports.handler = async (event, context) => {
         // 4. Actualizar contador de mensajes de forma SEGURA y ROBUSTA
         let newMessageCount = null;
         if (user) {
-            // **FIX**: Se elimina la llamada a la API de Netlify que causaba el cuelgue.
-            // Ahora, solo se calcula el nuevo contador para devolverlo al frontend.
-            // El frontend actualizará la UI, y la verificación del límite al inicio de esta función
-            // se encargará de la seguridad en la siguiente petición.
             const currentCount = user.app_metadata.message_count || 0;
             newMessageCount = currentCount + 1;
-
-            // Actualiza los metadatos del usuario de forma asíncrona sin bloquear la respuesta.
+            
             const adminAuthHeader = `Bearer ${context.clientContext.identity.token}`;
             const userUpdateUrl = `${context.clientContext.identity.url}/admin/users/${user.sub}`;
             fetch(userUpdateUrl, {
