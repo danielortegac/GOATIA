@@ -237,17 +237,43 @@
             updateMessageCounter();
         }
         
+        // --- START: MODIFIED FUNCTION ---
         async function getAIResponse(prompt, history, image, pdf) {
             const token = currentUser ? await currentUser.jwt() : null;
+            const selectedModel = dom.modelSelector.value;
+
+            // Base payload for the request
+            let payload = {
+                prompt,
+                history: history.map(m=>({role: m.role, content: m.content})),
+                model: selectedModel,
+                imageData: image,
+                pdfText: pdf
+            };
+
+            // If the web search model is selected, adjust the payload.
+            // The value 'perplexity' is used as a flag from the UI.
+            if (selectedModel === 'perplexity') {
+                // The backend needs a specific, valid Perplexity model name.
+                // 'sonar-medium-32k-online' is a powerful model for web searches.
+                payload.model = 'sonar-medium-32k-online'; 
+                
+                // Perplexity API for search does not support image or PDF data.
+                // We must remove them from the payload to avoid errors.
+                delete payload.imageData;
+                delete payload.pdfText;
+            }
+
             const response = await fetch('/.netlify/functions/get-ai-response', {
                 method: 'POST', 
                 headers: { 'Content-Type': 'application/json', ...(token && { 'Authorization': `Bearer ${token}` }) },
-                body: JSON.stringify({ prompt, history: history.map(m=>({role: m.role, content: m.content})), model: dom.modelSelector.value, imageData: image, pdfText: pdf })
+                body: JSON.stringify(payload)
             });
-            // Ya no se necesita un try/catch aquí, porque el backend siempre devuelve JSON.
-            // La lógica de error se maneja en la función sendMessage.
+
+            // The backend should always return a JSON response, even for errors.
             return await response.json();
         }
+        // --- END: MODIFIED FUNCTION ---
         
         // --- MANEJO DE ESTADO Y UI ---
         function getMessageCount() { 
