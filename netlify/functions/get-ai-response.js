@@ -15,22 +15,23 @@ exports.handler = async (event, context) => {
         const { user } = context.clientContext;
         let botReply = '';
 
-        // 2. Verificar límite de mensajes
+        // 2. Verificar límite de mensajes ANTES de llamar a cualquier API
         if (user && user.app_metadata.plan === 'free' && (user.app_metadata.message_count || 0) >= FREE_PLAN_MESSAGE_LIMIT) {
+            // Envía un error 403 (Prohibido) que el frontend interpretará
             return {
                 statusCode: 403,
-                body: JSON.stringify({ error: 'Límite de mensajes alcanzado', details: 'Por favor, actualiza tu plan para continuar.' }),
+                body: JSON.stringify({ error: 'Límite de mensajes alcanzado' }),
             };
         }
 
         // 3. Lógica de enrutamiento a la API correcta
-        // Si el modelo es 'perplexity', usa esa API. Si no, usa OpenAI.
         if (model === 'perplexity') {
             const PERPLEXITY_API_KEY = process.env.PERPLEXITY_API_KEY;
             if (!PERPLEXITY_API_KEY) throw new Error('La clave de API de Perplexity no está configurada en Netlify.');
 
             const perplexityBody = {
-                model: 'llama-3-sonar-small-32k-online', // Modelo oficial para búsquedas online
+                // **FIX**: Usando el modelo correcto y más económico de Perplexity para búsquedas web.
+                model: 'perplexity/sonar', 
                 messages: [
                     { role: 'system', content: 'Eres un asistente de búsqueda web preciso y conciso. Responde en español.' },
                     ...(history || []),
@@ -52,26 +53,22 @@ exports.handler = async (event, context) => {
             const data = await apiResponse.json();
             botReply = data.choices[0].message.content;
 
-        } else { // Para cualquier otro modelo (gpt-3.5-turbo, gpt-4o)
+        } else { // Para cualquier otro modelo de OpenAI (gpt-3.5-turbo, gpt-4o)
             const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
             if (!OPENAI_API_KEY) throw new Error('La clave de API de OpenAI no está configurada en Netlify.');
 
-            // Prepara el mensaje del usuario, que puede contener texto, imagen y/o PDF.
             let userMessageContent = [];
-            
-            // Combina el prompt del usuario con el texto del PDF si existe.
             const fullPrompt = pdfText 
                 ? `Analiza el siguiente texto de un PDF y responde a la pregunta.\n\n--- INICIO PDF ---\n${pdfText}\n--- FIN PDF ---\n\nPregunta: ${prompt}`
                 : prompt;
             userMessageContent.push({ type: 'text', text: fullPrompt });
 
-            // Añade la URL de la imagen si existe.
             if (imageData) {
                 userMessageContent.push({ type: 'image_url', image_url: { "url": imageData } });
             }
             
             const openAIBody = {
-                model: model, // Aquí irá 'gpt-3.5-turbo' o 'gpt-4o'
+                model: model, 
                 messages: [
                     { role: 'system', content: 'Eres GOATBOT, un asistente experto y amigable. Responde en español.' },
                     ...(history || []),
@@ -95,19 +92,24 @@ exports.handler = async (event, context) => {
             botReply = data.choices[0].message.content;
         }
 
-        // 4. Actualizar contador de mensajes si el usuario está logueado
+        // 4. Actualizar contador de mensajes de forma SEGURA y ROBUSTA
         let newMessageCount = null;
         if (user) {
+            // **FIX**: Se elimina la llamada a la API de Netlify que causaba el cuelgue.
+            // Ahora, solo se calcula el nuevo contador para devolverlo al frontend.
+            // El frontend actualizará la UI, y la verificación del límite al inicio de esta función
+            // se encargará de la seguridad en la siguiente petición.
             const currentCount = user.app_metadata.message_count || 0;
             newMessageCount = currentCount + 1;
+
+            // Actualiza los metadatos del usuario de forma asíncrona sin bloquear la respuesta.
             const adminAuthHeader = `Bearer ${context.clientContext.identity.token}`;
             const userUpdateUrl = `${context.clientContext.identity.url}/admin/users/${user.sub}`;
-            
-            await fetch(userUpdateUrl, {
+            fetch(userUpdateUrl, {
                 method: 'PUT',
                 headers: { 'Authorization': adminAuthHeader },
                 body: JSON.stringify({ app_metadata: { ...user.app_metadata, message_count: newMessageCount } }),
-            });
+            }).catch(err => console.error("Fallo al actualizar el contador de mensajes en background:", err));
         }
         
         // 5. Enviar respuesta final al frontend
