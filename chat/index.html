@@ -89,10 +89,19 @@
                 </div>
            </header>
            <div id="chat-messages" class="flex-1 overflow-y-auto p-3 sm:p-6">
+                <!-- **NEW**: Welcome message container -->
                 <div class="flex justify-center items-center h-full" id="initial-message-container">
-                    <div class="text-center text-text-medium">
-                         <img src="./logo-goatify-header.png" alt="GOATIFY Logo" class="w-24 h-24 object-contain mx-auto mb-4" onerror="this.onerror=null;this.src='https://placehold.co/96x96/2c2c2c/e0e0e0?text=LOGO';">
-                        <p class="text-xl">¿Cómo puedo ayudarte hoy?</p>
+                    <div id="welcome-message-wrapper" class="text-center text-text-medium">
+                        <img src="./logo-goatify-header.png" alt="GOATIFY Logo" class="w-24 h-24 object-contain mx-auto mb-4" onerror="this.onerror=null;this.src='https://placehold.co/96x96/2c2c2c/e0e0e0?text=LOGO';">
+                        <!-- Personalized Welcome -->
+                        <div id="personalized-welcome" class="hidden">
+                            <h2 class="text-2xl font-bold">¡Hola, <span id="user-name"></span>!</h2>
+                            <p class="text-lg mt-1">Hoy es un gran día. ¡Puedes con todo!</p>
+                        </div>
+                        <!-- Generic Welcome -->
+                        <div id="generic-welcome">
+                            <p class="text-xl">¿Cómo puedo ayudarte hoy?</p>
+                        </div>
                     </div>
                 </div>
            </div>
@@ -175,7 +184,11 @@
             loginView: document.getElementById('login-view'), userMenuView: document.getElementById('user-menu-view'),
             loginBtn: document.getElementById('login-btn'), userMenuBtn: document.getElementById('user-menu-btn'),
             userMenuPopup: document.getElementById('user-menu-popup'), userEmail: document.getElementById('user-email'),
-            logoutBtn: document.getElementById('logout-btn'), settingsBtn: document.getElementById('settings-btn')
+            logoutBtn: document.getElementById('logout-btn'), settingsBtn: document.getElementById('settings-btn'),
+            // **NEW**: Welcome message elements
+            personalizedWelcome: document.getElementById('personalized-welcome'),
+            genericWelcome: document.getElementById('generic-welcome'),
+            userName: document.getElementById('user-name')
         };
 
         // --- ESTADO DE LA APLICACIÓN ---
@@ -336,15 +349,29 @@
 
         function saveState() { localStorage.setItem(currentUser ? `goatbotState_${currentUser.id}` : 'guestState', JSON.stringify({ state, currentChatId })); }
         
+        // **REWORKED**: Centralized function to handle all user-related UI changes
         function updateUserUI() {
             if (currentUser) {
+                // Logged In State
                 dom.loginView.classList.add('hidden');
                 dom.userMenuView.classList.remove('hidden');
+                
+                const userName = currentUser.user_metadata.full_name?.split(' ')[0] || currentUser.email;
                 dom.userEmail.textContent = currentUser.user_metadata.full_name || currentUser.email;
+                dom.userName.textContent = userName;
+
+                dom.genericWelcome.classList.add('hidden');
+                dom.personalizedWelcome.classList.remove('hidden');
+                
                 dom.upgradePlanBtn.classList.toggle('hidden', (currentUser.app_metadata.plan || 'free') !== 'free');
             } else {
+                // Logged Out State
                 dom.loginView.classList.remove('hidden');
                 dom.userMenuView.classList.add('hidden');
+                
+                dom.genericWelcome.classList.remove('hidden');
+                dom.personalizedWelcome.classList.add('hidden');
+                
                 dom.upgradePlanBtn.classList.add('hidden');
             }
             updateMessageCounter();
@@ -358,10 +385,9 @@
         function setTheme(isDark) { document.body.classList.toggle('dark-theme', isDark); document.body.classList.toggle('light-theme', !isDark); dom.themeIcon.className = `fas fa-${isDark ? 'sun' : 'moon'}`; localStorage.setItem('theme', isDark ? 'dark' : 'light'); }
         
         // --- LÓGICA DE SIDEBAR (CHATS Y CARPETAS) ---
-        // (Esta sección no necesita cambios y se mantiene igual)
         function createNewChat() { const id = 'chat-' + crypto.randomUUID(); state.chats[id] = { id, title: "Nuevo Chat", messages: [] }; state.structure.unshift(id); selectChat(id); saveState(); renderSidebar(); return id; }
         function selectChat(chatId) { if (!chatId || !state.chats[chatId]) { resetChatView(); return; } currentChatId = chatId; dom.initialMessageContainer.style.display = 'none'; dom.chatMessages.innerHTML = ''; const chat = state.chats[chatId]; dom.chatTitle.textContent = chat.title; chat.messages.forEach((msg, i) => addMessageToUI(msg.role, msg.content, msg.image, i)); updateActiveChatHighlight(); saveState(); }
-        function resetChatView() { currentChatId = null; dom.chatTitle.textContent = "GOATBOT Pro"; dom.chatMessages.innerHTML = ''; dom.initialMessageContainer.style.display = 'flex'; updateActiveChatHighlight(); }
+        function resetChatView() { currentChatId = null; dom.chatTitle.textContent = "GOATBOT Pro"; dom.chatMessages.innerHTML = ''; dom.initialMessageContainer.style.display = 'flex'; updateUserUI(); /* Ensure correct welcome message shows */ updateActiveChatHighlight(); }
         function addMessageToUI(role, content, imageSrc) { const wrapper = document.createElement('div'); wrapper.className = `chat-bubble-wrapper flex items-start gap-2 my-2 ${role === 'user' ? 'justify-end' : 'justify-start'}`; const bubble = document.createElement('div'); bubble.className = `p-4 rounded-xl max-w-xl ${role === 'user' ? 'chat-bubble-user' : 'chat-bubble-bot'}`; if (imageSrc) { const img = document.createElement('img'); img.src = imageSrc; img.className = 'rounded-lg mb-2 max-w-xs h-auto'; bubble.appendChild(img); } const contentDiv = document.createElement('div'); contentDiv.className = 'markdown-content'; contentDiv.innerHTML = content === '…' ? `<div class="flex items-center space-x-2"><div class="w-2 h-2 bg-gray-400 rounded-full animate-pulse"></div><div class="w-2 h-2 bg-gray-400 rounded-full animate-pulse" style="animation-delay: .2s;"></div><div class="w-2 h-2 bg-gray-400 rounded-full animate-pulse" style="animation-delay: .4s;"></div></div>` : marked.parse(content || ""); bubble.appendChild(contentDiv); wrapper.appendChild(bubble); dom.chatMessages.appendChild(wrapper); dom.chatMessages.scrollTop = dom.chatMessages.scrollHeight; return bubble; }
         function updateMessageInUI(bubble, content) { const md = bubble.querySelector('.markdown-content'); if (md) md.innerHTML = marked.parse(content); }
         function renderSidebar() { dom.sidebarContent.innerHTML = ''; const frag = document.createDocumentFragment(); (state.structure || []).forEach(id => { if (id.startsWith('folder-')) frag.appendChild(createFolderElement(id)); else if (id.startsWith('chat-')) frag.appendChild(createChatItemElement(id)); }); dom.sidebarContent.appendChild(frag); updateActiveChatHighlight(); }
