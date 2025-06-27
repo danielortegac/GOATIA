@@ -15,8 +15,10 @@ exports.handler = async (event, context) => {
         const { user } = context.clientContext;
         let botReply = '';
 
-        // 2. Verificar límite de mensajes
+        // 2. Verificar límite de mensajes ANTES de llamar a cualquier API
+        // Esta es la guarda de seguridad principal.
         if (user && user.app_metadata.plan === 'free' && (user.app_metadata.message_count || 0) >= FREE_PLAN_MESSAGE_LIMIT) {
+            // Envía un error 403 (Prohibido) que el frontend ahora sabe cómo interpretar.
             return {
                 statusCode: 403,
                 body: JSON.stringify({ error: 'Límite de mensajes alcanzado' }),
@@ -29,9 +31,7 @@ exports.handler = async (event, context) => {
             if (!PERPLEXITY_API_KEY) throw new Error('La clave de API de Perplexity no está configurada en Netlify.');
 
             const perplexityBody = {
-                // **CORRECCIÓN DEFINITIVA**: Usando el nombre del modelo sin el prefijo "perplexity/".
-                // Este es el formato correcto según la investigación del usuario.
-                model: 'sonar', 
+                model: 'sonar', // Usando el nombre correcto y limpio
                 messages: [
                     { role: 'system', content: 'Eres un asistente de búsqueda web preciso y conciso. Responde en español.' },
                     ...(history || []),
@@ -98,16 +98,18 @@ exports.handler = async (event, context) => {
             const currentCount = user.app_metadata.message_count || 0;
             newMessageCount = currentCount + 1;
             
+            // **FIX CLAVE**: La actualización de los metadatos del usuario se hace en segundo plano.
+            // No esperamos a que termine, evitando que la app se "cuelgue" si esto falla.
             const adminAuthHeader = `Bearer ${context.clientContext.identity.token}`;
             const userUpdateUrl = `${context.clientContext.identity.url}/admin/users/${user.sub}`;
             fetch(userUpdateUrl, {
                 method: 'PUT',
                 headers: { 'Authorization': adminAuthHeader },
                 body: JSON.stringify({ app_metadata: { ...user.app_metadata, message_count: newMessageCount } }),
-            }).catch(err => console.error("Fallo al actualizar el contador de mensajes en background:", err));
+            }).catch(err => console.error("Fallo al actualizar el contador en background:", err));
         }
         
-        // 5. Enviar respuesta final al frontend
+        // 5. Enviar respuesta y el nuevo conteo al frontend
         return {
             statusCode: 200,
             body: JSON.stringify({ reply: botReply, new_message_count: newMessageCount }),
