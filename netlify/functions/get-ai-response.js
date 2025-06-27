@@ -1,6 +1,6 @@
 // --- Netlify Function: get-ai-response.js ---
-// Esta función actúa como un backend seguro que se comunica con las APIs de IA.
-// Utiliza las variables de entorno configuradas en Netlify.
+// VERSIÓN CON LA CORRECCIÓN DEFINITIVA BASADA EN LA INVESTIGACIÓN DEL USUARIO.
+// El problema era el formato del nombre del modelo de Perplexity.
 
 const FREE_PLAN_MESSAGE_LIMIT = 15;
 
@@ -15,9 +15,8 @@ exports.handler = async (event, context) => {
         const { user } = context.clientContext;
         let botReply = '';
 
-        // 2. Verificar límite de mensajes ANTES de llamar a cualquier API
+        // 2. Verificar límite de mensajes
         if (user && user.app_metadata.plan === 'free' && (user.app_metadata.message_count || 0) >= FREE_PLAN_MESSAGE_LIMIT) {
-            // Envía un error 403 (Prohibido) que el frontend interpretará
             return {
                 statusCode: 403,
                 body: JSON.stringify({ error: 'Límite de mensajes alcanzado' }),
@@ -30,8 +29,9 @@ exports.handler = async (event, context) => {
             if (!PERPLEXITY_API_KEY) throw new Error('La clave de API de Perplexity no está configurada en Netlify.');
 
             const perplexityBody = {
-                // **DIAGNÓSTICO**: Probando con el modelo 'pro' de la investigación del usuario.
-                model: 'perplexity/sonar-pro', 
+                // **CORRECCIÓN DEFINITIVA**: Usando el nombre del modelo sin el prefijo "perplexity/".
+                // Este es el formato correcto según la investigación del usuario.
+                model: 'sonar', 
                 messages: [
                     { role: 'system', content: 'Eres un asistente de búsqueda web preciso y conciso. Responde en español.' },
                     ...(history || []),
@@ -53,7 +53,7 @@ exports.handler = async (event, context) => {
             const data = await apiResponse.json();
             botReply = data.choices[0].message.content;
 
-        } else { // Para cualquier otro modelo de OpenAI (gpt-3.5-turbo, gpt-4o)
+        } else { // Lógica para OpenAI
             const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
             if (!OPENAI_API_KEY) throw new Error('La clave de API de OpenAI no está configurada en Netlify.');
 
@@ -92,7 +92,7 @@ exports.handler = async (event, context) => {
             botReply = data.choices[0].message.content;
         }
 
-        // 4. Actualizar contador de mensajes de forma SEGURA y ROBUSTA
+        // 4. Actualizar contador de mensajes
         let newMessageCount = null;
         if (user) {
             const currentCount = user.app_metadata.message_count || 0;
