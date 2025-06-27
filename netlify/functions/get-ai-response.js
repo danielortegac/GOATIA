@@ -29,14 +29,14 @@ exports.handler = async (event, context) => {
         }
 
         // 4. Determinar a qué API llamar basado en el modelo seleccionado
-        if (model === 'perplexity' || model.includes('sonar')) {
+        if (model === 'perplexity') {
             // --- LÓGICA PARA PERPLEXITY API ---
             const PERPLEXITY_API_KEY = process.env.PERPLEXITY_API_KEY;
             if (!PERPLEXITY_API_KEY) throw new Error('La clave de API de Perplexity no está configurada.');
 
             const body = {
-                // --- FIX 3: Se actualiza a otro nombre de modelo en línea válido para asegurar compatibilidad. ---
-                model: 'sonar-small-32k-online', 
+                // --- FIX FINAL: Se usa el nombre de modelo oficial y completo de Perplexity. ---
+                model: 'llama-3-sonar-small-32k-online', 
                 messages: [
                     { role: 'system', content: 'Eres un asistente de búsqueda web preciso y conciso. Responde en español.' },
                     ...history,
@@ -67,10 +67,10 @@ exports.handler = async (event, context) => {
             const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
             if (!OPENAI_API_KEY) throw new Error('La clave de API de OpenAI no está configurada.');
 
-            // Prepara el contenido del mensaje del usuario. Puede incluir texto, imagen y/o PDF.
+            // Prepara el contenido del mensaje del usuario.
             let userMessageContent = [];
 
-            // Si hay texto de un PDF, lo añadimos al prompt.
+            // Añade el texto (ya sea del prompt o del PDF + prompt)
             if (pdfText) {
                 userMessageContent.push({
                     type: 'text',
@@ -80,12 +80,12 @@ exports.handler = async (event, context) => {
                  userMessageContent.push({ type: 'text', text: prompt });
             }
 
-            // Si hay una imagen, la añadimos al mensaje (formato para GPT-4o).
+            // Añade la imagen si existe
             if (imageData) {
                 userMessageContent.push({
                     type: 'image_url',
                     image_url: {
-                        "url": imageData // El frontend ya envía la imagen en formato base64 URI
+                        "url": imageData 
                     }
                 });
             }
@@ -97,7 +97,7 @@ exports.handler = async (event, context) => {
                     ...history,
                     { role: 'user', content: userMessageContent }
                 ],
-                max_tokens: (imageData || pdfText) ? 2048 : 1000 // Más tokens para análisis de archivos
+                max_tokens: (imageData || pdfText) ? 2048 : 1000
             };
 
             apiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -119,7 +119,7 @@ exports.handler = async (event, context) => {
             botReply = data.choices[0].message.content;
         }
 
-        // 5. Actualizar el contador de mensajes si el usuario está autenticado
+        // 5. Actualizar el contador de mensajes
         let newMessageCount = null;
         if (user) {
             const currentCount = user.app_metadata.message_count || 0;
@@ -128,7 +128,6 @@ exports.handler = async (event, context) => {
             const adminAuthHeader = `Bearer ${context.clientContext.identity.token}`;
             const userUpdateUrl = `${context.clientContext.identity.url}/admin/users/${user.sub}`;
             
-            // Actualizamos los metadatos del usuario en Netlify Identity
             await fetch(userUpdateUrl, {
                 method: 'PUT',
                 headers: { 'Authorization': adminAuthHeader },
@@ -146,7 +145,7 @@ exports.handler = async (event, context) => {
             statusCode: 200,
             body: JSON.stringify({
                 reply: botReply,
-                new_message_count: newMessageCount, // El frontend usará esto para actualizar el contador
+                new_message_count: newMessageCount,
             }),
         };
 
