@@ -207,7 +207,7 @@
             let currentChatId = null, currentUser = null, pendingMessage = null, speechOn = true, availableVoices = [], isRecognizing = false, selectedImageBase64 = null, selectedPdfText = null;
             
             let modalResolve = null;
-
+            
             function showModal({ title, message, useInput = false, placeholder = '', confirmText = 'Confirmar' }) {
                 const modalTitle = dom.genericModal.querySelector('#modal-title'), modalMessage = dom.genericModal.querySelector('#modal-message'), modalInput = dom.genericModal.querySelector('#modal-input'), modalConfirm = dom.genericModal.querySelector('#modal-confirm');
                 modalTitle.textContent = title; modalMessage.textContent = message; modalMessage.style.display = message ? 'block' : 'none'; modalInput.style.display = useInput ? 'block' : 'none'; modalInput.value = ''; modalInput.placeholder = placeholder; modalConfirm.textContent = confirmText;
@@ -299,11 +299,6 @@
                 const limit = currentUser ? FREE_PLAN_MESSAGE_LIMIT : GUEST_MESSAGE_LIMIT;
                 const planName = currentUser ? 'Plan Gratuito' : 'Invitado';
                 dom.messageCounterEl.textContent = `${planName}: ${count}/${limit} msj`;
-
-                // **REVERTED CHANGE**: No longer disabling UI here.
-                dom.msgInput.disabled = false;
-                dom.sendBtn.disabled = false;
-                dom.msgInput.placeholder = "Escribe tu mensaje...";
             }
 
             function setTheme(isDark) { 
@@ -354,7 +349,6 @@
                     }
                 }
 
-                // **REVERTED CHANGE**: Only guest counter updates optimistically.
                 if (!currentUser) {
                     incrementGuestCount();
                     updateMessageCounter();
@@ -389,7 +383,7 @@
 
                         if (currentUser && typeof responseData.new_message_count !== 'undefined') {
                             currentUser.app_metadata.message_count = responseData.new_message_count;
-                            updateMessageCounter(); // Update counter with server response
+                            updateMessageCounter(); 
                         }
                         saveState();
                     } else if (responseData.error) {
@@ -437,8 +431,9 @@
                         currentUser = await ensureUserMetadata(user);
                     } else {
                         currentUser = null;
-                        if (getMessageCount() >= GUEST_MESSAGE_LIMIT) {
-                             showModal({ title: 'Límite de Invitado Alcanzado', message: `Has usado tus ${GUEST_MESSAGE_LIMIT} mensajes. Inicia sesión para continuar.`, confirmText: 'Iniciar Sesión / Registrarse' })
+                        // **CHANGE**: Check if user has logged in before, or if guest limit is reached
+                        if (localStorage.getItem('hasLoggedInBefore') === 'true' || getMessageCount() >= GUEST_MESSAGE_LIMIT) {
+                             showModal({ title: 'Bienvenido de Nuevo', message: `Ya has usado los créditos de invitado en este navegador o ya tienes una cuenta. Por favor, inicia sesión para continuar.`, confirmText: 'Iniciar Sesión' })
                             .then(wantsToLogin => { if (wantsToLogin) netlifyIdentity.open(); });
                         }
                     }
@@ -475,6 +470,7 @@
                 netlifyIdentity.on('login', async user => {
                     netlifyIdentity.close();
                     localStorage.removeItem('guestMessageCount');
+                    localStorage.setItem('hasLoggedInBefore', 'true'); // **CHANGE**: Set flag on login
                     currentUser = await ensureUserMetadata(user);
                     updateUserUI();
                     loadStateForUser();
