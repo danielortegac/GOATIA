@@ -81,6 +81,7 @@
                 <h3 class="text-xs font-semibold uppercase text-text-medium mb-2 px-2">Workflows</h3>
                 <div class="space-y-1">
                     <button id="copywriting-workflow-btn" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center"><i class="fas fa-pencil-alt w-6 mr-2"></i>Copywriting</button>
+                    <button id="sales-response-workflow-btn" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center"><i class="fas fa-handshake w-6 mr-2"></i>Respuestas de Ventas</button>
                     <button id="web-page-workflow-btn" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center"><i class="fas fa-code w-6 mr-2"></i>Página Web</button>
                 </div>
             </div>
@@ -144,7 +145,7 @@
                     <label for="model-selector" class="font-medium text-sm text-text-medium">Modelo:</label>
                     <select id="model-selector" class="rounded-md p-1.5 focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm disabled:opacity-50 disabled:cursor-not-allowed bg-input text-text-light border border-themed">
                         <option value="gpt-3.5-turbo">Goatify Pro (Texto)</option>
-                        <option value="gpt-3.5-turbo-0125">Web Pro (Código)</option>
+                        <option value="gpt-4o">Web Pro (Código)</option>
                         <option value="gpt-4o">Goatify Nebula (Archivos)</option>
                         <option value="perplexity">Búsqueda Web</option>
                     </select>
@@ -197,8 +198,9 @@
         window.addEventListener('DOMContentLoaded', () => {
             const GUEST_CREDIT_LIMIT = 5;
             const FREE_PLAN_CREDIT_LIMIT = 15;
-            const WEB_PRO_MODEL_COST = 5;
+            const WEB_PRO_MODEL_COST = 20; 
             const COPYWRITING_MODEL_COST = 10;
+            const SALES_RESPONSE_MODEL_COST = 5;
 
             const dom = {
                 msgInput: document.getElementById('msg'), sendBtn: document.getElementById('send'),
@@ -228,6 +230,7 @@
                 loadingOverlay: document.getElementById('loading-overlay'),
                 appContainer: document.getElementById('app-container'),
                 copywritingWorkflowBtn: document.getElementById('copywriting-workflow-btn'),
+                salesResponseWorkflowBtn: document.getElementById('sales-response-workflow-btn'),
                 webPageWorkflowBtn: document.getElementById('web-page-workflow-btn'),
                 htmlPreviewModal: document.getElementById('html-preview-modal'),
                 closeHtmlPreviewModalBtn: document.getElementById('close-html-preview-modal'),
@@ -434,8 +437,8 @@
             }
 
             function updateMessageInUI(bubble, content) {
-                addMessageToUI('assistant', content); // This will re-render the bubble with the new logic
-                bubble.parentElement.remove(); // Remove the old "thinking" bubble
+                addMessageToUI('assistant', content); 
+                bubble.parentElement.remove(); 
             }
             function renderSidebar() { dom.sidebarContent.innerHTML = ''; const frag = document.createDocumentFragment(); (state.structure || []).forEach(id => { if (id.startsWith('project-')) frag.appendChild(createProjectElement(id)); else if (id.startsWith('chat-')) frag.appendChild(createChatItemElement(id)); }); dom.sidebarContent.appendChild(frag); updateActiveChatHighlight(); }
             function createChatItemElement(id, isSubItem = false) { const chat = state.chats[id]; if (!chat) return document.createDocumentFragment(); const item = document.createElement('div'); item.className = `chat-item group flex items-center justify-between p-2 rounded-md cursor-pointer ${isSubItem ? 'pl-5' : ''}`; item.dataset.id = id; item.draggable = true; item.innerHTML = `<i class="far fa-comment-dots mr-2"></i><span class="flex-grow truncate text-sm font-medium">${chat.title}</span><div class="chat-item-actions flex-shrink-0"><button class="rename-btn text-text-medium hover:text-primary p-1"><i class="fas fa-pencil-alt fa-xs"></i></button><button class="delete-btn text-text-medium hover:text-red-500 p-1"><i class="fas fa-trash-alt fa-xs"></i></button></div>`; item.addEventListener('click', e => { if (!e.target.closest('.chat-item-actions')) selectChat(id); }); item.addEventListener('dragstart', e => handleDragStart(e, id)); item.querySelector('.rename-btn').addEventListener('click', () => renameItem('chat', id)); item.querySelector('.delete-btn').addEventListener('click', () => deleteItem('chat', id)); return item; }
@@ -499,6 +502,8 @@
                     cost = WEB_PRO_MODEL_COST;
                 } else if (currentChat?.workflow === 'copywriting') {
                     cost = COPYWRITING_MODEL_COST;
+                } else if (currentChat?.workflow === 'sales-response') {
+                    cost = SALES_RESPONSE_MODEL_COST;
                 }
 
                 if (!currentUser) {
@@ -511,27 +516,22 @@
                     }
                 } else {
                     if (count < cost && !forceSend) {
-                         await showModal({ title: 'Créditos Insuficientes', message: `Esta acción requiere ${cost} créditos. Te quedan ${count}.`, confirmText: 'Entendido' });
+                         await showModal({ title: 'Créditos Insuficientes', message: `Esta acción requiere ${cost} créditos, pero solo te quedan ${count}.`, confirmText: 'Entendido' });
                          hideModal();
                          return;
-                    }
-                     if (count >= FREE_PLAN_CREDIT_LIMIT && !forceSend) {
-                        showPricingModal();
-                        return;
                     }
                 }
 
                 let chatIdToUpdate = currentChatId || createNewChat();
                 if (!state.chats[chatIdToUpdate]) return;
                 
-                // Optimistic update
+                // **FIXED CREDIT LOGIC**
                 if (currentUser) {
-                    currentUser.app_metadata.message_count += cost;
+                    currentUser.app_metadata.message_count -= cost;
                 } else {
                     incrementGuestCredits();
                 }
                 updateCreditCounter();
-
 
                 const [image, pdf] = [selectedImageBase64, selectedPdfText];
                 state.chats[chatIdToUpdate].messages.push({ role: 'user', content: userMessage, image, pdfText: pdf });
@@ -543,9 +543,9 @@
                     const responseData = await getAIResponse(userMessage, state.chats[chatIdToUpdate].messages.slice(0, -1), image, pdf);
                     
                     if (responseData.error === 'LIMIT_REACHED') {
-                        updateMessageInUI(thinkingBubble, `Has alcanzado el límite de ${FREE_PLAN_CREDIT_LIMIT} créditos de tu plan gratuito. ¡Actualiza para continuar!`);
+                        updateMessageInUI(thinkingBubble, `Has alcanzado el límite de créditos de tu plan. ¡Actualiza para continuar!`);
                         if (currentUser) {
-                            currentUser.app_metadata.message_count = FREE_PLAN_CREDIT_LIMIT;
+                            currentUser.app_metadata.message_count = 0;
                             updateCreditCounter();
                         }
                         showPricingModal();
@@ -557,7 +557,6 @@
                         updateMessageInUI(thinkingBubble, responseData.reply);
                         speak(responseData.reply);
 
-                        // Sync with server
                         if (currentUser && typeof responseData.new_message_count !== 'undefined') {
                             currentUser.app_metadata.message_count = responseData.new_message_count;
                             updateCreditCounter(); 
@@ -566,14 +565,14 @@
                     } else if (responseData.error) {
                         updateMessageInUI(thinkingBubble, `❌ **Error de Conexión**<br><small>${responseData.details || 'Error del servidor.'}</small>`);
                         if (currentUser) {
-                            currentUser.app_metadata.message_count -= cost; // Revert optimistic update on error
+                            currentUser.app_metadata.message_count += cost;
                             updateCreditCounter();
                         }
                     }
                 } catch (error) {
                     updateMessageInUI(thinkingBubble, `❌ **Error de Conexión**<br><small>${error.message || 'Asegúrate de que el backend está desplegado.'}</small>`);
                      if (currentUser) {
-                        currentUser.app_metadata.message_count -= cost; // Revert optimistic update on error
+                        currentUser.app_metadata.message_count += cost;
                         updateCreditCounter();
                     }
                 }
@@ -603,20 +602,28 @@
                 dom.logoutBtn.addEventListener('click', () => netlifyIdentity.logout());
                 dom.userMenuBtn.addEventListener('click', () => dom.userMenuPopup.classList.toggle('hidden'));
                 
-                // Workflow Listeners
                 dom.copywritingWorkflowBtn.addEventListener('click', () => {
                     createNewChat({
                         title: "Nuevo Copy",
                         workflow: "copywriting",
-                        initialMessages: [{ role: 'assistant', content: '¡Claro! Empecemos un nuevo copy. Por favor, dame el contexto: ¿cuál es el producto o servicio, a quién te diriges y cuál es el objetivo principal del copy?' }]
+                        model: "gpt-3.5-turbo",
+                        initialMessages: [{ role: 'assistant', content: `¡Claro! Empecemos un nuevo copy (costo: ${COPYWRITING_MODEL_COST} créditos). Por favor, dame el contexto: ¿cuál es el producto o servicio, a quién te diriges y cuál es el objetivo principal del copy?` }]
+                    });
+                });
+                dom.salesResponseWorkflowBtn.addEventListener('click', () => {
+                     createNewChat({
+                        title: "Respuesta de Venta",
+                        workflow: "sales-response",
+                        model: "gpt-3.5-turbo",
+                        initialMessages: [{ role: 'assistant', content: `¡Excelente! Estoy listo para ayudarte a cerrar esa venta (costo: ${SALES_RESPONSE_MODEL_COST} créditos). Pega el mensaje de tu cliente y te daré la respuesta perfecta para convencerlo.` }]
                     });
                 });
                 dom.webPageWorkflowBtn.addEventListener('click', () => {
                     createNewChat({
                         title: "Nueva Página Web",
                         workflow: "web-page",
-                        model: "gpt-3.5-turbo-0125",
-                        initialMessages: [{ role: 'assistant', content: '¡Perfecto! Estoy listo para generar una página web profesional con HTML y Tailwind CSS.\n\n**Para asegurar un diseño de alta calidad, por favor describe:**\n- El propósito de la página (ej. portafolio, landing page para un producto, etc.).\n- La paleta de colores que prefieres (ej. tonos oscuros, colores vibrantes, etc.).\n- El contenido y las secciones que necesitas (ej. Encabezado, "Sobre mí", "Servicios", "Contacto").' }]
+                        model: "gpt-4o",
+                        initialMessages: [{ role: 'assistant', content: `¡Perfecto! Estoy listo para generar una página web profesional con HTML y Tailwind CSS (costo: ${WEB_PRO_MODEL_COST} créditos).\n\n**En tu próximo mensaje, describe con todo el detalle posible la página que quieres crear.** Considera incluir:\n- **Propósito:** ¿Es un portafolio, una landing page, un blog?\n- **Estilo y Tonos:** ¿Minimalista, corporativo, vibrante? ¿Colores principales?\n- **Secciones y Contenido:** ¿Qué secciones necesitas (Inicio, Sobre Nosotros, Servicios, Contacto) y qué texto e imágenes deberían ir en cada una?\n\n¡Mientras más detalles me des, mejor será el resultado!` }]
                     });
                 });
                 dom.closeHtmlPreviewModalBtn.addEventListener('click', () => dom.htmlPreviewModal.classList.add('hidden'));
@@ -660,10 +667,12 @@
                 };
 
                 const ensureUserMetadata = async (user) => {
-                    if (user && (!user.app_metadata.plan || typeof user.app_metadata.message_count === 'undefined')) {
+                    if (user && (user.app_metadata.plan === 'free' && user.app_metadata.message_count === 0)) {
+                         // This is a special case for users created before the credit system was inverted
+                    } else if (user && (!user.app_metadata.plan || typeof user.app_metadata.message_count === 'undefined')) {
                         try {
                             const updatedUser = await netlifyIdentity.gotrue.user.update({
-                                data: { plan: 'free', message_count: 0 }
+                                data: { plan: 'free', message_count: FREE_PLAN_CREDIT_LIMIT }
                             });
                             await updatedUser.jwt(true);
                             return updatedUser;
