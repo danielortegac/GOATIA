@@ -32,11 +32,21 @@
         .placeholder-themed::placeholder { color: var(--current-text-medium); }
         .glowing-mic { animation: pulse 1.5s infinite; }
         @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(138, 79, 255, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(138, 79, 255, 0); } 100% { box-shadow: 0 0 0 0 rgba(138, 79, 255, 0); } }
+        /* Animación para el spinner de carga */
+        .loader { border: 4px solid var(--current-bg-light); border-top: 4px solid var(--current-primary); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body class="h-screen w-screen overflow-hidden">
 
-    <div id="app-container" class="flex h-full w-full relative">
+    <!-- =========== NUEVO: Pantalla de Carga =========== -->
+    <div id="loading-screen" class="flex flex-col items-center justify-center h-full w-full bg-medium">
+        <div class="loader"></div>
+        <p class="mt-4 text-lg text-text-medium">Cargando GOATBOT...</p>
+    </div>
+
+    <!-- =========== MODIFICADO: Contenedor principal oculto por defecto =========== -->
+    <div id="app-container" class="flex h-full w-full relative hidden">
         <aside id="sidebar" class="w-72 flex-shrink-0 flex flex-col p-3 transition-transform duration-300 -translate-x-full md:translate-x-0 absolute md:relative z-30 h-full">
             <!-- Top Section -->
             <div class="flex-shrink-0">
@@ -164,6 +174,8 @@
             const GUEST_MESSAGE_LIMIT = 5;
             const FREE_PLAN_MESSAGE_LIMIT = 15;
             const dom = {
+                loadingScreen: document.getElementById('loading-screen'), // <-- Nuevo
+                appContainer: document.getElementById('app-container'),   // <-- Nuevo
                 msgInput: document.getElementById('msg'), sendBtn: document.getElementById('send'),
                 messageCounterEl: document.getElementById('message-counter'), upgradePlanBtn: document.getElementById('upgrade-plan-btn'),
                 newChatBtn: document.getElementById('new-chat-btn'), newFolderBtn: document.getElementById('new-folder-btn'),
@@ -205,26 +217,33 @@
             function showPricingModal() { dom.pricingModal.classList.remove('hidden'); dom.pricingModal.classList.add('flex'); setTimeout(() => { dom.pricingModal.querySelector('.modal-content').classList.remove('scale-95'); }, 10); }
             function hidePricingModal() { dom.pricingModal.querySelector('.modal-content').classList.add('scale-95'); setTimeout(() => { dom.pricingModal.classList.add('hidden'); dom.pricingModal.classList.remove('flex'); }, 300); }
 
+            // =========== NUEVO: Función para mostrar la app y ocultar el loader ===========
+            function showApp() {
+                dom.loadingScreen.classList.add('hidden');
+                dom.appContainer.classList.remove('hidden');
+            }
+
             function initApp() {
                 setTheme(localStorage.getItem('theme') === 'dark' || (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches));
                 
-                netlifyIdentity.on('init', user => {
+                netlifyIdentity.on('init', async (user) => {
                     currentUser = user;
+                    await loadStateForUser();
                     updateUserUI();
-                    loadStateForUser();
+                    showApp(); // <-- Mostrar la app solo después de que todo esté listo
                 });
-                netlifyIdentity.on('login', user => {
+                netlifyIdentity.on('login', async (user) => {
                     currentUser = user;
                     netlifyIdentity.close();
-                    localStorage.removeItem('guestMessageCount'); // Clear guest data on login
+                    localStorage.removeItem('guestMessageCount');
+                    await loadStateForUser();
                     updateUserUI();
-                    loadStateForUser(); // Load user-specific data
                     sendMessageIfPending();
                 });
-                netlifyIdentity.on('logout', () => {
+                netlifyIdentity.on('logout', async () => {
                     currentUser = null;
+                    await loadStateForUser();
                     updateUserUI();
-                    loadStateForUser(); // Load guest data
                 });
 
                 populateVoiceList();
@@ -256,8 +275,15 @@
                     if (getMessageCount() >= GUEST_MESSAGE_LIMIT && !forceSend) {
                         pendingMessage = { userMessage, image: selectedImageBase64, pdf: selectedPdfText };
                         await showModal({ title: 'Límite Gratuito Alcanzado', message: `Has usado tus ${GUEST_MESSAGE_LIMIT} mensajes. Regístrate gratis para obtener ${FREE_PLAN_MESSAGE_LIMIT} mensajes más.`, confirmText: 'Registrarse / Iniciar Sesión' })
-                            .then(wantsToLogin => { if (wantsToLogin) netlifyIdentity.open(); }); // <-- FIX #1 applied here too
+                            .then(wantsToLogin => { if (wantsToLogin) netlifyIdentity.open(); });
                         hideModal();
+                        return;
+                    }
+                } else {
+                    // Verificación de límite para usuarios logueados
+                    if (getMessageCount() <= 0) {
+                        updateMessageInUI(addMessageToUI('bot', '…'), `Has alcanzado el límite de ${FREE_PLAN_MESSAGE_LIMIT} mensajes de tu plan gratuito. ¡Actualiza para continuar!`);
+                        showPricingModal();
                         return;
                     }
                 }
@@ -274,37 +300,30 @@
                 try {
                     const responseData = await getAIResponse(userMessage, state.chats[chatIdToUpdate].messages.slice(0, -1), image, pdf);
                     
-                    if (responseData.error === 'LIMIT_REACHED') {
-                        updateMessageInUI(thinkingBubble, `Has alcanzado el límite de ${FREE_PLAN_MESSAGE_LIMIT} mensajes de tu plan gratuito. ¡Actualiza para continuar!`);
-                        showPricingModal();
-                        return;
-                    }
-
                     if (responseData.reply) {
                         state.chats[chatIdToUpdate].messages.push({ role: 'assistant', content: responseData.reply });
                         updateMessageInUI(thinkingBubble, responseData.reply);
                         speak(responseData.reply);
 
-                        // ==========================================================
-                        // START OF FIX #2: Manual Message Counting
-                        // We no longer depend on the backend to send the new count.
-                        // ==========================================================
+                        // =========== LÓGICA DE CONTEO CORREGIDA Y UNIFICADA ===========
                         if (currentUser) {
                             const currentCount = getMessageCount();
-                            // Ensure the count doesn't go below zero
                             const newCount = Math.max(0, currentCount - 1);
-                            updateUserMessageCount(newCount);
+                            await updateUserMessageCount(newCount); // Es asíncrono ahora
                         } else {
                             incrementGuestCount();
                         }
-                        updateMessageCounter(); // Update UI for both user types
-                        // ==========================================================
-                        // END OF FIX #2
-                        // ==========================================================
-                        
+                        updateMessageCounter();
                         saveState();
+                        // ========================================================
+
                     } else if (responseData.error) {
-                        updateMessageInUI(thinkingBubble, `❌ **${responseData.error}**<br><small>${responseData.details || 'No hay más detalles.'}</small>`);
+                         if (responseData.error === 'LIMIT_REACHED') {
+                             updateMessageInUI(thinkingBubble, `Has alcanzado el límite de ${FREE_PLAN_MESSAGE_LIMIT} mensajes de tu plan gratuito. ¡Actualiza para continuar!`);
+                             showPricingModal();
+                         } else {
+                            updateMessageInUI(thinkingBubble, `❌ **${responseData.error}**<br><small>${responseData.details || 'No hay más detalles.'}</small>`);
+                         }
                     }
                 } catch (error) {
                     updateMessageInUI(thinkingBubble, `❌ **Error de Conexión**<br><small>${error.message || 'Asegúrate de que el backend está desplegado.'}</small>`);
@@ -321,14 +340,30 @@
 
                 if (response.status === 403) return { error: 'LIMIT_REACHED' };
                 if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.details || `Error del servidor: ${response.statusText}`);
+                    const errorData = await response.json().catch(() => ({ details: `Error del servidor: ${response.status}` }));
+                    throw new Error(errorData.details);
                 }
                 return response.json();
             }
 
             function getMessageCount() { return currentUser ? (currentUser.app_metadata.message_count ?? FREE_PLAN_MESSAGE_LIMIT) : parseInt(localStorage.getItem('guestMessageCount') || '0'); }
-            function updateUserMessageCount(newCount) { if (currentUser) { if(!currentUser.app_metadata) currentUser.app_metadata = {}; currentUser.app_metadata.message_count = newCount; } }
+            
+            async function updateUserMessageCount(newCount) { 
+                if (currentUser) {
+                     try {
+                        currentUser = await netlifyIdentity.gotrue.user.update({
+                            data: { ...currentUser.app_metadata, message_count: newCount }
+                        });
+                        await currentUser.jwt(true); // Forzar actualización de token con nuevos metadatos
+                    } catch (error) {
+                        console.error("Error al actualizar el conteo en Netlify:", error);
+                        // Fallback a metadatos locales si falla la actualización
+                        if(!currentUser.app_metadata) currentUser.app_metadata = {};
+                        currentUser.app_metadata.message_count = newCount;
+                    }
+                }
+            }
+            
             function incrementGuestCount() { if (!currentUser) localStorage.setItem('guestMessageCount', String(getMessageCount() + 1)); }
             
             async function loadStateForUser() {
@@ -342,19 +377,17 @@
                     state = { chats: {}, folders: {}, structure: [] };
                     currentChatId = null;
                 }
-                // When a new user logs in, ensure their metadata is correctly initialized.
-                if (currentUser && typeof currentUser.app_metadata.plan === 'undefined') {
+                // Asegurar que los nuevos usuarios tengan los metadatos correctos al loguearse por primera vez
+                if (currentUser && (currentUser.app_metadata.plan === undefined || currentUser.app_metadata.message_count === undefined)) {
                     try {
-                        // Set default values if they don't exist
                         const dataToUpdate = {
                             plan: 'free',
-                            message_count: currentUser.app_metadata.message_count ?? FREE_PLAN_MESSAGE_LIMIT
+                            message_count: FREE_PLAN_MESSAGE_LIMIT
                         };
                         currentUser = await netlifyIdentity.gotrue.user.update({ data: dataToUpdate });
-                        await currentUser.jwt(true); // Force refresh token
+                        await currentUser.jwt(true);
                     } catch (error) { console.error("Error al establecer plan/conteo por defecto:", error); }
                 }
-                updateMessageCounter();
                 renderSidebar();
                 selectChat(currentChatId);
             }
@@ -365,22 +398,17 @@
                 if (currentUser) {
                     dom.loginView.classList.add('hidden');
                     dom.userMenuView.classList.remove('hidden');
-                    
                     const userName = currentUser.user_metadata.full_name?.split(' ')[0] || currentUser.email.split('@')[0];
                     dom.userEmail.textContent = currentUser.user_metadata.full_name || currentUser.email;
                     dom.userName.textContent = userName;
-
                     dom.genericWelcome.classList.add('hidden');
                     dom.personalizedWelcome.classList.remove('hidden');
-                    
                     dom.upgradePlanBtn.classList.toggle('hidden', (currentUser.app_metadata.plan || 'free') !== 'free');
                 } else {
                     dom.loginView.classList.remove('hidden');
                     dom.userMenuView.classList.add('hidden');
-                    
                     dom.genericWelcome.classList.remove('hidden');
                     dom.personalizedWelcome.classList.add('hidden');
-                    
                     dom.upgradePlanBtn.classList.add('hidden');
                 }
                 updateMessageCounter();
@@ -434,9 +462,6 @@
                 dom.modelSelector.addEventListener('change', (e) => { if (e.target.value === 'gpt-4o' && !hasFile()) { showModal({ title: 'Modelo de Archivos', message: 'Goatify Nebula (gpt-4o) es solo para analizar archivos. Por favor, sube una imagen o un PDF.', confirmText: 'Entendido' }).then(() => hideModal()); e.target.value = 'gpt-3.5-turbo'; }});
                 dom.menuToggle.addEventListener('click', () => dom.sidebar.classList.toggle('-translate-x-full'));
                 
-                // ==========================================================
-                // FIX #1: Login button now opens the generic widget
-                // ==========================================================
                 dom.loginBtn.addEventListener('click', () => netlifyIdentity.open());
                 
                 dom.logoutBtn.addEventListener('click', () => netlifyIdentity.logout());
