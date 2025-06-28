@@ -207,9 +207,6 @@
             let currentChatId = null, currentUser = null, pendingMessage = null, speechOn = true, availableVoices = [], isRecognizing = false, selectedImageBase64 = null, selectedPdfText = null;
             
             let modalResolve = null;
-
-            // **FIX**: Moved all function declarations before they are called in initApp
-            
             function showModal({ title, message, useInput = false, placeholder = '', confirmText = 'Confirmar' }) {
                 const modalTitle = dom.genericModal.querySelector('#modal-title'), modalMessage = dom.genericModal.querySelector('#modal-message'), modalInput = dom.genericModal.querySelector('#modal-input'), modalConfirm = dom.genericModal.querySelector('#modal-confirm');
                 modalTitle.textContent = title; modalMessage.textContent = message; modalMessage.style.display = message ? 'block' : 'none'; modalInput.style.display = useInput ? 'block' : 'none'; modalInput.value = ''; modalInput.placeholder = placeholder; modalConfirm.textContent = confirmText;
@@ -221,6 +218,87 @@
             function showPricingModal() { dom.pricingModal.classList.remove('hidden'); dom.pricingModal.classList.add('flex'); setTimeout(() => { dom.pricingModal.querySelector('.modal-content').classList.remove('scale-95'); }, 10); }
             function hidePricingModal() { dom.pricingModal.querySelector('.modal-content').classList.add('scale-95'); setTimeout(() => { dom.pricingModal.classList.add('hidden'); dom.pricingModal.classList.remove('flex'); }, 300); }
             
+            // =================================================================
+            // START: FINAL, ROBUST APP INITIALIZATION
+            // =================================================================
+            function initApp() {
+                setTheme(localStorage.getItem('theme') === 'dark' || (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches));
+                let initFired = false; // Flag to prevent multiple initializations
+
+                const finishInitialization = async (user) => {
+                    if (initFired) return;
+                    initFired = true;
+
+                    console.log("Finalizing setup for user:", user ? user.email : 'Guest');
+                    if (user) {
+                        currentUser = await ensureUserMetadata(user);
+                    } else {
+                        currentUser = null;
+                    }
+
+                    updateUserUI();
+                    loadStateForUser();
+
+                    dom.appContainer.classList.remove('opacity-0');
+                    dom.loadingOverlay.classList.add('opacity-0');
+                    setTimeout(() => {
+                        dom.loadingOverlay.style.display = 'none';
+                    }, 300);
+                };
+
+                const ensureUserMetadata = async (user) => {
+                    if (user && (!user.app_metadata.plan || typeof user.app_metadata.message_count === 'undefined')) {
+                        console.log("Ensuring user metadata...");
+                        try {
+                            const updatedUser = await netlifyIdentity.gotrue.user.update({
+                                data: { plan: 'free', message_count: 0 }
+                            });
+                            await updatedUser.jwt(true);
+                            return updatedUser;
+                        } catch (error) {
+                            console.error("Error setting default plan:", error);
+                            return user;
+                        }
+                    }
+                    return user;
+                };
+
+                // The 'init' event is the primary trigger.
+                netlifyIdentity.on('init', (user) => {
+                    console.log('Netlify Identity "init" event fired.');
+                    finishInitialization(user);
+                });
+
+                // Failsafe timeout in case 'init' event is slow or fails.
+                setTimeout(() => {
+                    console.log('Timeout reached. Checking for user status manually.');
+                    if (!initFired) {
+                      finishInitialization(netlifyIdentity.currentUser());
+                    }
+                }, 2500); // **CHANGE**: Reduced timeout to 2.5 seconds
+
+                netlifyIdentity.on('login', async user => {
+                    netlifyIdentity.close();
+                    localStorage.removeItem('guestMessageCount');
+                    currentUser = await ensureUserMetadata(user);
+                    updateUserUI();
+                    loadStateForUser();
+                    sendMessageIfPending();
+                });
+
+                netlifyIdentity.on('logout', () => {
+                    currentUser = null;
+                    updateUserUI();
+                    loadStateForUser();
+                });
+                
+                populateVoiceList();
+                setupEventListeners();
+            }
+            // =================================================================
+            // END: FINAL, ROBUST APP INITIALIZATION
+            // =================================================================
+
             const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
             let recognition;
             if (SR) {
@@ -232,11 +310,79 @@
                 recognition.onend = () => { isRecognizing = false; dom.voiceBtn.classList.remove('glowing-mic'); };
                 recognition.onresult = (event) => { dom.msgInput.value += Array.from(event.results).map(r => r[0].transcript).join(''); };
             } else {
-                if(dom.voiceBtn) dom.voiceBtn.style.display = 'none';
+                dom.voiceBtn.style.display = 'none';
             }
 
             function speak(text) { if (!speechOn || !('speechSynthesis' in window) || !text) return; speechSynthesis.cancel(); const cleanText = text.replace(/[*_`#~[\]()🔍]|(-{3,})|(\*\*Fuente:\*\*.*)/g, ''); const utterance = new SpeechSynthesisUtterance(cleanText); utterance.voice = availableVoices.find(v => v.lang.startsWith('es')) || availableVoices[0]; speechSynthesis.speak(utterance); }
             function populateVoiceList() { if (typeof speechSynthesis === 'undefined') return; availableVoices = speechSynthesis.getVoices(); if (speechSynthesis.onvoiceschanged !== undefined) speechSynthesis.onvoiceschanged = () => availableVoices = speechSynthesis.getVoices(); }
+
+            // =================================================================
+            // START: CORRECTED sendMessage FUNCTION
+            // =================================================================
+            async function sendMessage(forceSend = false) {
+                const userMessage = dom.msgInput.value.trim();
+                if (!userMessage && !selectedImageBase64 && !selectedPdfText) return;
+
+                // Handle message limits and optimistic UI updates before sending.
+                if (!currentUser) { // Guest User
+                    if (getMessageCount() >= GUEST_MESSAGE_LIMIT && !forceSend) {
+                        pendingMessage = { userMessage, image: selectedImageBase64, pdf: selectedPdfText };
+                        await showModal({ title: 'Límite Gratuito Alcanzado', message: `Has usado tus ${GUEST_MESSAGE_LIMIT} mensajes. Regístrate gratis para obtener ${FREE_PLAN_MESSAGE_LIMIT} mensajes más.`, confirmText: 'Registrarse / Iniciar Sesión' })
+                            .then(wantsToLogin => { if (wantsToLogin) netlifyIdentity.open('signup'); });
+                        hideModal();
+                        return;
+                    }
+                    incrementGuestCount();
+                    updateMessageCounter();
+                } else { // Logged-in User
+                    if (getMessageCount() >= FREE_PLAN_MESSAGE_LIMIT && !forceSend) {
+                        showPricingModal();
+                        return;
+                    }
+                    // **CHANGE**: Optimistically update counter for logged-in user
+                    currentUser.app_metadata.message_count++;
+                    updateMessageCounter();
+                }
+
+                let chatIdToUpdate = currentChatId || createNewChat();
+                if (!state.chats[chatIdToUpdate]) return;
+
+                const [image, pdf] = [selectedImageBase64, selectedPdfText];
+                state.chats[chatIdToUpdate].messages.push({ role: 'user', content: userMessage, image, pdfText: pdf });
+                addMessageToUI('user', userMessage, image);
+                const thinkingBubble = addMessageToUI('bot', '…');
+                dom.msgInput.value = ''; clearImageData(); clearPdfData();
+
+                try {
+                    const responseData = await getAIResponse(userMessage, state.chats[chatIdToUpdate].messages.slice(0, -1), image, pdf);
+                    
+                    if (responseData.error === 'LIMIT_REACHED') {
+                        updateMessageInUI(thinkingBubble, `Has alcanzado el límite de ${FREE_PLAN_MESSAGE_LIMIT} mensajes de tu plan gratuito. ¡Actualiza para continuar!`);
+                        showPricingModal();
+                        return;
+                    }
+
+                    if (responseData.reply) {
+                        state.chats[chatIdToUpdate].messages.push({ role: 'assistant', content: responseData.reply });
+                        updateMessageInUI(thinkingBubble, responseData.reply);
+                        speak(responseData.reply);
+
+                        // Re-sync with the server's official count just in case.
+                        if (currentUser && typeof responseData.new_message_count !== 'undefined') {
+                            currentUser.app_metadata.message_count = responseData.new_message_count;
+                            updateMessageCounter();
+                        }
+                        saveState();
+                    } else if (responseData.error) {
+                        updateMessageInUI(thinkingBubble, `❌ **${responseData.error}**<br><small>${responseData.details || 'No hay más detalles.'}</small>`);
+                    }
+                } catch (error) {
+                    updateMessageInUI(thinkingBubble, `❌ **Error de Conexión**<br><small>${error.message || 'Asegúrate de que el backend está desplegado.'}</small>`);
+                }
+            }
+            // =================================================================
+            // END: CORRECTED sendMessage FUNCTION
+            // =================================================================
             
             async function getAIResponse(prompt, history, image, pdf) {
                 const token = currentUser ? await currentUser.jwt() : null;
@@ -301,16 +447,6 @@
                 const limit = currentUser ? FREE_PLAN_MESSAGE_LIMIT : GUEST_MESSAGE_LIMIT;
                 const planName = currentUser ? 'Plan Gratuito' : 'Invitado';
                 dom.messageCounterEl.textContent = `${planName}: ${count}/${limit} msj`;
-
-                if (count >= limit) {
-                    dom.msgInput.disabled = true;
-                    dom.sendBtn.disabled = true;
-                    dom.msgInput.placeholder = "Límite de mensajes alcanzado.";
-                } else {
-                    dom.msgInput.disabled = false;
-                    dom.sendBtn.disabled = false;
-                    dom.msgInput.placeholder = "Escribe tu mensaje...";
-                }
             }
 
             function setTheme(isDark) { 
@@ -340,74 +476,6 @@
             function clearPdfData() { dom.pdfUploadInput.value = ''; dom.pdfPreviewContainer.classList.add('hidden'); selectedPdfText = null; updateModelAndUI(); }
             function updateModelAndUI() { dom.modelSelector.disabled = hasFile(); if (hasFile()) dom.modelSelector.value = 'gpt-4o'; }
             
-            async function sendMessage(forceSend = false) {
-                const userMessage = dom.msgInput.value.trim();
-                if (!userMessage && !selectedImageBase64 && !selectedPdfText) return;
-
-                const count = getMessageCount();
-
-                if (!currentUser) {
-                    if (count >= GUEST_MESSAGE_LIMIT && !forceSend) {
-                        pendingMessage = { userMessage, image: selectedImageBase64, pdf: selectedPdfText };
-                        await showModal({ title: 'Límite Gratuito Alcanzado', message: `Has usado tus ${GUEST_MESSAGE_LIMIT} mensajes. Regístrate gratis para obtener ${FREE_PLAN_MESSAGE_LIMIT} mensajes más.`, confirmText: 'Registrarse / Iniciar Sesión' })
-                            .then(wantsToLogin => { if (wantsToLogin) netlifyIdentity.open('signup'); });
-                        hideModal();
-                        return;
-                    }
-                } else {
-                    if (count >= FREE_PLAN_MESSAGE_LIMIT && !forceSend) {
-                        showPricingModal();
-                        return;
-                    }
-                }
-
-                if (!currentUser) {
-                    incrementGuestCount();
-                } else {
-                    currentUser.app_metadata.message_count++;
-                }
-                updateMessageCounter();
-
-                let chatIdToUpdate = currentChatId || createNewChat();
-                if (!state.chats[chatIdToUpdate]) return;
-
-                const [image, pdf] = [selectedImageBase64, selectedPdfText];
-                state.chats[chatIdToUpdate].messages.push({ role: 'user', content: userMessage, image, pdfText: pdf });
-                addMessageToUI('user', userMessage, image);
-                const thinkingBubble = addMessageToUI('bot', '…');
-                dom.msgInput.value = ''; clearImageData(); clearPdfData();
-
-                try {
-                    const responseData = await getAIResponse(userMessage, state.chats[chatIdToUpdate].messages.slice(0, -1), image, pdf);
-                    
-                    if (responseData.error === 'LIMIT_REACHED') {
-                        updateMessageInUI(thinkingBubble, `Has alcanzado el límite de ${FREE_PLAN_MESSAGE_LIMIT} mensajes de tu plan gratuito. ¡Actualiza para continuar!`);
-                        if (currentUser) {
-                            currentUser.app_metadata.message_count = FREE_PLAN_MESSAGE_LIMIT;
-                            updateMessageCounter();
-                        }
-                        showPricingModal();
-                        return;
-                    }
-
-                    if (responseData.reply) {
-                        state.chats[chatIdToUpdate].messages.push({ role: 'assistant', content: responseData.reply });
-                        updateMessageInUI(thinkingBubble, responseData.reply);
-                        speak(responseData.reply);
-
-                        if (currentUser && typeof responseData.new_message_count !== 'undefined') {
-                            currentUser.app_metadata.message_count = responseData.new_message_count;
-                            updateMessageCounter();
-                        }
-                        saveState();
-                    } else if (responseData.error) {
-                        updateMessageInUI(thinkingBubble, `❌ **${responseData.error}**<br><small>${responseData.details || 'No hay más detalles.'}</small>`);
-                    }
-                } catch (error) {
-                    updateMessageInUI(thinkingBubble, `❌ **Error de Conexión**<br><small>${error.message || 'Asegúrate de que el backend está desplegado.'}</small>`);
-                }
-            }
-
             function setupEventListeners() {
                 dom.genericModal.querySelector('#modal-confirm').addEventListener('click', () => { const input = dom.genericModal.querySelector('#modal-input'); hideModal(input.style.display !== 'none' ? input.value : true); });
                 dom.genericModal.querySelector('#modal-cancel').addEventListener('click', () => hideModal(null));
@@ -433,76 +501,6 @@
                 dom.userMenuBtn.addEventListener('click', () => dom.userMenuPopup.classList.toggle('hidden'));
             }
             
-            // =================================================================
-            // START: MAIN APP INITIALIZATION
-            // =================================================================
-            function initApp() {
-                setTheme(localStorage.getItem('theme') === 'dark' || (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches));
-                let initFired = false;
-
-                const finishInitialization = async (user) => {
-                    if (initFired) return;
-                    initFired = true;
-
-                    if (user) {
-                        currentUser = await ensureUserMetadata(user);
-                    } else {
-                        currentUser = null;
-                        if (getMessageCount() >= GUEST_MESSAGE_LIMIT) {
-                             showModal({ title: 'Límite de Invitado Alcanzado', message: `Has usado tus ${GUEST_MESSAGE_LIMIT} mensajes. Inicia sesión para continuar.`, confirmText: 'Iniciar Sesión / Registrarse' })
-                            .then(wantsToLogin => { if (wantsToLogin) netlifyIdentity.open(); });
-                        }
-                    }
-
-                    updateUserUI();
-                    loadStateForUser();
-
-                    dom.appContainer.classList.remove('opacity-0');
-                    dom.loadingOverlay.classList.add('opacity-0');
-                    setTimeout(() => {
-                        dom.loadingOverlay.style.display = 'none';
-                    }, 300);
-                };
-
-                const ensureUserMetadata = async (user) => {
-                    if (user && (!user.app_metadata.plan || typeof user.app_metadata.message_count === 'undefined')) {
-                        try {
-                            const updatedUser = await netlifyIdentity.gotrue.user.update({
-                                data: { plan: 'free', message_count: 0 }
-                            });
-                            await updatedUser.jwt(true);
-                            return updatedUser;
-                        } catch (error) { return user; }
-                    }
-                    return user;
-                };
-
-                netlifyIdentity.on('init', (user) => finishInitialization(user));
-
-                setTimeout(() => {
-                    if (!initFired) finishInitialization(netlifyIdentity.currentUser());
-                }, 2500);
-
-                netlifyIdentity.on('login', async user => {
-                    netlifyIdentity.close();
-                    localStorage.removeItem('guestMessageCount');
-                    currentUser = await ensureUserMetadata(user);
-                    updateUserUI();
-                    loadStateForUser();
-                    sendMessageIfPending();
-                });
-
-                netlifyIdentity.on('logout', () => {
-                    currentUser = null;
-                    updateUserUI();
-                    loadStateForUser();
-                });
-                
-                // Moved these calls here to be after function definitions
-                populateVoiceList();
-                setupEventListeners();
-            }
-
             initApp();
         });
     </script>
