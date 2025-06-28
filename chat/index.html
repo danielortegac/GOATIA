@@ -431,15 +431,24 @@
                         currentUser = await ensureUserMetadata(user);
                     } else {
                         currentUser = null;
-                        // **CHANGE**: Check if user has logged in before, or if guest limit is reached
-                        if (localStorage.getItem('hasLoggedInBefore') === 'true' || getMessageCount() >= GUEST_MESSAGE_LIMIT) {
-                             showModal({ title: 'Bienvenido de Nuevo', message: `Ya has usado los créditos de invitado en este navegador o ya tienes una cuenta. Por favor, inicia sesión para continuar.`, confirmText: 'Iniciar Sesión' })
-                            .then(wantsToLogin => { if (wantsToLogin) netlifyIdentity.open(); });
+                        if (localStorage.getItem('hasLoggedInBefore') === 'true') {
+                            localStorage.setItem('guestMessageCount', GUEST_MESSAGE_LIMIT);
                         }
                     }
 
                     updateUserUI();
                     loadStateForUser();
+
+                    // **CHANGE**: Moved modal logic here to ensure UI is updated first
+                    if (!currentUser && localStorage.getItem('hasLoggedInBefore') === 'true') {
+                        showModal({ 
+                            title: 'Bienvenido de Nuevo', 
+                            message: `Ya has usado los créditos de invitado en este navegador. Por favor, inicia sesión para continuar.`, 
+                            confirmText: 'Iniciar Sesión' 
+                        }).then(wantsToLogin => { 
+                            if (wantsToLogin) netlifyIdentity.open(); 
+                        });
+                    }
 
                     dom.appContainer.classList.remove('opacity-0');
                     dom.loadingOverlay.classList.add('opacity-0');
@@ -470,7 +479,7 @@
                 netlifyIdentity.on('login', async user => {
                     netlifyIdentity.close();
                     localStorage.removeItem('guestMessageCount');
-                    localStorage.setItem('hasLoggedInBefore', 'true'); // **CHANGE**: Set flag on login
+                    localStorage.setItem('hasLoggedInBefore', 'true');
                     currentUser = await ensureUserMetadata(user);
                     updateUserUI();
                     loadStateForUser();
@@ -481,6 +490,16 @@
                     currentUser = null;
                     updateUserUI();
                     loadStateForUser();
+                    // **CHANGE**: Show modal immediately on logout
+                    localStorage.setItem('guestMessageCount', GUEST_MESSAGE_LIMIT);
+                    updateMessageCounter();
+                    showModal({ 
+                        title: 'Sesión Cerrada', 
+                        message: `Has cerrado sesión. Para continuar, por favor, inicia sesión de nuevo.`, 
+                        confirmText: 'Iniciar Sesión' 
+                    }).then(wantsToLogin => { 
+                        if (wantsToLogin) netlifyIdentity.open(); 
+                    });
                 });
                 
                 populateVoiceList();
