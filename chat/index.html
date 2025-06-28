@@ -291,12 +291,13 @@
                 return response.json();
             }
 
-            function getCreditCount() { return currentUser ? (currentUser.app_metadata.credits || 0) : parseInt(localStorage.getItem('guestCreditCount') || '0'); }
+            function getCreditCount() { return currentUser ? (currentUser.app_metadata.credits !== undefined ? currentUser.app_metadata.credits : FREE_PLAN_CREDIT_LIMIT) : parseInt(localStorage.getItem('guestCreditCount') || '0'); }
             function setCreditCount(count) {
+                const newCount = Math.max(0, count); // Ensure credits don't go below 0
                 if(currentUser) {
-                    currentUser.app_metadata.credits = count;
+                    currentUser.app_metadata.credits = newCount;
                 } else {
-                     localStorage.setItem('guestCreditCount', String(count));
+                     localStorage.setItem('guestCreditCount', String(newCount));
                 }
                 updateCreditCounter();
             }
@@ -679,7 +680,7 @@
                     updateUserUI();
                     loadStateForUser();
 
-                    if (!currentUser && localStorage.getItem('hasLoggedInBefore') === 'true') {
+                    if (!currentUser && (localStorage.getItem('hasLoggedInBefore') === 'true' || getCreditCount() >= GUEST_CREDIT_LIMIT)) {
                         showModal({ 
                             title: 'Bienvenido de Nuevo', 
                             message: `Ya has usado los créditos de invitado en este navegador. Por favor, inicia sesión para continuar.`, 
@@ -697,14 +698,18 @@
                 };
 
                 const ensureUserMetadata = async (user) => {
-                    if (user && (!user.app_metadata.plan || typeof user.app_metadata.credits === 'undefined')) {
+                    if (user && (typeof user.app_metadata.credits === 'undefined')) {
                         try {
                             const updatedUser = await netlifyIdentity.gotrue.user.update({
                                 data: { plan: 'free', credits: FREE_PLAN_CREDIT_LIMIT }
                             });
                             await updatedUser.jwt(true);
                             return updatedUser;
-                        } catch (error) { return user; }
+                        } catch (error) { 
+                            console.error("Error setting default credits:", error);
+                            user.app_metadata.credits = FREE_PLAN_CREDIT_LIMIT;
+                            return user;
+                        }
                     }
                     return user;
                 };
