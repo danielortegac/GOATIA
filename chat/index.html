@@ -30,7 +30,7 @@
         .btn-primary:hover { background-color: var(--current-primary-hover); }
         .plan-card-highlight { border-color: var(--current-primary); box-shadow: 0 0 15px rgba(138, 79, 255, 0.3); }
         .placeholder-themed::placeholder { color: var(--current-text-medium); }
-        .glowing-mic { animation: pulse 1.5s infinite; }
+        .glowing-mic { animation: pulse 1.s infinite; }
         @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(138, 79, 255, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(138, 79, 255, 0); } 100% { box-shadow: 0 0 0 0 rgba(138, 79, 255, 0); } }
         /* Project folder styles */
         .project .project-content { display: none; }
@@ -198,9 +198,15 @@
         window.addEventListener('DOMContentLoaded', () => {
             const GUEST_CREDIT_LIMIT = 5;
             const FREE_PLAN_CREDIT_LIMIT = 15;
-            const WEB_PRO_MODEL_COST = 20; 
-            const COPYWRITING_MODEL_COST = 10;
-            const SALES_RESPONSE_MODEL_COST = 5;
+            
+            const COSTS = {
+                WEB_PAGE: 3,
+                COPYWRITING: 2,
+                SALES_RESPONSE: 2,
+                NEBULA: 2,
+                GENERAL: 1,
+                SEARCH: 1,
+            };
 
             const dom = {
                 msgInput: document.getElementById('msg'), sendBtn: document.getElementById('send'),
@@ -286,8 +292,15 @@
                 return response.json();
             }
 
-            function getCreditCount() { return currentUser ? (currentUser.app_metadata.message_count || 0) : parseInt(localStorage.getItem('guestCreditCount') || '0'); }
-            function incrementGuestCredits() { if (!currentUser) localStorage.setItem('guestCreditCount', String(getCreditCount() + 1)); }
+            function getCreditCount() { return currentUser ? (currentUser.app_metadata.credits || 0) : parseInt(localStorage.getItem('guestCreditCount') || '0'); }
+            function setCreditCount(count) {
+                if(currentUser) {
+                    currentUser.app_metadata.credits = count;
+                } else {
+                     localStorage.setItem('guestCreditCount', String(count));
+                }
+                updateCreditCounter();
+            }
             
             function loadStateForUser() {
                 const key = currentUser ? `goatbotState_${currentUser.id}` : 'guestState';
@@ -496,20 +509,17 @@
 
                 const count = getCreditCount();
                 const currentChat = state.chats[currentChatId];
-                let cost = 1;
+                let cost = COSTS.GENERAL;
 
-                if (currentChat?.workflow === 'web-page') {
-                    cost = WEB_PRO_MODEL_COST;
-                } else if (currentChat?.workflow === 'copywriting') {
-                    cost = COPYWRITING_MODEL_COST;
-                } else if (currentChat?.workflow === 'sales-response') {
-                    cost = SALES_RESPONSE_MODEL_COST;
-                }
-
+                if (currentChat?.workflow === 'web-page') cost = COSTS.WEB_PAGE;
+                else if (currentChat?.workflow === 'copywriting') cost = COSTS.COPYWRITING;
+                else if (currentChat?.workflow === 'sales-response') cost = COSTS.SALES_RESPONSE;
+                else if (dom.modelSelector.value === 'gpt-4o' && hasFile()) cost = COSTS.NEBULA;
+                else if (dom.modelSelector.value === 'perplexity') cost = COSTS.SEARCH;
+                
                 if (!currentUser) {
                     if (count >= GUEST_CREDIT_LIMIT && !forceSend) {
-                        pendingMessage = { userMessage, image: selectedImageBase64, pdf: selectedPdfText };
-                        await showModal({ title: 'Límite de Créditos Alcanzado', message: `Has usado tus ${GUEST_CREDIT_LIMIT} créditos de invitado. Regístrate gratis para obtener ${FREE_PLAN_CREDIT_LIMIT} créditos más.`, confirmText: 'Registrarse / Iniciar Sesión' })
+                        await showModal({ title: 'Límite de Créditos Alcanzado', message: `Has usado tus ${GUEST_CREDIT_LIMIT} créditos de invitado. Regístrate gratis para obtener ${FREE_PLAN_CREDIT_LIMIT} créditos.`, confirmText: 'Registrarse / Iniciar Sesión' })
                             .then(wantsToLogin => { if (wantsToLogin) netlifyIdentity.open('signup'); });
                         hideModal();
                         return;
@@ -525,9 +535,8 @@
                 let chatIdToUpdate = currentChatId || createNewChat();
                 if (!state.chats[chatIdToUpdate]) return;
                 
-                // **FIXED CREDIT LOGIC**
                 if (currentUser) {
-                    currentUser.app_metadata.message_count -= cost;
+                    setCreditCount(count - cost);
                 } else {
                     incrementGuestCredits();
                 }
@@ -544,10 +553,7 @@
                     
                     if (responseData.error === 'LIMIT_REACHED') {
                         updateMessageInUI(thinkingBubble, `Has alcanzado el límite de créditos de tu plan. ¡Actualiza para continuar!`);
-                        if (currentUser) {
-                            currentUser.app_metadata.message_count = 0;
-                            updateCreditCounter();
-                        }
+                        if (currentUser) setCreditCount(0);
                         showPricingModal();
                         return;
                     }
@@ -557,24 +563,17 @@
                         updateMessageInUI(thinkingBubble, responseData.reply);
                         speak(responseData.reply);
 
-                        if (currentUser && typeof responseData.new_message_count !== 'undefined') {
-                            currentUser.app_metadata.message_count = responseData.new_message_count;
-                            updateCreditCounter(); 
+                        if (currentUser && typeof responseData.new_credit_count !== 'undefined') {
+                            setCreditCount(responseData.new_credit_count);
                         }
                         saveState();
                     } else if (responseData.error) {
                         updateMessageInUI(thinkingBubble, `❌ **Error de Conexión**<br><small>${responseData.details || 'Error del servidor.'}</small>`);
-                        if (currentUser) {
-                            currentUser.app_metadata.message_count += cost;
-                            updateCreditCounter();
-                        }
+                        if (currentUser) setCreditCount(count); // Revert credit deduction on error
                     }
                 } catch (error) {
                     updateMessageInUI(thinkingBubble, `❌ **Error de Conexión**<br><small>${error.message || 'Asegúrate de que el backend está desplegado.'}</small>`);
-                     if (currentUser) {
-                        currentUser.app_metadata.message_count += cost;
-                        updateCreditCounter();
-                    }
+                     if (currentUser) setCreditCount(count); // Revert credit deduction on error
                 }
             }
 
@@ -607,7 +606,7 @@
                         title: "Nuevo Copy",
                         workflow: "copywriting",
                         model: "gpt-3.5-turbo",
-                        initialMessages: [{ role: 'assistant', content: `¡Claro! Empecemos un nuevo copy (costo: ${COPYWRITING_MODEL_COST} créditos). Por favor, dame el contexto: ¿cuál es el producto o servicio, a quién te diriges y cuál es el objetivo principal del copy?` }]
+                        initialMessages: [{ role: 'assistant', content: `¡Claro! Empecemos un nuevo copy (costo: ${COSTS.COPYWRITING} créditos). Por favor, dame el contexto: ¿cuál es el producto o servicio, a quién te diriges y cuál es el objetivo principal del copy?` }]
                     });
                 });
                 dom.salesResponseWorkflowBtn.addEventListener('click', () => {
@@ -615,7 +614,7 @@
                         title: "Respuesta de Venta",
                         workflow: "sales-response",
                         model: "gpt-3.5-turbo",
-                        initialMessages: [{ role: 'assistant', content: `¡Excelente! Estoy listo para ayudarte a cerrar esa venta (costo: ${SALES_RESPONSE_MODEL_COST} créditos). Pega el mensaje de tu cliente y te daré la respuesta perfecta para convencerlo.` }]
+                        initialMessages: [{ role: 'assistant', content: `¡Excelente! Estoy listo para ayudarte a cerrar esa venta (costo: ${COSTS.SALES_RESPONSE} créditos). Pega el mensaje de tu cliente y te daré la respuesta perfecta para convencerlo.` }]
                     });
                 });
                 dom.webPageWorkflowBtn.addEventListener('click', () => {
@@ -623,7 +622,7 @@
                         title: "Nueva Página Web",
                         workflow: "web-page",
                         model: "gpt-4o",
-                        initialMessages: [{ role: 'assistant', content: `¡Perfecto! Estoy listo para generar una página web profesional con HTML y Tailwind CSS (costo: ${WEB_PRO_MODEL_COST} créditos).\n\n**En tu próximo mensaje, describe con todo el detalle posible la página que quieres crear.** Considera incluir:\n- **Propósito:** ¿Es un portafolio, una landing page, un blog?\n- **Estilo y Tonos:** ¿Minimalista, corporativo, vibrante? ¿Colores principales?\n- **Secciones y Contenido:** ¿Qué secciones necesitas (Inicio, Sobre Nosotros, Servicios, Contacto) y qué texto e imágenes deberían ir en cada una?\n\n¡Mientras más detalles me des, mejor será el resultado!` }]
+                        initialMessages: [{ role: 'assistant', content: `¡Perfecto! Estoy listo para generar una página web profesional con HTML y Tailwind CSS (costo: ${COSTS.WEB_PAGE} créditos).\n\n**En tu próximo mensaje, describe con todo el detalle posible la página que quieres crear.** Considera incluir:\n- **Propósito:** ¿Es un portafolio, una landing page, un blog?\n- **Estilo y Tonos:** ¿Minimalista, corporativo, vibrante? ¿Colores principales?\n- **Secciones y Contenido:** ¿Qué secciones necesitas (Inicio, Sobre Nosotros, Servicios, Contacto) y qué texto e imágenes deberían ir en cada una?\n\n¡Mientras más detalles me des, mejor será el resultado!` }]
                     });
                 });
                 dom.closeHtmlPreviewModalBtn.addEventListener('click', () => dom.htmlPreviewModal.classList.add('hidden'));
@@ -667,12 +666,11 @@
                 };
 
                 const ensureUserMetadata = async (user) => {
-                    if (user && (user.app_metadata.plan === 'free' && user.app_metadata.message_count === 0)) {
-                         // This is a special case for users created before the credit system was inverted
-                    } else if (user && (!user.app_metadata.plan || typeof user.app_metadata.message_count === 'undefined')) {
+                     // Invert credit system: `message_count` now stores remaining credits.
+                    if (user && (!user.app_metadata.plan || typeof user.app_metadata.credits === 'undefined')) {
                         try {
                             const updatedUser = await netlifyIdentity.gotrue.user.update({
-                                data: { plan: 'free', message_count: FREE_PLAN_CREDIT_LIMIT }
+                                data: { plan: 'free', credits: FREE_PLAN_CREDIT_LIMIT }
                             });
                             await updatedUser.jwt(true);
                             return updatedUser;
