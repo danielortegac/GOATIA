@@ -218,22 +218,22 @@
             function showPricingModal() { dom.pricingModal.classList.remove('hidden'); dom.pricingModal.classList.add('flex'); setTimeout(() => { dom.pricingModal.querySelector('.modal-content').classList.remove('scale-95'); }, 10); }
             function hidePricingModal() { dom.pricingModal.querySelector('.modal-content').classList.add('scale-95'); setTimeout(() => { dom.pricingModal.classList.add('hidden'); dom.pricingModal.classList.remove('flex'); }, 300); }
             
-            // =================================================================
-            // START: FINAL, ROBUST APP INITIALIZATION
-            // =================================================================
             function initApp() {
                 setTheme(localStorage.getItem('theme') === 'dark' || (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches));
-                let initFired = false; // Flag to prevent multiple initializations
+                let initFired = false;
 
                 const finishInitialization = async (user) => {
                     if (initFired) return;
                     initFired = true;
 
-                    console.log("Finalizing setup for user:", user ? user.email : 'Guest');
                     if (user) {
                         currentUser = await ensureUserMetadata(user);
                     } else {
                         currentUser = null;
+                        if (getMessageCount() >= GUEST_MESSAGE_LIMIT) {
+                             showModal({ title: 'Límite de Invitado Alcanzado', message: `Has usado tus ${GUEST_MESSAGE_LIMIT} mensajes. Inicia sesión para continuar.`, confirmText: 'Iniciar Sesión / Registrarse' })
+                            .then(wantsToLogin => { if (wantsToLogin) netlifyIdentity.open(); });
+                        }
                     }
 
                     updateUserUI();
@@ -248,38 +248,26 @@
 
                 const ensureUserMetadata = async (user) => {
                     if (user && (!user.app_metadata.plan || typeof user.app_metadata.message_count === 'undefined')) {
-                        console.log("Ensuring user metadata...");
                         try {
                             const updatedUser = await netlifyIdentity.gotrue.user.update({
                                 data: { plan: 'free', message_count: 0 }
                             });
                             await updatedUser.jwt(true);
                             return updatedUser;
-                        } catch (error) {
-                            console.error("Error setting default plan:", error);
-                            return user;
-                        }
+                        } catch (error) { return user; }
                     }
                     return user;
                 };
 
-                // The 'init' event is the primary trigger.
-                netlifyIdentity.on('init', (user) => {
-                    console.log('Netlify Identity "init" event fired.');
-                    finishInitialization(user);
-                });
+                netlifyIdentity.on('init', (user) => finishInitialization(user));
 
-                // Failsafe timeout in case 'init' event is slow or fails.
                 setTimeout(() => {
-                    console.log('Timeout reached. Checking for user status manually.');
-                    if (!initFired) {
-                      finishInitialization(netlifyIdentity.currentUser());
-                    }
-                }, 2500); // **CHANGE**: Reduced timeout to 2.5 seconds
+                    if (!initFired) finishInitialization(netlifyIdentity.currentUser());
+                }, 2500);
 
                 netlifyIdentity.on('login', async user => {
                     netlifyIdentity.close();
-                    localStorage.removeItem('guestMessageCount');
+                    localStorage.removeItem('guestMessageCount'); // Clear guest counter on successful login
                     currentUser = await ensureUserMetadata(user);
                     updateUserUI();
                     loadStateForUser();
@@ -295,54 +283,34 @@
                 populateVoiceList();
                 setupEventListeners();
             }
-            // =================================================================
-            // END: FINAL, ROBUST APP INITIALIZATION
-            // =================================================================
 
-            const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-            let recognition;
-            if (SR) {
-                recognition = new SR();
-                recognition.continuous = false;
-                recognition.lang = 'es-ES';
-                recognition.interimResults = false;
-                recognition.onstart = () => { isRecognizing = true; dom.voiceBtn.classList.add('glowing-mic'); };
-                recognition.onend = () => { isRecognizing = false; dom.voiceBtn.classList.remove('glowing-mic'); };
-                recognition.onresult = (event) => { dom.msgInput.value += Array.from(event.results).map(r => r[0].transcript).join(''); };
-            } else {
-                dom.voiceBtn.style.display = 'none';
-            }
-
-            function speak(text) { if (!speechOn || !('speechSynthesis' in window) || !text) return; speechSynthesis.cancel(); const cleanText = text.replace(/[*_`#~[\]()🔍]|(-{3,})|(\*\*Fuente:\*\*.*)/g, ''); const utterance = new SpeechSynthesisUtterance(cleanText); utterance.voice = availableVoices.find(v => v.lang.startsWith('es')) || availableVoices[0]; speechSynthesis.speak(utterance); }
-            function populateVoiceList() { if (typeof speechSynthesis === 'undefined') return; availableVoices = speechSynthesis.getVoices(); if (speechSynthesis.onvoiceschanged !== undefined) speechSynthesis.onvoiceschanged = () => availableVoices = speechSynthesis.getVoices(); }
-
-            // =================================================================
-            // START: CORRECTED sendMessage FUNCTION
-            // =================================================================
             async function sendMessage(forceSend = false) {
                 const userMessage = dom.msgInput.value.trim();
                 if (!userMessage && !selectedImageBase64 && !selectedPdfText) return;
 
-                // Handle message limits and optimistic UI updates before sending.
-                if (!currentUser) { // Guest User
-                    if (getMessageCount() >= GUEST_MESSAGE_LIMIT && !forceSend) {
+                const count = getMessageCount();
+
+                if (!currentUser) {
+                    if (count >= GUEST_MESSAGE_LIMIT && !forceSend) {
                         pendingMessage = { userMessage, image: selectedImageBase64, pdf: selectedPdfText };
                         await showModal({ title: 'Límite Gratuito Alcanzado', message: `Has usado tus ${GUEST_MESSAGE_LIMIT} mensajes. Regístrate gratis para obtener ${FREE_PLAN_MESSAGE_LIMIT} mensajes más.`, confirmText: 'Registrarse / Iniciar Sesión' })
                             .then(wantsToLogin => { if (wantsToLogin) netlifyIdentity.open('signup'); });
                         hideModal();
                         return;
                     }
-                    incrementGuestCount();
-                    updateMessageCounter();
-                } else { // Logged-in User
-                    if (getMessageCount() >= FREE_PLAN_MESSAGE_LIMIT && !forceSend) {
+                } else {
+                    if (count >= FREE_PLAN_MESSAGE_LIMIT && !forceSend) {
                         showPricingModal();
                         return;
                     }
-                    // **CHANGE**: Optimistically update counter for logged-in user
-                    currentUser.app_metadata.message_count++;
-                    updateMessageCounter();
                 }
+
+                if (!currentUser) {
+                    incrementGuestCount();
+                } else {
+                    currentUser.app_metadata.message_count++;
+                }
+                updateMessageCounter();
 
                 let chatIdToUpdate = currentChatId || createNewChat();
                 if (!state.chats[chatIdToUpdate]) return;
@@ -358,6 +326,10 @@
                     
                     if (responseData.error === 'LIMIT_REACHED') {
                         updateMessageInUI(thinkingBubble, `Has alcanzado el límite de ${FREE_PLAN_MESSAGE_LIMIT} mensajes de tu plan gratuito. ¡Actualiza para continuar!`);
+                        if (currentUser) { // If a logged-in user hits a server-side limit
+                            currentUser.app_metadata.message_count = FREE_PLAN_MESSAGE_LIMIT;
+                            updateMessageCounter();
+                        }
                         showPricingModal();
                         return;
                     }
@@ -367,7 +339,6 @@
                         updateMessageInUI(thinkingBubble, responseData.reply);
                         speak(responseData.reply);
 
-                        // Re-sync with the server's official count just in case.
                         if (currentUser && typeof responseData.new_message_count !== 'undefined') {
                             currentUser.app_metadata.message_count = responseData.new_message_count;
                             updateMessageCounter();
@@ -380,9 +351,6 @@
                     updateMessageInUI(thinkingBubble, `❌ **Error de Conexión**<br><small>${error.message || 'Asegúrate de que el backend está desplegado.'}</small>`);
                 }
             }
-            // =================================================================
-            // END: CORRECTED sendMessage FUNCTION
-            // =================================================================
             
             async function getAIResponse(prompt, history, image, pdf) {
                 const token = currentUser ? await currentUser.jwt() : null;
@@ -447,6 +415,17 @@
                 const limit = currentUser ? FREE_PLAN_MESSAGE_LIMIT : GUEST_MESSAGE_LIMIT;
                 const planName = currentUser ? 'Plan Gratuito' : 'Invitado';
                 dom.messageCounterEl.textContent = `${planName}: ${count}/${limit} msj`;
+
+                // **CHANGE**: Block/unblock UI based on message count
+                if (count >= limit) {
+                    dom.msgInput.disabled = true;
+                    dom.sendBtn.disabled = true;
+                    dom.msgInput.placeholder = "Límite de mensajes alcanzado.";
+                } else {
+                    dom.msgInput.disabled = false;
+                    dom.sendBtn.disabled = false;
+                    dom.msgInput.placeholder = "Escribe tu mensaje...";
+                }
             }
 
             function setTheme(isDark) { 
