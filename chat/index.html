@@ -205,7 +205,6 @@
 
             let state = { chats: {}, folders: {}, structure: [] };
             let currentChatId = null, currentUser = null, pendingMessage = null, speechOn = true, availableVoices = [], isRecognizing = false, selectedImageBase64 = null, selectedPdfText = null;
-            let initFired = false;
             
             let modalResolve = null;
             function showModal({ title, message, useInput = false, placeholder = '', confirmText = 'Confirmar' }) {
@@ -220,29 +219,42 @@
             function hidePricingModal() { dom.pricingModal.querySelector('.modal-content').classList.add('scale-95'); setTimeout(() => { dom.pricingModal.classList.add('hidden'); dom.pricingModal.classList.remove('flex'); }, 300); }
             
             // =================================================================
-            // START: ROBUST APP INITIALIZATION
+            // START: FINAL, ROBUST APP INITIALIZATION
             // =================================================================
             function initApp() {
                 setTheme(localStorage.getItem('theme') === 'dark' || (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches));
-                
-                const finishInitialization = () => {
-                    initFired = true;
+
+                // Central function to set up the entire application state and UI based on the user.
+                const setupApplicationForUser = async (user) => {
+                    console.log("Setting up application for user:", user ? user.email : 'Guest');
+                    if (user) {
+                        // User is logged in. Ensure their metadata is correct.
+                        currentUser = await ensureUserMetadata(user);
+                    } else {
+                        // User is a guest.
+                        currentUser = null;
+                    }
+
+                    // Now that currentUser is definitively set, update the UI and load their data.
                     updateUserUI();
                     loadStateForUser();
-                    // Fade in the app and fade out the loading screen
+
+                    // Make the app visible now that everything is ready.
                     dom.appContainer.classList.remove('opacity-0');
                     dom.loadingOverlay.classList.add('opacity-0');
-                    setTimeout(() => dom.loadingOverlay.classList.add('hidden'), 300);
+                    setTimeout(() => {
+                        dom.loadingOverlay.style.display = 'none'; // Use style.display to remove it from layout
+                    }, 300);
                 };
-                
+
                 const ensureUserMetadata = async (user) => {
                     if (user && (!user.app_metadata.plan || typeof user.app_metadata.message_count === 'undefined')) {
-                        console.log("Detecting new user or user without metadata. Assigning defaults.");
+                        console.log("Ensuring user metadata...");
                         try {
                             const updatedUser = await netlifyIdentity.gotrue.user.update({
                                 data: { plan: 'free', message_count: 0 }
                             });
-                            await updatedUser.jwt(true); 
+                            await updatedUser.jwt(true);
                             return updatedUser;
                         } catch (error) {
                             console.error("Error setting default plan:", error);
@@ -252,43 +264,29 @@
                     return user;
                 };
 
-                netlifyIdentity.on('init', async user => {
-                    console.log('Netlify Identity init event fired.');
-                    if (initFired) return; // Prevent this from running more than once
-                    if (user) {
-                        currentUser = await ensureUserMetadata(user);
-                    }
-                    finishInitialization();
-                });
-
-                // Failsafe timeout in case 'init' event doesn't fire
-                setTimeout(() => {
-                    if (!initFired) {
-                        console.warn("Netlify Identity init event timed out. Proceeding as guest.");
-                        finishInitialization();
-                    }
-                }, 4000);
+                // The 'init' event is the one and only entry point for starting the app.
+                // It passes the resolved user (or null) to our setup function.
+                netlifyIdentity.on('init', setupApplicationForUser);
 
                 netlifyIdentity.on('login', async user => {
-                    netlifyIdentity.close(); 
-                    localStorage.removeItem('guestMessageCount'); 
-                    currentUser = await ensureUserMetadata(user);
-                    updateUserUI(); 
-                    loadStateForUser();
+                    netlifyIdentity.close();
+                    localStorage.removeItem('guestMessageCount');
+                    // After login, we can just call the setup function again with the new user.
+                    await setupApplicationForUser(user);
                     sendMessageIfPending();
                 });
 
                 netlifyIdentity.on('logout', () => {
-                    currentUser = null;
-                    updateUserUI();
-                    loadStateForUser();
+                    // After logout, call the setup function with a null user to reset the UI.
+                    setupApplicationForUser(null);
                 });
-
+                
+                // Initialize all other non-auth-dependent parts of the app.
                 populateVoiceList();
                 setupEventListeners();
             }
             // =================================================================
-            // END: ROBUST APP INITIALIZATION
+            // END: FINAL, ROBUST APP INITIALIZATION
             // =================================================================
 
             const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -395,7 +393,6 @@
                     state = { chats: {}, folders: {}, structure: [] };
                     currentChatId = null;
                 }
-                updateMessageCounter();
                 renderSidebar();
                 selectChat(currentChatId);
             }
