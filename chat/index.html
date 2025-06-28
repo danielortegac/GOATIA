@@ -96,7 +96,6 @@
                 </div>
                 <div id="user-menu-view" class="hidden relative">
                     <button id="user-menu-btn" class="w-full flex items-center text-left p-2 rounded-lg hover:bg-light transition-colors">
-                        <i class="fas fa-user-circle text-2xl mr-3 text-primary"></i>
                         <span id="user-email" class="flex-grow truncate text-sm font-semibold"></span>
                         <i class="fas fa-ellipsis-h"></i>
                     </button>
@@ -111,7 +110,10 @@
            <header class="flex items-center justify-between p-4 border-b border-themed">
                 <button id="menu-toggle" class="md:hidden text-xl p-2"><i class="fas fa-bars"></i></button>
                 <h1 id="chat-title" class="text-lg font-semibold truncate cursor-pointer" title="Renombrar Chat">GOATBOT Pro</h1>
-                <div class="flex items-center space-x-4">
+                <div class="flex items-center space-x-2">
+                    <div id="voice-selector-container" class="flex items-center space-x-2">
+                        <select id="voice-selector" class="rounded-md p-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 bg-input text-text-light border border-themed"></select>
+                    </div>
                     <div id="message-counter" class="text-xs font-mono"></div>
                     <button id="ttsToggle" title="Activar/Desactivar Voz" class="text-yellow-400 text-xl hover:text-yellow-300 transition-colors p-2"><i class="fa fa-volume-high"></i></button>
                     <button id="theme-toggle" title="Cambiar Tema" class="text-xl p-2"><i class="fas fa-moon" id="theme-icon"></i></button>
@@ -240,13 +242,15 @@
                 htmlPreviewModal: document.getElementById('html-preview-modal'),
                 closeHtmlPreviewModalBtn: document.getElementById('close-html-preview-modal'),
                 htmlPreviewIframe: document.getElementById('html-preview-iframe'),
+                voiceSelector: document.getElementById('voice-selector'),
             };
 
             let state = { chats: {}, projects: {}, structure: [] };
-            let currentChatId = null, currentUser = null, pendingMessage = null, speechOn = true, availableVoices = [], isRecognizing = false, selectedImageBase64 = null, selectedPdfText = null;
+            let currentChatId = null, currentUser = null, pendingMessage = null, speechOn = true, availableVoices = [], selectedVoice = null, isRecognizing = false, selectedImageBase64 = null, selectedPdfText = null;
             
             let modalResolve = null;
             
+            // All function declarations moved to the top for robust initialization
             function showModal({ title, message, useInput = false, placeholder = '', confirmText = 'Confirmar' }) {
                 const modalTitle = dom.genericModal.querySelector('#modal-title'), modalMessage = dom.genericModal.querySelector('#modal-message'), modalInput = dom.genericModal.querySelector('#modal-input'), modalConfirm = dom.genericModal.querySelector('#modal-confirm');
                 modalTitle.textContent = title; modalMessage.textContent = message; modalMessage.style.display = message ? 'block' : 'none'; modalInput.style.display = useInput ? 'block' : 'none'; modalInput.value = ''; modalInput.placeholder = placeholder; modalConfirm.textContent = confirmText;
@@ -267,13 +271,52 @@
                 recognition.interimResults = false;
                 recognition.onstart = () => { isRecognizing = true; dom.voiceBtn.classList.add('glowing-mic'); };
                 recognition.onend = () => { isRecognizing = false; dom.voiceBtn.classList.remove('glowing-mic'); };
-                recognition.onresult = (event) => { dom.msgInput.value += Array.from(event.results).map(r => r[0].transcript).join(''); };
+                recognition.onresult = (event) => {
+                    const transcript = Array.from(event.results).map(r => r[0].transcript).join('');
+                    dom.msgInput.value = transcript;
+                    sendMessage();
+                };
             } else {
                 if(dom.voiceBtn) dom.voiceBtn.style.display = 'none';
             }
 
-            function speak(text) { if (!speechOn || !('speechSynthesis' in window) || !text) return; speechSynthesis.cancel(); const cleanText = text.replace(/[*_`#~[\]()🔍]|(-{3,})|(\*\*Fuente:\*\*.*)/g, ''); const utterance = new SpeechSynthesisUtterance(cleanText); utterance.voice = availableVoices.find(v => v.lang.startsWith('es')) || availableVoices[0]; speechSynthesis.speak(utterance); }
-            function populateVoiceList() { if (typeof speechSynthesis === 'undefined') return; availableVoices = speechSynthesis.getVoices(); if (speechSynthesis.onvoiceschanged !== undefined) speechSynthesis.onvoiceschanged = () => availableVoices = speechSynthesis.getVoices(); }
+            function speak(text) { 
+                if (!speechOn || !('speechSynthesis' in window) || !text) return; 
+                speechSynthesis.cancel(); 
+                const cleanText = text.replace(/[*_`#~[\]()🔍]|(-{3,})|(\*\*Fuente:\*\*.*)/g, ''); 
+                const utterance = new SpeechSynthesisUtterance(cleanText); 
+                if (selectedVoice) {
+                    utterance.voice = selectedVoice;
+                }
+                speechSynthesis.speak(utterance); 
+            }
+            function populateVoiceList() { 
+                if (typeof speechSynthesis === 'undefined') {
+                    dom.voiceSelector.style.display = 'none';
+                    return;
+                }
+                
+                function setVoices() {
+                    availableVoices = speechSynthesis.getVoices().filter(v => v.lang.startsWith('es-'));
+                    dom.voiceSelector.innerHTML = '';
+                    if(availableVoices.length === 0) {
+                        dom.voiceSelector.style.display = 'none';
+                        return;
+                    }
+                    availableVoices.forEach(voice => {
+                        const option = document.createElement('option');
+                        option.textContent = `${voice.name} (${voice.lang})`;
+                        option.value = voice.name;
+                        dom.voiceSelector.appendChild(option);
+                    });
+                    selectedVoice = availableVoices[0];
+                }
+
+                if (speechSynthesis.onvoiceschanged !== undefined) {
+                    speechSynthesis.onvoiceschanged = setVoices;
+                }
+                setVoices();
+            }
             
             async function getAIResponse(prompt, history, image, pdf, model) {
                 const token = currentUser ? await currentUser.jwt() : null;
@@ -618,7 +661,12 @@
                 dom.genericModal.querySelector('#modal-cancel').addEventListener('click', () => hideModal(null));
                 dom.sendBtn.addEventListener('click', () => sendMessage());
                 dom.msgInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
-                dom.newChatBtn.addEventListener('click', () => createNewChat());
+                dom.newChatBtn.addEventListener('click', () => {
+                    const userName = currentUser ? currentUser.user_metadata.full_name?.split(' ')[0] || currentUser.email.split('@')[0] : 'humano';
+                    createNewChat({
+                        initialMessages: [{role: 'assistant', content: `¡Hola, ${userName}! Soy GOATBOT, tu asistente personal de IA. Estoy aquí para ayudarte en lo que necesites. ¿Cómo podemos empezar?`}]
+                    });
+                });
                 dom.newProjectBtn.addEventListener('click', async () => { const name = await showModal({ title: 'Crear Proyecto', useInput: true, placeholder: 'Nombre del Proyecto...' }); if (name && name.trim()) { const id = 'project-' + crypto.randomUUID(); state.projects[id] = { id, title: name.trim(), chatIds: [] }; state.structure.unshift(id); saveState(); renderSidebar(); } hideModal(); });
                 dom.upgradePlanBtn.addEventListener('click', showPricingModal);
                 dom.closePricingModalBtn.addEventListener('click', hidePricingModal);
@@ -661,6 +709,9 @@
                     });
                 });
                 dom.closeHtmlPreviewModalBtn.addEventListener('click', () => dom.htmlPreviewModal.classList.add('hidden'));
+                dom.voiceSelector.addEventListener('change', (e) => {
+                    selectedVoice = availableVoices.find(voice => voice.name === e.target.value);
+                });
             }
             
             function initApp() {
@@ -701,9 +752,8 @@
                 };
 
                 const ensureUserMetadata = async (user) => {
-                    if (user && (typeof user.app_metadata.credits === 'undefined')) {
+                    if (user && (typeof user.app_metadata.credits === 'undefined' || user.app_metadata.credits === 0)) {
                         try {
-                            console.log("Assigning default credits to new user.");
                             const updatedUser = await netlifyIdentity.gotrue.user.update({
                                 data: { plan: 'free', credits: FREE_PLAN_CREDIT_LIMIT }
                             });
