@@ -32,23 +32,19 @@
         .placeholder-themed::placeholder { color: var(--current-text-medium); }
         .glowing-mic { animation: pulse 1.5s infinite; }
         @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(138, 79, 255, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(138, 79, 255, 0); } 100% { box-shadow: 0 0 0 0 rgba(138, 79, 255, 0); } }
+        .loader { border: 4px solid var(--current-bg-light); border-top: 4px solid var(--current-primary); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
-<body class="h-screen w-screen overflow-hidden dark-theme">
+<body class="h-screen w-screen overflow-hidden">
 
-    <!-- Loading Overlay -->
-    <div id="loading-overlay" class="fixed inset-0 bg-bg-dark bg-opacity-95 flex flex-col items-center justify-center z-[100] transition-opacity duration-300">
-        <img src="./logo-goatify-header.png" alt="GOATIFY Logo" class="w-24 h-24 object-contain mb-6 animate-pulse" onerror="this.onerror=null;this.src='https://placehold.co/96x96/121212/e0e0e0?text=LOGO';">
-        <div class="text-text-light text-center">
-             <i class="fas fa-spinner fa-spin fa-2x"></i>
-             <p class="mt-3 text-lg font-semibold">Inicializando...</p>
-        </div>
+    <div id="loading-screen" class="flex flex-col items-center justify-center h-full w-full bg-medium">
+        <div class="loader"></div>
+        <p class="mt-4 text-lg text-text-medium">Cargando GOATBOT...</p>
     </div>
 
-    <!-- App Container is now invisible by default to prevent flashing -->
-    <div id="app-container" class="flex h-full w-full relative opacity-0 transition-opacity duration-300">
+    <div id="app-container" class="flex h-full w-full relative hidden">
         <aside id="sidebar" class="w-72 flex-shrink-0 flex flex-col p-3 transition-transform duration-300 -translate-x-full md:translate-x-0 absolute md:relative z-30 h-full">
-            <!-- Top Section -->
             <div class="flex-shrink-0">
                 <div id="logo-space" class="w-24 h-24 rounded-lg mx-auto mb-4 flex items-center justify-center overflow-hidden bg-input">
                     <img src="./logo-goatify-header.png" alt="GOATIFY Logo" class="w-full h-full object-contain" onerror="this.onerror=null;this.src='https://placehold.co/96x96/2c2c2c/e0e0e0?text=LOGO';">
@@ -60,19 +56,15 @@
                 </div>
             </div>
             
-            <!-- Middle Section (Scrollable) -->
             <div id="sidebar-content" class="flex-grow overflow-y-auto pr-1 space-y-1"></div>
 
-            <!-- Bottom Section (User Menu) -->
             <div id="user-section" class="flex-shrink-0 border-t border-themed mt-2 pt-3">
-                <!-- Logged Out View -->
-                <div id="login-view" class="hidden">
+                <div id="login-view">
                     <button id="login-btn" class="w-full flex items-center justify-center font-semibold p-3 rounded-lg btn-primary transition-colors">
                         <i class="fas fa-sign-in-alt mr-2"></i>
                         <span>Iniciar Sesión / Registrarse</span>
                     </button>
                 </div>
-                <!-- Logged In View -->
                 <div id="user-menu-view" class="hidden relative">
                     <button id="user-menu-btn" class="w-full flex items-center text-left p-2 rounded-lg hover:bg-light transition-colors">
                         <i class="fas fa-user-circle text-2xl mr-3 text-primary"></i>
@@ -88,66 +80,59 @@
         </aside>
 
         <main id="main-chat-area" class="flex-1 flex flex-col">
-           <!-- Header -->
            <header class="flex items-center justify-between p-4 border-b border-themed">
-                <button id="menu-toggle" class="md:hidden text-xl p-2"><i class="fas fa-bars"></i></button>
-                <h1 id="chat-title" class="text-lg font-semibold truncate cursor-pointer" title="Renombrar Chat">GOATBOT Pro</h1>
-                <div class="flex items-center space-x-4">
-                    <div id="message-counter" class="text-xs font-mono"></div>
-                    <button id="ttsToggle" title="Activar/Desactivar Voz" class="text-yellow-400 text-xl hover:text-yellow-300 transition-colors p-2"><i class="fa fa-volume-high"></i></button>
-                    <button id="theme-toggle" title="Cambiar Tema" class="text-xl p-2"><i class="fas fa-moon" id="theme-icon"></i></button>
-                </div>
+               <button id="menu-toggle" class="md:hidden text-xl p-2"><i class="fas fa-bars"></i></button>
+               <h1 id="chat-title" class="text-lg font-semibold truncate cursor-pointer" title="Renombrar Chat">GOATBOT Pro</h1>
+               <div class="flex items-center space-x-4">
+                   <div id="message-counter" class="text-xs font-mono"></div>
+                   <button id="ttsToggle" title="Activar/Desactivar Voz" class="text-yellow-400 text-xl hover:text-yellow-300 transition-colors p-2"><i class="fa fa-volume-high"></i></button>
+                   <button id="theme-toggle" title="Cambiar Tema" class="text-xl p-2"><i class="fas fa-moon" id="theme-icon"></i></button>
+               </div>
            </header>
-           <!-- Chat Messages -->
            <div id="chat-messages" class="flex-1 overflow-y-auto p-3 sm:p-6">
-                <!-- Welcome message container -->
-                <div class="flex justify-center items-center h-full" id="initial-message-container">
-                    <div id="welcome-message-wrapper" class="text-center text-text-medium">
-                        <img src="./logo-goatify-header.png" alt="GOATIFY Logo" class="w-24 h-24 object-contain mx-auto mb-4" onerror="this.onerror=null;this.src='https://placehold.co/96x96/2c2c2c/e0e0e0?text=LOGO';">
-                        <!-- Personalized Welcome -->
-                        <div id="personalized-welcome" class="hidden">
-                            <h2 class="text-2xl font-bold">¡Hola, <span id="user-name"></span>!</h2>
-                            <p class="text-lg mt-1">Hoy es un gran día. ¡Puedes con todo!</p>
-                        </div>
-                        <!-- Generic Welcome -->
-                        <div id="generic-welcome" class="hidden">
-                            <p class="text-xl">¿Cómo puedo ayudarte hoy?</p>
-                        </div>
-                    </div>
-                </div>
+               <div class="flex justify-center items-center h-full" id="initial-message-container">
+                   <div id="welcome-message-wrapper" class="text-center text-text-medium">
+                       <img src="./logo-goatify-header.png" alt="GOATIFY Logo" class="w-24 h-24 object-contain mx-auto mb-4" onerror="this.onerror=null;this.src='https://placehold.co/96x96/2c2c2c/e0e0e0?text=LOGO';">
+                       <div id="personalized-welcome" class="hidden">
+                           <h2 class="text-2xl font-bold">¡Hola, <span id="user-name"></span>!</h2>
+                           <p class="text-lg mt-1">Hoy es un gran día. ¡Puedes con todo!</p>
+                       </div>
+                       <div id="generic-welcome">
+                           <p class="text-xl">¿Cómo puedo ayudarte hoy?</p>
+                       </div>
+                   </div>
+               </div>
            </div>
-           <!-- Input Area -->
            <div id="input-area" class="p-2 sm:p-4 border-t border-themed">
-                <div id="file-preview-area" class="mb-3 space-y-2 px-1 sm:px-0">
-                    <div id="image-preview-container" class="hidden relative w-24 h-24 sm:w-32 sm:h-32 rounded-lg overflow-hidden border border-themed">
-                        <img id="image-preview" src="#" alt="Image Preview" class="w-full h-full object-contain">
-                        <button id="clear-image-btn" class="absolute top-1 right-1 bg-red-500 hover:bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs z-10"><i class="fas fa-times"></i></button>
-                    </div>
-                    <div id="pdf-preview-container" class="hidden relative p-3 rounded-lg border-themed">
+               <div id="file-preview-area" class="mb-3 space-y-2 px-1 sm:px-0">
+                   <div id="image-preview-container" class="hidden relative w-24 h-24 sm:w-32 sm:h-32 rounded-lg overflow-hidden border border-themed">
+                       <img id="image-preview" src="#" alt="Image Preview" class="w-full h-full object-contain">
+                       <button id="clear-image-btn" class="absolute top-1 right-1 bg-red-500 hover:bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs z-10"><i class="fas fa-times"></i></button>
+                   </div>
+                   <div id="pdf-preview-container" class="hidden relative p-3 rounded-lg border-themed">
                          <div class="flex items-center"><i class="fas fa-file-pdf text-red-500 text-3xl mr-4 flex-shrink-0"></i><div class="flex-grow min-w-0"><p id="pdf-name" class="text-sm font-medium truncate"></p><p id="pdf-status" class="text-xs font-mono"></p></div></div><button id="clear-pdf-btn" class="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs z-10"><i class="fas fa-times"></i></button>
-                    </div>
-                </div>
-                <div class="flex items-center space-x-3 mb-3 px-1 sm:px-2">
-                    <label for="model-selector" class="font-medium text-sm text-text-medium">Modelo:</label>
-                    <select id="model-selector" class="rounded-md p-1.5 focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm disabled:opacity-50 disabled:cursor-not-allowed bg-input text-text-light border border-themed">
-                        <option value="gpt-3.5-turbo">Goatify Pro (Texto)</option>
-                        <option value="gpt-4o">Goatify Nebula (Archivos)</option>
-                        <option value="perplexity">Búsqueda Web</option>
-                    </select>
-                </div>
-                <div class="relative rounded-xl flex items-center bg-input p-1 sm:p-2">
-                    <input type="file" id="pdf-upload" accept=".pdf,application/pdf" class="hidden"><input type="file" id="image-upload" accept="image/*" class="hidden">
-                    <button id="pdf-upload-btn" title="Subir PDF" class="p-2 sm:p-3 hover:text-primary transition-colors rounded-full text-text-medium"><i class="fa fa-file-pdf text-xl"></i></button>
-                    <button id="image-upload-btn" title="Subir Imagen" class="p-2 sm:p-3 hover:text-primary transition-colors rounded-full text-text-medium"><i class="fa fa-image text-xl"></i></button>
-                    <button id="voice" title="Hablar" class="p-2 sm:p-3 hover:text-primary transition-colors rounded-full text-text-medium"><i class="fa fa-microphone text-xl"></i></button>
-                    <textarea id="msg" placeholder="Escribe tu mensaje..." class="flex-1 bg-transparent p-2 h-12 resize-none outline-none placeholder-themed" rows="1"></textarea>
-                    <button id="send" title="Enviar" class="p-2 sm:p-4 disabled:opacity-50 disabled:cursor-not-allowed text-primary"><i id="send-icon" class="fa fa-paper-plane text-xl"></i></button>
-                </div>
+                   </div>
+               </div>
+               <div class="flex items-center space-x-3 mb-3 px-1 sm:px-2">
+                   <label for="model-selector" class="font-medium text-sm text-text-medium">Modelo:</label>
+                   <select id="model-selector" class="rounded-md p-1.5 focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm disabled:opacity-50 disabled:cursor-not-allowed bg-input text-text-light border border-themed">
+                       <option value="gpt-3.5-turbo">Goatify Pro (Texto)</option>
+                       <option value="gpt-4o">Goatify Nebula (Archivos)</option>
+                       <option value="perplexity">Búsqueda Web</option>
+                   </select>
+               </div>
+               <div class="relative rounded-xl flex items-center bg-input p-1 sm:p-2">
+                   <input type="file" id="pdf-upload" accept=".pdf,application/pdf" class="hidden"><input type="file" id="image-upload" accept="image/*" class="hidden">
+                   <button id="pdf-upload-btn" title="Subir PDF" class="p-2 sm:p-3 hover:text-primary transition-colors rounded-full text-text-medium"><i class="fa fa-file-pdf text-xl"></i></button>
+                   <button id="image-upload-btn" title="Subir Imagen" class="p-2 sm:p-3 hover:text-primary transition-colors rounded-full text-text-medium"><i class="fa fa-image text-xl"></i></button>
+                   <button id="voice" title="Hablar" class="p-2 sm:p-3 hover:text-primary transition-colors rounded-full text-text-medium"><i class="fa fa-microphone text-xl"></i></button>
+                   <textarea id="msg" placeholder="Escribe tu mensaje..." class="flex-1 bg-transparent p-2 h-12 resize-none outline-none placeholder-themed" rows="1"></textarea>
+                   <button id="send" title="Enviar" class="p-2 sm:p-4 disabled:opacity-50 disabled:cursor-not-allowed text-primary"><i id="send-icon" class="fa fa-paper-plane text-xl"></i></button>
+               </div>
            </div>
         </main>
     </div>
 
-    <!-- Modals -->
     <div id="generic-modal" class="fixed inset-0 bg-black bg-opacity-70 hidden items-center justify-center z-40 p-4">
         <div class="modal-content rounded-lg w-full max-w-sm p-6 relative">
             <h3 id="modal-title" class="text-lg font-bold mb-4"></h3><p id="modal-message" class="mb-4 text-text-medium"></p>
@@ -157,6 +142,7 @@
             </div>
         </div>
     </div>
+
     <div id="pricing-modal" class="fixed inset-0 bg-black bg-opacity-80 hidden items-center justify-center z-50 p-4">
         <div class="modal-content rounded-2xl w-full max-w-4xl p-8 relative transform scale-95 transition-transform duration-300">
             <button id="close-pricing-modal" class="absolute top-4 right-4 text-gray-400 hover:text-white"><i class="fas fa-times fa-lg"></i></button>
@@ -175,6 +161,8 @@
             const GUEST_MESSAGE_LIMIT = 5;
             const FREE_PLAN_MESSAGE_LIMIT = 15;
             const dom = {
+                loadingScreen: document.getElementById('loading-screen'),
+                appContainer: document.getElementById('app-container'),
                 msgInput: document.getElementById('msg'), sendBtn: document.getElementById('send'),
                 messageCounterEl: document.getElementById('message-counter'), upgradePlanBtn: document.getElementById('upgrade-plan-btn'),
                 newChatBtn: document.getElementById('new-chat-btn'), newFolderBtn: document.getElementById('new-folder-btn'),
@@ -198,14 +186,13 @@
                 logoutBtn: document.getElementById('logout-btn'), settingsBtn: document.getElementById('settings-btn'),
                 personalizedWelcome: document.getElementById('personalized-welcome'),
                 genericWelcome: document.getElementById('generic-welcome'),
-                userName: document.getElementById('user-name'),
-                loadingOverlay: document.getElementById('loading-overlay'),
-                appContainer: document.getElementById('app-container')
+                userName: document.getElementById('user-name')
             };
 
             let state = { chats: {}, folders: {}, structure: [] };
             let currentChatId = null, currentUser = null, pendingMessage = null, speechOn = true, availableVoices = [], isRecognizing = false, selectedImageBase64 = null, selectedPdfText = null;
-            
+            let isAppInitialized = false;
+
             let modalResolve = null;
             function showModal({ title, message, useInput = false, placeholder = '', confirmText = 'Confirmar' }) {
                 const modalTitle = dom.genericModal.querySelector('#modal-title'), modalMessage = dom.genericModal.querySelector('#modal-message'), modalInput = dom.genericModal.querySelector('#modal-input'), modalConfirm = dom.genericModal.querySelector('#modal-confirm');
@@ -217,92 +204,62 @@
             function hideModal(resolveWith = null) { dom.genericModal.classList.add('hidden'); dom.genericModal.classList.remove('flex'); if(modalResolve) { modalResolve(resolveWith); modalResolve = null; } }
             function showPricingModal() { dom.pricingModal.classList.remove('hidden'); dom.pricingModal.classList.add('flex'); setTimeout(() => { dom.pricingModal.querySelector('.modal-content').classList.remove('scale-95'); }, 10); }
             function hidePricingModal() { dom.pricingModal.querySelector('.modal-content').classList.add('scale-95'); setTimeout(() => { dom.pricingModal.classList.add('hidden'); dom.pricingModal.classList.remove('flex'); }, 300); }
+
+            function showApp() {
+                if (!isAppInitialized) {
+                    isAppInitialized = true;
+                    dom.loadingScreen.classList.add('hidden');
+                    dom.appContainer.classList.remove('hidden');
+                }
+            }
             
-            // =================================================================
-            // START: FINAL, ROBUST APP INITIALIZATION
-            // =================================================================
+            async function configureAppForUser(user) {
+                currentUser = user;
+                if (user) {
+                    localStorage.removeItem('guestState');
+                    localStorage.removeItem('guestMessageCount');
+                    if (!user.app_metadata.plan || typeof user.app_metadata.message_count === 'undefined') {
+                        await updateUserMetadata({ plan: 'free', message_count: FREE_PLAN_MESSAGE_LIMIT });
+                    }
+                }
+                await loadStateForUser();
+                updateUserUI();
+                netlifyIdentity.close();
+                showApp();
+            }
+            
             function initApp() {
                 setTheme(localStorage.getItem('theme') === 'dark' || (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches));
 
-                // Central function to set up the entire application state and UI based on the user.
-                const setupApplicationForUser = async (user) => {
-                    console.log("Setting up application for user:", user ? user.email : 'Guest');
-                    if (user) {
-                        // User is logged in. Ensure their metadata is correct.
-                        currentUser = await ensureUserMetadata(user);
-                    } else {
-                        // User is a guest.
-                        currentUser = null;
+                const initTimeout = setTimeout(() => {
+                    console.warn("Netlify Identity timed out. Initializing as guest.");
+                    if (!isAppInitialized) {
+                       configureAppForUser(null);
                     }
+                }, 4000); // 4-second fallback timer
 
-                    // Now that currentUser is definitively set, update the UI and load their data.
-                    updateUserUI();
-                    loadStateForUser();
-
-                    // Make the app visible now that everything is ready.
-                    dom.appContainer.classList.remove('opacity-0');
-                    dom.loadingOverlay.classList.add('opacity-0');
-                    setTimeout(() => {
-                        dom.loadingOverlay.style.display = 'none'; // Use style.display to remove it from layout
-                    }, 300);
-                };
-
-                const ensureUserMetadata = async (user) => {
-                    if (user && (!user.app_metadata.plan || typeof user.app_metadata.message_count === 'undefined')) {
-                        console.log("Ensuring user metadata...");
-                        try {
-                            const updatedUser = await netlifyIdentity.gotrue.user.update({
-                                data: { plan: 'free', message_count: 0 }
-                            });
-                            await updatedUser.jwt(true);
-                            return updatedUser;
-                        } catch (error) {
-                            console.error("Error setting default plan:", error);
-                            return user;
-                        }
-                    }
-                    return user;
-                };
-
-                // The 'init' event is the one and only entry point for starting the app.
-                // It passes the resolved user (or null) to our setup function.
-                netlifyIdentity.on('init', setupApplicationForUser);
-
-                netlifyIdentity.on('login', async user => {
-                    netlifyIdentity.close();
-                    localStorage.removeItem('guestMessageCount');
-                    // After login, we can just call the setup function again with the new user.
-                    await setupApplicationForUser(user);
-                    sendMessageIfPending();
+                netlifyIdentity.on('init', (user) => {
+                    clearTimeout(initTimeout);
+                    configureAppForUser(user);
                 });
 
-                netlifyIdentity.on('logout', () => {
-                    // After logout, call the setup function with a null user to reset the UI.
-                    setupApplicationForUser(null);
-                });
+                netlifyIdentity.on('login', (user) => configureAppForUser(user));
+                netlifyIdentity.on('logout', () => configureAppForUser(null));
+                netlifyIdentity.on('signup', (user) => configureAppForUser(user)); 
                 
-                // Initialize all other non-auth-dependent parts of the app.
                 populateVoiceList();
                 setupEventListeners();
             }
-            // =================================================================
-            // END: FINAL, ROBUST APP INITIALIZATION
-            // =================================================================
 
             const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
             let recognition;
             if (SR) {
                 recognition = new SR();
-                recognition.continuous = false;
-                recognition.lang = 'es-ES';
-                recognition.interimResults = false;
+                recognition.continuous = false; recognition.lang = 'es-ES'; recognition.interimResults = false;
                 recognition.onstart = () => { isRecognizing = true; dom.voiceBtn.classList.add('glowing-mic'); };
                 recognition.onend = () => { isRecognizing = false; dom.voiceBtn.classList.remove('glowing-mic'); };
                 recognition.onresult = (event) => { dom.msgInput.value += Array.from(event.results).map(r => r[0].transcript).join(''); };
-            } else {
-                dom.voiceBtn.style.display = 'none';
-            }
-
+            } else { dom.voiceBtn.style.display = 'none'; }
             function speak(text) { if (!speechOn || !('speechSynthesis' in window) || !text) return; speechSynthesis.cancel(); const cleanText = text.replace(/[*_`#~[\]()🔍]|(-{3,})|(\*\*Fuente:\*\*.*)/g, ''); const utterance = new SpeechSynthesisUtterance(cleanText); utterance.voice = availableVoices.find(v => v.lang.startsWith('es')) || availableVoices[0]; speechSynthesis.speak(utterance); }
             function populateVoiceList() { if (typeof speechSynthesis === 'undefined') return; availableVoices = speechSynthesis.getVoices(); if (speechSynthesis.onvoiceschanged !== undefined) speechSynthesis.onvoiceschanged = () => availableVoices = speechSynthesis.getVoices(); }
 
@@ -313,18 +270,16 @@
                 if (!currentUser) {
                     if (getMessageCount() >= GUEST_MESSAGE_LIMIT && !forceSend) {
                         pendingMessage = { userMessage, image: selectedImageBase64, pdf: selectedPdfText };
-                        await showModal({
-                            title: 'Límite Gratuito Alcanzado',
-                            message: `Has usado tus ${GUEST_MESSAGE_LIMIT} mensajes. Regístrate gratis para obtener ${FREE_PLAN_MESSAGE_LIMIT} mensajes más.`,
-                            confirmText: 'Registrarse / Iniciar Sesión'
-                        }).then(wantsToLogin => {
-                            if (wantsToLogin) netlifyIdentity.open('signup');
-                        });
+                        await showModal({ title: 'Límite Gratuito Alcanzado', message: `Has usado tus ${GUEST_MESSAGE_LIMIT} mensajes. Regístrate gratis para obtener ${FREE_PLAN_MESSAGE_LIMIT} mensajes más.`, confirmText: 'Registrarse / Iniciar Sesión' })
+                            .then(wantsToLogin => { if (wantsToLogin) netlifyIdentity.open(); });
                         hideModal();
                         return;
                     }
-                    incrementGuestCount();
-                    updateMessageCounter();
+                } else {
+                    if (getMessageCount() <= 0) {
+                        showPricingModal();
+                        return;
+                    }
                 }
 
                 let chatIdToUpdate = currentChatId || createNewChat();
@@ -337,32 +292,36 @@
                 dom.msgInput.value = ''; clearImageData(); clearPdfData();
 
                 try {
-                    const responseData = await getAIResponse(userMessage, state.chats[chatIdToUpdate].messages.slice(0, -1), image, pdf);
-                    
-                    if (responseData.error === 'LIMIT_REACHED') {
-                        updateMessageInUI(thinkingBubble, `Has alcanzado el límite de ${FREE_PLAN_MESSAGE_LIMIT} mensajes de tu plan gratuito. ¡Actualiza para continuar!`);
-                        showPricingModal();
-                        return;
+                    if (currentUser) {
+                        const newCount = Math.max(0, getMessageCount() - 1);
+                        currentUser.app_metadata.message_count = newCount;
+                        updateMessageCounter();
+                        await updateUserMetadata({ message_count: newCount }); 
+                    } else {
+                        incrementGuestCount();
+                        updateMessageCounter();
                     }
 
+                    const responseData = await getAIResponse(userMessage, state.chats[chatIdToUpdate].messages.slice(0, -1), image, pdf);
+                    
                     if (responseData.reply) {
                         state.chats[chatIdToUpdate].messages.push({ role: 'assistant', content: responseData.reply });
                         updateMessageInUI(thinkingBubble, responseData.reply);
                         speak(responseData.reply);
-
-                        if (currentUser && typeof responseData.new_message_count !== 'undefined') {
-                            currentUser.app_metadata.message_count = responseData.new_message_count;
-                            updateMessageCounter();
-                        }
                         saveState();
                     } else if (responseData.error) {
-                        updateMessageInUI(thinkingBubble, `❌ **${responseData.error}**<br><small>${responseData.details || 'No hay más detalles.'}</small>`);
+                         if (responseData.error === 'LIMIT_REACHED') {
+                             updateMessageInUI(thinkingBubble, `Has alcanzado el límite de mensajes. ¡Actualiza para continuar!`);
+                             showPricingModal();
+                         } else {
+                            updateMessageInUI(thinkingBubble, `❌ **${responseData.error}**<br><small>${responseData.details || 'No hay más detalles.'}</small>`);
+                         }
                     }
                 } catch (error) {
                     updateMessageInUI(thinkingBubble, `❌ **Error de Conexión**<br><small>${error.message || 'Asegúrate de que el backend está desplegado.'}</small>`);
                 }
             }
-            
+
             async function getAIResponse(prompt, history, image, pdf) {
                 const token = currentUser ? await currentUser.jwt() : null;
                 const response = await fetch('/.netlify/functions/get-ai-response', {
@@ -373,22 +332,43 @@
 
                 if (response.status === 403) return { error: 'LIMIT_REACHED' };
                 if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.details || `Error del servidor: ${response.statusText}`);
+                    const errorData = await response.json().catch(() => ({ details: `Error del servidor: ${response.status}` }));
+                    throw new Error(errorData.details);
                 }
                 return response.json();
             }
 
-            function getMessageCount() { return currentUser ? (currentUser.app_metadata.message_count || 0) : parseInt(localStorage.getItem('guestMessageCount') || '0'); }
+            function getMessageCount() { 
+                return currentUser 
+                    ? (currentUser.app_metadata.message_count ?? FREE_PLAN_MESSAGE_LIMIT) 
+                    : parseInt(localStorage.getItem('guestMessageCount') || '0');
+            }
+            
+            async function updateUserMetadata(data) { 
+                if (!currentUser) return;
+                try {
+                    const updatedUser = await netlifyIdentity.gotrue.user.update({ data });
+                    currentUser = updatedUser;
+                    await currentUser.jwt(true);
+                } catch (error) {
+                    console.error("Error al actualizar metadatos del usuario:", error);
+                }
+            }
+            
             function incrementGuestCount() { if (!currentUser) localStorage.setItem('guestMessageCount', String(getMessageCount() + 1)); }
             
-            function loadStateForUser() {
+            async function loadStateForUser() {
                 const key = currentUser ? `goatbotState_${currentUser.id}` : 'guestState';
                 const saved = localStorage.getItem(key);
                 if (saved) {
-                    const parsed = JSON.parse(saved);
-                    state = parsed.state || { chats: {}, folders: {}, structure: [] };
-                    currentChatId = parsed.currentChatId;
+                    try {
+                        const parsed = JSON.parse(saved);
+                        state = parsed.state || { chats: {}, folders: {}, structure: [] };
+                        currentChatId = parsed.currentChatId;
+                    } catch {
+                        state = { chats: {}, folders: {}, structure: [] };
+                        currentChatId = null;
+                    }
                 } else {
                     state = { chats: {}, folders: {}, structure: [] };
                     currentChatId = null;
@@ -397,19 +377,20 @@
                 selectChat(currentChatId);
             }
 
-            function saveState() { localStorage.setItem(currentUser ? `goatbotState_${currentUser.id}` : 'guestState', JSON.stringify({ state, currentChatId })); }
+            function saveState() {
+                 const key = currentUser ? `goatbotState_${currentUser.id}` : 'guestState';
+                 localStorage.setItem(key, JSON.stringify({ state, currentChatId }));
+            }
             
             function updateUserUI() {
                 if (currentUser) {
                     dom.loginView.classList.add('hidden');
                     dom.userMenuView.classList.remove('hidden');
-                    dom.genericWelcome.classList.add('hidden');
-                    dom.personalizedWelcome.classList.remove('hidden');
-                    
                     const userName = currentUser.user_metadata.full_name?.split(' ')[0] || currentUser.email.split('@')[0];
                     dom.userEmail.textContent = currentUser.user_metadata.full_name || currentUser.email;
                     dom.userName.textContent = userName;
-                    
+                    dom.genericWelcome.classList.add('hidden');
+                    dom.personalizedWelcome.classList.remove('hidden');
                     dom.upgradePlanBtn.classList.toggle('hidden', (currentUser.app_metadata.plan || 'free') !== 'free');
                 } else {
                     dom.loginView.classList.remove('hidden');
@@ -423,18 +404,10 @@
 
             function updateMessageCounter() {
                 const count = getMessageCount();
-                const limit = currentUser ? FREE_PLAN_MESSAGE_LIMIT : GUEST_MESSAGE_LIMIT;
-                const planName = currentUser ? 'Plan Gratuito' : 'Invitado';
-                dom.messageCounterEl.textContent = `${planName}: ${count}/${limit} msj`;
+                dom.messageCounterEl.textContent = currentUser ? `Plan Gratuito: ${count}/${FREE_PLAN_MESSAGE_LIMIT} msj` : `Invitado: ${count}/${GUEST_MESSAGE_LIMIT} msj`;
             }
 
-            function setTheme(isDark) { 
-                document.body.className = 'h-screen w-screen overflow-hidden';
-                document.body.classList.add(isDark ? 'dark-theme' : 'light-theme');
-                dom.themeIcon.className = `fas fa-${isDark ? 'sun' : 'moon'}`; 
-                localStorage.setItem('theme', isDark ? 'dark' : 'light'); 
-            }
-            
+            function setTheme(isDark) { document.body.classList.toggle('dark-theme', isDark); document.body.classList.toggle('light-theme', !isDark); dom.themeIcon.className = `fas fa-${isDark ? 'sun' : 'moon'}`; localStorage.setItem('theme', isDark ? 'dark' : 'light'); }
             function createNewChat() { const id = 'chat-' + crypto.randomUUID(); state.chats[id] = { id, title: "Nuevo Chat", messages: [] }; state.structure.unshift(id); selectChat(id); saveState(); renderSidebar(); return id; }
             function selectChat(chatId) { if (!chatId || !state.chats[chatId]) { resetChatView(); return; } currentChatId = chatId; dom.initialMessageContainer.style.display = 'none'; dom.chatMessages.innerHTML = ''; const chat = state.chats[chatId]; dom.chatTitle.textContent = chat.title; chat.messages.forEach((msg) => addMessageToUI(msg.role, msg.content, msg.image)); updateActiveChatHighlight(); saveState(); }
             function resetChatView() { currentChatId = null; dom.chatTitle.textContent = "GOATBOT Pro"; dom.chatMessages.innerHTML = ''; dom.initialMessageContainer.style.display = 'flex'; updateUserUI(); updateActiveChatHighlight(); }
@@ -448,7 +421,6 @@
             async function renameItem(type, id) { const item = type === 'chat' ? state.chats[id] : state.folders[id]; const newName = await showModal({ title: `Renombrar ${type === 'chat' ? 'Chat' : 'Carpeta'}`, useInput: true, placeholder: item.title }); if (newName && newName.trim()) { item.title = newName.trim(); if (type === 'chat' && currentChatId === id) dom.chatTitle.textContent = item.title; saveState(); renderSidebar(); } hideModal(); }
             async function deleteItem(type, id) { const item = type === 'chat' ? state.chats[id] : state.folders[id]; const conf = await showModal({ title: `Eliminar ${item.title}?`, message: 'Esta acción no se puede deshacer.', confirmText: 'Eliminar' }); if (conf) { state.structure = state.structure.filter(i => i !== id); if (type === 'folder') { (item.chatIds || []).forEach(cid => delete state.chats[cid]); delete state.folders[id]; } else { delete state.chats[id]; Object.values(state.folders).forEach(f => { if(f.chatIds) f.chatIds = f.chatIds.filter(cid => cid !== id)}); } if(currentChatId === id || (type === 'folder' && (item.chatIds || []).includes(currentChatId))) resetChatView(); saveState(); renderSidebar(); } hideModal(); }
             function updateActiveChatHighlight() { document.querySelectorAll('.chat-item').forEach(item => { item.style.backgroundColor = item.dataset.id === currentChatId ? 'var(--current-primary)' : 'transparent'; }); }
-            
             function sendMessageIfPending() { if (pendingMessage) { dom.msgInput.value = pendingMessage.userMessage; selectedImageBase64 = pendingMessage.image; selectedPdfText = pendingMessage.pdf; sendMessage(true); pendingMessage = null; } }
             function hasFile() { return selectedImageBase64 || selectedPdfText; }
             function clearImageData() { dom.imageUploadInput.value = ''; dom.imagePreviewContainer.classList.add('hidden'); selectedImageBase64 = null; updateModelAndUI(); }
@@ -475,7 +447,7 @@
                 dom.pdfUploadInput.addEventListener('change', (e) => { const file = e.target.files[0]; if (!file || file.type !== 'application/pdf') return; clearImageData(); dom.pdfNameEl.textContent = file.name; dom.pdfStatusEl.textContent = 'Leyendo...'; dom.pdfPreviewContainer.classList.remove('hidden'); updateModelAndUI(); const reader = new FileReader(); reader.onload = async (ev) => { dom.pdfStatusEl.textContent = 'Procesando...'; try { const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(ev.target.result) }).promise; let text = ''; for (let i = 1; i <= pdf.numPages; i++) { const page = await pdf.getPage(i); const content = await page.getTextContent(); text += content.items.map(item => item.str).join(' ') + '\n'; } selectedPdfText = text; dom.pdfStatusEl.textContent = `✅ Listo (${pdf.numPages} pág.)`; } catch (err) { console.error("Error al procesar el PDF:", err); dom.pdfStatusEl.textContent = '❌ Error al leer PDF.'; selectedPdfText = null; setTimeout(() => { if (dom.pdfStatusEl.textContent.includes('Error')) { clearPdfData(); } }, 2000); } }; reader.readAsArrayBuffer(file); });
                 dom.modelSelector.addEventListener('change', (e) => { if (e.target.value === 'gpt-4o' && !hasFile()) { showModal({ title: 'Modelo de Archivos', message: 'Goatify Nebula (gpt-4o) es solo para analizar archivos. Por favor, sube una imagen o un PDF.', confirmText: 'Entendido' }).then(() => hideModal()); e.target.value = 'gpt-3.5-turbo'; }});
                 dom.menuToggle.addEventListener('click', () => dom.sidebar.classList.toggle('-translate-x-full'));
-                dom.loginBtn.addEventListener('click', () => netlifyIdentity.open('signup'));
+                dom.loginBtn.addEventListener('click', () => netlifyIdentity.open());
                 dom.logoutBtn.addEventListener('click', () => netlifyIdentity.logout());
                 dom.userMenuBtn.addEventListener('click', () => dom.userMenuPopup.classList.toggle('hidden'));
             }
