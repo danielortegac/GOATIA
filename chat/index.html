@@ -293,7 +293,7 @@
 
             function getCreditCount() { return currentUser ? (currentUser.app_metadata.credits !== undefined ? currentUser.app_metadata.credits : FREE_PLAN_CREDIT_LIMIT) : parseInt(localStorage.getItem('guestCreditCount') || '0'); }
             function setCreditCount(count) {
-                const newCount = Math.max(0, count); // Ensure credits don't go below 0
+                const newCount = Math.max(0, count); 
                 if(currentUser) {
                     currentUser.app_metadata.credits = newCount;
                 } else {
@@ -514,16 +514,22 @@
             
             function sendMessageIfPending() { if (pendingMessage) { dom.msgInput.value = pendingMessage.userMessage; selectedImageBase64 = pendingMessage.image; selectedPdfText = pendingMessage.pdf; sendMessage(true); pendingMessage = null; } }
             
-            function autoSelectModel() {
+            function autoSelectModel(prompt = '') {
                 const currentChat = state.chats[currentChatId];
                 if (hasFile()) {
                     dom.modelSelector.value = 'gpt-4o';
-                } else if (currentChat?.workflow) {
-                    if (currentChat.workflow === 'web-page') dom.modelSelector.value = 'gpt-4o';
-                    else dom.modelSelector.value = 'gpt-3.5-turbo';
-                } else {
-                    dom.modelSelector.value = 'gpt-3.5-turbo';
+                    return;
                 }
+                if (currentChat?.workflow) {
+                    dom.modelSelector.value = currentChat.model;
+                    return;
+                }
+                const searchKeywords = ['noticias', 'qué pasó hoy', 'fecha de hoy', 'actualidad', 'tiempo real'];
+                if (searchKeywords.some(kw => prompt.toLowerCase().includes(kw))) {
+                    dom.modelSelector.value = 'perplexity';
+                    return;
+                }
+                dom.modelSelector.value = 'gpt-3.5-turbo';
             }
 
             function clearImageData() { 
@@ -543,16 +549,13 @@
                 const userMessage = dom.msgInput.value.trim();
                 if (!userMessage && !selectedImageBase64 && !selectedPdfText) return;
                 
-                const searchKeywords = ['noticias', 'qué pasó hoy', 'fecha de hoy', 'actualidad', 'tiempo real'];
-                if (searchKeywords.some(kw => userMessage.toLowerCase().includes(kw))) {
-                    dom.modelSelector.value = 'perplexity';
-                }
+                autoSelectModel(userMessage);
 
                 const count = getCreditCount();
                 const currentChat = state.chats[currentChatId];
                 let cost = COSTS.GENERAL;
                 let model = dom.modelSelector.value;
-
+                
                 if (currentChat?.workflow === 'web-page') { cost = COSTS.WEB_PAGE; model = 'gpt-4o'; } 
                 else if (currentChat?.workflow === 'copywriting') { cost = COSTS.COPYWRITING; model = 'gpt-3.5-turbo'; }
                 else if (currentChat?.workflow === 'sales-response') { cost = COSTS.SALES_RESPONSE; model = 'gpt-3.5-turbo'; }
@@ -571,7 +574,7 @@
                     }
                 }
 
-                let chatIdToUpdate = currentChatId || createNewChat();
+                let chatIdToUpdate = currentChatId || createNewChat({ model: model });
                 if (!state.chats[chatIdToUpdate]) return;
                 
                 setCreditCount(count - cost);
@@ -700,6 +703,7 @@
                 const ensureUserMetadata = async (user) => {
                     if (user && (typeof user.app_metadata.credits === 'undefined')) {
                         try {
+                            console.log("Assigning default credits to new user.");
                             const updatedUser = await netlifyIdentity.gotrue.user.update({
                                 data: { plan: 'free', credits: FREE_PLAN_CREDIT_LIMIT }
                             });
@@ -707,6 +711,7 @@
                             return updatedUser;
                         } catch (error) { 
                             console.error("Error setting default credits:", error);
+                            // Fallback in case API fails, set credits locally.
                             user.app_metadata.credits = FREE_PLAN_CREDIT_LIMIT;
                             return user;
                         }
