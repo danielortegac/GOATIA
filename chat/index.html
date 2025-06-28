@@ -44,7 +44,7 @@
         .code-block-header span { font-family: monospace; }
         .code-block-header button { background-color: transparent; border: none; color: var(--text-medium); cursor: pointer; padding: 0.25rem; border-radius: 0.25rem; }
         .code-block-header button:hover { background-color: rgba(255, 255, 255, 0.1); }
-        .code-block-body { padding: 1rem; max-height: 400px; overflow-y: auto; font-family: monospace; font-size: 0.875rem; white-space: pre-wrap; }
+        .code-block-body { padding: 1rem; max-height: 400px; overflow-y: auto; font-family: monospace; font-size: 0.875rem; white-space: pre-wrap; color: var(--text-light); }
         .code-block-body::-webkit-scrollbar { width: 6px; }
         .code-block-body::-webkit-scrollbar-thumb { background: #3a3a3a; border-radius: 3px; }
         .code-block-body::-webkit-scrollbar-track { background: transparent; }
@@ -198,6 +198,7 @@
             const GUEST_CREDIT_LIMIT = 5;
             const FREE_PLAN_CREDIT_LIMIT = 15;
             const WEB_PRO_MODEL_COST = 5;
+            const COPYWRITING_MODEL_COST = 10;
 
             const dom = {
                 msgInput: document.getElementById('msg'), sendBtn: document.getElementById('send'),
@@ -491,6 +492,14 @@
                 if (!userMessage && !selectedImageBase64 && !selectedPdfText) return;
 
                 const count = getCreditCount();
+                const currentChat = state.chats[currentChatId];
+                let cost = 1;
+
+                if (currentChat?.workflow === 'web-page') {
+                    cost = WEB_PRO_MODEL_COST;
+                } else if (currentChat?.workflow === 'copywriting') {
+                    cost = COPYWRITING_MODEL_COST;
+                }
 
                 if (!currentUser) {
                     if (count >= GUEST_CREDIT_LIMIT && !forceSend) {
@@ -501,27 +510,28 @@
                         return;
                     }
                 } else {
-                    if(dom.modelSelector.value === 'gpt-3.5-turbo-0125' && count < WEB_PRO_MODEL_COST) {
-                         await showModal({ title: 'Créditos Insuficientes', message: `El modelo Web Pro requiere al menos ${WEB_PRO_MODEL_COST} créditos. Te quedan ${count}.`, confirmText: 'Entendido' });
+                    if (count < cost && !forceSend) {
+                         await showModal({ title: 'Créditos Insuficientes', message: `Esta acción requiere ${cost} créditos. Te quedan ${count}.`, confirmText: 'Entendido' });
                          hideModal();
                          return;
                     }
-                    if (count >= FREE_PLAN_CREDIT_LIMIT && !forceSend) {
+                     if (count >= FREE_PLAN_CREDIT_LIMIT && !forceSend) {
                         showPricingModal();
                         return;
                     }
                 }
 
+                let chatIdToUpdate = currentChatId || createNewChat();
+                if (!state.chats[chatIdToUpdate]) return;
+                
+                // Optimistic update
                 if (currentUser) {
-                    const cost = dom.modelSelector.value === 'gpt-3.5-turbo-0125' ? WEB_PRO_MODEL_COST : 1;
                     currentUser.app_metadata.message_count += cost;
                 } else {
                     incrementGuestCredits();
                 }
                 updateCreditCounter();
 
-                let chatIdToUpdate = currentChatId || createNewChat();
-                if (!state.chats[chatIdToUpdate]) return;
 
                 const [image, pdf] = [selectedImageBase64, selectedPdfText];
                 state.chats[chatIdToUpdate].messages.push({ role: 'user', content: userMessage, image, pdfText: pdf });
@@ -547,6 +557,7 @@
                         updateMessageInUI(thinkingBubble, responseData.reply);
                         speak(responseData.reply);
 
+                        // Sync with server
                         if (currentUser && typeof responseData.new_message_count !== 'undefined') {
                             currentUser.app_metadata.message_count = responseData.new_message_count;
                             updateCreditCounter(); 
@@ -554,9 +565,17 @@
                         saveState();
                     } else if (responseData.error) {
                         updateMessageInUI(thinkingBubble, `❌ **Error de Conexión**<br><small>${responseData.details || 'Error del servidor.'}</small>`);
+                        if (currentUser) {
+                            currentUser.app_metadata.message_count -= cost; // Revert optimistic update on error
+                            updateCreditCounter();
+                        }
                     }
                 } catch (error) {
                     updateMessageInUI(thinkingBubble, `❌ **Error de Conexión**<br><small>${error.message || 'Asegúrate de que el backend está desplegado.'}</small>`);
+                     if (currentUser) {
+                        currentUser.app_metadata.message_count -= cost; // Revert optimistic update on error
+                        updateCreditCounter();
+                    }
                 }
             }
 
