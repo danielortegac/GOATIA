@@ -198,6 +198,8 @@
     <script type="module">
         // **RESTRUCTURED SCRIPT START**
         window.addEventListener('DOMContentLoaded', () => {
+            // All script logic is now placed here, ensuring everything is defined before use.
+            
             // 1. CONSTANTS & STATE
             const GUEST_CREDIT_LIMIT = 5;
             const FREE_PLAN_CREDIT_LIMIT = 15;
@@ -243,16 +245,10 @@
                 voiceSelector: document.getElementById('voice-selector'),
             };
             
-            // 3. HELPER & CORE FUNCTIONS (Defined before use)
-            // ... All function definitions are placed here ...
+            const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+            let recognition;
 
-            // 4. MAIN APP LOGIC & INITIALIZATION
-            function initApp() {
-                // ... same as before ...
-            }
-            
-            // Re-implementing all function bodies here
-            // This structure ensures all functions are declared before they are called.
+            // 3. HELPER & CORE FUNCTIONS (All functions defined here)
             function showModal({ title, message, useInput = false, placeholder = '', confirmText = 'Confirmar' }) {
                 const modalTitle = dom.genericModal.querySelector('#modal-title'), modalMessage = dom.genericModal.querySelector('#modal-message'), modalInput = dom.genericModal.querySelector('#modal-input'), modalConfirm = dom.genericModal.querySelector('#modal-confirm');
                 modalTitle.textContent = title; modalMessage.textContent = message; modalMessage.style.display = message ? 'block' : 'none'; modalInput.style.display = useInput ? 'block' : 'none'; modalInput.value = ''; modalInput.placeholder = placeholder; modalConfirm.textContent = confirmText;
@@ -656,9 +652,8 @@
                 dom.upgradePlanBtn.addEventListener('click', showPricingModal);
                 dom.closePricingModalBtn.addEventListener('click', hidePricingModal);
                 dom.themeToggle.addEventListener('click', () => setTheme(!document.body.classList.contains('dark-theme')));
-                const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
                 if (SR) {
-                    const recognition = new SR();
+                    recognition = new SR();
                     recognition.continuous = false;
                     recognition.lang = 'es-ES';
                     recognition.interimResults = false;
@@ -671,7 +666,7 @@
                     };
                     dom.voiceBtn.addEventListener('click', () => { if (isRecognizing) { recognition.stop(); } else { recognition.start(); } });
                 } else {
-                    dom.voiceBtn.style.display = 'none';
+                     if(dom.voiceBtn) dom.voiceBtn.style.display = 'none';
                 }
 
                 dom.ttsToggle.addEventListener('click', () => { speechOn = !speechOn; dom.ttsToggle.classList.toggle('text-yellow-400', speechOn); dom.ttsToggle.classList.toggle('text-gray-500', !speechOn); if (!speechOn) speechSynthesis.cancel(); });
@@ -754,10 +749,10 @@
                 };
 
                 const ensureUserMetadata = async (user) => {
-                    if (user && (typeof user.app_metadata.credits === 'undefined' )) {
+                    if (user && (typeof user.app_metadata.credits === 'undefined')) {
                         try {
                             const updatedUser = await netlifyIdentity.gotrue.user.update({
-                                data: { plan: 'free', credits: FREE_PLAN_CREDIT_LIMIT }
+                                data: { credits: FREE_PLAN_CREDIT_LIMIT }
                             });
                             await updatedUser.jwt(true);
                             return netlifyIdentity.currentUser(); 
