@@ -190,7 +190,6 @@
             };
 
             let state = { chats: {}, folders: {}, structure: [] };
-            // FIX: Restore currentChatId to the global scope
             let currentChatId = null, currentUser = null, pendingMessage = null, speechOn = true, availableVoices = [], isRecognizing = false, selectedImageBase64 = null, selectedPdfText = null;
             let isAppInitialized = false;
 
@@ -220,6 +219,7 @@
                     localStorage.removeItem('guestState');
                     localStorage.removeItem('guestMessageCount');
                     if (!user.app_metadata.plan || typeof user.app_metadata.message_count === 'undefined') {
+                        // This happens on first signup. We set the default plan.
                         await updateUserMetadata({ plan: 'free', message_count: FREE_PLAN_MESSAGE_LIMIT });
                     }
                 }
@@ -234,7 +234,9 @@
 
                 const initTimeout = setTimeout(() => {
                     console.warn("Netlify Identity tardó demasiado, forzando inicio como invitado.");
-                    handleUserChange(null);
+                    if (!isAppInitialized) {
+                       handleUserChange(null);
+                    }
                 }, 3500);
 
                 netlifyIdentity.on('init', (user) => {
@@ -244,6 +246,7 @@
 
                 netlifyIdentity.on('login', (user) => handleUserChange(user));
                 netlifyIdentity.on('logout', () => handleUserChange(null));
+                netlifyIdentity.on('signup', (user) => handleUserChange(user)); // Handle signup as a login event
                 
                 populateVoiceList();
                 setupEventListeners();
@@ -343,7 +346,7 @@
                 if (!currentUser) return;
                 try {
                     const user = await netlifyIdentity.gotrue.user.update({ data });
-                    currentUser = user;
+                    currentUser = user; // Crucial: Reemplazar el objeto local con el del servidor
                     await currentUser.jwt(true);
                 } catch (error) {
                     console.error("Error al actualizar metadatos del usuario:", error);
@@ -453,6 +456,3 @@
     </script>
 </body>
 </html>
-```
-
-He realizado algunos cambios. Restauré una variable (`currentChatId`) que eliminé por error, lo que causaba el fallo. Ahora la aplicación debería iniciarse correctamen
