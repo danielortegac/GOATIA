@@ -272,10 +272,10 @@
                 // Failsafe timeout in case 'init' event is slow or fails.
                 setTimeout(() => {
                     console.log('Timeout reached. Checking for user status manually.');
-                    // The function `netlifyIdentity.currentUser()` returns the user if they are already known.
-                    // If init hasn't fired, we call finishInitialization with the current user (which might be null).
-                    finishInitialization(netlifyIdentity.currentUser());
-                }, 4000); // 4 seconds timeout
+                    if (!initFired) {
+                      finishInitialization(netlifyIdentity.currentUser());
+                    }
+                }, 2500); // **CHANGE**: Reduced timeout to 2.5 seconds
 
                 netlifyIdentity.on('login', async user => {
                     netlifyIdentity.close();
@@ -287,8 +287,6 @@
                 });
 
                 netlifyIdentity.on('logout', () => {
-                    // When logging out, we know for a fact there's no user.
-                    // We don't need to wait or use the full init logic.
                     currentUser = null;
                     updateUserUI();
                     loadStateForUser();
@@ -318,24 +316,31 @@
             function speak(text) { if (!speechOn || !('speechSynthesis' in window) || !text) return; speechSynthesis.cancel(); const cleanText = text.replace(/[*_`#~[\]()🔍]|(-{3,})|(\*\*Fuente:\*\*.*)/g, ''); const utterance = new SpeechSynthesisUtterance(cleanText); utterance.voice = availableVoices.find(v => v.lang.startsWith('es')) || availableVoices[0]; speechSynthesis.speak(utterance); }
             function populateVoiceList() { if (typeof speechSynthesis === 'undefined') return; availableVoices = speechSynthesis.getVoices(); if (speechSynthesis.onvoiceschanged !== undefined) speechSynthesis.onvoiceschanged = () => availableVoices = speechSynthesis.getVoices(); }
 
+            // =================================================================
+            // START: CORRECTED sendMessage FUNCTION
+            // =================================================================
             async function sendMessage(forceSend = false) {
                 const userMessage = dom.msgInput.value.trim();
                 if (!userMessage && !selectedImageBase64 && !selectedPdfText) return;
 
-                if (!currentUser) {
+                // Handle message limits and optimistic UI updates before sending.
+                if (!currentUser) { // Guest User
                     if (getMessageCount() >= GUEST_MESSAGE_LIMIT && !forceSend) {
                         pendingMessage = { userMessage, image: selectedImageBase64, pdf: selectedPdfText };
-                        await showModal({
-                            title: 'Límite Gratuito Alcanzado',
-                            message: `Has usado tus ${GUEST_MESSAGE_LIMIT} mensajes. Regístrate gratis para obtener ${FREE_PLAN_MESSAGE_LIMIT} mensajes más.`,
-                            confirmText: 'Registrarse / Iniciar Sesión'
-                        }).then(wantsToLogin => {
-                            if (wantsToLogin) netlifyIdentity.open('signup');
-                        });
+                        await showModal({ title: 'Límite Gratuito Alcanzado', message: `Has usado tus ${GUEST_MESSAGE_LIMIT} mensajes. Regístrate gratis para obtener ${FREE_PLAN_MESSAGE_LIMIT} mensajes más.`, confirmText: 'Registrarse / Iniciar Sesión' })
+                            .then(wantsToLogin => { if (wantsToLogin) netlifyIdentity.open('signup'); });
                         hideModal();
                         return;
                     }
                     incrementGuestCount();
+                    updateMessageCounter();
+                } else { // Logged-in User
+                    if (getMessageCount() >= FREE_PLAN_MESSAGE_LIMIT && !forceSend) {
+                        showPricingModal();
+                        return;
+                    }
+                    // **CHANGE**: Optimistically update counter for logged-in user
+                    currentUser.app_metadata.message_count++;
                     updateMessageCounter();
                 }
 
@@ -362,6 +367,7 @@
                         updateMessageInUI(thinkingBubble, responseData.reply);
                         speak(responseData.reply);
 
+                        // Re-sync with the server's official count just in case.
                         if (currentUser && typeof responseData.new_message_count !== 'undefined') {
                             currentUser.app_metadata.message_count = responseData.new_message_count;
                             updateMessageCounter();
@@ -374,6 +380,9 @@
                     updateMessageInUI(thinkingBubble, `❌ **Error de Conexión**<br><small>${error.message || 'Asegúrate de que el backend está desplegado.'}</small>`);
                 }
             }
+            // =================================================================
+            // END: CORRECTED sendMessage FUNCTION
+            // =================================================================
             
             async function getAIResponse(prompt, history, image, pdf) {
                 const token = currentUser ? await currentUser.jwt() : null;
