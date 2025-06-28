@@ -37,6 +37,17 @@
         .project.open .project-content { display: block; }
         .project.open .project-arrow { transform: rotate(90deg); }
         .project-header.drag-over { background-color: var(--current-primary); }
+
+        /* Code Block Styles */
+        .code-block { background-color: #0d1117; border: 1px solid var(--current-border-color); border-radius: 0.5rem; overflow: hidden; margin-top: 1rem; }
+        .code-block-header { display: flex; align-items: center; justify-content: space-between; background-color: #161b22; padding: 0.5rem 1rem; font-size: 0.8rem; color: var(--text-medium); }
+        .code-block-header span { font-family: monospace; }
+        .code-block-header button { background-color: transparent; border: none; color: var(--text-medium); cursor: pointer; padding: 0.25rem; border-radius: 0.25rem; }
+        .code-block-header button:hover { background-color: rgba(255, 255, 255, 0.1); }
+        .code-block-body { padding: 1rem; max-height: 400px; overflow-y: auto; font-family: monospace; font-size: 0.875rem; white-space: pre-wrap; }
+        .code-block-body::-webkit-scrollbar { width: 6px; }
+        .code-block-body::-webkit-scrollbar-thumb { background: #3a3a3a; border-radius: 3px; }
+        .code-block-body::-webkit-scrollbar-track { background: transparent; }
     </style>
 </head>
 <body class="h-screen w-screen overflow-hidden dark-theme">
@@ -133,6 +144,7 @@
                     <label for="model-selector" class="font-medium text-sm text-text-medium">Modelo:</label>
                     <select id="model-selector" class="rounded-md p-1.5 focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm disabled:opacity-50 disabled:cursor-not-allowed bg-input text-text-light border border-themed">
                         <option value="gpt-3.5-turbo">Goatify Pro (Texto)</option>
+                        <option value="gpt-3.5-turbo-0125">Web Pro (Código)</option>
                         <option value="gpt-4o">Goatify Nebula (Archivos)</option>
                         <option value="perplexity">Búsqueda Web</option>
                     </select>
@@ -183,8 +195,10 @@
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script type="module">
         window.addEventListener('DOMContentLoaded', () => {
-            const GUEST_MESSAGE_LIMIT = 5;
-            const FREE_PLAN_MESSAGE_LIMIT = 15;
+            const GUEST_CREDIT_LIMIT = 5;
+            const FREE_PLAN_CREDIT_LIMIT = 15;
+            const WEB_PRO_MODEL_COST = 5;
+
             const dom = {
                 msgInput: document.getElementById('msg'), sendBtn: document.getElementById('send'),
                 messageCounterEl: document.getElementById('message-counter'), upgradePlanBtn: document.getElementById('upgrade-plan-btn'),
@@ -268,15 +282,14 @@
                 return response.json();
             }
 
-            function getMessageCount() { return currentUser ? (currentUser.app_metadata.message_count || 0) : parseInt(localStorage.getItem('guestMessageCount') || '0'); }
-            function incrementGuestCount() { if (!currentUser) localStorage.setItem('guestMessageCount', String(getMessageCount() + 1)); }
+            function getCreditCount() { return currentUser ? (currentUser.app_metadata.message_count || 0) : parseInt(localStorage.getItem('guestCreditCount') || '0'); }
+            function incrementGuestCredits() { if (!currentUser) localStorage.setItem('guestCreditCount', String(getCreditCount() + 1)); }
             
             function loadStateForUser() {
                 const key = currentUser ? `goatbotState_${currentUser.id}` : 'guestState';
                 const saved = localStorage.getItem(key);
                 if (saved) {
                     const parsed = JSON.parse(saved);
-                    // Migration from folders to projects
                     if (parsed.state.folders && !parsed.state.projects) {
                        parsed.state.projects = parsed.state.folders;
                        delete parsed.state.folders;
@@ -299,11 +312,9 @@
                     dom.userMenuView.classList.remove('hidden');
                     dom.genericWelcome.classList.add('hidden');
                     dom.personalizedWelcome.classList.remove('hidden');
-                    
                     const userName = currentUser.user_metadata.full_name?.split(' ')[0] || currentUser.email.split('@')[0];
                     dom.userEmail.textContent = currentUser.user_metadata.full_name || currentUser.email;
                     dom.userName.textContent = userName;
-                    
                     dom.upgradePlanBtn.classList.toggle('hidden', (currentUser.app_metadata.plan || 'free') !== 'free');
                 } else {
                     dom.loginView.classList.remove('hidden');
@@ -312,12 +323,12 @@
                     dom.personalizedWelcome.classList.add('hidden');
                     dom.upgradePlanBtn.classList.add('hidden');
                 }
-                updateMessageCounter();
+                updateCreditCounter();
             }
 
-            function updateMessageCounter() {
-                const count = getMessageCount();
-                const limit = currentUser ? FREE_PLAN_MESSAGE_LIMIT : GUEST_MESSAGE_LIMIT;
+            function updateCreditCounter() {
+                const count = getCreditCount();
+                const limit = currentUser ? FREE_PLAN_CREDIT_LIMIT : GUEST_CREDIT_LIMIT;
                 const planName = currentUser ? 'Plan Gratuito' : 'Invitado';
                 dom.messageCounterEl.textContent = `${planName}: ${count}/${limit} créditos`;
             }
@@ -341,15 +352,38 @@
                 selectChat(id); 
                 saveState(); 
                 renderSidebar(); 
-                if (options.model) {
-                    dom.modelSelector.value = options.model;
-                }
+                if (options.model) dom.modelSelector.value = options.model;
                 return id; 
             }
 
             function selectChat(chatId) { if (!chatId || !state.chats[chatId]) { resetChatView(); return; } currentChatId = chatId; dom.initialMessageContainer.style.display = 'none'; dom.chatMessages.innerHTML = ''; const chat = state.chats[chatId]; dom.chatTitle.textContent = chat.title; chat.messages.forEach((msg) => addMessageToUI(msg.role, msg.content, msg.image)); updateActiveChatHighlight(); saveState(); }
             function resetChatView() { currentChatId = null; dom.chatTitle.textContent = "GOATBOT Pro"; dom.chatMessages.innerHTML = ''; dom.initialMessageContainer.style.display = 'flex'; updateUserUI(); updateActiveChatHighlight(); }
             
+            function renderCodeBlock(content) {
+                const codeBlock = document.createElement('div');
+                codeBlock.className = 'code-block';
+                const header = document.createElement('div');
+                header.className = 'code-block-header';
+                header.innerHTML = `<span>HTML</span><button title="Copiar código"><i class="fas fa-copy"></i></button>`;
+                const body = document.createElement('pre');
+                body.className = 'code-block-body';
+                body.textContent = content;
+
+                header.querySelector('button').addEventListener('click', (e) => {
+                    const textarea = document.createElement('textarea');
+                    textarea.value = content;
+                    document.body.appendChild(textarea);
+                    textarea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textarea);
+                    e.currentTarget.innerHTML = '<i class="fas fa-check"></i> ¡Copiado!';
+                    setTimeout(() => e.currentTarget.innerHTML = '<i class="fas fa-copy"></i>', 2000);
+                });
+
+                codeBlock.append(header, body);
+                return codeBlock;
+            }
+
             function addMessageToUI(role, content, imageSrc) {
                 const wrapper = document.createElement('div');
                 wrapper.className = `chat-bubble-wrapper flex items-start gap-2 my-2 ${role === 'user' ? 'justify-end' : 'justify-start'}`;
@@ -366,15 +400,18 @@
                 
                 const contentDiv = document.createElement('div');
                 contentDiv.className = 'markdown-content';
-                contentDiv.innerHTML = content === '…' ? `<div class="flex items-center space-x-2"><div class="w-2 h-2 bg-gray-400 rounded-full animate-pulse"></div><div class="w-2 h-2 bg-gray-400 rounded-full animate-pulse" style="animation-delay: .2s;"></div><div class="w-2 h-2 bg-gray-400 rounded-full animate-pulse" style="animation-delay: .4s;"></div></div>` : marked.parse(content || "");
-                bubble.appendChild(contentDiv);
-
-                // Add action buttons for HTML code
                 const currentChat = state.chats[currentChatId];
-                if (role === 'assistant' && currentChat && currentChat.workflow === 'web-page' && /<\/?[a-z][\s\S]*>/i.test(content)) {
+                if (role === 'assistant' && currentChat?.workflow === 'web-page' && /<\/?[a-z][\s\S]*>/i.test(content)) {
+                    contentDiv.innerHTML = 'Aquí tienes el código para tu página web:';
+                    contentDiv.appendChild(renderCodeBlock(content));
+                } else {
+                    contentDiv.innerHTML = content === '…' ? `<div class="flex items-center space-x-2"><div class="w-2 h-2 bg-gray-400 rounded-full animate-pulse"></div><div class="w-2 h-2 bg-gray-400 rounded-full animate-pulse" style="animation-delay: .2s;"></div><div class="w-2 h-2 bg-gray-400 rounded-full animate-pulse" style="animation-delay: .4s;"></div></div>` : marked.parse(content || "");
+                }
+                bubble.appendChild(contentDiv);
+                
+                if (role === 'assistant' && currentChat?.workflow === 'web-page' && /<\/?[a-z][\s\S]*>/i.test(content)) {
                     const actionsWrapper = document.createElement('div');
                     actionsWrapper.className = 'mt-3 pt-3 border-t border-themed flex items-center gap-2';
-                    
                     const previewBtn = document.createElement('button');
                     previewBtn.innerHTML = '<i class="fas fa-eye mr-2"></i>Vista Previa';
                     previewBtn.className = 'text-xs font-semibold py-1 px-2 rounded bg-input hover:bg-opacity-70';
@@ -383,25 +420,9 @@
                         const url = URL.createObjectURL(blob);
                         dom.htmlPreviewIframe.src = url;
                         dom.htmlPreviewModal.classList.remove('hidden');
-                        // Revoke the object URL when the modal is closed to free up memory
                         dom.htmlPreviewIframe.onload = () => URL.revokeObjectURL(url);
                     };
-
-                    const copyBtn = document.createElement('button');
-                    copyBtn.innerHTML = '<i class="fas fa-copy mr-2"></i>Copiar Código';
-                    copyBtn.className = 'text-xs font-semibold py-1 px-2 rounded bg-input hover:bg-opacity-70';
-                    copyBtn.onclick = (e) => {
-                        const textarea = document.createElement('textarea');
-                        textarea.value = content;
-                        document.body.appendChild(textarea);
-                        textarea.select();
-                        document.execCommand('copy');
-                        document.body.removeChild(textarea);
-                        e.target.textContent = '¡Copiado!';
-                        setTimeout(() => e.target.innerHTML = '<i class="fas fa-copy mr-2"></i>Copiar Código', 2000);
-                    };
-
-                    actionsWrapper.append(previewBtn, copyBtn);
+                    actionsWrapper.appendChild(previewBtn);
                     bubble.appendChild(actionsWrapper);
                 }
 
@@ -412,43 +433,8 @@
             }
 
             function updateMessageInUI(bubble, content) {
-                const md = bubble.querySelector('.markdown-content');
-                if (md) md.innerHTML = marked.parse(content);
-                // After updating, re-check if we need to add the buttons
-                const currentChat = state.chats[currentChatId];
-                if (currentChat && currentChat.workflow === 'web-page' && /<\/?[a-z][\s\S]*>/i.test(content)) {
-                    if (bubble.querySelector('.preview-btn')) return; // Buttons already exist
-                    const actionsWrapper = document.createElement('div');
-                    actionsWrapper.className = 'mt-3 pt-3 border-t border-themed flex items-center gap-2';
-
-                    const previewBtn = document.createElement('button');
-                    previewBtn.innerHTML = '<i class="fas fa-eye mr-2"></i>Vista Previa';
-                    previewBtn.className = 'preview-btn text-xs font-semibold py-1 px-2 rounded bg-input hover:bg-opacity-70';
-                    previewBtn.onclick = () => {
-                        const blob = new Blob([content], { type: 'text/html' });
-                        const url = URL.createObjectURL(blob);
-                        dom.htmlPreviewIframe.src = url;
-                        dom.htmlPreviewModal.classList.remove('hidden');
-                        dom.htmlPreviewIframe.onload = () => URL.revokeObjectURL(url);
-                    };
-
-                    const copyBtn = document.createElement('button');
-                    copyBtn.innerHTML = '<i class="fas fa-copy mr-2"></i>Copiar Código';
-                    copyBtn.className = 'text-xs font-semibold py-1 px-2 rounded bg-input hover:bg-opacity-70';
-                    copyBtn.onclick = (e) => {
-                         const textarea = document.createElement('textarea');
-                        textarea.value = content;
-                        document.body.appendChild(textarea);
-                        textarea.select();
-                        document.execCommand('copy');
-                        document.body.removeChild(textarea);
-                        e.target.textContent = '¡Copiado!';
-                        setTimeout(() => e.target.innerHTML = '<i class="fas fa-copy mr-2"></i>Copiar Código', 2000);
-                    };
-                    
-                    actionsWrapper.append(previewBtn, copyBtn);
-                    bubble.appendChild(actionsWrapper);
-                }
+                addMessageToUI('assistant', content); // This will re-render the bubble with the new logic
+                bubble.parentElement.remove(); // Remove the old "thinking" bubble
             }
             function renderSidebar() { dom.sidebarContent.innerHTML = ''; const frag = document.createDocumentFragment(); (state.structure || []).forEach(id => { if (id.startsWith('project-')) frag.appendChild(createProjectElement(id)); else if (id.startsWith('chat-')) frag.appendChild(createChatItemElement(id)); }); dom.sidebarContent.appendChild(frag); updateActiveChatHighlight(); }
             function createChatItemElement(id, isSubItem = false) { const chat = state.chats[id]; if (!chat) return document.createDocumentFragment(); const item = document.createElement('div'); item.className = `chat-item group flex items-center justify-between p-2 rounded-md cursor-pointer ${isSubItem ? 'pl-5' : ''}`; item.dataset.id = id; item.draggable = true; item.innerHTML = `<i class="far fa-comment-dots mr-2"></i><span class="flex-grow truncate text-sm font-medium">${chat.title}</span><div class="chat-item-actions flex-shrink-0"><button class="rename-btn text-text-medium hover:text-primary p-1"><i class="fas fa-pencil-alt fa-xs"></i></button><button class="delete-btn text-text-medium hover:text-red-500 p-1"><i class="fas fa-trash-alt fa-xs"></i></button></div>`; item.addEventListener('click', e => { if (!e.target.closest('.chat-item-actions')) selectChat(id); }); item.addEventListener('dragstart', e => handleDragStart(e, id)); item.querySelector('.rename-btn').addEventListener('click', () => renameItem('chat', id)); item.querySelector('.delete-btn').addEventListener('click', () => deleteItem('chat', id)); return item; }
@@ -504,30 +490,35 @@
                 const userMessage = dom.msgInput.value.trim();
                 if (!userMessage && !selectedImageBase64 && !selectedPdfText) return;
 
-                const count = getMessageCount();
+                const count = getCreditCount();
 
                 if (!currentUser) {
-                    if (count >= GUEST_MESSAGE_LIMIT && !forceSend) {
+                    if (count >= GUEST_CREDIT_LIMIT && !forceSend) {
                         pendingMessage = { userMessage, image: selectedImageBase64, pdf: selectedPdfText };
-                        await showModal({ title: 'Límite de Créditos Alcanzado', message: `Has usado tus ${GUEST_MESSAGE_LIMIT} créditos de invitado. Regístrate gratis para obtener ${FREE_PLAN_MESSAGE_LIMIT} créditos más.`, confirmText: 'Registrarse / Iniciar Sesión' })
+                        await showModal({ title: 'Límite de Créditos Alcanzado', message: `Has usado tus ${GUEST_CREDIT_LIMIT} créditos de invitado. Regístrate gratis para obtener ${FREE_PLAN_CREDIT_LIMIT} créditos más.`, confirmText: 'Registrarse / Iniciar Sesión' })
                             .then(wantsToLogin => { if (wantsToLogin) netlifyIdentity.open('signup'); });
                         hideModal();
                         return;
                     }
                 } else {
-                    if (count >= FREE_PLAN_MESSAGE_LIMIT && !forceSend) {
+                    if(dom.modelSelector.value === 'gpt-3.5-turbo-0125' && count < WEB_PRO_MODEL_COST) {
+                         await showModal({ title: 'Créditos Insuficientes', message: `El modelo Web Pro requiere al menos ${WEB_PRO_MODEL_COST} créditos. Te quedan ${count}.`, confirmText: 'Entendido' });
+                         hideModal();
+                         return;
+                    }
+                    if (count >= FREE_PLAN_CREDIT_LIMIT && !forceSend) {
                         showPricingModal();
                         return;
                     }
                 }
 
-                // **CHANGE**: Optimistic update for both guest and logged-in user
                 if (currentUser) {
-                    currentUser.app_metadata.message_count++;
+                    const cost = dom.modelSelector.value === 'gpt-3.5-turbo-0125' ? WEB_PRO_MODEL_COST : 1;
+                    currentUser.app_metadata.message_count += cost;
                 } else {
-                    incrementGuestCount();
+                    incrementGuestCredits();
                 }
-                updateMessageCounter();
+                updateCreditCounter();
 
                 let chatIdToUpdate = currentChatId || createNewChat();
                 if (!state.chats[chatIdToUpdate]) return;
@@ -542,10 +533,10 @@
                     const responseData = await getAIResponse(userMessage, state.chats[chatIdToUpdate].messages.slice(0, -1), image, pdf);
                     
                     if (responseData.error === 'LIMIT_REACHED') {
-                        updateMessageInUI(thinkingBubble, `Has alcanzado el límite de ${FREE_PLAN_MESSAGE_LIMIT} créditos de tu plan gratuito. ¡Actualiza para continuar!`);
+                        updateMessageInUI(thinkingBubble, `Has alcanzado el límite de ${FREE_PLAN_CREDIT_LIMIT} créditos de tu plan gratuito. ¡Actualiza para continuar!`);
                         if (currentUser) {
-                            currentUser.app_metadata.message_count = FREE_PLAN_MESSAGE_LIMIT;
-                            updateMessageCounter();
+                            currentUser.app_metadata.message_count = FREE_PLAN_CREDIT_LIMIT;
+                            updateCreditCounter();
                         }
                         showPricingModal();
                         return;
@@ -558,7 +549,7 @@
 
                         if (currentUser && typeof responseData.new_message_count !== 'undefined') {
                             currentUser.app_metadata.message_count = responseData.new_message_count;
-                            updateMessageCounter(); 
+                            updateCreditCounter(); 
                         }
                         saveState();
                     } else if (responseData.error) {
@@ -605,8 +596,8 @@
                     createNewChat({
                         title: "Nueva Página Web",
                         workflow: "web-page",
-                        model: "gpt-4o",
-                        initialMessages: [{ role: 'assistant', content: '¡Perfecto! Estoy listo para generar el código de una página web con HTML, CSS de Tailwind y JavaScript. Describe qué necesitas que construya.' }]
+                        model: "gpt-3.5-turbo-0125",
+                        initialMessages: [{ role: 'assistant', content: '¡Perfecto! Estoy listo para generar una página web profesional con HTML y Tailwind CSS.\n\n**Para asegurar un diseño de alta calidad, por favor describe:**\n- El propósito de la página (ej. portafolio, landing page para un producto, etc.).\n- La paleta de colores que prefieres (ej. tonos oscuros, colores vibrantes, etc.).\n- El contenido y las secciones que necesitas (ej. Encabezado, "Sobre mí", "Servicios", "Contacto").' }]
                     });
                 });
                 dom.closeHtmlPreviewModalBtn.addEventListener('click', () => dom.htmlPreviewModal.classList.add('hidden'));
@@ -625,7 +616,7 @@
                     } else {
                         currentUser = null;
                         if (localStorage.getItem('hasLoggedInBefore') === 'true') {
-                            localStorage.setItem('guestMessageCount', GUEST_MESSAGE_LIMIT);
+                            localStorage.setItem('guestCreditCount', GUEST_CREDIT_LIMIT);
                         }
                     }
 
@@ -670,7 +661,7 @@
 
                 netlifyIdentity.on('login', async user => {
                     netlifyIdentity.close();
-                    localStorage.removeItem('guestMessageCount');
+                    localStorage.removeItem('guestCreditCount');
                     localStorage.setItem('hasLoggedInBefore', 'true');
                     currentUser = await ensureUserMetadata(user);
                     updateUserUI();
@@ -682,8 +673,8 @@
                     currentUser = null;
                     updateUserUI();
                     loadStateForUser();
-                    localStorage.setItem('guestMessageCount', GUEST_MESSAGE_LIMIT);
-                    updateMessageCounter();
+                    localStorage.setItem('guestCreditCount', GUEST_CREDIT_LIMIT);
+                    updateCreditCounter();
                     showModal({ 
                         title: 'Sesión Cerrada', 
                         message: `Has cerrado sesión. Para continuar, por favor, inicia sesión de nuevo.`, 
