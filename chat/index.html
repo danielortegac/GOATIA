@@ -160,266 +160,272 @@
     
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script type="module">
-        const GUEST_MESSAGE_LIMIT = 5;
-        const FREE_PLAN_MESSAGE_LIMIT = 15;
-        const dom = {
-            msgInput: document.getElementById('msg'), sendBtn: document.getElementById('send'),
-            messageCounterEl: document.getElementById('message-counter'), upgradePlanBtn: document.getElementById('upgrade-plan-btn'),
-            newChatBtn: document.getElementById('new-chat-btn'), newFolderBtn: document.getElementById('new-folder-btn'),
-            pricingModal: document.getElementById('pricing-modal'), closePricingModalBtn: document.getElementById('close-pricing-modal'),
-            genericModal: document.getElementById('generic-modal'), chatMessages: document.getElementById('chat-messages'),
-            chatTitle: document.getElementById('chat-title'), initialMessageContainer: document.getElementById('initial-message-container'),
-            themeToggle: document.getElementById('theme-toggle'), themeIcon: document.getElementById('theme-icon'),
-            voiceBtn: document.getElementById('voice'), ttsToggle: document.getElementById('ttsToggle'),
-            modelSelector: document.getElementById('model-selector'),
-            imageUploadBtn: document.getElementById('image-upload-btn'), imageUploadInput: document.getElementById('image-upload'),
-            imagePreviewContainer: document.getElementById('image-preview-container'), imagePreview: document.getElementById('image-preview'),
-            clearImageBtn: document.getElementById('clear-image-btn'),
-            pdfUploadBtn: document.getElementById('pdf-upload-btn'), pdfUploadInput: document.getElementById('pdf-upload'),
-            pdfPreviewContainer: document.getElementById('pdf-preview-container'), pdfNameEl: document.getElementById('pdf-name'),
-            pdfStatusEl: document.getElementById('pdf-status'), clearPdfBtn: document.getElementById('clear-pdf-btn'),
-            sidebar: document.getElementById('sidebar'), menuToggle: document.getElementById('menu-toggle'),
-            sidebarContent: document.getElementById('sidebar-content'),
-            loginView: document.getElementById('login-view'), userMenuView: document.getElementById('user-menu-view'),
-            loginBtn: document.getElementById('login-btn'), userMenuBtn: document.getElementById('user-menu-btn'),
-            userMenuPopup: document.getElementById('user-menu-popup'), userEmail: document.getElementById('user-email'),
-            logoutBtn: document.getElementById('logout-btn'), settingsBtn: document.getElementById('settings-btn'),
-            personalizedWelcome: document.getElementById('personalized-welcome'),
-            genericWelcome: document.getElementById('generic-welcome'),
-            userName: document.getElementById('user-name')
-        };
+        // **FIX**: Wrap entire script in DOMContentLoaded listener to prevent race conditions.
+        window.addEventListener('DOMContentLoaded', () => {
+            const GUEST_MESSAGE_LIMIT = 5;
+            const FREE_PLAN_MESSAGE_LIMIT = 15;
+            const dom = {
+                msgInput: document.getElementById('msg'), sendBtn: document.getElementById('send'),
+                messageCounterEl: document.getElementById('message-counter'), upgradePlanBtn: document.getElementById('upgrade-plan-btn'),
+                newChatBtn: document.getElementById('new-chat-btn'), newFolderBtn: document.getElementById('new-folder-btn'),
+                pricingModal: document.getElementById('pricing-modal'), closePricingModalBtn: document.getElementById('close-pricing-modal'),
+                genericModal: document.getElementById('generic-modal'), chatMessages: document.getElementById('chat-messages'),
+                chatTitle: document.getElementById('chat-title'), initialMessageContainer: document.getElementById('initial-message-container'),
+                themeToggle: document.getElementById('theme-toggle'), themeIcon: document.getElementById('theme-icon'),
+                voiceBtn: document.getElementById('voice'), ttsToggle: document.getElementById('ttsToggle'),
+                modelSelector: document.getElementById('model-selector'),
+                imageUploadBtn: document.getElementById('image-upload-btn'), imageUploadInput: document.getElementById('image-upload'),
+                imagePreviewContainer: document.getElementById('image-preview-container'), imagePreview: document.getElementById('image-preview'),
+                clearImageBtn: document.getElementById('clear-image-btn'),
+                pdfUploadBtn: document.getElementById('pdf-upload-btn'), pdfUploadInput: document.getElementById('pdf-upload'),
+                pdfPreviewContainer: document.getElementById('pdf-preview-container'), pdfNameEl: document.getElementById('pdf-name'),
+                pdfStatusEl: document.getElementById('pdf-status'), clearPdfBtn: document.getElementById('clear-pdf-btn'),
+                sidebar: document.getElementById('sidebar'), menuToggle: document.getElementById('menu-toggle'),
+                sidebarContent: document.getElementById('sidebar-content'),
+                loginView: document.getElementById('login-view'), userMenuView: document.getElementById('user-menu-view'),
+                loginBtn: document.getElementById('login-btn'), userMenuBtn: document.getElementById('user-menu-btn'),
+                userMenuPopup: document.getElementById('user-menu-popup'), userEmail: document.getElementById('user-email'),
+                logoutBtn: document.getElementById('logout-btn'), settingsBtn: document.getElementById('settings-btn'),
+                personalizedWelcome: document.getElementById('personalized-welcome'),
+                genericWelcome: document.getElementById('generic-welcome'),
+                userName: document.getElementById('user-name')
+            };
 
-        let state = { chats: {}, folders: {}, structure: [] };
-        let currentChatId = null, currentUser = null, pendingMessage = null, speechOn = true, availableVoices = [], isRecognizing = false, selectedImageBase64 = null, selectedPdfText = null;
-        
-        let modalResolve = null;
-        function showModal({ title, message, useInput = false, placeholder = '', confirmText = 'Confirmar' }) {
-            const modalTitle = dom.genericModal.querySelector('#modal-title'), modalMessage = dom.genericModal.querySelector('#modal-message'), modalInput = dom.genericModal.querySelector('#modal-input'), modalConfirm = dom.genericModal.querySelector('#modal-confirm');
-            modalTitle.textContent = title; modalMessage.textContent = message; modalMessage.style.display = message ? 'block' : 'none'; modalInput.style.display = useInput ? 'block' : 'none'; modalInput.value = ''; modalInput.placeholder = placeholder; modalConfirm.textContent = confirmText;
-            dom.genericModal.classList.remove('hidden'); dom.genericModal.classList.add('flex');
-            if (useInput) modalInput.focus();
-            return new Promise(resolve => { modalResolve = resolve; });
-        }
-        function hideModal(resolveWith = null) { dom.genericModal.classList.add('hidden'); dom.genericModal.classList.remove('flex'); if(modalResolve) { modalResolve(resolveWith); modalResolve = null; } }
-        function showPricingModal() { dom.pricingModal.classList.remove('hidden'); dom.pricingModal.classList.add('flex'); setTimeout(() => { dom.pricingModal.querySelector('.modal-content').classList.remove('scale-95'); }, 10); }
-        function hidePricingModal() { dom.pricingModal.querySelector('.modal-content').classList.add('scale-95'); setTimeout(() => { dom.pricingModal.classList.add('hidden'); dom.pricingModal.classList.remove('flex'); }, 300); }
+            let state = { chats: {}, folders: {}, structure: [] };
+            let currentChatId = null, currentUser = null, pendingMessage = null, speechOn = true, availableVoices = [], isRecognizing = false, selectedImageBase64 = null, selectedPdfText = null;
+            
+            let modalResolve = null;
+            function showModal({ title, message, useInput = false, placeholder = '', confirmText = 'Confirmar' }) {
+                const modalTitle = dom.genericModal.querySelector('#modal-title'), modalMessage = dom.genericModal.querySelector('#modal-message'), modalInput = dom.genericModal.querySelector('#modal-input'), modalConfirm = dom.genericModal.querySelector('#modal-confirm');
+                modalTitle.textContent = title; modalMessage.textContent = message; modalMessage.style.display = message ? 'block' : 'none'; modalInput.style.display = useInput ? 'block' : 'none'; modalInput.value = ''; modalInput.placeholder = placeholder; modalConfirm.textContent = confirmText;
+                dom.genericModal.classList.remove('hidden'); dom.genericModal.classList.add('flex');
+                if (useInput) modalInput.focus();
+                return new Promise(resolve => { modalResolve = resolve; });
+            }
+            function hideModal(resolveWith = null) { dom.genericModal.classList.add('hidden'); dom.genericModal.classList.remove('flex'); if(modalResolve) { modalResolve(resolveWith); modalResolve = null; } }
+            function showPricingModal() { dom.pricingModal.classList.remove('hidden'); dom.pricingModal.classList.add('flex'); setTimeout(() => { dom.pricingModal.querySelector('.modal-content').classList.remove('scale-95'); }, 10); }
+            function hidePricingModal() { dom.pricingModal.querySelector('.modal-content').classList.add('scale-95'); setTimeout(() => { dom.pricingModal.classList.add('hidden'); dom.pricingModal.classList.remove('flex'); }, 300); }
 
-        function initApp() {
-            setTheme(localStorage.getItem('theme') === 'dark' || (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches));
-            netlifyIdentity.on('init', user => {
-                currentUser = user;
-                updateUserUI();
-                loadStateForUser();
-            });
-            netlifyIdentity.on('login', user => {
-                currentUser = user;
-                netlifyIdentity.close();
-                localStorage.removeItem('guestMessageCount');
-                updateUserUI();
-                loadStateForUser();
-                sendMessageIfPending();
-            });
-            netlifyIdentity.on('logout', () => {
-                currentUser = null;
-                updateUserUI();
-                loadStateForUser();
-            });
-            populateVoiceList();
-            setupEventListeners();
-        }
+            // **FIX**: initApp is now defined within the listener's scope.
+            function initApp() {
+                setTheme(localStorage.getItem('theme') === 'dark' || (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches));
+                
+                netlifyIdentity.on('init', user => {
+                    currentUser = user;
+                    updateUserUI();
+                    loadStateForUser();
+                });
+                netlifyIdentity.on('login', user => {
+                    currentUser = user;
+                    netlifyIdentity.close();
+                    localStorage.removeItem('guestMessageCount');
+                    updateUserUI();
+                    loadStateForUser();
+                    sendMessageIfPending();
+                });
+                netlifyIdentity.on('logout', () => {
+                    currentUser = null;
+                    updateUserUI();
+                    loadStateForUser();
+                });
 
-        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-        let recognition;
-        if (SR) {
-            recognition = new SR();
-            recognition.continuous = false;
-            recognition.lang = 'es-ES';
-            recognition.interimResults = false;
-            recognition.onstart = () => { isRecognizing = true; dom.voiceBtn.classList.add('glowing-mic'); };
-            recognition.onend = () => { isRecognizing = false; dom.voiceBtn.classList.remove('glowing-mic'); };
-            recognition.onresult = (event) => { dom.msgInput.value += Array.from(event.results).map(r => r[0].transcript).join(''); };
-        } else {
-            dom.voiceBtn.style.display = 'none';
-        }
-
-        function speak(text) { if (!speechOn || !('speechSynthesis' in window) || !text) return; speechSynthesis.cancel(); const cleanText = text.replace(/[*_`#~[\]()🔍]|(-{3,})|(\*\*Fuente:\*\*.*)/g, ''); const utterance = new SpeechSynthesisUtterance(cleanText); utterance.voice = availableVoices.find(v => v.lang.startsWith('es')) || availableVoices[0]; speechSynthesis.speak(utterance); }
-        function populateVoiceList() { if (typeof speechSynthesis === 'undefined') return; availableVoices = speechSynthesis.getVoices(); if (speechSynthesis.onvoiceschanged !== undefined) speechSynthesis.onvoiceschanged = () => availableVoices = speechSynthesis.getVoices(); }
-
-        async function sendMessage(forceSend = false) {
-            const userMessage = dom.msgInput.value.trim();
-            if (!userMessage && !selectedImageBase64 && !selectedPdfText) return;
-
-            if (!currentUser) {
-                if (getMessageCount() >= GUEST_MESSAGE_LIMIT && !forceSend) {
-                    pendingMessage = { userMessage, image: selectedImageBase64, pdf: selectedPdfText };
-                    await showModal({ title: 'Límite Gratuito Alcanzado', message: `Has usado tus ${GUEST_MESSAGE_LIMIT} mensajes. Regístrate gratis para obtener ${FREE_PLAN_MESSAGE_LIMIT} mensajes más.`, confirmText: 'Registrarse / Iniciar Sesión' })
-                        .then(wantsToLogin => { if (wantsToLogin) netlifyIdentity.open('signup'); });
-                    hideModal();
-                    return;
-                }
+                populateVoiceList();
+                setupEventListeners();
             }
 
-            let chatIdToUpdate = currentChatId || createNewChat();
-            if (!state.chats[chatIdToUpdate]) return;
+            const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+            let recognition;
+            if (SR) {
+                recognition = new SR();
+                recognition.continuous = false;
+                recognition.lang = 'es-ES';
+                recognition.interimResults = false;
+                recognition.onstart = () => { isRecognizing = true; dom.voiceBtn.classList.add('glowing-mic'); };
+                recognition.onend = () => { isRecognizing = false; dom.voiceBtn.classList.remove('glowing-mic'); };
+                recognition.onresult = (event) => { dom.msgInput.value += Array.from(event.results).map(r => r[0].transcript).join(''); };
+            } else {
+                dom.voiceBtn.style.display = 'none';
+            }
 
-            const [image, pdf] = [selectedImageBase64, selectedPdfText];
-            state.chats[chatIdToUpdate].messages.push({ role: 'user', content: userMessage, image, pdfText: pdf });
-            addMessageToUI('user', userMessage, image);
-            const thinkingBubble = addMessageToUI('bot', '…');
-            dom.msgInput.value = ''; clearImageData(); clearPdfData();
+            function speak(text) { if (!speechOn || !('speechSynthesis' in window) || !text) return; speechSynthesis.cancel(); const cleanText = text.replace(/[*_`#~[\]()🔍]|(-{3,})|(\*\*Fuente:\*\*.*)/g, ''); const utterance = new SpeechSynthesisUtterance(cleanText); utterance.voice = availableVoices.find(v => v.lang.startsWith('es')) || availableVoices[0]; speechSynthesis.speak(utterance); }
+            function populateVoiceList() { if (typeof speechSynthesis === 'undefined') return; availableVoices = speechSynthesis.getVoices(); if (speechSynthesis.onvoiceschanged !== undefined) speechSynthesis.onvoiceschanged = () => availableVoices = speechSynthesis.getVoices(); }
 
-            try {
-                const responseData = await getAIResponse(userMessage, state.chats[chatIdToUpdate].messages.slice(0, -1), image, pdf);
-                
-                if (responseData.error === 'LIMIT_REACHED') {
-                    updateMessageInUI(thinkingBubble, `Has alcanzado el límite de ${FREE_PLAN_MESSAGE_LIMIT} mensajes de tu plan gratuito. ¡Actualiza para continuar!`);
-                    showPricingModal();
-                    return;
-                }
+            async function sendMessage(forceSend = false) {
+                const userMessage = dom.msgInput.value.trim();
+                if (!userMessage && !selectedImageBase64 && !selectedPdfText) return;
 
-                if (responseData.reply) {
-                    state.chats[chatIdToUpdate].messages.push({ role: 'assistant', content: responseData.reply });
-                    updateMessageInUI(thinkingBubble, responseData.reply);
-                    speak(responseData.reply);
-
-                    if (currentUser && typeof responseData.new_message_count !== 'undefined') {
-                        updateUserMessageCount(responseData.new_message_count);
-                        updateMessageCounter();
-                    } else if (!currentUser) {
-                        incrementGuestCount();
-                        updateMessageCounter();
+                if (!currentUser) {
+                    if (getMessageCount() >= GUEST_MESSAGE_LIMIT && !forceSend) {
+                        pendingMessage = { userMessage, image: selectedImageBase64, pdf: selectedPdfText };
+                        await showModal({ title: 'Límite Gratuito Alcanzado', message: `Has usado tus ${GUEST_MESSAGE_LIMIT} mensajes. Regístrate gratis para obtener ${FREE_PLAN_MESSAGE_LIMIT} mensajes más.`, confirmText: 'Registrarse / Iniciar Sesión' })
+                            .then(wantsToLogin => { if (wantsToLogin) netlifyIdentity.open('signup'); });
+                        hideModal();
+                        return;
                     }
-                    saveState();
-                } else if (responseData.error) {
-                    updateMessageInUI(thinkingBubble, `❌ **${responseData.error}**<br><small>${responseData.details || 'No hay más detalles.'}</small>`);
                 }
-            } catch (error) {
-                updateMessageInUI(thinkingBubble, `❌ **Error de Conexión**<br><small>${error.message || 'Asegúrate de que el backend está desplegado.'}</small>`);
-            }
-        }
 
-        async function getAIResponse(prompt, history, image, pdf) {
-            const token = currentUser ? await currentUser.jwt() : null;
-            const response = await fetch('/.netlify/functions/get-ai-response', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', ...(token && { 'Authorization': `Bearer ${token}` }) },
-                body: JSON.stringify({ prompt, history, model: dom.modelSelector.value, imageData: image, pdfText: pdf })
-            });
+                let chatIdToUpdate = currentChatId || createNewChat();
+                if (!state.chats[chatIdToUpdate]) return;
 
-            if (response.status === 403) return { error: 'LIMIT_REACHED' };
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.details || `Error del servidor: ${response.statusText}`);
-            }
-            return response.json();
-        }
+                const [image, pdf] = [selectedImageBase64, selectedPdfText];
+                state.chats[chatIdToUpdate].messages.push({ role: 'user', content: userMessage, image, pdfText: pdf });
+                addMessageToUI('user', userMessage, image);
+                const thinkingBubble = addMessageToUI('bot', '…');
+                dom.msgInput.value = ''; clearImageData(); clearPdfData();
 
-        function getMessageCount() { return currentUser ? (currentUser.app_metadata.message_count || 0) : parseInt(localStorage.getItem('guestMessageCount') || '0'); }
-        function updateUserMessageCount(newCount) { if (currentUser) currentUser.app_metadata.message_count = newCount; }
-        function incrementGuestCount() { if (!currentUser) localStorage.setItem('guestMessageCount', String(getMessageCount() + 1)); }
-        
-        async function loadStateForUser() {
-            const key = currentUser ? `goatbotState_${currentUser.id}` : 'guestState';
-            const saved = localStorage.getItem(key);
-            if (saved) {
-                const parsed = JSON.parse(saved);
-                state = parsed.state || { chats: {}, folders: {}, structure: [] };
-                currentChatId = parsed.currentChatId;
-            } else {
-                state = { chats: {}, folders: {}, structure: [] };
-                currentChatId = null;
-            }
-            if (currentUser && typeof currentUser.app_metadata.plan === 'undefined') {
                 try {
-                    currentUser = await netlifyIdentity.gotrue.user.update({ data: { plan: 'free', message_count: 0 } });
-                    await currentUser.jwt(true);
-                } catch (error) { console.error("Error al establecer plan por defecto:", error); }
+                    const responseData = await getAIResponse(userMessage, state.chats[chatIdToUpdate].messages.slice(0, -1), image, pdf);
+                    
+                    if (responseData.error === 'LIMIT_REACHED') {
+                        updateMessageInUI(thinkingBubble, `Has alcanzado el límite de ${FREE_PLAN_MESSAGE_LIMIT} mensajes de tu plan gratuito. ¡Actualiza para continuar!`);
+                        showPricingModal();
+                        return;
+                    }
+
+                    if (responseData.reply) {
+                        state.chats[chatIdToUpdate].messages.push({ role: 'assistant', content: responseData.reply });
+                        updateMessageInUI(thinkingBubble, responseData.reply);
+                        speak(responseData.reply);
+
+                        if (currentUser && typeof responseData.new_message_count !== 'undefined') {
+                            updateUserMessageCount(responseData.new_message_count);
+                            updateMessageCounter();
+                        } else if (!currentUser) {
+                            incrementGuestCount();
+                            updateMessageCounter();
+                        }
+                        saveState();
+                    } else if (responseData.error) {
+                        updateMessageInUI(thinkingBubble, `❌ **${responseData.error}**<br><small>${responseData.details || 'No hay más detalles.'}</small>`);
+                    }
+                } catch (error) {
+                    updateMessageInUI(thinkingBubble, `❌ **Error de Conexión**<br><small>${error.message || 'Asegúrate de que el backend está desplegado.'}</small>`);
+                }
             }
-            updateMessageCounter();
-            renderSidebar();
-            selectChat(currentChatId);
-        }
 
-        function saveState() { localStorage.setItem(currentUser ? `goatbotState_${currentUser.id}` : 'guestState', JSON.stringify({ state, currentChatId })); }
-        
-        function updateUserUI() {
-            if (currentUser) {
-                dom.loginView.classList.add('hidden');
-                dom.userMenuView.classList.remove('hidden');
-                
-                const userName = currentUser.user_metadata.full_name?.split(' ')[0] || currentUser.email.split('@')[0];
-                dom.userEmail.textContent = currentUser.user_metadata.full_name || currentUser.email;
-                dom.userName.textContent = userName;
+            async function getAIResponse(prompt, history, image, pdf) {
+                const token = currentUser ? await currentUser.jwt() : null;
+                const response = await fetch('/.netlify/functions/get-ai-response', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', ...(token && { 'Authorization': `Bearer ${token}` }) },
+                    body: JSON.stringify({ prompt, history, model: dom.modelSelector.value, imageData: image, pdfText: pdf })
+                });
 
-                dom.genericWelcome.classList.add('hidden');
-                dom.personalizedWelcome.classList.remove('hidden');
-                
-                dom.upgradePlanBtn.classList.toggle('hidden', (currentUser.app_metadata.plan || 'free') !== 'free');
-            } else {
-                dom.loginView.classList.remove('hidden');
-                dom.userMenuView.classList.add('hidden');
-                
-                dom.genericWelcome.classList.remove('hidden');
-                dom.personalizedWelcome.classList.add('hidden');
-                
-                dom.upgradePlanBtn.classList.add('hidden');
+                if (response.status === 403) return { error: 'LIMIT_REACHED' };
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.details || `Error del servidor: ${response.statusText}`);
+                }
+                return response.json();
             }
-            updateMessageCounter();
-        }
 
-        function updateMessageCounter() {
-            const count = getMessageCount();
-            dom.messageCounterEl.textContent = currentUser ? `Plan Gratuito: ${count}/${FREE_PLAN_MESSAGE_LIMIT} msj` : `Invitado: ${count}/${GUEST_MESSAGE_LIMIT} msj`;
-        }
+            function getMessageCount() { return currentUser ? (currentUser.app_metadata.message_count || 0) : parseInt(localStorage.getItem('guestMessageCount') || '0'); }
+            function updateUserMessageCount(newCount) { if (currentUser) currentUser.app_metadata.message_count = newCount; }
+            function incrementGuestCount() { if (!currentUser) localStorage.setItem('guestMessageCount', String(getMessageCount() + 1)); }
+            
+            async function loadStateForUser() {
+                const key = currentUser ? `goatbotState_${currentUser.id}` : 'guestState';
+                const saved = localStorage.getItem(key);
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    state = parsed.state || { chats: {}, folders: {}, structure: [] };
+                    currentChatId = parsed.currentChatId;
+                } else {
+                    state = { chats: {}, folders: {}, structure: [] };
+                    currentChatId = null;
+                }
+                if (currentUser && typeof currentUser.app_metadata.plan === 'undefined') {
+                    try {
+                        currentUser = await netlifyIdentity.gotrue.user.update({ data: { plan: 'free', message_count: 0 } });
+                        await currentUser.jwt(true);
+                    } catch (error) { console.error("Error al establecer plan por defecto:", error); }
+                }
+                updateMessageCounter();
+                renderSidebar();
+                selectChat(currentChatId);
+            }
 
-        function setTheme(isDark) { document.body.classList.toggle('dark-theme', isDark); document.body.classList.toggle('light-theme', !isDark); dom.themeIcon.className = `fas fa-${isDark ? 'sun' : 'moon'}`; localStorage.setItem('theme', isDark ? 'dark' : 'light'); }
-        
-        function createNewChat() { const id = 'chat-' + crypto.randomUUID(); state.chats[id] = { id, title: "Nuevo Chat", messages: [] }; state.structure.unshift(id); selectChat(id); saveState(); renderSidebar(); return id; }
-        function selectChat(chatId) { if (!chatId || !state.chats[chatId]) { resetChatView(); return; } currentChatId = chatId; dom.initialMessageContainer.style.display = 'none'; dom.chatMessages.innerHTML = ''; const chat = state.chats[chatId]; dom.chatTitle.textContent = chat.title; chat.messages.forEach((msg) => addMessageToUI(msg.role, msg.content, msg.image)); updateActiveChatHighlight(); saveState(); }
-        function resetChatView() { currentChatId = null; dom.chatTitle.textContent = "GOATBOT Pro"; dom.chatMessages.innerHTML = ''; dom.initialMessageContainer.style.display = 'flex'; updateUserUI(); updateActiveChatHighlight(); }
-        function addMessageToUI(role, content, imageSrc) { const wrapper = document.createElement('div'); wrapper.className = `chat-bubble-wrapper flex items-start gap-2 my-2 ${role === 'user' ? 'justify-end' : 'justify-start'}`; const bubble = document.createElement('div'); bubble.className = `p-4 rounded-xl max-w-xl ${role === 'user' ? 'chat-bubble-user' : 'chat-bubble-bot'}`; if (imageSrc) { const img = document.createElement('img'); img.src = imageSrc; img.className = 'rounded-lg mb-2 max-w-xs h-auto'; bubble.appendChild(img); } const contentDiv = document.createElement('div'); contentDiv.className = 'markdown-content'; contentDiv.innerHTML = content === '…' ? `<div class="flex items-center space-x-2"><div class="w-2 h-2 bg-gray-400 rounded-full animate-pulse"></div><div class="w-2 h-2 bg-gray-400 rounded-full animate-pulse" style="animation-delay: .2s;"></div><div class="w-2 h-2 bg-gray-400 rounded-full animate-pulse" style="animation-delay: .4s;"></div></div>` : marked.parse(content || ""); bubble.appendChild(contentDiv); wrapper.appendChild(bubble); dom.chatMessages.appendChild(wrapper); dom.chatMessages.scrollTop = dom.chatMessages.scrollHeight; return bubble; }
-        function updateMessageInUI(bubble, content) { const md = bubble.querySelector('.markdown-content'); if (md) md.innerHTML = marked.parse(content); }
-        function renderSidebar() { dom.sidebarContent.innerHTML = ''; const frag = document.createDocumentFragment(); (state.structure || []).forEach(id => { if (id.startsWith('folder-')) frag.appendChild(createFolderElement(id)); else if (id.startsWith('chat-')) frag.appendChild(createChatItemElement(id)); }); dom.sidebarContent.appendChild(frag); updateActiveChatHighlight(); }
-        function createChatItemElement(id, isSubItem = false) { const chat = state.chats[id]; if (!chat) return document.createDocumentFragment(); const item = document.createElement('div'); item.className = `chat-item group flex items-center justify-between p-2 rounded-md cursor-pointer ${isSubItem ? 'pl-5' : ''}`; item.dataset.id = id; item.draggable = true; item.innerHTML = `<i class="far fa-comment-dots mr-2"></i><span class="flex-grow truncate text-sm font-medium">${chat.title}</span><div class="chat-item-actions flex-shrink-0"><button class="rename-btn text-text-medium hover:text-primary p-1"><i class="fas fa-pencil-alt fa-xs"></i></button><button class="delete-btn text-text-medium hover:text-red-500 p-1"><i class="fas fa-trash-alt fa-xs"></i></button></div>`; item.addEventListener('click', e => { if (!e.target.closest('.chat-item-actions')) selectChat(id); }); item.addEventListener('dragstart', e => handleDragStart(e, id)); item.querySelector('.rename-btn').addEventListener('click', () => renameItem('chat', id)); item.querySelector('.delete-btn').addEventListener('click', () => deleteItem('chat', id)); return item; }
-        function createFolderElement(id) { const folder = state.folders[id]; if (!folder) return document.createDocumentFragment(); const div = document.createElement('div'); div.className = 'folder'; div.dataset.id = id; const header = document.createElement('div'); header.className = 'folder-header group flex items-center p-2 rounded-md cursor-pointer'; header.innerHTML = `<i class="fas fa-chevron-right folder-arrow mr-2 transition-transform"></i><i class="fas fa-folder mr-2 text-yellow-500"></i><span class="flex-grow truncate text-sm font-bold">${folder.title}</span><div class="chat-item-actions flex-shrink-0"><button class="rename-btn text-text-medium hover:text-primary p-1"><i class="fas fa-pencil-alt fa-xs"></i></button><button class="delete-btn text-text-medium hover:text-red-500 p-1"><i class="fas fa-trash-alt fa-xs"></i></button></div>`; const content = document.createElement('div'); content.className = 'folder-content pl-2 pt-1 space-y-1'; (folder.chatIds || []).forEach(chatId => content.appendChild(createChatItemElement(chatId, true))); div.append(header, content); header.addEventListener('click', e => { if (!e.target.closest('.chat-item-actions')) div.classList.toggle('open'); }); header.addEventListener('dragover', e => handleDragOver(e, div)); header.addEventListener('dragleave', e => handleDragLeave(e, div)); header.addEventListener('drop', e => handleDrop(e, id, div)); header.querySelector('.rename-btn').addEventListener('click', () => renameItem('folder', id)); header.querySelector('.delete-btn').addEventListener('click', () => deleteItem('folder', id)); return div; }
-        let draggedItemId = null; function handleDragStart(e, id) { draggedItemId = id; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', id); } function handleDragOver(e, el) { e.preventDefault(); el.classList.add('drag-over'); } function handleDragLeave(e, el) { el.classList.remove('drag-over'); }
-        function handleDrop(e, targetFolderId, targetElement) { e.preventDefault(); if (targetElement) targetElement.classList.remove('drag-over'); const sourceChatId = e.dataTransfer.getData('text/plain'); if (!sourceChatId || !sourceChatId.startsWith('chat-') || targetFolderId === sourceChatId) return; state.structure = state.structure.filter(id => id !== sourceChatId); Object.values(state.folders).forEach(f => { if(f.chatIds) f.chatIds = f.chatIds.filter(id => id !== sourceChatId) }); if(state.folders[targetFolderId]){ if(!state.folders[targetFolderId].chatIds) state.folders[targetFolderId].chatIds = []; state.folders[targetFolderId].chatIds.unshift(sourceChatId); } saveState(); renderSidebar(); }
-        async function renameItem(type, id) { const item = type === 'chat' ? state.chats[id] : state.folders[id]; const newName = await showModal({ title: `Renombrar ${type === 'chat' ? 'Chat' : 'Carpeta'}`, useInput: true, placeholder: item.title }); if (newName && newName.trim()) { item.title = newName.trim(); if (type === 'chat' && currentChatId === id) dom.chatTitle.textContent = item.title; saveState(); renderSidebar(); } hideModal(); }
-        async function deleteItem(type, id) { const item = type === 'chat' ? state.chats[id] : state.folders[id]; const conf = await showModal({ title: `Eliminar ${item.title}?`, message: 'Esta acción no se puede deshacer.', confirmText: 'Eliminar' }); if (conf) { state.structure = state.structure.filter(i => i !== id); if (type === 'folder') { (item.chatIds || []).forEach(cid => delete state.chats[cid]); delete state.folders[id]; } else { delete state.chats[id]; Object.values(state.folders).forEach(f => { if(f.chatIds) f.chatIds = f.chatIds.filter(cid => cid !== id)}); } if(currentChatId === id || (type === 'folder' && (item.chatIds || []).includes(currentChatId))) resetChatView(); saveState(); renderSidebar(); } hideModal(); }
-        function updateActiveChatHighlight() { document.querySelectorAll('.chat-item').forEach(item => { item.style.backgroundColor = item.dataset.id === currentChatId ? 'var(--current-primary)' : 'transparent'; }); }
-        
-        function sendMessageIfPending() { if (pendingMessage) { dom.msgInput.value = pendingMessage.userMessage; selectedImageBase64 = pendingMessage.image; selectedPdfText = pendingMessage.pdf; sendMessage(true); pendingMessage = null; } }
-        function hasFile() { return selectedImageBase64 || selectedPdfText; }
-        function clearImageData() { dom.imageUploadInput.value = ''; dom.imagePreviewContainer.classList.add('hidden'); selectedImageBase64 = null; updateModelAndUI(); }
-        function clearPdfData() { dom.pdfUploadInput.value = ''; dom.pdfPreviewContainer.classList.add('hidden'); selectedPdfText = null; updateModelAndUI(); }
-        function updateModelAndUI() { dom.modelSelector.disabled = hasFile(); if (hasFile()) dom.modelSelector.value = 'gpt-4o'; }
-        
-        function setupEventListeners() {
-            dom.genericModal.querySelector('#modal-confirm').addEventListener('click', () => { const input = dom.genericModal.querySelector('#modal-input'); hideModal(input.style.display !== 'none' ? input.value : true); });
-            dom.genericModal.querySelector('#modal-cancel').addEventListener('click', () => hideModal(null));
-            dom.sendBtn.addEventListener('click', () => sendMessage());
-            dom.msgInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
-            dom.newChatBtn.addEventListener('click', createNewChat);
-            dom.newFolderBtn.addEventListener('click', async () => { const name = await showModal({ title: 'Crear Carpeta', useInput: true, placeholder: 'Nombre...' }); if (name && name.trim()) { const id = 'folder-' + crypto.randomUUID(); state.folders[id] = { id, title: name.trim(), chatIds: [] }; state.structure.unshift(id); saveState(); renderSidebar(); } hideModal(); });
-            dom.upgradePlanBtn.addEventListener('click', showPricingModal);
-            dom.closePricingModalBtn.addEventListener('click', hidePricingModal);
-            dom.themeToggle.addEventListener('click', () => setTheme(!document.body.classList.contains('dark-theme')));
-            dom.voiceBtn.addEventListener('click', () => { if (!SR) return; if (isRecognizing) recognition.stop(); else { if (speechSynthesis.speaking) speechSynthesis.cancel(); recognition.start(); } });
-            dom.ttsToggle.addEventListener('click', () => { speechOn = !speechOn; dom.ttsToggle.classList.toggle('text-yellow-400', speechOn); dom.ttsToggle.classList.toggle('text-gray-500', !speechOn); if (!speechOn) speechSynthesis.cancel(); });
-            dom.imageUploadBtn.addEventListener('click', () => dom.imageUploadInput.click());
-            dom.pdfUploadBtn.addEventListener('click', () => dom.pdfUploadInput.click());
-            dom.clearImageBtn.addEventListener('click', clearImageData);
-            dom.clearPdfBtn.addEventListener('click', clearPdfData);
-            dom.imageUploadInput.addEventListener('change', (e) => { if (e.target.files && e.target.files[0]) { clearPdfData(); const reader = new FileReader(); reader.onload = (ev) => { selectedImageBase64 = ev.target.result; dom.imagePreview.src = selectedImageBase64; dom.imagePreviewContainer.classList.remove('hidden'); updateModelAndUI(); }; reader.readAsDataURL(e.target.files[0]); } });
-            dom.pdfUploadInput.addEventListener('change', (e) => { const file = e.target.files[0]; if (!file || file.type !== 'application/pdf') return; clearImageData(); dom.pdfNameEl.textContent = file.name; dom.pdfStatusEl.textContent = 'Leyendo...'; dom.pdfPreviewContainer.classList.remove('hidden'); updateModelAndUI(); const reader = new FileReader(); reader.onload = async (ev) => { dom.pdfStatusEl.textContent = 'Procesando...'; try { const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(ev.target.result) }).promise; let text = ''; for (let i = 1; i <= pdf.numPages; i++) { const page = await pdf.getPage(i); const content = await page.getTextContent(); text += content.items.map(item => item.str).join(' ') + '\n'; } selectedPdfText = text; dom.pdfStatusEl.textContent = `✅ Listo (${pdf.numPages} pág.)`; } catch (err) { console.error("Error al procesar el PDF:", err); dom.pdfStatusEl.textContent = '❌ Error al leer PDF.'; selectedPdfText = null; setTimeout(() => { if (dom.pdfStatusEl.textContent.includes('Error')) { clearPdfData(); } }, 2000); } }; reader.readAsArrayBuffer(file); });
-            dom.modelSelector.addEventListener('change', (e) => { if (e.target.value === 'gpt-4o' && !hasFile()) { showModal({ title: 'Modelo de Archivos', message: 'Goatify Nebula (gpt-4o) es solo para analizar archivos. Por favor, sube una imagen o un PDF.', confirmText: 'Entendido' }).then(() => hideModal()); e.target.value = 'gpt-3.5-turbo'; }});
-            dom.menuToggle.addEventListener('click', () => dom.sidebar.classList.toggle('-translate-x-full'));
-            dom.loginBtn.addEventListener('click', () => netlifyIdentity.open('signup'));
-            dom.logoutBtn.addEventListener('click', () => netlifyIdentity.logout());
-            dom.userMenuBtn.addEventListener('click', () => dom.userMenuPopup.classList.toggle('hidden'));
-        }
-        
-        document.addEventListener('DOMContentLoaded', initApp);
+            function saveState() { localStorage.setItem(currentUser ? `goatbotState_${currentUser.id}` : 'guestState', JSON.stringify({ state, currentChatId })); }
+            
+            function updateUserUI() {
+                if (currentUser) {
+                    dom.loginView.classList.add('hidden');
+                    dom.userMenuView.classList.remove('hidden');
+                    
+                    const userName = currentUser.user_metadata.full_name?.split(' ')[0] || currentUser.email.split('@')[0];
+                    dom.userEmail.textContent = currentUser.user_metadata.full_name || currentUser.email;
+                    dom.userName.textContent = userName;
+
+                    dom.genericWelcome.classList.add('hidden');
+                    dom.personalizedWelcome.classList.remove('hidden');
+                    
+                    dom.upgradePlanBtn.classList.toggle('hidden', (currentUser.app_metadata.plan || 'free') !== 'free');
+                } else {
+                    dom.loginView.classList.remove('hidden');
+                    dom.userMenuView.classList.add('hidden');
+                    
+                    dom.genericWelcome.classList.remove('hidden');
+                    dom.personalizedWelcome.classList.add('hidden');
+                    
+                    dom.upgradePlanBtn.classList.add('hidden');
+                }
+                updateMessageCounter();
+            }
+
+            function updateMessageCounter() {
+                const count = getMessageCount();
+                dom.messageCounterEl.textContent = currentUser ? `Plan Gratuito: ${count}/${FREE_PLAN_MESSAGE_LIMIT} msj` : `Invitado: ${count}/${GUEST_MESSAGE_LIMIT} msj`;
+            }
+
+            function setTheme(isDark) { document.body.classList.toggle('dark-theme', isDark); document.body.classList.toggle('light-theme', !isDark); dom.themeIcon.className = `fas fa-${isDark ? 'sun' : 'moon'}`; localStorage.setItem('theme', isDark ? 'dark' : 'light'); }
+            
+            function createNewChat() { const id = 'chat-' + crypto.randomUUID(); state.chats[id] = { id, title: "Nuevo Chat", messages: [] }; state.structure.unshift(id); selectChat(id); saveState(); renderSidebar(); return id; }
+            function selectChat(chatId) { if (!chatId || !state.chats[chatId]) { resetChatView(); return; } currentChatId = chatId; dom.initialMessageContainer.style.display = 'none'; dom.chatMessages.innerHTML = ''; const chat = state.chats[chatId]; dom.chatTitle.textContent = chat.title; chat.messages.forEach((msg) => addMessageToUI(msg.role, msg.content, msg.image)); updateActiveChatHighlight(); saveState(); }
+            function resetChatView() { currentChatId = null; dom.chatTitle.textContent = "GOATBOT Pro"; dom.chatMessages.innerHTML = ''; dom.initialMessageContainer.style.display = 'flex'; updateUserUI(); updateActiveChatHighlight(); }
+            function addMessageToUI(role, content, imageSrc) { const wrapper = document.createElement('div'); wrapper.className = `chat-bubble-wrapper flex items-start gap-2 my-2 ${role === 'user' ? 'justify-end' : 'justify-start'}`; const bubble = document.createElement('div'); bubble.className = `p-4 rounded-xl max-w-xl ${role === 'user' ? 'chat-bubble-user' : 'chat-bubble-bot'}`; if (imageSrc) { const img = document.createElement('img'); img.src = imageSrc; img.className = 'rounded-lg mb-2 max-w-xs h-auto'; bubble.appendChild(img); } const contentDiv = document.createElement('div'); contentDiv.className = 'markdown-content'; contentDiv.innerHTML = content === '…' ? `<div class="flex items-center space-x-2"><div class="w-2 h-2 bg-gray-400 rounded-full animate-pulse"></div><div class="w-2 h-2 bg-gray-400 rounded-full animate-pulse" style="animation-delay: .2s;"></div><div class="w-2 h-2 bg-gray-400 rounded-full animate-pulse" style="animation-delay: .4s;"></div></div>` : marked.parse(content || ""); bubble.appendChild(contentDiv); wrapper.appendChild(bubble); dom.chatMessages.appendChild(wrapper); dom.chatMessages.scrollTop = dom.chatMessages.scrollHeight; return bubble; }
+            function updateMessageInUI(bubble, content) { const md = bubble.querySelector('.markdown-content'); if (md) md.innerHTML = marked.parse(content); }
+            function renderSidebar() { dom.sidebarContent.innerHTML = ''; const frag = document.createDocumentFragment(); (state.structure || []).forEach(id => { if (id.startsWith('folder-')) frag.appendChild(createFolderElement(id)); else if (id.startsWith('chat-')) frag.appendChild(createChatItemElement(id)); }); dom.sidebarContent.appendChild(frag); updateActiveChatHighlight(); }
+            function createChatItemElement(id, isSubItem = false) { const chat = state.chats[id]; if (!chat) return document.createDocumentFragment(); const item = document.createElement('div'); item.className = `chat-item group flex items-center justify-between p-2 rounded-md cursor-pointer ${isSubItem ? 'pl-5' : ''}`; item.dataset.id = id; item.draggable = true; item.innerHTML = `<i class="far fa-comment-dots mr-2"></i><span class="flex-grow truncate text-sm font-medium">${chat.title}</span><div class="chat-item-actions flex-shrink-0"><button class="rename-btn text-text-medium hover:text-primary p-1"><i class="fas fa-pencil-alt fa-xs"></i></button><button class="delete-btn text-text-medium hover:text-red-500 p-1"><i class="fas fa-trash-alt fa-xs"></i></button></div>`; item.addEventListener('click', e => { if (!e.target.closest('.chat-item-actions')) selectChat(id); }); item.addEventListener('dragstart', e => handleDragStart(e, id)); item.querySelector('.rename-btn').addEventListener('click', () => renameItem('chat', id)); item.querySelector('.delete-btn').addEventListener('click', () => deleteItem('chat', id)); return item; }
+            function createFolderElement(id) { const folder = state.folders[id]; if (!folder) return document.createDocumentFragment(); const div = document.createElement('div'); div.className = 'folder'; div.dataset.id = id; const header = document.createElement('div'); header.className = 'folder-header group flex items-center p-2 rounded-md cursor-pointer'; header.innerHTML = `<i class="fas fa-chevron-right folder-arrow mr-2 transition-transform"></i><i class="fas fa-folder mr-2 text-yellow-500"></i><span class="flex-grow truncate text-sm font-bold">${folder.title}</span><div class="chat-item-actions flex-shrink-0"><button class="rename-btn text-text-medium hover:text-primary p-1"><i class="fas fa-pencil-alt fa-xs"></i></button><button class="delete-btn text-text-medium hover:text-red-500 p-1"><i class="fas fa-trash-alt fa-xs"></i></button></div>`; const content = document.createElement('div'); content.className = 'folder-content pl-2 pt-1 space-y-1'; (folder.chatIds || []).forEach(chatId => content.appendChild(createChatItemElement(chatId, true))); div.append(header, content); header.addEventListener('click', e => { if (!e.target.closest('.chat-item-actions')) div.classList.toggle('open'); }); header.addEventListener('dragover', e => handleDragOver(e, div)); header.addEventListener('dragleave', e => handleDragLeave(e, div)); header.addEventListener('drop', e => handleDrop(e, id, div)); header.querySelector('.rename-btn').addEventListener('click', () => renameItem('folder', id)); header.querySelector('.delete-btn').addEventListener('click', () => deleteItem('folder', id)); return div; }
+            let draggedItemId = null; function handleDragStart(e, id) { draggedItemId = id; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', id); } function handleDragOver(e, el) { e.preventDefault(); el.classList.add('drag-over'); } function handleDragLeave(e, el) { el.classList.remove('drag-over'); }
+            function handleDrop(e, targetFolderId, targetElement) { e.preventDefault(); if (targetElement) targetElement.classList.remove('drag-over'); const sourceChatId = e.dataTransfer.getData('text/plain'); if (!sourceChatId || !sourceChatId.startsWith('chat-') || targetFolderId === sourceChatId) return; state.structure = state.structure.filter(id => id !== sourceChatId); Object.values(state.folders).forEach(f => { if(f.chatIds) f.chatIds = f.chatIds.filter(id => id !== sourceChatId) }); if(state.folders[targetFolderId]){ if(!state.folders[targetFolderId].chatIds) state.folders[targetFolderId].chatIds = []; state.folders[targetFolderId].chatIds.unshift(sourceChatId); } saveState(); renderSidebar(); }
+            async function renameItem(type, id) { const item = type === 'chat' ? state.chats[id] : state.folders[id]; const newName = await showModal({ title: `Renombrar ${type === 'chat' ? 'Chat' : 'Carpeta'}`, useInput: true, placeholder: item.title }); if (newName && newName.trim()) { item.title = newName.trim(); if (type === 'chat' && currentChatId === id) dom.chatTitle.textContent = item.title; saveState(); renderSidebar(); } hideModal(); }
+            async function deleteItem(type, id) { const item = type === 'chat' ? state.chats[id] : state.folders[id]; const conf = await showModal({ title: `Eliminar ${item.title}?`, message: 'Esta acción no se puede deshacer.', confirmText: 'Eliminar' }); if (conf) { state.structure = state.structure.filter(i => i !== id); if (type === 'folder') { (item.chatIds || []).forEach(cid => delete state.chats[cid]); delete state.folders[id]; } else { delete state.chats[id]; Object.values(state.folders).forEach(f => { if(f.chatIds) f.chatIds = f.chatIds.filter(cid => cid !== id)}); } if(currentChatId === id || (type === 'folder' && (item.chatIds || []).includes(currentChatId))) resetChatView(); saveState(); renderSidebar(); } hideModal(); }
+            function updateActiveChatHighlight() { document.querySelectorAll('.chat-item').forEach(item => { item.style.backgroundColor = item.dataset.id === currentChatId ? 'var(--current-primary)' : 'transparent'; }); }
+            
+            function sendMessageIfPending() { if (pendingMessage) { dom.msgInput.value = pendingMessage.userMessage; selectedImageBase64 = pendingMessage.image; selectedPdfText = pendingMessage.pdf; sendMessage(true); pendingMessage = null; } }
+            function hasFile() { return selectedImageBase64 || selectedPdfText; }
+            function clearImageData() { dom.imageUploadInput.value = ''; dom.imagePreviewContainer.classList.add('hidden'); selectedImageBase64 = null; updateModelAndUI(); }
+            function clearPdfData() { dom.pdfUploadInput.value = ''; dom.pdfPreviewContainer.classList.add('hidden'); selectedPdfText = null; updateModelAndUI(); }
+            function updateModelAndUI() { dom.modelSelector.disabled = hasFile(); if (hasFile()) dom.modelSelector.value = 'gpt-4o'; }
+            
+            function setupEventListeners() {
+                dom.genericModal.querySelector('#modal-confirm').addEventListener('click', () => { const input = dom.genericModal.querySelector('#modal-input'); hideModal(input.style.display !== 'none' ? input.value : true); });
+                dom.genericModal.querySelector('#modal-cancel').addEventListener('click', () => hideModal(null));
+                dom.sendBtn.addEventListener('click', () => sendMessage());
+                dom.msgInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
+                dom.newChatBtn.addEventListener('click', createNewChat);
+                dom.newFolderBtn.addEventListener('click', async () => { const name = await showModal({ title: 'Crear Carpeta', useInput: true, placeholder: 'Nombre...' }); if (name && name.trim()) { const id = 'folder-' + crypto.randomUUID(); state.folders[id] = { id, title: name.trim(), chatIds: [] }; state.structure.unshift(id); saveState(); renderSidebar(); } hideModal(); });
+                dom.upgradePlanBtn.addEventListener('click', showPricingModal);
+                dom.closePricingModalBtn.addEventListener('click', hidePricingModal);
+                dom.themeToggle.addEventListener('click', () => setTheme(!document.body.classList.contains('dark-theme')));
+                dom.voiceBtn.addEventListener('click', () => { if (!SR) return; if (isRecognizing) recognition.stop(); else { if (speechSynthesis.speaking) speechSynthesis.cancel(); recognition.start(); } });
+                dom.ttsToggle.addEventListener('click', () => { speechOn = !speechOn; dom.ttsToggle.classList.toggle('text-yellow-400', speechOn); dom.ttsToggle.classList.toggle('text-gray-500', !speechOn); if (!speechOn) speechSynthesis.cancel(); });
+                dom.imageUploadBtn.addEventListener('click', () => dom.imageUploadInput.click());
+                dom.pdfUploadBtn.addEventListener('click', () => dom.pdfUploadInput.click());
+                dom.clearImageBtn.addEventListener('click', clearImageData);
+                dom.clearPdfBtn.addEventListener('click', clearPdfData);
+                dom.imageUploadInput.addEventListener('change', (e) => { if (e.target.files && e.target.files[0]) { clearPdfData(); const reader = new FileReader(); reader.onload = (ev) => { selectedImageBase64 = ev.target.result; dom.imagePreview.src = selectedImageBase64; dom.imagePreviewContainer.classList.remove('hidden'); updateModelAndUI(); }; reader.readAsDataURL(e.target.files[0]); } });
+                dom.pdfUploadInput.addEventListener('change', (e) => { const file = e.target.files[0]; if (!file || file.type !== 'application/pdf') return; clearImageData(); dom.pdfNameEl.textContent = file.name; dom.pdfStatusEl.textContent = 'Leyendo...'; dom.pdfPreviewContainer.classList.remove('hidden'); updateModelAndUI(); const reader = new FileReader(); reader.onload = async (ev) => { dom.pdfStatusEl.textContent = 'Procesando...'; try { const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(ev.target.result) }).promise; let text = ''; for (let i = 1; i <= pdf.numPages; i++) { const page = await pdf.getPage(i); const content = await page.getTextContent(); text += content.items.map(item => item.str).join(' ') + '\n'; } selectedPdfText = text; dom.pdfStatusEl.textContent = `✅ Listo (${pdf.numPages} pág.)`; } catch (err) { console.error("Error al procesar el PDF:", err); dom.pdfStatusEl.textContent = '❌ Error al leer PDF.'; selectedPdfText = null; setTimeout(() => { if (dom.pdfStatusEl.textContent.includes('Error')) { clearPdfData(); } }, 2000); } }; reader.readAsArrayBuffer(file); });
+                dom.modelSelector.addEventListener('change', (e) => { if (e.target.value === 'gpt-4o' && !hasFile()) { showModal({ title: 'Modelo de Archivos', message: 'Goatify Nebula (gpt-4o) es solo para analizar archivos. Por favor, sube una imagen o un PDF.', confirmText: 'Entendido' }).then(() => hideModal()); e.target.value = 'gpt-3.5-turbo'; }});
+                dom.menuToggle.addEventListener('click', () => dom.sidebar.classList.toggle('-translate-x-full'));
+                dom.loginBtn.addEventListener('click', () => netlifyIdentity.open('signup'));
+                dom.logoutBtn.addEventListener('click', () => netlifyIdentity.logout());
+                dom.userMenuBtn.addEventListener('click', () => dom.userMenuPopup.classList.toggle('hidden'));
+            }
+            
+            initApp();
+        });
     </script>
 </body>
 </html>
