@@ -275,12 +275,12 @@
             function speak(text) { if (!speechOn || !('speechSynthesis' in window) || !text) return; speechSynthesis.cancel(); const cleanText = text.replace(/[*_`#~[\]()🔍]|(-{3,})|(\*\*Fuente:\*\*.*)/g, ''); const utterance = new SpeechSynthesisUtterance(cleanText); utterance.voice = availableVoices.find(v => v.lang.startsWith('es')) || availableVoices[0]; speechSynthesis.speak(utterance); }
             function populateVoiceList() { if (typeof speechSynthesis === 'undefined') return; availableVoices = speechSynthesis.getVoices(); if (speechSynthesis.onvoiceschanged !== undefined) speechSynthesis.onvoiceschanged = () => availableVoices = speechSynthesis.getVoices(); }
             
-            async function getAIResponse(prompt, history, image, pdf) {
+            async function getAIResponse(prompt, history, image, pdf, model) {
                 const token = currentUser ? await currentUser.jwt() : null;
                 const response = await fetch('/.netlify/functions/get-ai-response', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', ...(token && { 'Authorization': `Bearer ${token}` }) },
-                    body: JSON.stringify({ prompt, history, model: dom.modelSelector.value, imageData: image, pdfText: pdf })
+                    body: JSON.stringify({ prompt, history, model, imageData: image, pdfText: pdf })
                 });
 
                 if (response.status === 403) return { error: 'LIMIT_REACHED' };
@@ -362,17 +362,32 @@
                     id, 
                     title: options.title || "Nuevo Chat", 
                     messages: options.initialMessages || [],
-                    workflow: options.workflow || null
+                    workflow: options.workflow || null,
+                    model: options.model || 'gpt-3.5-turbo' // Default model
                 }; 
                 state.structure.unshift(id); 
                 selectChat(id); 
                 saveState(); 
                 renderSidebar(); 
-                if (options.model) dom.modelSelector.value = options.model;
+                dom.modelSelector.value = state.chats[id].model;
                 return id; 
             }
 
-            function selectChat(chatId) { if (!chatId || !state.chats[chatId]) { resetChatView(); return; } currentChatId = chatId; dom.initialMessageContainer.style.display = 'none'; dom.chatMessages.innerHTML = ''; const chat = state.chats[chatId]; dom.chatTitle.textContent = chat.title; chat.messages.forEach((msg) => addMessageToUI(msg.role, msg.content, msg.image)); updateActiveChatHighlight(); saveState(); }
+            function selectChat(chatId) { 
+                if (!chatId || !state.chats[chatId]) { 
+                    resetChatView(); 
+                    return; 
+                } 
+                currentChatId = chatId; 
+                dom.initialMessageContainer.style.display = 'none'; 
+                dom.chatMessages.innerHTML = ''; 
+                const chat = state.chats[chatId]; 
+                dom.chatTitle.textContent = chat.title; 
+                chat.messages.forEach((msg) => addMessageToUI(msg.role, msg.content, msg.image)); 
+                dom.modelSelector.value = chat.model || 'gpt-3.5-turbo';
+                updateActiveChatHighlight(); 
+                saveState(); 
+            }
             function resetChatView() { currentChatId = null; dom.chatTitle.textContent = "GOATBOT Pro"; dom.chatMessages.innerHTML = ''; dom.initialMessageContainer.style.display = 'flex'; updateUserUI(); updateActiveChatHighlight(); }
             
             function renderCodeBlock(content) {
@@ -497,42 +512,60 @@
             function updateActiveChatHighlight() { document.querySelectorAll('.chat-item').forEach(item => { item.style.backgroundColor = item.dataset.id === currentChatId ? 'var(--current-primary)' : 'transparent'; }); }
             
             function sendMessageIfPending() { if (pendingMessage) { dom.msgInput.value = pendingMessage.userMessage; selectedImageBase64 = pendingMessage.image; selectedPdfText = pendingMessage.pdf; sendMessage(true); pendingMessage = null; } }
-            function hasFile() { return selectedImageBase64 || selectedPdfText; }
-            function clearImageData() { dom.imageUploadInput.value = ''; dom.imagePreviewContainer.classList.add('hidden'); selectedImageBase64 = null; autoSelectModel(); }
-            function clearPdfData() { dom.pdfUploadInput.value = ''; dom.pdfPreviewContainer.classList.add('hidden'); selectedPdfText = null; autoSelectModel(); }
             
-            function autoSelectModel(prompt = '') {
-                const searchKeywords = ['noticias', 'qué pasó hoy', 'fecha de hoy', 'actualidad', 'tiempo real'];
+            function autoSelectModel() {
+                const currentChat = state.chats[currentChatId];
                 if (hasFile()) {
                     dom.modelSelector.value = 'gpt-4o';
-                } else if (searchKeywords.some(kw => prompt.toLowerCase().includes(kw))) {
-                    dom.modelSelector.value = 'perplexity';
+                } else if (currentChat?.workflow) {
+                    if (currentChat.workflow === 'web-page') dom.modelSelector.value = 'gpt-4o';
+                    else dom.modelSelector.value = 'gpt-3.5-turbo';
                 } else {
-                    const currentChat = state.chats[currentChatId];
-                    if (currentChat && currentChat.workflow) {
-                        if (currentChat.workflow === 'web-page') dom.modelSelector.value = 'gpt-4o';
-                        else dom.modelSelector.value = 'gpt-3.5-turbo';
-                    } else {
-                        dom.modelSelector.value = 'gpt-3.5-turbo';
-                    }
+                    dom.modelSelector.value = 'gpt-3.5-turbo';
                 }
+            }
+
+            function clearImageData() { 
+                dom.imageUploadInput.value = ''; 
+                dom.imagePreviewContainer.classList.add('hidden'); 
+                selectedImageBase64 = null; 
+                if(currentChatId) autoSelectModel();
+            }
+            function clearPdfData() { 
+                dom.pdfUploadInput.value = ''; 
+                dom.pdfPreviewContainer.classList.add('hidden'); 
+                selectedPdfText = null; 
+                if(currentChatId) autoSelectModel();
             }
             
             async function sendMessage(forceSend = false) {
                 const userMessage = dom.msgInput.value.trim();
                 if (!userMessage && !selectedImageBase64 && !selectedPdfText) return;
                 
-                autoSelectModel(userMessage);
+                const searchKeywords = ['noticias', 'qué pasó hoy', 'fecha de hoy', 'actualidad', 'tiempo real'];
+                if (searchKeywords.some(kw => userMessage.toLowerCase().includes(kw))) {
+                    dom.modelSelector.value = 'perplexity';
+                }
 
                 const count = getCreditCount();
                 const currentChat = state.chats[currentChatId];
                 let cost = COSTS.GENERAL;
+                let model = dom.modelSelector.value;
 
-                if (currentChat?.workflow === 'web-page') cost = COSTS.WEB_PAGE;
-                else if (currentChat?.workflow === 'copywriting') cost = COSTS.COPYWRITING;
-                else if (currentChat?.workflow === 'sales-response') cost = COSTS.SALES_RESPONSE;
-                else if (dom.modelSelector.value === 'gpt-4o' && hasFile()) cost = COSTS.NEBULA;
-                else if (dom.modelSelector.value === 'perplexity') cost = COSTS.SEARCH;
+                if (currentChat?.workflow === 'web-page') {
+                    cost = COSTS.WEB_PAGE;
+                    model = 'gpt-4o';
+                } else if (currentChat?.workflow === 'copywriting') {
+                    cost = COSTS.COPYWRITING;
+                    model = 'gpt-3.5-turbo';
+                } else if (currentChat?.workflow === 'sales-response') {
+                    cost = COSTS.SALES_RESPONSE;
+                    model = 'gpt-3.5-turbo';
+                } else if (model === 'gpt-4o' && hasFile()) {
+                    cost = COSTS.NEBULA;
+                } else if (model === 'perplexity') {
+                    cost = COSTS.SEARCH;
+                }
                 
                 if (!currentUser) {
                     if (count >= GUEST_CREDIT_LIMIT && !forceSend) {
@@ -543,8 +576,7 @@
                     }
                 } else {
                     if (count < cost && !forceSend) {
-                         await showModal({ title: 'Créditos Insuficientes', message: `Esta acción requiere ${cost} créditos, pero solo te quedan ${count}.`, confirmText: 'Entendido' });
-                         hideModal();
+                         showPricingModal();
                          return;
                     }
                 }
@@ -561,7 +593,7 @@
                 dom.msgInput.value = ''; clearImageData(); clearPdfData();
 
                 try {
-                    const responseData = await getAIResponse(userMessage, state.chats[chatIdToUpdate].messages.slice(0, -1), image, pdf);
+                    const responseData = await getAIResponse(userMessage, state.chats[chatIdToUpdate].messages.slice(0, -1), image, pdf, model);
                     
                     if (responseData.error === 'LIMIT_REACHED') {
                         updateMessageInUI(thinkingBubble, `Has alcanzado el límite de créditos de tu plan. ¡Actualiza para continuar!`);
@@ -607,7 +639,6 @@
                 dom.clearPdfBtn.addEventListener('click', clearPdfData);
                 dom.imageUploadInput.addEventListener('change', (e) => { if (e.target.files && e.target.files[0]) { clearPdfData(); const reader = new FileReader(); reader.onload = (ev) => { selectedImageBase64 = ev.target.result; dom.imagePreview.src = selectedImageBase64; dom.imagePreviewContainer.classList.remove('hidden'); autoSelectModel(); }; reader.readAsDataURL(e.target.files[0]); } });
                 dom.pdfUploadInput.addEventListener('change', (e) => { const file = e.target.files[0]; if (!file || file.type !== 'application/pdf') return; clearImageData(); dom.pdfNameEl.textContent = file.name; dom.pdfStatusEl.textContent = 'Leyendo...'; dom.pdfPreviewContainer.classList.remove('hidden'); const reader = new FileReader(); reader.onload = async (ev) => { dom.pdfStatusEl.textContent = 'Procesando...'; try { const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(ev.target.result) }).promise; let text = ''; for (let i = 1; i <= pdf.numPages; i++) { const page = await pdf.getPage(i); const content = await page.getTextContent(); text += content.items.map(item => item.str).join(' ') + '\n'; } selectedPdfText = text; dom.pdfStatusEl.textContent = `✅ Listo (${pdf.numPages} pág.)`; autoSelectModel(); } catch (err) { console.error("Error al procesar el PDF:", err); dom.pdfStatusEl.textContent = '❌ Error al leer PDF.'; selectedPdfText = null; setTimeout(() => { if (dom.pdfStatusEl.textContent.includes('Error')) { clearPdfData(); } }, 2000); } }; reader.readAsArrayBuffer(file); });
-                dom.modelSelector.addEventListener('change', (e) => { if (e.target.value === 'gpt-4o' && !hasFile()) { showModal({ title: 'Modelo de Archivos', message: 'Goatify Nebula (gpt-4o) es solo para analizar archivos. Por favor, sube una imagen o un PDF.', confirmText: 'Entendido' }).then(() => hideModal()); e.target.value = 'gpt-3.5-turbo'; }});
                 dom.menuToggle.addEventListener('click', () => dom.sidebar.classList.toggle('-translate-x-full'));
                 dom.loginBtn.addEventListener('click', () => netlifyIdentity.open('signup'));
                 dom.logoutBtn.addEventListener('click', () => netlifyIdentity.logout());
