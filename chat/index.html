@@ -197,18 +197,17 @@
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script type="module">
         window.addEventListener('DOMContentLoaded', () => {
+            // **RESTRUCTURED SCRIPT START**
+            
+            // 1. CONSTANTS & STATE
             const GUEST_CREDIT_LIMIT = 5;
             const FREE_PLAN_CREDIT_LIMIT = 15;
-            
-            const COSTS = {
-                WEB_PAGE: 3,
-                COPYWRITING: 2,
-                SALES_RESPONSE: 2,
-                NEBULA: 2,
-                GENERAL: 1,
-                SEARCH: 1,
-            };
+            const COSTS = { WEB_PAGE: 3, COPYWRITING: 2, SALES_RESPONSE: 2, NEBULA: 2, GENERAL: 1, SEARCH: 1 };
+            let state = { chats: {}, projects: {}, structure: [] };
+            let currentChatId = null, currentUser = null, pendingMessage = null, speechOn = true, availableVoices = [], selectedVoice = null, isRecognizing = false, selectedImageBase64 = null, selectedPdfText = null;
+            let modalResolve = null;
 
+            // 2. DOM ELEMENTS
             const dom = {
                 msgInput: document.getElementById('msg'), sendBtn: document.getElementById('send'),
                 messageCounterEl: document.getElementById('message-counter'), upgradePlanBtn: document.getElementById('upgrade-plan-btn'),
@@ -245,12 +244,9 @@
                 voiceSelector: document.getElementById('voice-selector'),
             };
 
-            let state = { chats: {}, projects: {}, structure: [] };
-            let currentChatId = null, currentUser = null, pendingMessage = null, speechOn = true, availableVoices = [], selectedVoice = null, isRecognizing = false, selectedImageBase64 = null, selectedPdfText = null;
+            // 3. HELPER & CORE FUNCTIONS
+            // All functions are defined here before being called
             
-            let modalResolve = null;
-            
-            // All function declarations moved to the top for robust initialization
             function showModal({ title, message, useInput = false, placeholder = '', confirmText = 'Confirmar' }) {
                 const modalTitle = dom.genericModal.querySelector('#modal-title'), modalMessage = dom.genericModal.querySelector('#modal-message'), modalInput = dom.genericModal.querySelector('#modal-input'), modalConfirm = dom.genericModal.querySelector('#modal-confirm');
                 modalTitle.textContent = title; modalMessage.textContent = message; modalMessage.style.display = message ? 'block' : 'none'; modalInput.style.display = useInput ? 'block' : 'none'; modalInput.value = ''; modalInput.placeholder = placeholder; modalConfirm.textContent = confirmText;
@@ -258,28 +254,10 @@
                 if (useInput) modalInput.focus();
                 return new Promise(resolve => { modalResolve = resolve; });
             }
-            function hideModal(resolveWith = null) { dom.genericModal.classList.add('hidden'); dom.genericModal.classList.remove('flex'); if(modalResolve) { modalResolve(resolveWith); modalResolve = null; } }
+            function hideModal(resolveWith = null) { if(modalResolve) { modalResolve(resolveWith); modalResolve = null; } dom.genericModal.classList.add('hidden'); dom.genericModal.classList.remove('flex');  }
             function showPricingModal() { dom.pricingModal.classList.remove('hidden'); dom.pricingModal.classList.add('flex'); setTimeout(() => { dom.pricingModal.querySelector('.modal-content').classList.remove('scale-95'); }, 10); }
             function hidePricingModal() { dom.pricingModal.querySelector('.modal-content').classList.add('scale-95'); setTimeout(() => { dom.pricingModal.classList.add('hidden'); dom.pricingModal.classList.remove('flex'); }, 300); }
             
-            const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-            let recognition;
-            if (SR) {
-                recognition = new SR();
-                recognition.continuous = false;
-                recognition.lang = 'es-ES';
-                recognition.interimResults = false;
-                recognition.onstart = () => { isRecognizing = true; dom.voiceBtn.classList.add('glowing-mic'); };
-                recognition.onend = () => { isRecognizing = false; dom.voiceBtn.classList.remove('glowing-mic'); };
-                recognition.onresult = (event) => {
-                    const transcript = Array.from(event.results).map(r => r[0].transcript).join('');
-                    dom.msgInput.value = transcript;
-                    sendMessage();
-                };
-            } else {
-                if(dom.voiceBtn) dom.voiceBtn.style.display = 'none';
-            }
-
             function speak(text) { 
                 if (!speechOn || !('speechSynthesis' in window) || !text) return; 
                 speechSynthesis.cancel(); 
@@ -305,7 +283,7 @@
                     }
                     availableVoices.forEach(voice => {
                         const option = document.createElement('option');
-                        option.textContent = `${voice.name} (${voice.lang})`;
+                        option.textContent = `${voice.name}`;
                         option.value = voice.name;
                         dom.voiceSelector.appendChild(option);
                     });
@@ -587,6 +565,7 @@
                 selectedPdfText = null; 
                 if(currentChatId) autoSelectModel();
             }
+            function hasFile() { return selectedImageBase64 || selectedPdfText; }
             
             async function sendMessage(forceSend = false) {
                 const userMessage = dom.msgInput.value.trim();
@@ -659,7 +638,7 @@
             function setupEventListeners() {
                 dom.genericModal.querySelector('#modal-confirm').addEventListener('click', () => { const input = dom.genericModal.querySelector('#modal-input'); hideModal(input.style.display !== 'none' ? input.value : true); });
                 dom.genericModal.querySelector('#modal-cancel').addEventListener('click', () => hideModal(null));
-                dom.sendBtn.addEventListener('click', () => sendMessage());
+                dom.sendBtn.addEventListener('click', sendMessage);
                 dom.msgInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
                 dom.newChatBtn.addEventListener('click', () => {
                     const userName = currentUser ? currentUser.user_metadata.full_name?.split(' ')[0] || currentUser.email.split('@')[0] : 'humano';
@@ -752,13 +731,13 @@
                 };
 
                 const ensureUserMetadata = async (user) => {
-                    if (user && (typeof user.app_metadata.credits === 'undefined' || user.app_metadata.credits === 0)) {
+                    if (user && (typeof user.app_metadata.credits === 'undefined' || user.app_metadata.credits === 0 && user.app_metadata.plan === 'free')) {
                         try {
                             const updatedUser = await netlifyIdentity.gotrue.user.update({
-                                data: { plan: 'free', credits: FREE_PLAN_CREDIT_LIMIT }
+                                data: { credits: FREE_PLAN_CREDIT_LIMIT }
                             });
                             await updatedUser.jwt(true);
-                            return updatedUser;
+                            return netlifyIdentity.currentUser(); 
                         } catch (error) { 
                             console.error("Error setting default credits:", error);
                             user.app_metadata.credits = FREE_PLAN_CREDIT_LIMIT;
@@ -779,6 +758,8 @@
                     localStorage.removeItem('guestCreditCount');
                     localStorage.setItem('hasLoggedInBefore', 'true');
                     currentUser = await ensureUserMetadata(user);
+                    await currentUser.jwt(true);
+                    currentUser = netlifyIdentity.currentUser();
                     updateUserUI();
                     loadStateForUser();
                     sendMessageIfPending();
@@ -803,6 +784,7 @@
                 setupEventListeners();
             }
 
+            // Let's go!
             initApp();
         });
     </script>
