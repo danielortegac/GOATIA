@@ -1,96 +1,93 @@
 // --- Netlify Function: get-ai-response.js ---
-// VERSIÓN 8 - REFACTOR CON FUNCIÓN HELPER
+// VERSIÓN FINAL Y CORREGIDA SIGUIENDO LA GUÍA
 
-// Usamos el 'fetch' global de Node.js 18 (nativo).
-const { OpenAI } = require('openai');
+const { OpenAI } = require("openai");
+const fetch = require('node-fetch');
 
-/**
- * Helper function to build the message structure for the Perplexity API.
- * @param {string} prompt The user's prompt.
- * @returns {Array<Object>} The messages array for the API request.
- */
+// HELPER PARA CONSTRUIR EL MENSAJE DE PERPLEXITY
 function buildPerplexityMessages(prompt) {
-  /* Siempre: 1 system + 1 user   */
+  /* Siempre: 1 system + 1 user */
   return [
     {
       role: 'system',
-      content:
-        'Eres un asistente de búsqueda en español. Responde breve y cita fuentes al final.',
+      content: 'Eres un asistente de búsqueda en español. Responde breve y cita tus fuentes al final.',
     },
     { role: 'user', content: prompt },
   ];
 }
 
 exports.handler = async (event) => {
-    // 1. Validar que la solicitud sea un POST
     if (event.httpMethod !== 'POST') {
         return { statusCode: 405, body: JSON.stringify({ error: 'Método no permitido' }) };
     }
 
-    console.log("--- INICIO EJECUCIÓN V8 ---");
-
     try {
-        const body = JSON.parse(event.body);
-        const { prompt, history, model, imageData, pdfText, workflow, userName } = body;
-        
-        const cleanedModel = (model && typeof model === 'string') ? model.trim().toLowerCase() : '';
-        console.log(`Modelo recibido: '${model}', Modelo limpiado: '${cleanedModel}'`);
+        const { prompt, history, model, imageData, pdfText, workflow, userName } = JSON.parse(event.body);
+        let botReply = '';
 
-        if (cleanedModel.startsWith('sonar')) {
-            console.log(`Ruta seleccionada: Perplexity (modelo: ${model})`);
-            
+        console.log('MODELO RECIBIDO:', model); // Log para verificar
+
+        // Si el modelo es de Perplexity, usa la API de Perplexity
+        if (model && model.startsWith('sonar')) {
             const PERPLEXITY_API_KEY = process.env.PERPLEXITY_API_KEY;
-            if (!PERPLEXITY_API_KEY) {
-                throw new Error('La clave de API de Perplexity no está configurada.');
-            }
+            if (!PERPLEXITY_API_KEY) throw new Error('La clave de API de Perplexity (PERPLEXITY_API_KEY) no está configurada en Netlify.');
 
-            if (!prompt || typeof prompt !== 'string' || prompt.trim() === '') {
-                console.error("Error Crítico: El 'prompt' del usuario está ausente, no es un string o está vacío.");
-                throw new Error("El prompt del usuario está vacío o es inválido.");
-            }
-
-            // --- CAMBIO APLICADO: Usando la función helper ---
+            // --- BLOQUE CORREGIDO ---
             const perplexityBody = {
-               model,                      // 'sonar'  o  'sonar-pro'
-               max_tokens: 1024,
-               temperature: 0.7,
-               messages: buildPerplexityMessages(prompt),
+                model: model, // 'sonar' o 'sonar-pro'
+                max_tokens: 1024,
+                temperature: 0.7,
+                messages: buildPerplexityMessages(prompt), // Usando el helper
             };
-            
-            console.log("Enviando petición a la API de Perplexity con helper...");
+
             const apiResponse = await fetch('https://api.perplexity.ai/chat/completions', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${PERPLEXITY_API_KEY}`, 'Accept': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${PERPLEXITY_API_KEY}`,
+                    'Accept': 'application/json'
+                },
                 body: JSON.stringify(perplexityBody),
             });
             
             if (!apiResponse.ok) {
                  const errorText = await apiResponse.text();
-                 console.error("Perplexity raw error:", errorText);
-                 throw new Error(`Error de Perplexity: ${apiResponse.status} - ${errorText}`);
+                 console.error('Perplexity raw error:', errorText);
+                 throw new Error(`Perplexity ${apiResponse.status}: ${errorText}`);
             }
             
             const data = await apiResponse.json();
-            const botReply = data.choices[0].message.content;
-            console.log("Respuesta OK de Perplexity 200");
-            return { statusCode: 200, body: JSON.stringify({ reply: botReply }) };
+            botReply = data.choices[0].message.content;
 
         } else { 
-            console.log(`Ruta seleccionada: OpenAI (modelo: ${model})`);
-
+            // Lógica para OpenAI (sin cambios)
             const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-            if (!OPENAI_API_KEY) {
-                throw new Error('La clave de API de OpenAI no está configurada.');
-            }
+            if (!OPENAI_API_KEY) throw new Error('La clave de API de OpenAI (OPENAI_API_KEY) no está configurada en Netlify.');
             
             const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
-            
             let messages = [];
-            const friendlyPrompt = `Eres GOATBOT, un asistente de IA amable. Dirígete al usuario por su nombre, '${userName || 'amigo/a'}'.`;
+
+            const friendlyPrompt = `Eres GOATBOT, un asistente de IA excepcionalmente amable y servicial. Siempre que sea relevante, dirígete al usuario por su nombre, '${userName || 'amigo/a'}'. Saluda con cariño (ej. '¡Hola ${userName || 'qué tal'}! Espero que tengas un día increíble.'), y despídete de forma atenta. Tu tono debe ser siempre positivo y respetuoso.`;
             messages.push({ role: 'system', content: friendlyPrompt });
-            if (history) { messages.push(...history); }
-            let userMessageContent = [{ type: 'text', text: pdfText ? `Analiza el PDF y responde: \n\n${pdfText}\n\nPregunta: ${prompt}` : prompt }];
-            if (imageData && model === 'gpt-4o') { userMessageContent.push({ type: 'image_url', image_url: { "url": imageData } }); }
+
+            if (workflow === 'english-teacher') {
+                messages.push({ role: 'system', content: "You are an expert English Teacher and translator. Your primary language for conversation is English. ALWAYS respond in English. If the user makes a mistake, gently correct them, explain the error briefly, and then provide the correct version before continuing the conversation. If the user asks for a translation, provide it clearly. You must always speak your full English response." });
+            }
+
+            if (history) {
+                messages.push(...history);
+            }
+
+            let userMessageContent = [];
+            const fullPrompt = pdfText 
+                ? `Analiza el siguiente texto de un PDF y responde a la pregunta.\n\n--- INICIO PDF ---\n${pdfText}\n--- FIN PDF ---\n\nPregunta: ${prompt}`
+                : prompt;
+            userMessageContent.push({ type: 'text', text: fullPrompt });
+
+            if (imageData && model === 'gpt-4o') {
+                userMessageContent.push({ type: 'image_url', image_url: { "url": imageData } });
+            }
+            
             messages.push({ role: 'user', content: userMessageContent });
             
             const completion = await openai.chat.completions.create({
@@ -99,12 +96,16 @@ exports.handler = async (event) => {
                 max_tokens: (imageData || pdfText) ? 2048 : 1000
             });
 
-            const botReply = completion.choices[0].message.content;
-            return { statusCode: 200, body: JSON.stringify({ reply: botReply }) };
+            botReply = completion.choices[0].message.content;
         }
 
+        return {
+            statusCode: 200,
+            body: JSON.stringify({ reply: botReply }),
+        };
+
     } catch (error) {
-        console.error('--- ERROR CRÍTICO CAPTURADO ---', error);
+        console.error('Error CAPTURADO en la función de Netlify:', error.toString());
         return {
             statusCode: 500,
             body: JSON.stringify({ error: 'Ocurrió un error en el servidor.', details: error.message }),
