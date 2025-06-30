@@ -35,6 +35,7 @@
         .btn-primary:hover { background-color: var(--current-primary-hover); }
         .plan-card-highlight { border-color: var(--current-primary); box-shadow: 0 0 15px rgba(138, 79, 255, 0.3); }
         .placeholder-themed::placeholder { color: var(--current-text-medium); }
+        .text-primary { color: var(--current-primary); }
         
         /* Animations & Effects */
         .glowing-mic { animation: pulse 1.5s infinite; }
@@ -63,11 +64,11 @@
         
         @media (max-width: 767px) {
             #main-chat-area {
-                height: calc(100% - 60px); /* Adjust height for mobile header */
+                height: 100%;
             }
              #input-area {
-                padding-bottom: 1rem; /* Extra padding for mobile keyboard area */
-            }
+                padding-bottom: 1rem;
+             }
         }
     </style>
 </head>
@@ -165,13 +166,14 @@
                     <select id="model-selector" class="rounded-md p-1.5 focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm bg-input text-text-light border border-themed">
                         <option value="gpt-3.5-turbo">Goatify Pro (Texto)</option>
                         <option value="gpt-4o">Goatify Nebula (Archivos)</option>
-                        <option value="web-search">Búsqueda Web</option> <!-- Changed value -->
+                        <option value="perplexity/sonar-small-online">Búsqueda Web (Sonar)</option>
                     </select>
                 </div>
                 <div class="relative rounded-xl flex items-center bg-input p-1 sm:p-2">
                     <input type="file" id="pdf-upload" accept=".pdf,application/pdf" class="hidden"><input type="file" id="image-upload" accept="image/*" class="hidden">
                     <button id="pdf-upload-btn" title="Subir PDF" class="p-2 sm:p-3 hover:text-primary transition-colors rounded-full text-text-medium"><i class="fa fa-file-pdf text-xl"></i></button>
                     <button id="image-upload-btn" title="Subir Imagen" class="p-2 sm:p-3 hover:text-primary transition-colors rounded-full text-text-medium"><i class="fa fa-image text-xl"></i></button>
+                    <button id="web-search-btn" title="Activar Búsqueda Web" class="p-2 sm:p-3 hover:text-primary transition-colors rounded-full text-text-medium"><i class="fa fa-globe text-xl"></i></button>
                     <button id="voice" title="Hablar" class="p-2 sm:p-3 hover:text-primary transition-colors rounded-full text-text-medium"><i class="fa fa-microphone text-xl"></i></button>
                     <textarea id="msg" placeholder="Escribe tu mensaje..." class="flex-1 bg-transparent p-2 h-12 resize-none outline-none placeholder-themed" rows="1"></textarea>
                     <button id="send" title="Enviar" class="p-2 sm:p-4 disabled:opacity-50 disabled:cursor-not-allowed text-primary"><i id="send-icon" class="fa fa-paper-plane text-xl"></i></button>
@@ -222,7 +224,7 @@
             const FREE_PLAN_CREDIT_LIMIT = 15;
             const COSTS = { WEB_PAGE: 3, COPYWRITING: 2, SALES_RESPONSE: 2, NEBULA: 2, GENERAL: 1, SEARCH: 1 };
             let state = { chats: {}, projects: {}, structure: [] };
-            let currentChatId = null, currentUser = null, pendingMessage = null, speechOn = true, availableVoices = [], selectedVoice = null, isRecognizing = false, selectedImageBase64 = null, selectedPdfText = null;
+            let currentChatId = null, currentUser = null, pendingMessage = null, speechOn = true, availableVoices = [], selectedVoice = null, isRecognizing = false, selectedImageBase64 = null, selectedPdfText = null, isWebSearchMode = false;
             let modalResolve = null;
 
             // 2. DOM ELEMENTS
@@ -261,6 +263,7 @@
                 closeHtmlPreviewModalBtn: document.getElementById('close-html-preview-modal'),
                 htmlPreviewIframe: document.getElementById('html-preview-iframe'),
                 voiceSelector: document.getElementById('voice-selector'),
+                webSearchBtn: document.getElementById('web-search-btn'),
             };
             
             const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -296,40 +299,29 @@
                 
                 function setVoices() {
                     const allVoices = speechSynthesis.getVoices();
-                    // Prioritize high-quality Latin American Spanish voices
                     const preferredVoices = [
-                        "Microsoft Sabina Online (Natural) - Spanish (Mexico)", // Windows
-                        "Paulina", // macOS
-                        "Google español de Estados Unidos", // Android/Chrome
-                        "Google español"
+                        "Microsoft Sabina Online (Natural) - Spanish (Mexico)", "Paulina", "Google español de Estados Unidos", "Google español"
                     ];
-
                     availableVoices = allVoices
-                        .filter(v => v.lang.startsWith('es-') && !v.lang.startsWith('es-ES') && v.name.includes("Google") || v.name.includes("Microsoft") || v.name.includes("Paulina")) // Filter for non-Spain Spanish
+                        .filter(v => v.lang.startsWith('es-') && !v.lang.startsWith('es-ES') && (v.name.includes("Google") || v.name.includes("Microsoft") || v.name.includes("Paulina")))
                         .sort((a, b) => {
-                             // Sort by preferred list, then by name
-                            let aIdx = preferredVoices.indexOf(a.name);
-                            let bIdx = preferredVoices.indexOf(b.name);
-                            if (aIdx === -1) aIdx = Infinity;
-                            if (bIdx === -1) bIdx = Infinity;
+                            let aIdx = preferredVoices.indexOf(a.name); let bIdx = preferredVoices.indexOf(b.name);
+                            if (aIdx === -1) aIdx = Infinity; if (bIdx === -1) bIdx = Infinity;
                             if (aIdx !== bIdx) return aIdx - bIdx;
                             return a.name.localeCompare(b.name);
                         });
 
                     dom.voiceSelector.innerHTML = '';
                     if(availableVoices.length === 0) {
-                        dom.voiceSelector.parentElement.style.display = 'none';
-                        return;
+                        dom.voiceSelector.parentElement.style.display = 'none'; return;
                     }
-
                     availableVoices.forEach(voice => {
                         const option = document.createElement('option');
                         const displayName = voice.name.replace('Microsoft', '').replace('Online (Natural) -', '').replace('Google', '').replace('Spanish (Mexico)','Mex').trim();
-                        option.textContent = displayName;
+                        option.textContent = displayName || voice.lang;
                         option.value = voice.name;
                         dom.voiceSelector.appendChild(option);
                     });
-
                     selectedVoice = availableVoices[0];
                     if (selectedVoice) dom.voiceSelector.value = selectedVoice.name;
                 }
@@ -337,21 +329,16 @@
                 if (speechSynthesis.onvoiceschanged !== undefined) {
                     speechSynthesis.onvoiceschanged = setVoices;
                 }
-                setVoices(); // Initial call
+                setVoices();
             }
             
-            async function getAIResponse(prompt, history, image, pdf, model, isWebSearch) {
+            async function getAIResponse(prompt, history, image, pdf, model) {
                 const token = currentUser ? await currentUser.jwt() : null;
-                const finalPrompt = isWebSearch 
-                    ? `Busca en la web la información más reciente y relevante para responder a la siguiente pregunta del usuario. Proporciona una respuesta completa y bien estructurada. Pregunta del usuario: "${prompt}"`
-                    : prompt;
-
                 const response = await fetch('/.netlify/functions/get-ai-response', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', ...(token && { 'Authorization': `Bearer ${token}` }) },
-                    body: JSON.stringify({ prompt: finalPrompt, history, model, imageData: image, pdfText: pdf })
+                    body: JSON.stringify({ prompt, history, model, imageData: image, pdfText: pdf })
                 });
-
                 if (response.status === 403) return { error: 'LIMIT_REACHED' };
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({}));
@@ -376,10 +363,6 @@
                 const saved = localStorage.getItem(key);
                 if (saved) {
                     const parsed = JSON.parse(saved);
-                    if (parsed.state.folders && !parsed.state.projects) {
-                       parsed.state.projects = parsed.state.folders;
-                       delete parsed.state.folders;
-                    }
                     state = parsed.state || { chats: {}, projects: {}, structure: [] };
                     currentChatId = parsed.currentChatId;
                 } else {
@@ -452,6 +435,7 @@
                 saveState(); 
                 renderSidebar(); 
                 dom.modelSelector.value = options.model || (options.workflow ? 'gpt-4o' : 'gpt-3.5-turbo');
+                updateWebSearchButtonState();
                 if (window.innerWidth < 768) toggleSidebar(false);
                 return id; 
             }
@@ -468,11 +452,12 @@
                 dom.chatTitle.textContent = chat.title; 
                 chat.messages.forEach((msg) => addMessageToUI(msg.role, msg.content, msg.image)); 
                 dom.modelSelector.value = chat.model || 'gpt-3.5-turbo';
+                updateWebSearchButtonState();
                 updateActiveChatHighlight(); 
                 saveState();
                 if (window.innerWidth < 768) toggleSidebar(false);
             }
-            function resetChatView() { currentChatId = null; dom.chatTitle.textContent = "GOATBOT Pro"; dom.chatMessages.innerHTML = ''; dom.initialMessageContainer.style.display = 'flex'; updateUserUI(); updateActiveChatHighlight(); }
+            function resetChatView() { currentChatId = null; dom.chatTitle.textContent = "GOATBOT Pro"; dom.chatMessages.innerHTML = ''; dom.initialMessageContainer.style.display = 'flex'; updateUserUI(); updateActiveChatHighlight(); dom.modelSelector.value = 'gpt-3.5-turbo'; updateWebSearchButtonState(); }
             
             function renderCodeBlock(content) {
                 const codeBlock = document.createElement('div');
@@ -483,7 +468,6 @@
                 const body = document.createElement('pre');
                 body.className = 'code-block-body';
                 body.textContent = content;
-
                 header.querySelector('button').addEventListener('click', (e) => {
                     const textarea = document.createElement('textarea');
                     textarea.value = content;
@@ -498,7 +482,6 @@
                     document.body.removeChild(textarea);
                     setTimeout(() => e.currentTarget.innerHTML = '<i class="fas fa-copy"></i>', 2000);
                 });
-
                 codeBlock.append(header, body);
                 return codeBlock;
             }
@@ -506,17 +489,14 @@
             function addMessageToUI(role, content, imageSrc) {
                 const wrapper = document.createElement('div');
                 wrapper.className = `chat-bubble-wrapper flex items-start gap-2 my-2 ${role === 'user' ? 'justify-end' : 'justify-start'}`;
-
                 const bubble = document.createElement('div');
                 bubble.className = `p-3 md:p-4 rounded-xl max-w-lg md:max-w-xl ${role === 'user' ? 'chat-bubble-user' : 'chat-bubble-bot'}`;
-
                 if (imageSrc) {
                     const img = document.createElement('img');
                     img.src = imageSrc;
                     img.className = 'rounded-lg mb-2 max-w-xs h-auto';
                     bubble.appendChild(img);
                 }
-                
                 const contentDiv = document.createElement('div');
                 contentDiv.className = 'markdown-content';
                 const currentChat = state.chats[currentChatId];
@@ -527,7 +507,6 @@
                     contentDiv.innerHTML = content === '…' ? `<div class="flex items-center space-x-2"><div class="w-2 h-2 bg-gray-400 rounded-full animate-pulse"></div><div class="w-2 h-2 bg-gray-400 rounded-full animate-pulse" style="animation-delay: .2s;"></div><div class="w-2 h-2 bg-gray-400 rounded-full animate-pulse" style="animation-delay: .4s;"></div></div>` : marked.parse(content || "");
                 }
                 bubble.appendChild(contentDiv);
-                
                 if (role === 'assistant' && currentChat?.workflow === 'web-page' && /<\/?[a-z][\s\S]*>/i.test(content)) {
                     const actionsWrapper = document.createElement('div');
                     actionsWrapper.className = 'mt-3 pt-3 border-t border-themed flex items-center gap-2';
@@ -544,7 +523,6 @@
                     actionsWrapper.appendChild(previewBtn);
                     bubble.appendChild(actionsWrapper);
                 }
-
                 wrapper.appendChild(bubble);
                 dom.chatMessages.appendChild(wrapper);
                 dom.chatMessages.scrollTop = dom.chatMessages.scrollHeight;
@@ -563,14 +541,10 @@
             function createProjectElement(id) {
                 const project = state.projects[id];
                 if (!project) return document.createDocumentFragment();
-                const div = document.createElement('div');
-                div.className = 'project';
-                div.dataset.id = id;
-                const header = document.createElement('div');
-                header.className = 'project-header group flex items-center p-2 rounded-md cursor-pointer';
+                const div = document.createElement('div'); div.className = 'project'; div.dataset.id = id;
+                const header = document.createElement('div'); header.className = 'project-header group flex items-center p-2 rounded-md cursor-pointer';
                 header.innerHTML = `<i class="fas fa-chevron-right project-arrow mr-2 transition-transform"></i><i class="fas fa-folder mr-2 text-yellow-500"></i><span class="flex-grow truncate text-sm font-bold">${project.title}</span><div class="chat-item-actions flex-shrink-0"><button class="rename-btn text-text-medium hover:text-primary p-1"><i class="fas fa-pencil-alt fa-xs"></i></button><button class="delete-btn text-text-medium hover:text-red-500 p-1"><i class="fas fa-trash-alt fa-xs"></i></button></div>`;
-                const content = document.createElement('div');
-                content.className = 'project-content pl-2 pt-1 space-y-1';
+                const content = document.createElement('div'); content.className = 'project-content pl-2 pt-1 space-y-1';
                 (project.chatIds || []).forEach(chatId => content.appendChild(createChatItemElement(chatId, true)));
                 div.append(header, content);
                 header.addEventListener('click', e => { if (!e.target.closest('.chat-item-actions')) div.classList.toggle('open'); });
@@ -583,20 +557,16 @@
             }
             let draggedItemId = null; function handleDragStart(e, id) { draggedItemId = id; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', id); } function handleDragOver(e, el) { e.preventDefault(); el.classList.add('drag-over'); } function handleDragLeave(e, el) { el.classList.remove('drag-over'); }
             function handleDrop(e, targetProjectId, targetElement) {
-                e.preventDefault();
-                if (targetElement) targetElement.classList.remove('drag-over');
+                e.preventDefault(); if (targetElement) targetElement.classList.remove('drag-over');
                 const sourceChatId = e.dataTransfer.getData('text/plain');
                 if (!sourceChatId || !sourceChatId.startsWith('chat-') || targetProjectId === sourceChatId) return;
-                
                 state.structure = state.structure.filter(id => id !== sourceChatId); 
                 Object.values(state.projects).forEach(p => { if(p.chatIds) p.chatIds = p.chatIds.filter(id => id !== sourceChatId) }); 
-                
                 if(state.projects[targetProjectId]){ 
                     if(!state.projects[targetProjectId].chatIds) state.projects[targetProjectId].chatIds = [];
                     state.projects[targetProjectId].chatIds.unshift(sourceChatId); 
                 } 
-                saveState(); 
-                renderSidebar(); 
+                saveState(); renderSidebar(); 
             }
             async function renameItem(type, id) { const item = type === 'chat' ? state.chats[id] : state.projects[id]; const newName = await showModal({ title: `Renombrar ${type === 'chat' ? 'Chat' : 'Proyecto'}`, useInput: true, placeholder: item.title }); if (newName && newName.trim()) { item.title = newName.trim(); if (type === 'chat' && currentChatId === id) dom.chatTitle.textContent = item.title; saveState(); renderSidebar(); } hideModal(); }
             async function deleteItem(type, id) { const item = type === 'chat' ? state.chats[id] : state.projects[id]; const conf = await showModal({ title: `Eliminar ${item.title}?`, message: 'Esta acción no se puede deshacer.', confirmText: 'Eliminar' }); if (conf) { state.structure = state.structure.filter(i => i !== id); if (type === 'project') { (item.chatIds || []).forEach(cid => delete state.chats[cid]); delete state.projects[id]; } else { delete state.chats[id]; Object.values(state.projects).forEach(p => { if(p.chatIds) p.chatIds = p.chatIds.filter(cid => cid !== id)}); } if(currentChatId === id || (type === 'project' && (item.chatIds || []).includes(currentChatId))) resetChatView(); saveState(); renderSidebar(); } hideModal(); }
@@ -604,34 +574,18 @@
             
             function autoSelectModel(prompt = '') {
                 const currentChat = state.chats[currentChatId];
-                if (hasFile()) {
-                    dom.modelSelector.value = 'gpt-4o';
-                    return;
-                }
-                if (currentChat?.workflow) {
-                    dom.modelSelector.value = currentChat.model;
-                    return;
-                }
+                if (hasFile() || currentChat?.workflow) return; // Keep model for files/workflows
                 const searchKeywords = ['noticias', 'qué pasó hoy', 'fecha de hoy', 'actualidad', 'tiempo real', 'busca en la web'];
                 if (searchKeywords.some(kw => prompt.toLowerCase().includes(kw))) {
-                    dom.modelSelector.value = 'web-search';
-                    return;
+                    dom.modelSelector.value = 'perplexity/sonar-small-online';
+                } else {
+                    dom.modelSelector.value = 'gpt-3.5-turbo';
                 }
-                dom.modelSelector.value = 'gpt-3.5-turbo';
+                updateWebSearchButtonState();
             }
 
-            function clearImageData() { 
-                dom.imageUploadInput.value = ''; 
-                dom.imagePreviewContainer.classList.add('hidden'); 
-                selectedImageBase64 = null; 
-                if(!currentChatId || !state.chats[currentChatId]?.workflow) autoSelectModel();
-            }
-            function clearPdfData() { 
-                dom.pdfUploadInput.value = ''; 
-                dom.pdfPreviewContainer.classList.add('hidden'); 
-                selectedPdfText = null; 
-                if(!currentChatId || !state.chats[currentChatId]?.workflow) autoSelectModel();
-            }
+            function clearImageData() { dom.imageUploadInput.value = ''; dom.imagePreviewContainer.classList.add('hidden'); selectedImageBase64 = null; if(!currentChatId || !state.chats[currentChatId]?.workflow) autoSelectModel(); }
+            function clearPdfData() { dom.pdfUploadInput.value = ''; dom.pdfPreviewContainer.classList.add('hidden'); selectedPdfText = null; if(!currentChatId || !state.chats[currentChatId]?.workflow) autoSelectModel(); }
             function hasFile() { return selectedImageBase64 || selectedPdfText; }
             
             async function sendMessage(forceSend = false) {
@@ -641,35 +595,22 @@
                 if(!currentChatId || !state.chats[currentChatId]?.workflow) autoSelectModel(userMessage);
 
                 const count = getCreditCount();
-                const selectedModelOption = dom.modelSelector.value;
-                let model, cost, isWebSearch = false;
+                const model = dom.modelSelector.value;
+                let cost = COSTS.GENERAL;
+                
+                if (model === 'perplexity/sonar-small-online') cost = COSTS.SEARCH;
+                else if (model === 'gpt-4o' && hasFile()) cost = COSTS.NEBULA;
                 
                 const currentChat = state.chats[currentChatId];
+                if (currentChat?.workflow === 'web-page') cost = COSTS.WEB_PAGE;
+                else if (currentChat?.workflow === 'copywriting') cost = COSTS.COPYWRITING;
+                else if (currentChat?.workflow === 'sales-response') cost = COSTS.SALES_RESPONSE;
 
-                if (currentChat?.workflow) {
-                     model = currentChat.model;
-                     if(currentChat.workflow === 'web-page') cost = COSTS.WEB_PAGE;
-                     else if (currentChat.workflow === 'copywriting') cost = COSTS.COPYWRITING;
-                     else if (currentChat.workflow === 'sales-response') cost = COSTS.SALES_RESPONSE;
-                } else if (selectedModelOption === 'web-search') {
-                    model = 'gpt-4o';
-                    cost = COSTS.SEARCH;
-                    isWebSearch = true;
-                } else if (selectedModelOption === 'gpt-4o') {
-                    model = 'gpt-4o';
-                    cost = hasFile() ? COSTS.NEBULA : COSTS.GENERAL;
-                } else {
-                    model = 'gpt-3.5-turbo';
-                    cost = COSTS.GENERAL;
-                }
-
-                if (!currentUser && count < cost && !forceSend) {
-                    showPricingModal(); return;
-                } else if (currentUser && count < cost && !forceSend) {
+                if ((!currentUser && count < cost && !forceSend) || (currentUser && count < cost && !forceSend)) {
                     showPricingModal(); return;
                 }
 
-                let chatIdToUpdate = currentChatId || createNewChat({ model: selectedModelOption });
+                let chatIdToUpdate = currentChatId || createNewChat({ model: model });
                 if (!state.chats[chatIdToUpdate]) return;
                 
                 setCreditCount(count - cost);
@@ -681,13 +622,11 @@
                 dom.msgInput.value = ''; dom.msgInput.style.height = 'auto'; clearImageData(); clearPdfData();
 
                 try {
-                    const responseData = await getAIResponse(userMessage, state.chats[chatIdToUpdate].messages.slice(0, -1), image, pdf, model, isWebSearch);
+                    const responseData = await getAIResponse(userMessage, state.chats[chatIdToUpdate].messages.slice(0, -1), image, pdf, model);
                     
                     if (responseData.error === 'LIMIT_REACHED') {
                         updateMessageInUI(thinkingBubble, `Has alcanzado el límite de créditos de tu plan. ¡Actualiza para continuar!`);
-                        if (currentUser) setCreditCount(0);
-                        showPricingModal();
-                        return;
+                        if (currentUser) setCreditCount(0); showPricingModal(); return;
                     }
 
                     if (responseData.reply) {
@@ -700,12 +639,28 @@
                         saveState();
                     } else if (responseData.error) {
                         updateMessageInUI(thinkingBubble, `❌ **Error**<br><small>${responseData.details || 'Error del servidor.'}</small>`);
-                        setCreditCount(count); // Revert
+                        setCreditCount(count);
                     }
                 } catch (error) {
                     updateMessageInUI(thinkingBubble, `❌ **Error de Conexión**<br><small>${error.message || 'No se pudo conectar al servidor.'}</small>`);
-                    setCreditCount(count); // Revert
+                    setCreditCount(count);
                 }
+            }
+
+            function toggleWebSearchMode() {
+                isWebSearchMode = !isWebSearchMode;
+                if (isWebSearchMode) {
+                    dom.modelSelector.value = 'perplexity/sonar-small-online';
+                } else {
+                    dom.modelSelector.value = 'gpt-3.5-turbo';
+                }
+                updateWebSearchButtonState();
+            }
+
+            function updateWebSearchButtonState() {
+                isWebSearchMode = dom.modelSelector.value === 'perplexity/sonar-small-online';
+                dom.webSearchBtn.classList.toggle('text-primary', isWebSearchMode);
+                dom.webSearchBtn.classList.toggle('text-text-medium', !isWebSearchMode);
             }
 
             function setupEventListeners() {
@@ -722,25 +677,23 @@
                 dom.themeToggle.addEventListener('click', () => setTheme(!document.body.classList.contains('dark-theme')));
 
                 if (SR) {
-                    recognition = new SR();
-                    recognition.continuous = false; recognition.lang = 'es-ES'; recognition.interimResults = false;
+                    recognition = new SR(); recognition.continuous = false; recognition.lang = 'es-ES'; recognition.interimResults = false;
                     recognition.onstart = () => { isRecognizing = true; dom.voiceBtn.classList.add('glowing-mic'); };
                     recognition.onend = () => { isRecognizing = false; dom.voiceBtn.classList.remove('glowing-mic'); };
                     recognition.onresult = (event) => { dom.msgInput.value = Array.from(event.results).map(r => r[0].transcript).join(''); sendMessage(); };
                     dom.voiceBtn.addEventListener('click', () => { if (isRecognizing) recognition.stop(); else recognition.start(); });
-                } else {
-                    if(dom.voiceBtn) dom.voiceBtn.style.display = 'none';
-                }
+                } else { if(dom.voiceBtn) dom.voiceBtn.style.display = 'none'; }
                 
                 const ttsIcon = dom.ttsToggle.querySelector('i');
                 dom.ttsToggle.addEventListener('click', () => { 
                     speechOn = !speechOn;
-                    ttsIcon.classList.toggle('fa-volume-high', speechOn);
-                    ttsIcon.classList.toggle('fa-volume-mute', !speechOn);
-                    dom.ttsToggle.classList.toggle('text-yellow-400', speechOn);
-                    dom.ttsToggle.classList.toggle('text-text-medium', !speechOn);
+                    ttsIcon.classList.toggle('fa-volume-high', speechOn); ttsIcon.classList.toggle('fa-volume-mute', !speechOn);
+                    dom.ttsToggle.classList.toggle('text-yellow-400', speechOn); dom.ttsToggle.classList.toggle('text-text-medium', !speechOn);
                     if (!speechOn) speechSynthesis.cancel();
                 });
+
+                dom.webSearchBtn.addEventListener('click', toggleWebSearchMode);
+                dom.modelSelector.addEventListener('change', updateWebSearchButtonState);
 
                 dom.imageUploadBtn.addEventListener('click', () => dom.imageUploadInput.click());
                 dom.pdfUploadBtn.addEventListener('click', () => dom.pdfUploadInput.click());
@@ -749,34 +702,22 @@
                 dom.imageUploadInput.addEventListener('change', (e) => { if (e.target.files && e.target.files[0]) { clearPdfData(); const reader = new FileReader(); reader.onload = (ev) => { selectedImageBase64 = ev.target.result; dom.imagePreview.src = selectedImageBase64; dom.imagePreviewContainer.classList.remove('hidden'); autoSelectModel(); }; reader.readAsDataURL(e.target.files[0]); } });
                 dom.pdfUploadInput.addEventListener('change', (e) => { const file = e.target.files[0]; if (!file || file.type !== 'application/pdf') return; clearImageData(); dom.pdfNameEl.textContent = file.name; dom.pdfStatusEl.textContent = 'Leyendo...'; dom.pdfPreviewContainer.classList.remove('hidden'); const reader = new FileReader(); reader.onload = async (ev) => { dom.pdfStatusEl.textContent = 'Procesando...'; try { const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(ev.target.result) }).promise; let text = ''; for (let i = 1; i <= pdf.numPages; i++) { const page = await pdf.getPage(i); const content = await page.getTextContent(); text += content.items.map(item => item.str).join(' ') + '\n'; } selectedPdfText = text; dom.pdfStatusEl.textContent = `✅ Listo (${pdf.numPages} pág.)`; autoSelectModel(); } catch (err) { console.error("Error al procesar el PDF:", err); dom.pdfStatusEl.textContent = '❌ Error al leer PDF.'; selectedPdfText = null; setTimeout(clearPdfData, 2000); } }; reader.readAsArrayBuffer(file); });
                 
-                // Mobile menu
                 dom.menuToggle.addEventListener('click', (e) => { e.stopPropagation(); toggleSidebar(true); });
                 dom.sidebarOverlay.addEventListener('click', () => toggleSidebar(false));
-
-                // User menu
                 dom.userMenuBtn.addEventListener('click', (e) => { e.stopPropagation(); dom.userMenuPopup.classList.toggle('hidden'); });
                 dom.logoutBtn.addEventListener('click', () => { netlifyIdentity.logout(); dom.userMenuPopup.classList.add('hidden');});
                 
-                // Workflows
-                const createWorkflowChat = (opts) => {
-                    createNewChat(opts);
-                    if (window.innerWidth < 768) toggleSidebar(false);
-                };
+                const createWorkflowChat = (opts) => { createNewChat(opts); if (window.innerWidth < 768) toggleSidebar(false); };
                 dom.copywritingWorkflowBtn.addEventListener('click', () => createWorkflowChat({ title: "Nuevo Copy", workflow: "copywriting", model: "gpt-3.5-turbo", initialMessages: [{ role: 'assistant', content: `¡Claro! Empecemos un nuevo copy (costo: ${COSTS.COPYWRITING} créditos). Por favor, dame el contexto: ¿cuál es el producto o servicio, a quién te diriges y cuál es el objetivo principal del copy?` }] }));
                 dom.salesResponseWorkflowBtn.addEventListener('click', () => createWorkflowChat({ title: "Respuesta de Venta", workflow: "sales-response", model: "gpt-3.5-turbo", initialMessages: [{ role: 'assistant', content: `¡Excelente! Estoy listo para ayudarte a cerrar esa venta (costo: ${COSTS.SALES_RESPONSE} créditos). Pega el mensaje de tu cliente y te daré la respuesta perfecta para convencerlo.` }] }));
-                dom.webPageWorkflowBtn.addEventListener('click', () => createWorkflowChat({ title: "Nueva Página Web", workflow: "web-page", model: "gpt-4o", initialMessages: [{ role: 'assistant', content: `¡Perfecto! Estoy listo para generar una página web profesional con HTML y Tailwind CSS (costo: ${COSTS.WEB_PAGE} créditos).\n\n**En tu próximo mensaje, describe con todo el detalle posible la página que quieres crear.** Considera incluir:\n- **Propósito:** ¿Es un portafolio, una landing page, un blog?\n- **Estilo y Tonos:** ¿Minimalista, corporativo, vibrante? ¿Colores principales?\n- **Secciones y Contenido:** ¿Qué secciones necesitas (Inicio, Sobre Nosotros, Servicios, Contacto) y qué texto e imágenes deberían ir en cada una?\n\n¡Mientras más detalles me des, mejor será el resultado!` }] }));
+                dom.webPageWorkflowBtn.addEventListener('click', () => createWorkflowChat({ title: "Nueva Página Web", workflow: "web-page", model: "gpt-4o", initialMessages: [{ role: 'assistant', content: `¡Perfecto! Estoy listo para generar una página web profesional con HTML y Tailwind CSS (costo: ${COSTS.WEB_PAGE} créditos).\n\n**En tu próximo mensaje, describe con todo el detalle posible la página que quieres crear.**` }] }));
                 
                 dom.closeHtmlPreviewModalBtn.addEventListener('click', () => dom.htmlPreviewModal.classList.add('hidden'));
                 dom.voiceSelector.addEventListener('change', (e) => { selectedVoice = availableVoices.find(voice => voice.name === e.target.value); });
 
-                // Global click listener to close popups
                 document.addEventListener('click', (e) => {
-                    if (!dom.userMenuBtn.contains(e.target) && !dom.userMenuPopup.contains(e.target)) {
-                        dom.userMenuPopup.classList.add('hidden');
-                    }
-                    if (window.innerWidth < 768 && !dom.sidebar.contains(e.target) && dom.sidebar.classList.contains('is-open')) {
-                        toggleSidebar(false);
-                    }
+                    if (!dom.userMenuBtn.contains(e.target) && !dom.userMenuPopup.contains(e.target)) dom.userMenuPopup.classList.add('hidden');
+                    if (window.innerWidth < 768 && !dom.sidebar.contains(e.target) && dom.sidebar.classList.contains('is-open')) toggleSidebar(false);
                 });
             }
             
@@ -786,20 +727,13 @@
 
                 const finishInitialization = async (user) => {
                     if (initFired) return; initFired = true;
-
                     currentUser = user ? await ensureUserMetadata(user) : null;
-                    if (!user) {
-                         if (localStorage.getItem('hasLoggedInBefore') === 'true') localStorage.setItem('guestCreditCount', GUEST_CREDIT_LIMIT);
-                    }
-                    
-                    updateUserUI();
-                    loadStateForUser();
-
+                    if (!user) { if (localStorage.getItem('hasLoggedInBefore') === 'true') localStorage.setItem('guestCreditCount', GUEST_CREDIT_LIMIT); }
+                    updateUserUI(); loadStateForUser();
                     if (!currentUser && (localStorage.getItem('hasLoggedInBefore') === 'true' || getCreditCount() >= GUEST_CREDIT_LIMIT)) {
                         showModal({ title: 'Bienvenido de Nuevo', message: `Ya has usado los créditos de invitado en este navegador. Por favor, inicia sesión para continuar.`, confirmText: 'Iniciar Sesión' })
                         .then(wantsToLogin => { if (wantsToLogin) netlifyIdentity.open(); });
                     }
-
                     dom.appContainer.classList.remove('opacity-0');
                     dom.loadingOverlay.classList.add('opacity-0');
                     setTimeout(() => dom.loadingOverlay.style.display = 'none', 300);
@@ -809,46 +743,29 @@
                     if (user && (typeof user.app_metadata.credits === 'undefined')) {
                         try {
                             const updatedUser = await netlifyIdentity.gotrue.user.update({ data: { credits: FREE_PLAN_CREDIT_LIMIT } });
-                            await updatedUser.jwt(true);
-                            return netlifyIdentity.currentUser(); 
-                        } catch (error) { 
-                            console.error("Error setting default credits:", error);
-                            user.app_metadata.credits = FREE_PLAN_CREDIT_LIMIT; return user;
-                        }
+                            await updatedUser.jwt(true); return netlifyIdentity.currentUser(); 
+                        } catch (error) { console.error("Error setting default credits:", error); user.app_metadata.credits = FREE_PLAN_CREDIT_LIMIT; return user; }
                     }
                     return user;
                 };
 
                 netlifyIdentity.on('init', (user) => finishInitialization(user));
                 setTimeout(() => { if (!initFired) finishInitialization(netlifyIdentity.currentUser()); }, 2500);
-
                 netlifyIdentity.on('login', async user => {
-                    netlifyIdentity.close();
-                    localStorage.removeItem('guestCreditCount');
-                    localStorage.setItem('hasLoggedInBefore', 'true');
-                    currentUser = await ensureUserMetadata(user);
-                    await currentUser.jwt(true);
-                    currentUser = netlifyIdentity.currentUser();
-                    updateUserUI(); loadStateForUser();
+                    netlifyIdentity.close(); localStorage.removeItem('guestCreditCount'); localStorage.setItem('hasLoggedInBefore', 'true');
+                    currentUser = await ensureUserMetadata(user); await currentUser.jwt(true);
+                    currentUser = netlifyIdentity.currentUser(); updateUserUI(); loadStateForUser();
                 });
-
-                netlifyIdentity.on('logout', () => {
-                    currentUser = null;
-                    updateUserUI(); loadStateForUser();
-                    localStorage.setItem('guestCreditCount', GUEST_CREDIT_LIMIT);
-                    updateCreditCounter();
-                    resetChatView();
-                });
+                netlifyIdentity.on('logout', () => { currentUser = null; updateUserUI(); loadStateForUser(); localStorage.setItem('guestCreditCount', GUEST_CREDIT_LIMIT); updateCreditCounter(); resetChatView(); });
                 
                 // Initial setup calls
                 const ttsIcon = dom.ttsToggle.querySelector('i');
-                ttsIcon.classList.toggle('fa-volume-high', speechOn);
-                ttsIcon.classList.toggle('fa-volume-mute', !speechOn);
-                dom.ttsToggle.classList.toggle('text-yellow-400', speechOn);
-                dom.ttsToggle.classList.toggle('text-text-medium', !speechOn);
+                ttsIcon.classList.toggle('fa-volume-high', speechOn); ttsIcon.classList.toggle('fa-volume-mute', !speechOn);
+                dom.ttsToggle.classList.toggle('text-yellow-400', speechOn); dom.ttsToggle.classList.toggle('text-text-medium', !speechOn);
                 
                 populateVoiceList();
                 setupEventListeners();
+                updateWebSearchButtonState();
             }
 
             // Let's go!
