@@ -16,12 +16,11 @@ exports.handler = async (event) => {
   const { prompt, history = [], model = 'perplexity' } = JSON.parse(event.body);
 
   /* ─ 1.   Elegir modelo válido ───────────────────────────── */
-  // Mapea los valores del frontend a modelos reales y válidos de la API de Perplexity.
+  // --- CORRECCIÓN FINAL ---
+  // Mapea los valores del frontend al modelo ONLINE correcto de Perplexity.
   const MODEL_MAP = {
-    perplexity:        'sonar-small-chat',      // Valor por defecto y del selector del front
-    sonar:             'sonar-small-chat',      // Acepta 'sonar' también
-    'sonar-small-chat':'sonar-small-chat',
-    'sonar-medium-chat':'sonar-medium-chat'
+    perplexity:        'sonar-medium-online', // Modelo con acceso a internet
+    sonar:             'sonar-medium-online'  // Acepta 'sonar' también
   };
   // Se usa el modelo del mapa, o el de por defecto si no se encuentra.
   const modelName = MODEL_MAP[model.toLowerCase()] || MODEL_MAP.perplexity;
