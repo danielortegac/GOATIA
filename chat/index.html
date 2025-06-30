@@ -282,8 +282,8 @@
                 
                 speechSynthesis.cancel(); 
                 
+                micWasOnBeforeSpeaking = isRecognizing;
                 if (isRecognizing) {
-                    micWasOnBeforeSpeaking = true;
                     recognition.stop();
                 }
 
@@ -474,11 +474,18 @@
             }
             
             function createNewChat(options = {}) {
-                const id = 'chat-' + crypto.randomUUID(); 
+                const id = 'chat-' + crypto.randomUUID();
+                const userName = currentUser ? (currentUser.user_metadata.full_name?.split(' ')[0] || currentUser.email.split('@')[0]) : 'qué tal';
+                
+                const initialMessages = options.initialMessages || [{ 
+                    role: 'assistant', 
+                    content: `¡Hola ${userName}! Soy GOATIFY, estoy aquí para servirte en lo que necesites. ¡Espero que tengas un día increíble!` 
+                }];
+
                 state.chats[id] = { 
                     id, 
                     title: options.title || "Nuevo Chat", 
-                    messages: options.initialMessages || [],
+                    messages: initialMessages,
                     workflow: options.workflow || null,
                     model: options.model || 'gpt-3.5-turbo'
                 }; 
@@ -741,12 +748,20 @@
 
                 if (SR && dom.voiceBtn) {
                     recognition = new SR(); 
-                    recognition.continuous = false; // Stop after user pauses
+                    recognition.continuous = false; 
                     recognition.interimResults = false;
                     recognition.lang = 'es-ES'; 
                     
+                    let userManuallyStopped = false;
+
                     recognition.onstart = () => { isRecognizing = true; dom.voiceBtn.classList.add('glowing-mic'); };
-                    recognition.onend = () => { isRecognizing = false; dom.voiceBtn.classList.remove('glowing-mic'); };
+                    recognition.onend = () => { 
+                        isRecognizing = false; 
+                        dom.voiceBtn.classList.remove('glowing-mic'); 
+                        if (!userManuallyStopped) {
+                            recognition.start(); // Restart listening automatically
+                        }
+                    };
                     
                     recognition.onresult = (event) => {
                         const transcript = event.results[event.results.length - 1][0].transcript.trim();
@@ -757,8 +772,10 @@
 
                     dom.voiceBtn.addEventListener('click', () => { 
                         if(isRecognizing) {
+                            userManuallyStopped = true;
                             recognition.stop();
                         } else {
+                            userManuallyStopped = false;
                             recognition.start();
                         }
                     });
