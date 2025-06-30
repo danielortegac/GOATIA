@@ -385,12 +385,10 @@
                 
                 const responseData = await response.json();
 
-                // After a successful response, update credits from backend's source of truth
                 if (currentUser && typeof responseData.new_credit_count !== 'undefined') {
-                    // Update local state immediately
+                    await forceUserRefresh();
                     currentUser.app_metadata.credits = responseData.new_credit_count;
                     updateCreditCounter();
-                    // No need to call updateUserCreditsOnBackend here, as the backend is the source of truth
                 }
                 
                 return responseData;
@@ -402,29 +400,30 @@
                     await netlifyIdentity.gotrue.user.update({
                         data: { credits: newCount }
                     });
-                    // Refresh the local user object to be in sync
-                    currentUser = netlifyIdentity.currentUser();
-                    await currentUser.jwt(true); // Force token refresh
-                    currentUser = netlifyIdentity.currentUser(); // Re-assign again after refresh
+                    await forceUserRefresh();
                 } catch (error) {
                     console.error("Error updating credits on backend:", error);
                 }
             }
             
-            function getCreditCount() { return currentUser ? (currentUser.app_metadata.credits !== undefined ? currentUser.app_metadata.credits : FREE_PLAN_CREDIT_LIMIT) : parseInt(localStorage.getItem('guestCreditCount') || '0'); }
-            
-            async function setCreditCount(count) {
-                const newCount = Math.max(0, count);
+            function getCreditCount() {
                 if (currentUser) {
-                    // Optimistic UI update
-                    currentUser.app_metadata.credits = newCount;
-                    updateCreditCounter();
-                    // Persist change to backend
-                    await updateUserCreditsOnBackend(newCount);
-                } else {
-                    localStorage.setItem('guestCreditCount', String(newCount));
-                    updateCreditCounter();
+                    return currentUser.app_metadata.credits !== undefined ? currentUser.app_metadata.credits : FREE_PLAN_CREDIT_LIMIT;
                 }
+                const guestCredits = localStorage.getItem('guestCreditCount');
+                return guestCredits !== null ? parseInt(guestCredits, 10) : GUEST_CREDIT_LIMIT;
+            }
+            
+            function setGuestCreditCount(count) {
+                const newCount = Math.max(0, count);
+                localStorage.setItem('guestCreditCount', String(newCount));
+                updateCreditCounter();
+            }
+
+            async function forceUserRefresh() {
+                if (!currentUser) return;
+                await currentUser.jwt(true);
+                currentUser = netlifyIdentity.currentUser();
             }
             
             function loadStateForUser() {
@@ -666,7 +665,7 @@
                     autoSelectModel(userMessage);
                 }
 
-                const count = getCreditCount();
+                let count = getCreditCount();
                 const model = dom.modelSelector.value;
                 let cost = COSTS.GENERAL;
                 
@@ -684,10 +683,8 @@
                 let chatIdToUpdate = currentChatId || createNewChat({ model: model });
                 if (!state.chats[chatIdToUpdate]) return;
                 
-                // Only deduct credits on the front-end for guests.
-                // For logged-in users, the backend is the source of truth.
                 if (!currentUser) {
-                    setCreditCount(count - cost);
+                    setGuestCreditCount(count - cost);
                 }
                 
                 const [image, pdf] = [selectedImageBase64, selectedPdfText];
@@ -805,23 +802,35 @@
             async function initApp() {
                 setTheme(localStorage.getItem('theme') === 'dark' || (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches));
                 let initFired = false;
+                if (localStorage.getItem('guestCreditCount') === null) {
+                    localStorage.setItem('guestCreditCount', GUEST_CREDIT_LIMIT);
+                }
 
                 const finishInitialization = async (user) => {
                     if (initFired) return; initFired = true;
-                    currentUser = user ? await ensureUserMetadata(user) : null;
-                    if (!user) { if (localStorage.getItem('hasLoggedInBefore') === 'true') localStorage.setItem('guestCreditCount', GUEST_CREDIT_LIMIT); }
-                    updateUserUI(); loadStateForUser();
-                    if (!currentUser && (localStorage.getItem('hasLoggedInBefore') === 'true' || getCreditCount() >= GUEST_CREDIT_LIMIT)) {
-                        showModal({ title: 'Bienvenido de Nuevo', message: `Ya has usado los créditos de invitado en este navegador. Por favor, inicia sesión para continuar.`, confirmText: 'Iniciar Sesión' })
+
+                    if (user) {
+                        await forceUserRefresh();
+                        currentUser = await ensureUserMetadata(netlifyIdentity.currentUser());
+                    } else {
+                        currentUser = null;
+                    }
+                    
+                    updateUserUI(); 
+                    loadStateForUser();
+                    
+                    if (!currentUser && getCreditCount() <= 0) {
+                        showModal({ title: 'Créditos de Invitado Agotados', message: `Ya has usado los 5 créditos de invitado. Por favor, inicia sesión para obtener más créditos y guardar tu historial.`, confirmText: 'Iniciar Sesión' })
                         .then(wantsToLogin => { if (wantsToLogin) netlifyIdentity.open(); });
                     }
+
                     dom.appContainer.classList.remove('opacity-0');
                     dom.loadingOverlay.classList.add('opacity-0');
                     setTimeout(() => dom.loadingOverlay.style.display = 'none', 300);
                 };
 
                 const ensureUserMetadata = async (user) => {
-                    if (user && (typeof user.app_metadata.credits === 'undefined')) {
+                    if (user && user.app_metadata.credits === undefined) {
                         await updateUserCreditsOnBackend(FREE_PLAN_CREDIT_LIMIT);
                         return netlifyIdentity.currentUser();
                     }
@@ -830,24 +839,29 @@
 
                 netlifyIdentity.on('init', (user) => finishInitialization(user));
                 setTimeout(() => { if (!initFired) finishInitialization(netlifyIdentity.currentUser()); }, 2500);
-                netlifyIdentity.on('login', async user => {
-                    netlifyIdentity.close(); localStorage.removeItem('guestCreditCount'); localStorage.setItem('hasLoggedInBefore', 'true');
-                    currentUser = await ensureUserMetadata(user); await currentUser.jwt(true);
-                    currentUser = netlifyIdentity.currentUser(); updateUserUI(); loadStateForUser();
-                });
-                netlifyIdentity.on('logout', () => { currentUser = null; updateUserUI(); loadStateForUser(); localStorage.setItem('guestCreditCount', GUEST_CREDIT_LIMIT); updateCreditCounter(); resetChatView(); });
                 
-                // Initial setup calls
-                const ttsIcon = dom.ttsToggle.querySelector('i');
-                ttsIcon.classList.toggle('fa-volume-high', speechOn); ttsIcon.classList.toggle('fa-volume-mute', !speechOn);
-                dom.ttsToggle.classList.toggle('text-yellow-400', speechOn); dom.ttsToggle.classList.toggle('text-text-medium', !speechOn);
+                netlifyIdentity.on('login', async user => {
+                    netlifyIdentity.close(); 
+                    localStorage.removeItem('guestCreditCount');
+                    await forceUserRefresh();
+                    currentUser = await ensureUserMetadata(netlifyIdentity.currentUser());
+                    updateUserUI(); 
+                    loadStateForUser();
+                });
+
+                netlifyIdentity.on('logout', () => { 
+                    currentUser = null; 
+                    localStorage.setItem('guestCreditCount', GUEST_CREDIT_LIMIT);
+                    updateUserUI(); 
+                    loadStateForUser(); 
+                    resetChatView(); 
+                });
                 
                 populateVoiceList();
                 setupEventListeners();
                 updateWebSearchButtonState();
             }
 
-            // Let's go!
             initApp();
         });
     </script>
