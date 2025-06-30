@@ -19,6 +19,10 @@
             --light-bg-dark: #f7f7f8; --light-bg-medium: #ffffff; --light-bg-light: #f0f0f0; --light-primary: #7c40e6; --light-primary-hover: #6a37d3; --light-text-dark: #1f2937; --light-text-medium: #6b7280; --light-border-color: #e5e7eb;
         }
         /* Basic styles */
+        html, body {
+            height: 100%;
+            overflow: hidden;
+        }
         body { font-family: 'Inter', sans-serif; transition: background-color 0.3s ease, color 0.3s ease; font-size: 16px; }
         
         /* Theming */
@@ -62,14 +66,6 @@
         #sidebar.is-open { transform: translateX(0); }
         #sidebar-overlay { transition: opacity 0.3s ease-in-out; }
         
-        @media (max-width: 767px) {
-            #main-chat-area {
-                height: 100%;
-            }
-             #input-area {
-                padding-bottom: 1rem;
-             }
-        }
     </style>
 </head>
 <body class="h-screen w-screen overflow-hidden dark-theme">
@@ -125,15 +121,15 @@
             </div>
         </aside>
 
-        <main id="main-chat-area" class="flex-1 flex flex-col h-full">
+        <main id="main-chat-area" class="flex-1 flex flex-col h-full overflow-hidden">
            <header class="flex items-center justify-between p-2 md:p-4 border-b border-themed flex-shrink-0">
                 <button id="menu-toggle" class="md:hidden text-xl p-2"><i class="fas fa-bars"></i></button>
                 <h1 id="chat-title" class="text-lg font-semibold truncate cursor-pointer mx-2" title="Renombrar Chat">GOATBOT Pro</h1>
-                <div class="flex items-center space-x-1 md:space-x-2">
+                <div class="flex items-center space-x-1 sm:space-x-2">
                     <div id="voice-selector-container" class="flex items-center space-x-2">
                         <select id="voice-selector" class="rounded-md p-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 bg-input text-text-light border border-themed"></select>
                     </div>
-                    <div id="message-counter" class="hidden sm:block text-xs font-mono"></div>
+                    <div id="message-counter" class="text-xs font-mono whitespace-nowrap"></div>
                     <button id="ttsToggle" title="Activar/Desactivar Voz" class="text-xl hover:opacity-80 transition-colors p-2"><i class="fa fa-volume-high"></i></button>
                     <button id="theme-toggle" title="Cambiar Tema" class="text-xl p-2"><i class="fas fa-moon" id="theme-icon"></i></button>
                 </div>
@@ -152,7 +148,7 @@
                     </div>
                 </div>
             </div>
-            <div id="input-area" class="p-2 sm:p-4 border-t border-themed">
+            <div id="input-area" class="p-2 sm:p-4 border-t border-themed flex-shrink-0">
                 <div id="file-preview-area" class="mb-3 space-y-2 px-1 sm:px-0">
                     <div id="image-preview-container" class="hidden relative w-24 h-24 sm:w-32 sm:h-32 rounded-lg overflow-hidden border border-themed">
                         <img id="image-preview" src="#" alt="Image Preview" class="w-full h-full object-contain">
@@ -618,16 +614,14 @@
             
             function autoSelectModel(prompt = '') {
                 const currentChat = state.chats[currentChatId];
-                if (hasFile() || currentChat?.workflow) return;
-                
-                // If user hasn't already selected web search, check for keywords.
-                if (dom.modelSelector.value !== 'sonar') {
-                    const searchKeywords = ['noticias', 'qué pasó hoy', 'fecha de hoy', 'actualidad', 'tiempo real', 'busca en la web', '@web'];
-                    if (searchKeywords.some(kw => prompt.toLowerCase().includes(kw))) {
-                        dom.modelSelector.value = 'sonar';
-                    }
+                if (hasFile() || currentChat?.workflow || dom.modelSelector.value === 'sonar') return;
+
+                const searchKeywords = ['noticias', 'qué pasó hoy', 'fecha de hoy', 'actualidad', 'tiempo real', 'busca en la web', '@web'];
+                if (searchKeywords.some(kw => prompt.toLowerCase().includes(kw))) {
+                    dom.modelSelector.value = 'sonar';
+                } else {
+                    dom.modelSelector.value = 'gpt-3.5-turbo';
                 }
-                // Do NOT add an 'else' block here that reverts to gpt-3.5-turbo.
                 updateWebSearchButtonState();
             }
 
@@ -732,7 +726,7 @@
                 dom.upgradePlanBtn.addEventListener('click', showPricingModal);
                 dom.closePricingModalBtn.addEventListener('click', hidePricingModal);
                 dom.themeToggle.addEventListener('click', () => setTheme(!document.body.classList.contains('dark-theme')));
-                dom.loginBtn.addEventListener('click', () => netlifyIdentity.open());
+                dom.loginBtn.addEventListener('click', () => netlifyIdentity.open('login'));
 
                 if (SR) {
                     recognition = new SR(); recognition.continuous = false; recognition.lang = 'es-ES'; recognition.interimResults = false;
