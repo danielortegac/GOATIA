@@ -1,112 +1,76 @@
-// --- Netlify Function: get-ai-response.js ---
-// VERSIÓN 11 - ACEPTA TANTO 'sonar' COMO 'perplexity'
+// netlify/functions/get-ai-response.js
 
-// Usamos el 'fetch' global de Node.js 18 (nativo).
-const { OpenAI } = require('openai');
-
-/**
- * Helper function to build the message structure for the Perplexity API.
- * @param {string} prompt The user's prompt.
- * @returns {Array<Object>} The messages array for the API request.
- */
-function buildPerplexityMessages(prompt) {
-  /* Siempre: 1 system + 1 user   */
-  return [
-    {
-      role: 'system',
-      content:
-        'Eres un asistente de búsqueda en español. Responde breve y cita fuentes al final.',
-    },
-    { role: 'user', content: prompt },
-  ];
-}
+// Define un único mensaje de sistema para evitar duplicados.
+const SYSTEM_MESSAGE = {
+  role: 'system',
+  content: 'Eres un asistente de búsqueda preciso y conciso. Responde en español y cita tus fuentes.'
+};
 
 exports.handler = async (event) => {
-    // 1. Validar que la solicitud sea un POST
-    if (event.httpMethod !== 'POST') {
-        return { statusCode: 405, body: JSON.stringify({ error: 'Método no permitido' }) };
+  // Asegurarse de que el body no es nulo y parsearlo de forma segura.
+  if (!event.body) {
+    return { statusCode: 400, body: JSON.stringify({ error: 'Request body is missing' }) };
+  }
+  
+  const { prompt, history = [], model = 'perplexity' } = JSON.parse(event.body);
+
+  /* ─ 1.   Elegir modelo válido ───────────────────────────── */
+  // Mapea los valores del frontend a modelos reales de la API de Perplexity.
+  const MODEL_MAP = {
+    perplexity:        'sonar-small-chat',      // selector del front
+    sonar:             'sonar-small-chat',
+    'sonar-small-chat':'sonar-small-chat',
+    'sonar-medium-chat':'sonar-medium-chat'
+  };
+  const modelName = MODEL_MAP[model.toLowerCase()] || MODEL_MAP.perplexity;
+
+  /* ─ 2.   Limpiar el history ─────────────────────────────── */
+  // Este bucle es clave para garantizar un payload válido.
+  const clean = [];
+  for (const m of history) {
+    if (!['user', 'assistant'].includes(m.role)) continue;      // Ignora sistemas viejos del historial.
+    if (clean.length === 0 && m.role !== 'user') continue;    // El historial no puede empezar con el asistente.
+    if (clean.length > 0 && clean[clean.length - 1].role === m.role) continue; // No permitir dos roles iguales seguidos.
+    clean.push({ role: m.role, content: m.content });
+  }
+
+  /* ─ 3.   Construir mensajes: system + history + prompt ─── */
+  // Se asegura de que la estructura siempre sea: [system, (opcional) user, assistant, ... , user]
+  const messages = [
+    SYSTEM_MESSAGE,
+    ...clean,
+    { role: 'user', content: prompt }
+  ];
+
+  console.log('📦 Payload a Perplexity', JSON.stringify({ model: modelName, messages }, null, 2));
+
+  /* ─ 4.   Llamar a la API de Perplexity ───────────────────── */
+  try {
+    const res = await fetch('https://api.perplexity.ai/chat/completions', {
+      method : 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization' : `Bearer ${process.env.PERPLEXITY_API_KEY}`
+      },
+      body   : JSON.stringify({ model: modelName, messages })
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(()=>({}));
+      console.error('Error de Perplexity:', err);
+      throw new Error(`Perplexity ${res.status}: ${err.error?.message || res.statusText}`);
     }
 
-    console.log("--- INICIO EJECUCIÓN V11 ---");
-
-    try {
-        const body = JSON.parse(event.body);
-        const { prompt, history, model, imageData, pdfText, workflow, userName } = body;
-        
-        const cleanedModel = (model && typeof model === 'string') ? model.trim().toLowerCase() : '';
-        console.log(`Modelo recibido: '${model}', Modelo limpiado: '${cleanedModel}'`);
-
-        // --- CORRECCIÓN CLAVE ---
-        // Se acepta 'sonar' (de los logs) O 'perplexity' (del archivo GOOD.txt) para máxima compatibilidad.
-        if (cleanedModel.startsWith('sonar') || cleanedModel === 'perplexity') {
-            console.log(`Ruta seleccionada: Perplexity (modelo recibido: ${model})`);
-            
-            const PERPLEXITY_API_KEY = process.env.PERPLEXITY_API_KEY;
-            if (!PERPLEXITY_API_KEY) throw new Error('La clave de API de Perplexity no está configurada.');
-            if (!prompt || typeof prompt !== 'string' || prompt.trim() === '') throw new Error("El prompt del usuario está vacío o es inválido.");
-
-            const perplexityBody = {
-               model: 'llama-3-sonar-large-32k-online', 
-               messages: buildPerplexityMessages(prompt),
-            };
-            
-            console.log("Enviando petición a la API de Perplexity...");
-            const apiResponse = await fetch('https://api.perplexity.ai/chat/completions', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${PERPLEXITY_API_KEY}`, 'Accept': 'application/json' },
-                body: JSON.stringify(perplexityBody),
-            });
-            
-            if (!apiResponse.ok) {
-                 const errorText = await apiResponse.text();
-                 throw new Error(`Error de Perplexity: ${apiResponse.status} - ${errorText}`);
-            }
-            
-            const data = await apiResponse.json();
-            const botReply = data.choices[0].message.content;
-            return { statusCode: 200, body: JSON.stringify({ reply: botReply }) };
-
-        } else { 
-            console.log(`Ruta seleccionada: OpenAI (modelo: ${model})`);
-
-            const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-            if (!OPENAI_API_KEY) throw new Error('La clave de API de OpenAI no está configurada.');
-            
-            const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
-            
-            let messages = [];
-            const friendlyPrompt = `Eres GOATBOT, un asistente de IA amable. Dirígete al usuario por su nombre, '${userName || 'amigo/a'}'.`;
-            messages.push({ role: 'system', content: friendlyPrompt });
-            
-            if (history) {
-                const sanitizedHistory = history.map(msg => ({
-                    role: msg.role,
-                    content: msg.content || "" 
-                }));
-                messages.push(...sanitizedHistory);
-            }
-            
-            let userMessageContent = [{ type: 'text', text: pdfText ? `Analiza el PDF y responde: \n\n${pdfText}\n\nPregunta: ${prompt}` : prompt || "" }];
-            if (imageData && model === 'gpt-4o') {
-                userMessageContent.push({ type: 'image_url', image_url: { "url": imageData } });
-            }
-            messages.push({ role: 'user', content: userMessageContent });
-            
-            const completion = await openai.chat.completions.create({
-                model: model, 
-                messages: messages,
-                max_tokens: (imageData || pdfText) ? 2048 : 1000
-            });
-
-            const botReply = completion.choices[0].message.content;
-            return { statusCode: 200, body: JSON.stringify({ reply: botReply }) };
-        }
-
-    } catch (error) {
-        console.error('--- ERROR CRÍTICO CAPTURADO ---', error);
-        return {
-            statusCode: 500,
-            body: JSON.stringify({ error: 'Ocurrió un error en el servidor.', details: error.message }),
-        };
-    }
+    const data = await res.json();
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ reply: data.choices[0].message.content })
+    };
+  } catch (error) {
+    console.error('Error al llamar a la API:', error);
+    return {
+        statusCode: 500,
+        body: JSON.stringify({ error: 'Ocurrió un error en el servidor.', details: error.message }),
+    };
+  }
 };
