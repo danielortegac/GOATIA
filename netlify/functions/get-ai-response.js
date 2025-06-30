@@ -1,5 +1,5 @@
 // --- Netlify Function: get-ai-response.js ---
-// VERSIÓN 10 - CORRECCIÓN FINAL DEL HISTORIAL PARA OPENAI
+// VERSIÓN 11 - ACEPTA TANTO 'sonar' COMO 'perplexity'
 
 // Usamos el 'fetch' global de Node.js 18 (nativo).
 const { OpenAI } = require('openai');
@@ -27,7 +27,7 @@ exports.handler = async (event) => {
         return { statusCode: 405, body: JSON.stringify({ error: 'Método no permitido' }) };
     }
 
-    console.log("--- INICIO EJECUCIÓN V10 ---");
+    console.log("--- INICIO EJECUCIÓN V11 ---");
 
     try {
         const body = JSON.parse(event.body);
@@ -36,8 +36,10 @@ exports.handler = async (event) => {
         const cleanedModel = (model && typeof model === 'string') ? model.trim().toLowerCase() : '';
         console.log(`Modelo recibido: '${model}', Modelo limpiado: '${cleanedModel}'`);
 
-        if (cleanedModel === 'perplexity') {
-            console.log(`Ruta seleccionada: Perplexity (modelo: ${model})`);
+        // --- CORRECCIÓN CLAVE ---
+        // Se acepta 'sonar' (de los logs) O 'perplexity' (del archivo GOOD.txt) para máxima compatibilidad.
+        if (cleanedModel.startsWith('sonar') || cleanedModel === 'perplexity') {
+            console.log(`Ruta seleccionada: Perplexity (modelo recibido: ${model})`);
             
             const PERPLEXITY_API_KEY = process.env.PERPLEXITY_API_KEY;
             if (!PERPLEXITY_API_KEY) throw new Error('La clave de API de Perplexity no está configurada.');
@@ -75,9 +77,7 @@ exports.handler = async (event) => {
             let messages = [];
             const friendlyPrompt = `Eres GOATBOT, un asistente de IA amable. Dirígete al usuario por su nombre, '${userName || 'amigo/a'}'.`;
             messages.push({ role: 'system', content: friendlyPrompt });
-
-            // --- CORRECCIÓN CLAVE ---
-            // Limpiamos el historial para que solo contenga 'role' y 'content', que es lo que la API de OpenAI acepta.
+            
             if (history) {
                 const sanitizedHistory = history.map(msg => ({
                     role: msg.role,
