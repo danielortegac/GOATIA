@@ -289,7 +289,10 @@
                 speechSynthesis.cancel(); 
                 const cleanText = text.replace(/[*_`#~[\]()🔍]|(-{3,})|(\*\*Fuente:\*\*.*)/g, ''); 
                 const utterance = new SpeechSynthesisUtterance(cleanText); 
-                if (selectedVoice) utterance.voice = selectedVoice;
+                if (selectedVoice) {
+                    utterance.voice = selectedVoice;
+                }
+                utterance.rate = 1.15; // Increased speech rate
                 speechSynthesis.speak(utterance); 
             }
 
@@ -371,7 +374,8 @@
                         throw new Error(`Error del servidor: ${response.status}.`);
                     }
                     
-                    // The backend should return the updated credit count if a user is logged in.
+                    // The backend is responsible for sending back the correct credit count.
+                    // The frontend trusts this response.
                     return await response.json();
                 } catch (error) {
                     clearTimeout(timeoutId);
@@ -645,19 +649,19 @@
                 const model = dom.modelSelector.value;
                 let cost = COSTS.GENERAL;
                 
-                if (currentChat?.workflow === 'web-page') cost = COSTS.WEB_PAGE;
-                else if (currentChat?.workflow === 'copywriting') cost = COSTS.COPYWRITING;
-                else if (currentChat?.workflow === 'sales-response') cost = COSTS.SALES_RESPONSE;
-                else if (currentChat?.workflow === 'english-teacher') cost = COSTS.ENGLISH_TEACHER;
-                else if (model === 'sonar') cost = COSTS.SEARCH;
-                else if (model === 'gpt-4o' && hasFile()) cost = COSTS.NEBULA;
+                if (currentChat?.workflow === 'web-page') { model = 'gpt-4o'; cost = COSTS.WEB_PAGE; }
+                else if (currentChat?.workflow === 'copywriting') { cost = COSTS.COPYWRITING; }
+                else if (currentChat?.workflow === 'sales-response') { cost = COSTS.SALES_RESPONSE; }
+                else if (currentChat?.workflow === 'english-teacher') { cost = COSTS.ENGLISH_TEACHER; }
+                else if (model === 'sonar') { cost = COSTS.SEARCH; }
+                else if (model === 'gpt-4o' && hasFile()) { cost = COSTS.NEBULA; }
                 
                 if (count < cost && !forceSend) {
                     if (currentUser) {
                         showPricingModal();
                     } else {
                         showModal({ title: 'Créditos de Invitado Agotados', message: `Ya has usado los 5 créditos de invitado. Por favor, inicia sesión para obtener más créditos y guardar tu historial.`, confirmText: 'Iniciar Sesión' })
-                        .then(wantsToLogin => { if (wantsToLogin) netlifyIdentity.open(); });
+                        .then(wantsToLogin => { if (wantsToLogin) netlifyIdentity.open('login'); });
                     }
                     return;
                 }
@@ -686,7 +690,6 @@
                     }
 
                     if (responseData.reply) {
-                        // The backend might return an updated credit count, but we are managing it locally for simplicity.
                         updateCreditCounter();
                         state.chats[chatIdToUpdate].messages.push({ role: 'assistant', content: responseData.reply });
                         updateMessageInUI(thinkingBubble, responseData.reply);
@@ -797,10 +800,12 @@
                     currentUser = user;
                     
                     if (user) {
+                        // On initial load, set credits if they don't exist in localStorage
                         if (localStorage.getItem(`userCredits_${user.id}`) === null) {
                             localStorage.setItem(`userCredits_${user.id}`, FREE_PLAN_CREDIT_LIMIT);
                         }
                     } else {
+                         // On initial load, set guest credits if they don't exist in localStorage
                         if (localStorage.getItem('guestCreditCount') === null) {
                             localStorage.setItem('guestCreditCount', GUEST_CREDIT_LIMIT);
                         }
@@ -809,11 +814,6 @@
                     updateUserUI();
                     loadStateForUser();
                     
-                    if (!currentUser && getCreditCount() <= 0) {
-                        showModal({ title: 'Créditos de Invitado Agotados', message: `Ya has usado los 5 créditos de invitado. Por favor, inicia sesión para obtener más créditos y guardar tu historial.`, confirmText: 'Iniciar Sesión' })
-                        .then(wantsToLogin => { if (wantsToLogin) netlifyIdentity.open(); });
-                    }
-
                     dom.appContainer.classList.remove('opacity-0');
                     dom.loadingOverlay.style.display = 'none';
                 };
@@ -823,27 +823,27 @@
                 });
                 
                 // Fallback timer in case the 'init' event doesn't fire for any reason.
-                setTimeout(() => finishInitialization(netlifyIdentity.currentUser()), 2000);
+                setTimeout(() => finishInitialization(netlifyIdentity.currentUser()), 1500);
 
                 netlifyIdentity.on('login', (user) => {
                     netlifyIdentity.close(); 
                     currentUser = user;
-                    // When a user logs in, set their credits if they don't exist in localStorage yet.
+                    localStorage.setItem('hasLoggedInBefore', 'true');
                     if (localStorage.getItem(`userCredits_${user.id}`) === null) {
                         localStorage.setItem(`userCredits_${user.id}`, FREE_PLAN_CREDIT_LIMIT);
                     }
-                    localStorage.removeItem('guestCreditCount'); // Guest credits are no longer needed.
                     updateUserUI(); 
                     loadStateForUser();
                 });
 
                 netlifyIdentity.on('logout', () => { 
                     currentUser = null; 
-                    // When logging out, reset guest credits to the limit.
-                    localStorage.setItem('guestCreditCount', GUEST_CREDIT_LIMIT);
+                    localStorage.setItem('guestCreditCount', '0'); // CRITICAL: Set guest credits to 0 on logout
                     updateUserUI(); 
                     loadStateForUser(); 
-                    resetChatView(); 
+                    resetChatView();
+                    showModal({ title: 'Sesión Cerrada', message: `Has cerrado sesión. Para continuar, por favor, inicia sesión de nuevo.`, confirmText: 'Iniciar Sesión' })
+                        .then(wantsToLogin => { if (wantsToLogin) netlifyIdentity.open('login'); });
                 });
 
                 populateVoiceList();
