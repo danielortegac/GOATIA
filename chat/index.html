@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GOATBOT Pro</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -21,7 +21,7 @@
         /* Basic styles */
         html, body {
             height: 100%;
-            overflow: hidden;
+            /* Removed overflow: hidden to allow better mobile behavior */
         }
         body { font-family: 'Inter', sans-serif; transition: background-color 0.3s ease, color 0.3s ease; font-size: 16px; }
         
@@ -68,7 +68,7 @@
         
     </style>
 </head>
-<body class="h-screen w-screen overflow-hidden dark-theme">
+<body class="w-screen overflow-x-hidden dark-theme">
 
     <!-- Loading Overlay -->
     <div id="loading-overlay" class="fixed inset-0 bg-bg-dark bg-opacity-95 flex flex-col items-center justify-center z-[100] transition-opacity duration-300">
@@ -83,7 +83,7 @@
     <div id="sidebar-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-20 md:hidden opacity-0 pointer-events-none"></div>
 
     <!-- App Container -->
-    <div id="app-container" class="flex h-full w-full relative opacity-0 transition-opacity duration-300">
+    <div id="app-container" class="flex h-screen w-full relative opacity-0 transition-opacity duration-300">
         <aside id="sidebar" class="w-72 flex-shrink-0 flex flex-col p-3 transition-transform duration-300 -translate-x-full md:translate-x-0 absolute md:relative z-30 h-full">
             <div class="flex-shrink-0">
                 <div id="logo-space" class="w-24 h-24 rounded-lg mx-auto mb-4 flex items-center justify-center overflow-hidden bg-input">
@@ -125,11 +125,11 @@
            <header class="flex items-center justify-between p-2 md:p-4 border-b border-themed flex-shrink-0">
                 <button id="menu-toggle" class="md:hidden text-xl p-2"><i class="fas fa-bars"></i></button>
                 <h1 id="chat-title" class="text-lg font-semibold truncate cursor-pointer mx-2" title="Renombrar Chat">GOATBOT Pro</h1>
-                <div class="flex items-center space-x-1 sm:space-x-2">
-                    <div id="voice-selector-container" class="hidden sm:flex items-center space-x-2">
+                <div class="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
+                    <div id="voice-selector-container" class="flex items-center space-x-2">
                         <select id="voice-selector" class="rounded-md p-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 bg-input text-text-light border border-themed"></select>
                     </div>
-                    <div id="message-counter" class="text-xs font-mono whitespace-nowrap hidden sm:block"></div>
+                    <div id="message-counter" class="text-xs font-mono whitespace-nowrap"></div>
                     <button id="ttsToggle" title="Activar/Desactivar Voz" class="text-xl hover:opacity-80 transition-colors p-2"><i class="fa fa-volume-high"></i></button>
                     <button id="theme-toggle" title="Cambiar Tema" class="text-xl p-2"><i class="fas fa-moon" id="theme-icon"></i></button>
                 </div>
@@ -250,6 +250,10 @@
                 loginBtn: document.getElementById('login-btn'), userMenuBtn: document.getElementById('user-menu-btn'),
                 userMenuPopup: document.getElementById('user-menu-popup'), userEmail: document.getElementById('user-email'),
                 logoutBtn: document.getElementById('logout-btn'),
+                copywritingWorkflowBtn: document.getElementById('copywriting-workflow-btn'),
+                salesResponseWorkflowBtn: document.getElementById('sales-response-workflow-btn'),
+                webPageWorkflowBtn: document.getElementById('web-page-workflow-btn'),
+                englishTeacherWorkflowBtn: document.getElementById('english-teacher-workflow-btn'),
                 personalizedWelcome: document.getElementById('personalized-welcome'),
                 genericWelcome: document.getElementById('generic-welcome'),
                 userName: document.getElementById('user-name'),
@@ -259,10 +263,6 @@
                 htmlPreviewIframe: document.getElementById('html-preview-iframe'),
                 voiceSelector: document.getElementById('voice-selector'),
                 webSearchBtn: document.getElementById('web-search-btn'),
-                copywritingWorkflowBtn: document.getElementById('copywriting-workflow-btn'),
-                salesResponseWorkflowBtn: document.getElementById('sales-response-workflow-btn'),
-                webPageWorkflowBtn: document.getElementById('web-page-workflow-btn'),
-                englishTeacherWorkflowBtn: document.getElementById('english-teacher-workflow-btn'),
             };
             
             const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -315,40 +315,45 @@
 
                 const setVoices = () => {
                     if (typeof speechSynthesis === 'undefined') {
-                        if (voiceContainer) voiceContainer.style.display = 'none';
-                        if (dom.ttsToggle) dom.ttsToggle.style.display = 'none';
+                        voiceContainer.style.display = 'flex';
+                        dom.voiceSelector.innerHTML = '<option value="">No hay voces</option>';
+                        dom.voiceSelector.disabled = true;
                         return;
                     }
 
                     const allVoices = speechSynthesis.getVoices();
-                    availableVoices = allVoices.filter(v => v.lang.startsWith('es-'));
+                    const preferredVoices = [ "Microsoft Sabina Online (Natural) - Spanish (Mexico)", "Paulina", "Google español de Estados Unidos", "Google español" ];
+                    
+                    availableVoices = allVoices.filter(v => v.lang.startsWith('es-') && !v.lang.startsWith('es-ES'));
+                    
+                    if (availableVoices.length === 0) {
+                        availableVoices = allVoices.filter(v => v.lang.startsWith('es-'));
+                    }
                     
                     availableVoices.sort((a, b) => {
-                        const preferred = ["Sabina", "Paulina", "Marisol", "Jorge"];
-                        const aIdx = preferred.findIndex(p => a.name.includes(p));
-                        const bIdx = preferred.findIndex(p => b.name.includes(p));
-                        if (aIdx > -1 && bIdx > -1) return aIdx - bIdx;
-                        if (aIdx > -1) return -1;
-                        if (bIdx > -1) return 1;
+                        let aIdx = preferredVoices.indexOf(a.name); let bIdx = preferredVoices.indexOf(b.name);
+                        if (aIdx === -1) aIdx = Infinity; if (bIdx === -1) bIdx = Infinity;
+                        if (aIdx !== bIdx) return aIdx - bIdx;
                         return a.name.localeCompare(b.name);
                     });
 
-                    if(voiceContainer) {
-                        voiceContainer.style.display = availableVoices.length > 0 ? 'flex' : 'none';
-                        dom.voiceSelector.innerHTML = '';
+                    dom.voiceSelector.innerHTML = '';
+                    voiceContainer.style.display = 'flex';
 
-                        if(availableVoices.length > 0) {
-                            dom.voiceSelector.disabled = false;
-                            availableVoices.forEach(voice => {
-                                const option = document.createElement('option');
-                                const displayName = voice.name.replace('Microsoft', '').replace('Online (Natural) -', '').replace('Google', '').replace('Spanish (Mexico)','Mex').trim();
-                                option.textContent = displayName || voice.lang;
-                                option.value = voice.name;
-                                dom.voiceSelector.appendChild(option);
-                            });
-                            selectedVoice = availableVoices[0];
-                            if (selectedVoice) dom.voiceSelector.value = selectedVoice.name;
-                        }
+                    if(availableVoices.length === 0) {
+                        dom.voiceSelector.innerHTML = '<option value="">No hay voces</option>';
+                        dom.voiceSelector.disabled = true;
+                    } else {
+                        dom.voiceSelector.disabled = false;
+                        availableVoices.forEach(voice => {
+                            const option = document.createElement('option');
+                            const displayName = voice.name.replace('Microsoft', '').replace('Online (Natural) -', '').replace('Google', '').replace('Spanish (Mexico)','Mex').trim();
+                            option.textContent = displayName || voice.lang;
+                            option.value = voice.name;
+                            dom.voiceSelector.appendChild(option);
+                        });
+                        selectedVoice = availableVoices[0];
+                        if (selectedVoice) dom.voiceSelector.value = selectedVoice.name;
                     }
                 }
 
@@ -452,11 +457,11 @@
                 const count = getCreditCount();
                 const limit = currentUser ? FREE_PLAN_CREDIT_LIMIT : GUEST_CREDIT_LIMIT;
                 const planName = currentUser ? 'Plan Gratuito' : 'Invitado';
-                dom.messageCounterEl.textContent = `${count}/${limit}`;
+                dom.messageCounterEl.textContent = `${planName}: ${count}/${limit} créditos`;
             }
 
             function setTheme(isDark) { 
-                document.body.className = 'h-screen w-screen overflow-hidden';
+                document.body.className = 'w-screen overflow-x-hidden';
                 document.body.classList.add(isDark ? 'dark-theme' : 'light-theme');
                 dom.themeIcon.className = `fas fa-${isDark ? 'sun' : 'moon'}`; 
                 localStorage.setItem('theme', isDark ? 'dark' : 'light'); 
@@ -478,14 +483,9 @@
                 const id = 'chat-' + crypto.randomUUID();
                 const userName = currentUser ? (currentUser.user_metadata.full_name?.split(' ')[0] || currentUser.email.split('@')[0]) : 'qué tal';
                 
-                let initialContent = `¡Hola, ${userName}! Soy GOATBOT, tu asistente personal.`;
-                if(Math.random() < 0.3) { // 30% chance to use "jefe/jefa"
-                    initialContent = `A la orden, ${currentUser.user_metadata.gender === 'female' ? 'jefa' : 'jefe'}. ¿En qué te puedo ayudar hoy?`;
-                }
-
                 const initialMessages = options.initialMessages || [{ 
                     role: 'assistant', 
-                    content: initialContent
+                    content: `¡Hola ${userName}! Soy GOATIFY, tu asistente personal. Estoy aquí para servirte en lo que necesites. ¡Espero que tengas un día increíble!` 
                 }];
 
                 state.chats[id] = { 
@@ -809,7 +809,6 @@
                     };
 
                     dom.voiceBtn.addEventListener('click', () => { 
-                        stopSpeech();
                         if(isRecognizing) {
                             userManuallyStopped = true;
                             recognition.stop();
@@ -873,10 +872,13 @@
 
                 // Mobile Height Fix
                 const setAppHeight = () => {
-                    document.documentElement.style.setProperty('--vh', `${window.innerHeight * 0.01}px`);
+                    if(dom.appContainer) dom.appContainer.style.height = `${window.innerHeight}px`;
                 };
                 setAppHeight();
                 window.addEventListener('resize', setAppHeight);
+                if (window.visualViewport) {
+                    window.visualViewport.onresize = setAppHeight;
+                }
             }
             
             function initApp() {
@@ -909,7 +911,7 @@
 
                 netlifyIdentity.on('init', (user) => {
                     finishInitialization(user);
-});
+                });
                 
                 setTimeout(() => {
                     if (!initFired) {
