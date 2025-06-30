@@ -780,8 +780,9 @@
                     recognition.onend = () => { 
                         isRecognizing = false; 
                         dom.voiceBtn.classList.remove('glowing-mic'); 
-                        if (!userManuallyStopped) {
-                            recognition.start();
+                        if (!userManuallyStopped && micWasOnBeforeSpeaking) {
+                             micWasOnBeforeSpeaking = false;
+                             recognition.start();
                         }
                     };
                     
@@ -796,13 +797,12 @@
                             }
                         }
                         
-                        // Set a timeout to send the message if the user stops talking
                         speechTimeout = setTimeout(() => {
                             if (finalTranscript.trim()) {
                                 sendMessage(false, finalTranscript.trim());
                                 finalTranscript = '';
                             }
-                        }, 1000); // 1 second of silence
+                        }, 1000);
                     };
 
                     dom.voiceBtn.addEventListener('click', () => { 
@@ -873,7 +873,6 @@
                 };
                 setAppHeight();
                 window.addEventListener('resize', setAppHeight);
-                // Also adjust on virtual keyboard changes
                 if (window.visualViewport) {
                     window.visualViewport.onresize = setAppHeight;
                 }
@@ -931,7 +930,7 @@
 
                 netlifyIdentity.on('logout', () => { 
                     currentUser = null; 
-                    localStorage.setItem('guestCreditCount', '0'); // CRITICAL: Set guest credits to 0 on logout
+                    localStorage.setItem('guestCreditCount', '0');
                     updateUserUI(); 
                     loadStateForUser(); 
                     resetChatView();
