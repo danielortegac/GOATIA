@@ -1,7 +1,7 @@
 // --- Netlify Function: get-ai-response.js ---
-// VERSIÓN FINAL Y CORREGIDA
+// VERSIÓN A PRUEBA DE BALAS, SIGUIENDO LA GUÍA
 
-// Importar las dependencias necesarias. Asegúrate de tener 'openai' y 'node-fetch' en tu package.json
+// Importar las dependencias necesarias.
 const { OpenAI } = require("openai");
 const fetch = require('node-fetch');
 
@@ -15,7 +15,7 @@ exports.handler = async (event) => {
         const { prompt, history, model, imageData, pdfText, workflow, userName } = JSON.parse(event.body);
         let botReply = '';
         
-        // --- INICIO DE LA LÓGICA DE ENRUTAMIENTO DE MODELO ---
+        // --- LÓGICA DE ENRUTAMIENTO DE MODELO ---
 
         // 2. Si el modelo es 'sonar', usar la API de Perplexity
         if (model === 'sonar') {
@@ -25,9 +25,9 @@ exports.handler = async (event) => {
             }
 
             const perplexityBody = {
-                model: 'sonar', // Modelo correcto para la API
+                model: 'sonar', // Modelo correcto y limpio.
                 messages: [
-                    { role: 'system', content: 'Eres un asistente de búsqueda preciso y conciso. Responde en español y cita tus fuentes cuando sea posible.' },
+                    { role: 'system', content: 'You are a helpful AI assistant with real-time web access. Provide concise, up-to-date, and accurate answers in Spanish.' },
                     ...(history || []),
                     { role: 'user', content: prompt }
                 ]
@@ -35,20 +35,26 @@ exports.handler = async (event) => {
 
             const apiResponse = await fetch('https://api.perplexity.ai/chat/completions', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${PERPLEXITY_API_KEY}` },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${PERPLEXITY_API_KEY}`,
+                    'Accept': 'application/json' // Cabecera crucial añadida
+                },
                 body: JSON.stringify(perplexityBody),
             });
             
             if (!apiResponse.ok) {
-                 const errorData = await apiResponse.json();
-                 throw new Error(`Error de Perplexity: ${errorData.error?.message || apiResponse.statusText}`);
+                // Logueo de error mejorado para saber exactamente qué falla
+                 const errorText = await apiResponse.text();
+                 console.error('Perplexity API Error Response:', errorText);
+                 throw new Error(`Error de Perplexity: ${apiResponse.status} - ${errorText}`);
             }
             
             const data = await apiResponse.json();
-            botReply = data.choices[0].message.content;
+            botReply = data.choices[0]?.message?.content;
 
         } else { 
-            // 3. Si no es 'sonar', usar la API de OpenAI
+            // 3. Si no es 'sonar', usar la API de OpenAI (lógica existente)
             const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
             if (!OPENAI_API_KEY) {
                 throw new Error('La clave de API de OpenAI (OPENAI_API_KEY) no está configurada en Netlify.');
@@ -57,23 +63,17 @@ exports.handler = async (event) => {
             const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
             let messages = [];
 
-            // --- Construcción de los Mensajes para OpenAI ---
-
-            // System Prompt para personalidad y trato por nombre
             const friendlyPrompt = `Eres GOATBOT, un asistente de IA excepcionalmente amable y servicial. Siempre que sea relevante, dirígete al usuario por su nombre, '${userName || 'amigo/a'}'. Saluda con cariño (ej. '¡Hola ${userName || 'qué tal'}! Espero que tengas un día increíble.'), y despídete de forma atenta. Tu tono debe ser siempre positivo y respetuoso.`;
             messages.push({ role: 'system', content: friendlyPrompt });
 
-            // System Prompt específico para el workflow de "English Teacher"
             if (workflow === 'english-teacher') {
                 messages.push({ role: 'system', content: "You are an expert English Teacher and translator. Your primary language for conversation is English. ALWAYS respond in English. If the user makes a mistake, gently correct them, explain the error briefly, and then provide the correct version before continuing the conversation. If the user asks for a translation, provide it clearly. You must always speak your full English response." });
             }
 
-            // Historial del chat
             if (history) {
                 messages.push(...history);
             }
 
-            // Mensaje del usuario (con posible imagen o PDF)
             let userMessageContent = [];
             const fullPrompt = pdfText 
                 ? `Analiza el siguiente texto de un PDF y responde a la pregunta.\n\n--- INICIO PDF ---\n${pdfText}\n--- FIN PDF ---\n\nPregunta: ${prompt}`
@@ -102,7 +102,7 @@ exports.handler = async (event) => {
         };
 
     } catch (error) {
-        // Manejo de errores
+        // Manejo de errores mejorado
         console.error('Error CAPTURADO en la función de Netlify:', error.toString());
         return {
             statusCode: 500,
