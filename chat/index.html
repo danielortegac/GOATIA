@@ -358,7 +358,7 @@
                 setTimeout(setVoices, 200);
             }
             
-            async function getAIResponse(prompt, history, image, pdf, model, workflow) {
+            async function getAIResponse(prompt, history, image, pdf, model, workflow, userName) {
                 const token = currentUser ? await currentUser.jwt() : null;
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), 25000);
@@ -367,7 +367,7 @@
                     const response = await fetch('/.netlify/functions/get-ai-response', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', ...(token && { 'Authorization': `Bearer ${token}` }) },
-                        body: JSON.stringify({ prompt, history, model, imageData: image, pdfText: pdf, workflow }),
+                        body: JSON.stringify({ prompt, history, model, imageData: image, pdfText: pdf, workflow, userName }),
                         signal: controller.signal
                     });
 
@@ -626,10 +626,13 @@
             
             function autoSelectModel(prompt = '') {
                 const currentChat = state.chats[currentChatId];
-                if (hasFile() || currentChat?.workflow) return;
+                if (hasFile() || currentChat?.workflow || dom.modelSelector.value === 'sonar') return;
 
-                if (dom.modelSelector.value !== 'sonar' && /@web/.test(prompt)) {
-                     dom.modelSelector.value = 'sonar';
+                const searchKeywords = ['noticias', 'qué pasó hoy', 'fecha de hoy', 'actualidad', 'tiempo real', 'busca en la web', '@web'];
+                if (searchKeywords.some(kw => prompt.toLowerCase().includes(kw))) {
+                    dom.modelSelector.value = 'sonar';
+                } else {
+                    dom.modelSelector.value = 'gpt-3.5-turbo';
                 }
                 updateWebSearchButtonState();
             }
@@ -638,8 +641,8 @@
             function clearPdfData() { dom.pdfUploadInput.value = ''; dom.pdfPreviewContainer.classList.add('hidden'); selectedPdfText = null; if(!currentChatId || !state.chats[currentChatId]?.workflow) autoSelectModel(dom.msgInput.value); }
             function hasFile() { return selectedImageBase64 || selectedPdfText; }
             
-            async function sendMessage(forceSend = false) {
-                const userMessage = dom.msgInput.value.trim();
+            async function sendMessage(forceSend = false, spokenMessage = null) {
+                const userMessage = spokenMessage || dom.msgInput.value.trim();
                 if (!userMessage && !selectedImageBase64 && !selectedPdfText) return;
                 
                 const currentChat = state.chats[currentChatId];
@@ -681,7 +684,8 @@
 
                 try {
                     const workflowForCall = state.chats[chatIdToUpdate]?.workflow || null;
-                    const responseData = await getAIResponse(userMessage, state.chats[chatIdToUpdate].messages.slice(0, -1), image, pdf, model, workflowForCall);
+                    const userNameForCall = currentUser ? (currentUser.user_metadata.full_name?.split(' ')[0] || currentUser.email.split('@')[0]) : 'amigo/a';
+                    const responseData = await getAIResponse(userMessage, state.chats[chatIdToUpdate].messages.slice(0, -1), image, pdf, model, workflowForCall, userNameForCall);
                     
                     if (responseData.error === 'LIMIT_REACHED') {
                         updateMessageInUI(thinkingBubble, `Has alcanzado el límite de créditos de tu plan. ¡Actualiza para continuar!`);
@@ -725,7 +729,7 @@
             function setupEventListeners() {
                 dom.genericModal?.querySelector('#modal-confirm').addEventListener('click', () => { const input = dom.genericModal.querySelector('#modal-input'); hideModal(input.style.display !== 'none' ? input.value : true); });
                 dom.genericModal?.querySelector('#modal-cancel').addEventListener('click', () => hideModal(null));
-                dom.sendBtn?.addEventListener('click', sendMessage);
+                dom.sendBtn?.addEventListener('click', () => sendMessage());
                 dom.msgInput?.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
                 dom.msgInput?.addEventListener('input', () => { dom.msgInput.style.height = 'auto'; dom.msgInput.style.height = (dom.msgInput.scrollHeight) + 'px';});
                 dom.newChatBtn?.addEventListener('click', () => createNewChat());
@@ -737,22 +741,17 @@
 
                 if (SR && dom.voiceBtn) {
                     recognition = new SR(); 
-                    recognition.continuous = true; 
-                    recognition.interimResults = true;
+                    recognition.continuous = false; // Stop after user pauses
+                    recognition.interimResults = false;
                     recognition.lang = 'es-ES'; 
                     
                     recognition.onstart = () => { isRecognizing = true; dom.voiceBtn.classList.add('glowing-mic'); };
                     recognition.onend = () => { isRecognizing = false; dom.voiceBtn.classList.remove('glowing-mic'); };
                     
                     recognition.onresult = (event) => {
-                        let final_transcript = '';
-                        for (let i = event.resultIndex; i < event.results.length; ++i) {
-                            if (event.results[i].isFinal) {
-                                final_transcript += event.results[i][0].transcript;
-                            }
-                        }
-                        if (final_transcript) {
-                            dom.msgInput.value += (dom.msgInput.value ? ' ' : '') + final_transcript;
+                        const transcript = event.results[event.results.length - 1][0].transcript.trim();
+                        if (transcript) {
+                           sendMessage(false, transcript);
                         }
                     };
 
