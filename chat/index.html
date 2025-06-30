@@ -349,22 +349,16 @@
             
             async function getAIResponse(prompt, history, image, pdf, model, workflow) {
                  const token = currentUser ? await currentUser.jwt() : null;
-
-                // Prepend system prompts based on workflow and general personality
                 let fullHistory = [...history];
-                
-                // General friendly personality prompt
                 const friendlyPrompt = {
                     role: "system",
                     content: "Eres GOATBOT, un asistente de IA excepcionalmente amable y servicial. Siempre saluda al usuario con cariño y de forma positiva (ej. '¡Muy buenos días! Espero que tengas un día increíble. ¿Cómo te sientes hoy?'), y despídete de forma muy atenta (ej. '¡Fue un verdadero placer ayudarte! Estoy a tus órdenes para lo que necesites. ¡Que tengas un excelente día!'). Trata al usuario con el máximo respeto, empatía y positividad en todo momento."
                 };
                 
-                // Add friendly prompt if it's the first message from the assistant
                 if (history.filter(m => m.role === 'assistant').length === 0) {
                     fullHistory.unshift(friendlyPrompt);
                 }
 
-                // Specific workflow prompt for English Teacher
                 if (workflow === 'english-teacher') {
                     const teacherPrompt = {
                         role: "system",
@@ -378,23 +372,59 @@
                     headers: { 'Content-Type': 'application/json', ...(token && { 'Authorization': `Bearer ${token}` }) },
                     body: JSON.stringify({ prompt, history: fullHistory, model, imageData: image, pdfText: pdf })
                 });
-                if (response.status === 403) return { error: 'LIMIT_REACHED' };
+
+                if (response.status === 403) {
+                    await updateUserCreditsOnBackend(0);
+                    return { error: 'LIMIT_REACHED' };
+                }
+                
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({}));
                     throw new Error(errorData.details || `Error del servidor: ${response.statusText}`);
                 }
-                return response.json();
-            }
+                
+                const responseData = await response.json();
 
-            function getCreditCount() { return currentUser ? (currentUser.app_metadata.credits !== undefined ? currentUser.app_metadata.credits : FREE_PLAN_CREDIT_LIMIT) : parseInt(localStorage.getItem('guestCreditCount') || '0'); }
-            function setCreditCount(count) {
-                const newCount = Math.max(0, count); 
-                if(currentUser) {
-                    currentUser.app_metadata.credits = newCount;
-                } else {
-                     localStorage.setItem('guestCreditCount', String(newCount));
+                // After a successful response, update credits from backend's source of truth
+                if (currentUser && typeof responseData.new_credit_count !== 'undefined') {
+                    // Update local state immediately
+                    currentUser.app_metadata.credits = responseData.new_credit_count;
+                    updateCreditCounter();
+                    // No need to call updateUserCreditsOnBackend here, as the backend is the source of truth
                 }
-                updateCreditCounter();
+                
+                return responseData;
+            }
+            
+            async function updateUserCreditsOnBackend(newCount) {
+                if (!currentUser || !netlifyIdentity.gotrue) return;
+                try {
+                    await netlifyIdentity.gotrue.user.update({
+                        data: { credits: newCount }
+                    });
+                    // Refresh the local user object to be in sync
+                    currentUser = netlifyIdentity.currentUser();
+                    await currentUser.jwt(true); // Force token refresh
+                    currentUser = netlifyIdentity.currentUser(); // Re-assign again after refresh
+                } catch (error) {
+                    console.error("Error updating credits on backend:", error);
+                }
+            }
+            
+            function getCreditCount() { return currentUser ? (currentUser.app_metadata.credits !== undefined ? currentUser.app_metadata.credits : FREE_PLAN_CREDIT_LIMIT) : parseInt(localStorage.getItem('guestCreditCount') || '0'); }
+            
+            async function setCreditCount(count) {
+                const newCount = Math.max(0, count);
+                if (currentUser) {
+                    // Optimistic UI update
+                    currentUser.app_metadata.credits = newCount;
+                    updateCreditCounter();
+                    // Persist change to backend
+                    await updateUserCreditsOnBackend(newCount);
+                } else {
+                    localStorage.setItem('guestCreditCount', String(newCount));
+                    updateCreditCounter();
+                }
             }
             
             function loadStateForUser() {
@@ -646,15 +676,19 @@
                 else if (currentChat?.workflow === 'english-teacher') cost = COSTS.ENGLISH_TEACHER;
                 else if (model === 'perplexity/sonar-small-online') cost = COSTS.SEARCH;
                 else if (model === 'gpt-4o' && hasFile()) cost = COSTS.NEBULA;
-
-                if ((!currentUser && count < cost && !forceSend) || (currentUser && count < cost && !forceSend)) {
+                
+                if (count < cost && !forceSend) {
                     showPricingModal(); return;
                 }
 
                 let chatIdToUpdate = currentChatId || createNewChat({ model: model });
                 if (!state.chats[chatIdToUpdate]) return;
                 
-                setCreditCount(count - cost);
+                // Only deduct credits on the front-end for guests.
+                // For logged-in users, the backend is the source of truth.
+                if (!currentUser) {
+                    setCreditCount(count - cost);
+                }
                 
                 const [image, pdf] = [selectedImageBase64, selectedPdfText];
                 state.chats[chatIdToUpdate].messages.push({ role: 'user', content: userMessage, image, pdfText: pdf });
@@ -668,24 +702,20 @@
                     
                     if (responseData.error === 'LIMIT_REACHED') {
                         updateMessageInUI(thinkingBubble, `Has alcanzado el límite de créditos de tu plan. ¡Actualiza para continuar!`);
-                        if (currentUser) setCreditCount(0); showPricingModal(); return;
+                        showPricingModal(); 
+                        return;
                     }
 
                     if (responseData.reply) {
                         state.chats[chatIdToUpdate].messages.push({ role: 'assistant', content: responseData.reply });
                         updateMessageInUI(thinkingBubble, responseData.reply);
                         speak(responseData.reply);
-                        if (currentUser && typeof responseData.new_credit_count !== 'undefined') {
-                            setCreditCount(responseData.new_credit_count);
-                        }
                         saveState();
                     } else if (responseData.error) {
                         updateMessageInUI(thinkingBubble, `❌ **Error**<br><small>${responseData.details || 'Error del servidor.'}</small>`);
-                        setCreditCount(count);
                     }
                 } catch (error) {
                     updateMessageInUI(thinkingBubble, `❌ **Error de Conexión**<br><small>${error.message || 'No se pudo conectar al servidor.'}</small>`);
-                    setCreditCount(count);
                 }
             }
 
@@ -772,7 +802,7 @@
                 });
             }
             
-            function initApp() {
+            async function initApp() {
                 setTheme(localStorage.getItem('theme') === 'dark' || (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches));
                 let initFired = false;
 
@@ -792,10 +822,8 @@
 
                 const ensureUserMetadata = async (user) => {
                     if (user && (typeof user.app_metadata.credits === 'undefined')) {
-                        try {
-                            const updatedUser = await netlifyIdentity.gotrue.user.update({ data: { credits: FREE_PLAN_CREDIT_LIMIT } });
-                            await updatedUser.jwt(true); return netlifyIdentity.currentUser(); 
-                        } catch (error) { console.error("Error setting default credits:", error); user.app_metadata.credits = FREE_PLAN_CREDIT_LIMIT; return user; }
+                        await updateUserCreditsOnBackend(FREE_PLAN_CREDIT_LIMIT);
+                        return netlifyIdentity.currentUser();
                     }
                     return user;
                 };
