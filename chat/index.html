@@ -222,6 +222,7 @@
             const COSTS = { WEB_PAGE: 3, COPYWRITING: 2, SALES_RESPONSE: 2, NEBULA: 2, GENERAL: 1, SEARCH: 1, ENGLISH_TEACHER: 1 };
             let state = { chats: {}, projects: {}, structure: [] };
             let currentChatId = null, currentUser = null, pendingMessage = null, speechOn = true, availableVoices = [], selectedVoice = null, isRecognizing = false, selectedImageBase64 = null, selectedPdfText = null, isWebSearchMode = false;
+            let micWasOnBeforeSpeaking = false;
             let modalResolve = null;
 
             // 2. DOM ELEMENTS
@@ -278,13 +279,28 @@
             
             function speak(text) { 
                 if (!speechOn || !('speechSynthesis' in window) || !text) return; 
+                
                 speechSynthesis.cancel(); 
+                
+                if (isRecognizing) {
+                    micWasOnBeforeSpeaking = true;
+                    recognition.stop();
+                }
+
                 const cleanText = text.replace(/[*_`#~[\]()🔍]|(-{3,})|(\*\*Fuente:\*\*.*)/g, ''); 
                 const utterance = new SpeechSynthesisUtterance(cleanText); 
                 if (selectedVoice) {
                     utterance.voice = selectedVoice;
                 }
-                utterance.rate = 1.15; // Increased speech rate
+                utterance.rate = 1.15;
+                
+                utterance.onend = () => {
+                    if (micWasOnBeforeSpeaking) {
+                        recognition.start();
+                        micWasOnBeforeSpeaking = false;
+                    }
+                };
+
                 speechSynthesis.speak(utterance); 
             }
 
@@ -610,19 +626,16 @@
             
             function autoSelectModel(prompt = '') {
                 const currentChat = state.chats[currentChatId];
-                if (hasFile() || currentChat?.workflow || dom.modelSelector.value === 'sonar') return;
+                if (hasFile() || currentChat?.workflow) return;
 
-                const searchKeywords = ['noticias', 'qué pasó hoy', 'fecha de hoy', 'actualidad', 'tiempo real', 'busca en la web', '@web'];
-                if (searchKeywords.some(kw => prompt.toLowerCase().includes(kw))) {
-                    dom.modelSelector.value = 'sonar';
-                } else {
-                    dom.modelSelector.value = 'gpt-3.5-turbo';
+                if (dom.modelSelector.value !== 'sonar' && /@web/.test(prompt)) {
+                     dom.modelSelector.value = 'sonar';
                 }
                 updateWebSearchButtonState();
             }
 
-            function clearImageData() { dom.imageUploadInput.value = ''; dom.imagePreviewContainer.classList.add('hidden'); selectedImageBase64 = null; if(!currentChatId || !state.chats[currentChatId]?.workflow) autoSelectModel(); }
-            function clearPdfData() { dom.pdfUploadInput.value = ''; dom.pdfPreviewContainer.classList.add('hidden'); selectedPdfText = null; if(!currentChatId || !state.chats[currentChatId]?.workflow) autoSelectModel(); }
+            function clearImageData() { dom.imageUploadInput.value = ''; dom.imagePreviewContainer.classList.add('hidden'); selectedImageBase64 = null; if(!currentChatId || !state.chats[currentChatId]?.workflow) autoSelectModel(dom.msgInput.value); }
+            function clearPdfData() { dom.pdfUploadInput.value = ''; dom.pdfPreviewContainer.classList.add('hidden'); selectedPdfText = null; if(!currentChatId || !state.chats[currentChatId]?.workflow) autoSelectModel(dom.msgInput.value); }
             function hasFile() { return selectedImageBase64 || selectedPdfText; }
             
             async function sendMessage(forceSend = false) {
@@ -723,11 +736,33 @@
                 dom.loginBtn?.addEventListener('click', () => netlifyIdentity.open('login'));
 
                 if (SR && dom.voiceBtn) {
-                    recognition = new SR(); recognition.continuous = false; recognition.lang = 'es-ES'; recognition.interimResults = false;
+                    recognition = new SR(); 
+                    recognition.continuous = true; 
+                    recognition.interimResults = true;
+                    recognition.lang = 'es-ES'; 
+                    
                     recognition.onstart = () => { isRecognizing = true; dom.voiceBtn.classList.add('glowing-mic'); };
                     recognition.onend = () => { isRecognizing = false; dom.voiceBtn.classList.remove('glowing-mic'); };
-                    recognition.onresult = (event) => { dom.msgInput.value = Array.from(event.results).map(r => r[0].transcript).join(''); sendMessage(); };
-                    dom.voiceBtn.addEventListener('click', () => { if (isRecognizing) recognition.stop(); else recognition.start(); });
+                    
+                    recognition.onresult = (event) => {
+                        let final_transcript = '';
+                        for (let i = event.resultIndex; i < event.results.length; ++i) {
+                            if (event.results[i].isFinal) {
+                                final_transcript += event.results[i][0].transcript;
+                            }
+                        }
+                        if (final_transcript) {
+                            dom.msgInput.value += (dom.msgInput.value ? ' ' : '') + final_transcript;
+                        }
+                    };
+
+                    dom.voiceBtn.addEventListener('click', () => { 
+                        if(isRecognizing) {
+                            recognition.stop();
+                        } else {
+                            recognition.start();
+                        }
+                    });
                 } else { if(dom.voiceBtn) dom.voiceBtn.style.display = 'none'; }
                 
                 if (dom.ttsToggle) {
