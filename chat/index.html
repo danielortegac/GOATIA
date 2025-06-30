@@ -739,8 +739,21 @@
                 dom.genericModal?.querySelector('#modal-confirm').addEventListener('click', () => { const input = dom.genericModal.querySelector('#modal-input'); hideModal(input.style.display !== 'none' ? input.value : true); });
                 dom.genericModal?.querySelector('#modal-cancel').addEventListener('click', () => hideModal(null));
                 dom.sendBtn?.addEventListener('click', () => sendMessage());
-                dom.msgInput?.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
-                dom.msgInput?.addEventListener('input', () => { dom.msgInput.style.height = 'auto'; dom.msgInput.style.height = (dom.msgInput.scrollHeight) + 'px';});
+                
+                const stopSpeech = () => { if(speechSynthesis.speaking) speechSynthesis.cancel(); };
+                dom.msgInput?.addEventListener('keydown', (e) => { 
+                    stopSpeech();
+                    if (e.key === 'Enter' && !e.shiftKey) { 
+                        e.preventDefault(); 
+                        sendMessage();
+                    } 
+                });
+                dom.msgInput?.addEventListener('input', () => { 
+                    stopSpeech();
+                    dom.msgInput.style.height = 'auto'; 
+                    dom.msgInput.style.height = (dom.msgInput.scrollHeight) + 'px';
+                });
+
                 dom.newChatBtn?.addEventListener('click', () => createNewChat());
                 dom.newProjectBtn?.addEventListener('click', async () => { const name = await showModal({ title: 'Crear Proyecto', useInput: true, placeholder: 'Nombre del Proyecto...' }); if (name && name.trim()) { const id = 'project-' + crypto.randomUUID(); state.projects[id] = { id, title: name.trim(), chatIds: [] }; state.structure.unshift(id); saveState(); renderSidebar(); } hideModal(); });
                 dom.upgradePlanBtn?.addEventListener('click', showPricingModal);
@@ -750,26 +763,37 @@
 
                 if (SR && dom.voiceBtn) {
                     recognition = new SR(); 
-                    recognition.continuous = false; // Stop after user pauses
-                    recognition.interimResults = false;
+                    recognition.continuous = true; 
+                    recognition.interimResults = true;
                     recognition.lang = 'es-ES'; 
                     
                     let userManuallyStopped = false;
+                    let finalTranscriptTimeout;
 
                     recognition.onstart = () => { isRecognizing = true; dom.voiceBtn.classList.add('glowing-mic'); };
                     recognition.onend = () => { 
                         isRecognizing = false; 
                         dom.voiceBtn.classList.remove('glowing-mic'); 
-                        if (!userManuallyStopped && micWasOnBeforeSpeaking) {
-                             micWasOnBeforeSpeaking = false;
-                             recognition.start();
+                        if (!userManuallyStopped) {
+                            recognition.start();
                         }
                     };
                     
                     recognition.onresult = (event) => {
-                        const transcript = event.results[event.results.length - 1][0].transcript.trim();
-                        if (transcript) {
-                           sendMessage(false, transcript);
+                        clearTimeout(finalTranscriptTimeout);
+                        let interim_transcript = '';
+                        let final_transcript = '';
+                        for (let i = event.resultIndex; i < event.results.length; ++i) {
+                            if (event.results[i].isFinal) {
+                                final_transcript += event.results[i][0].transcript;
+                            } else {
+                                interim_transcript += event.results[i][0].transcript;
+                            }
+                        }
+                        
+                        // Send the message after a short pause of silence
+                        if (final_transcript) {
+                             sendMessage(false, final_transcript.trim());
                         }
                     };
 
