@@ -105,6 +105,7 @@
                     <button id="copywriting-workflow-btn" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center"><i class="fas fa-pencil-alt w-6 mr-2"></i>Copywriting</button>
                     <button id="sales-response-workflow-btn" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center"><i class="fas fa-handshake w-6 mr-2"></i>Respuestas de Ventas</button>
                     <button id="web-page-workflow-btn" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center"><i class="fas fa-code w-6 mr-2"></i>Página Web</button>
+                    <button id="english-teacher-workflow-btn" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center"><i class="fas fa-language w-6 mr-2"></i>English Teacher</button>
                 </div>
             </div>
             <div id="sidebar-content" class="flex-grow overflow-y-auto pr-1 space-y-1"></div>
@@ -222,7 +223,7 @@
             // 1. CONSTANTS & STATE
             const GUEST_CREDIT_LIMIT = 5;
             const FREE_PLAN_CREDIT_LIMIT = 15;
-            const COSTS = { WEB_PAGE: 3, COPYWRITING: 2, SALES_RESPONSE: 2, NEBULA: 2, GENERAL: 1, SEARCH: 1 };
+            const COSTS = { WEB_PAGE: 3, COPYWRITING: 2, SALES_RESPONSE: 2, NEBULA: 2, GENERAL: 1, SEARCH: 1, ENGLISH_TEACHER: 1 };
             let state = { chats: {}, projects: {}, structure: [] };
             let currentChatId = null, currentUser = null, pendingMessage = null, speechOn = true, availableVoices = [], selectedVoice = null, isRecognizing = false, selectedImageBase64 = null, selectedPdfText = null, isWebSearchMode = false;
             let modalResolve = null;
@@ -259,6 +260,7 @@
                 copywritingWorkflowBtn: document.getElementById('copywriting-workflow-btn'),
                 salesResponseWorkflowBtn: document.getElementById('sales-response-workflow-btn'),
                 webPageWorkflowBtn: document.getElementById('web-page-workflow-btn'),
+                englishTeacherWorkflowBtn: document.getElementById('english-teacher-workflow-btn'),
                 htmlPreviewModal: document.getElementById('html-preview-modal'),
                 closeHtmlPreviewModalBtn: document.getElementById('close-html-preview-modal'),
                 htmlPreviewIframe: document.getElementById('html-preview-iframe'),
@@ -292,52 +294,89 @@
             }
 
             function populateVoiceList() {
-                if (typeof speechSynthesis === 'undefined') {
-                    dom.voiceSelector.parentElement.style.display = 'none';
-                    return;
-                }
-                
-                function setVoices() {
+                const voiceContainer = dom.voiceSelector.parentElement;
+
+                const setVoices = () => {
+                    if (typeof speechSynthesis === 'undefined') {
+                        voiceContainer.style.display = 'flex';
+                        dom.voiceSelector.innerHTML = '<option value="">No hay voces</option>';
+                        dom.voiceSelector.disabled = true;
+                        return;
+                    }
+
                     const allVoices = speechSynthesis.getVoices();
-                    const preferredVoices = [
-                        "Microsoft Sabina Online (Natural) - Spanish (Mexico)", "Paulina", "Google español de Estados Unidos", "Google español"
-                    ];
-                    availableVoices = allVoices
-                        .filter(v => v.lang.startsWith('es-') && !v.lang.startsWith('es-ES') && (v.name.includes("Google") || v.name.includes("Microsoft") || v.name.includes("Paulina")))
-                        .sort((a, b) => {
-                            let aIdx = preferredVoices.indexOf(a.name); let bIdx = preferredVoices.indexOf(b.name);
-                            if (aIdx === -1) aIdx = Infinity; if (bIdx === -1) bIdx = Infinity;
-                            if (aIdx !== bIdx) return aIdx - bIdx;
-                            return a.name.localeCompare(b.name);
-                        });
+                    const preferredVoices = [ "Microsoft Sabina Online (Natural) - Spanish (Mexico)", "Paulina", "Google español de Estados Unidos", "Google español" ];
+                    
+                    availableVoices = allVoices.filter(v => v.lang.startsWith('es-') && !v.lang.startsWith('es-ES'));
+                    
+                    if (availableVoices.length === 0) {
+                        availableVoices = allVoices.filter(v => v.lang.startsWith('es-'));
+                    }
+                    
+                    availableVoices.sort((a, b) => {
+                        let aIdx = preferredVoices.indexOf(a.name); let bIdx = preferredVoices.indexOf(b.name);
+                        if (aIdx === -1) aIdx = Infinity; if (bIdx === -1) bIdx = Infinity;
+                        if (aIdx !== bIdx) return aIdx - bIdx;
+                        return a.name.localeCompare(b.name);
+                    });
 
                     dom.voiceSelector.innerHTML = '';
+                    voiceContainer.style.display = 'flex';
+
                     if(availableVoices.length === 0) {
-                        dom.voiceSelector.parentElement.style.display = 'none'; return;
+                        dom.voiceSelector.innerHTML = '<option value="">No hay voces</option>';
+                        dom.voiceSelector.disabled = true;
+                    } else {
+                        dom.voiceSelector.disabled = false;
+                        availableVoices.forEach(voice => {
+                            const option = document.createElement('option');
+                            const displayName = voice.name.replace('Microsoft', '').replace('Online (Natural) -', '').replace('Google', '').replace('Spanish (Mexico)','Mex').trim();
+                            option.textContent = displayName || voice.lang;
+                            option.value = voice.name;
+                            dom.voiceSelector.appendChild(option);
+                        });
+                        selectedVoice = availableVoices[0];
+                        if (selectedVoice) dom.voiceSelector.value = selectedVoice.name;
                     }
-                    availableVoices.forEach(voice => {
-                        const option = document.createElement('option');
-                        const displayName = voice.name.replace('Microsoft', '').replace('Online (Natural) -', '').replace('Google', '').replace('Spanish (Mexico)','Mex').trim();
-                        option.textContent = displayName || voice.lang;
-                        option.value = voice.name;
-                        dom.voiceSelector.appendChild(option);
-                    });
-                    selectedVoice = availableVoices[0];
-                    if (selectedVoice) dom.voiceSelector.value = selectedVoice.name;
                 }
 
                 if (speechSynthesis.onvoiceschanged !== undefined) {
                     speechSynthesis.onvoiceschanged = setVoices;
                 }
-                setVoices();
+                
+                setTimeout(setVoices, 200);
             }
             
-            async function getAIResponse(prompt, history, image, pdf, model) {
-                const token = currentUser ? await currentUser.jwt() : null;
+            async function getAIResponse(prompt, history, image, pdf, model, workflow) {
+                 const token = currentUser ? await currentUser.jwt() : null;
+
+                // Prepend system prompts based on workflow and general personality
+                let fullHistory = [...history];
+                
+                // General friendly personality prompt
+                const friendlyPrompt = {
+                    role: "system",
+                    content: "Eres GOATBOT, un asistente de IA excepcionalmente amable y servicial. Siempre saluda al usuario con cariño y de forma positiva (ej. '¡Muy buenos días! Espero que tengas un día increíble. ¿Cómo te sientes hoy?'), y despídete de forma muy atenta (ej. '¡Fue un verdadero placer ayudarte! Estoy a tus órdenes para lo que necesites. ¡Que tengas un excelente día!'). Trata al usuario con el máximo respeto, empatía y positividad en todo momento."
+                };
+                
+                // Add friendly prompt if it's the first message from the assistant
+                if (history.filter(m => m.role === 'assistant').length === 0) {
+                    fullHistory.unshift(friendlyPrompt);
+                }
+
+                // Specific workflow prompt for English Teacher
+                if (workflow === 'english-teacher') {
+                    const teacherPrompt = {
+                        role: "system",
+                        content: "You are an expert English Teacher and translator. Your primary language for conversation is English. ALWAYS respond in English. If the user writes or speaks in English and makes a mistake, gently correct them, explain the error briefly, and then provide the correct version before continuing the conversation. If the user asks for a translation, provide it clearly. You must always speak your full English response. Only provide Spanish text if the user explicitly asks for a translation or an explanation in Spanish."
+                    };
+                    fullHistory.unshift(teacherPrompt);
+                }
+
                 const response = await fetch('/.netlify/functions/get-ai-response', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', ...(token && { 'Authorization': `Bearer ${token}` }) },
-                    body: JSON.stringify({ prompt, history, model, imageData: image, pdfText: pdf })
+                    body: JSON.stringify({ prompt, history: fullHistory, model, imageData: image, pdfText: pdf })
                 });
                 if (response.status === 403) return { error: 'LIMIT_REACHED' };
                 if (!response.ok) {
@@ -574,7 +613,7 @@
             
             function autoSelectModel(prompt = '') {
                 const currentChat = state.chats[currentChatId];
-                if (hasFile() || currentChat?.workflow) return; // Keep model for files/workflows
+                if (hasFile() || currentChat?.workflow) return;
                 const searchKeywords = ['noticias', 'qué pasó hoy', 'fecha de hoy', 'actualidad', 'tiempo real', 'busca en la web'];
                 if (searchKeywords.some(kw => prompt.toLowerCase().includes(kw))) {
                     dom.modelSelector.value = 'perplexity/sonar-small-online';
@@ -592,19 +631,21 @@
                 const userMessage = dom.msgInput.value.trim();
                 if (!userMessage && !selectedImageBase64 && !selectedPdfText) return;
                 
-                if(!currentChatId || !state.chats[currentChatId]?.workflow) autoSelectModel(userMessage);
+                const currentChat = state.chats[currentChatId];
+                if (!currentChat || !currentChat.workflow) {
+                    autoSelectModel(userMessage);
+                }
 
                 const count = getCreditCount();
                 const model = dom.modelSelector.value;
                 let cost = COSTS.GENERAL;
                 
-                if (model === 'perplexity/sonar-small-online') cost = COSTS.SEARCH;
-                else if (model === 'gpt-4o' && hasFile()) cost = COSTS.NEBULA;
-                
-                const currentChat = state.chats[currentChatId];
                 if (currentChat?.workflow === 'web-page') cost = COSTS.WEB_PAGE;
                 else if (currentChat?.workflow === 'copywriting') cost = COSTS.COPYWRITING;
                 else if (currentChat?.workflow === 'sales-response') cost = COSTS.SALES_RESPONSE;
+                else if (currentChat?.workflow === 'english-teacher') cost = COSTS.ENGLISH_TEACHER;
+                else if (model === 'perplexity/sonar-small-online') cost = COSTS.SEARCH;
+                else if (model === 'gpt-4o' && hasFile()) cost = COSTS.NEBULA;
 
                 if ((!currentUser && count < cost && !forceSend) || (currentUser && count < cost && !forceSend)) {
                     showPricingModal(); return;
@@ -622,7 +663,8 @@
                 dom.msgInput.value = ''; dom.msgInput.style.height = 'auto'; clearImageData(); clearPdfData();
 
                 try {
-                    const responseData = await getAIResponse(userMessage, state.chats[chatIdToUpdate].messages.slice(0, -1), image, pdf, model);
+                    const workflowForCall = state.chats[chatIdToUpdate]?.workflow || null;
+                    const responseData = await getAIResponse(userMessage, state.chats[chatIdToUpdate].messages.slice(0, -1), image, pdf, model, workflowForCall);
                     
                     if (responseData.error === 'LIMIT_REACHED') {
                         updateMessageInUI(thinkingBubble, `Has alcanzado el límite de créditos de tu plan. ¡Actualiza para continuar!`);
@@ -711,7 +753,16 @@
                 dom.copywritingWorkflowBtn.addEventListener('click', () => createWorkflowChat({ title: "Nuevo Copy", workflow: "copywriting", model: "gpt-3.5-turbo", initialMessages: [{ role: 'assistant', content: `¡Claro! Empecemos un nuevo copy (costo: ${COSTS.COPYWRITING} créditos). Por favor, dame el contexto: ¿cuál es el producto o servicio, a quién te diriges y cuál es el objetivo principal del copy?` }] }));
                 dom.salesResponseWorkflowBtn.addEventListener('click', () => createWorkflowChat({ title: "Respuesta de Venta", workflow: "sales-response", model: "gpt-3.5-turbo", initialMessages: [{ role: 'assistant', content: `¡Excelente! Estoy listo para ayudarte a cerrar esa venta (costo: ${COSTS.SALES_RESPONSE} créditos). Pega el mensaje de tu cliente y te daré la respuesta perfecta para convencerlo.` }] }));
                 dom.webPageWorkflowBtn.addEventListener('click', () => createWorkflowChat({ title: "Nueva Página Web", workflow: "web-page", model: "gpt-4o", initialMessages: [{ role: 'assistant', content: `¡Perfecto! Estoy listo para generar una página web profesional con HTML y Tailwind CSS (costo: ${COSTS.WEB_PAGE} créditos).\n\n**En tu próximo mensaje, describe con todo el detalle posible la página que quieres crear.**` }] }));
-                
+                dom.englishTeacherWorkflowBtn.addEventListener('click', () => createWorkflowChat({
+                    title: "English Teacher",
+                    workflow: "english-teacher",
+                    model: "gpt-3.5-turbo",
+                    initialMessages: [{
+                        role: 'assistant',
+                        content: "Hello! Do you want me to translate something, or would you like to learn something new?\n\n(¡Hola! ¿Quieres que traduzca algo, o te gustaría aprender algo nuevo?)"
+                    }]
+                }));
+
                 dom.closeHtmlPreviewModalBtn.addEventListener('click', () => dom.htmlPreviewModal.classList.add('hidden'));
                 dom.voiceSelector.addEventListener('change', (e) => { selectedVoice = availableVoices.find(voice => voice.name === e.target.value); });
 
