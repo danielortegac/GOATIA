@@ -74,21 +74,24 @@
 </head>
 <body class="h-screen w-screen overflow-hidden dark-theme">
 
+    <!-- Loading Overlay -->
     <div id="loading-overlay" class="fixed inset-0 bg-bg-dark bg-opacity-95 flex flex-col items-center justify-center z-[100] transition-opacity duration-300">
-        <img src="https://raw.githubusercontent.com/GoatFactoryDev/goatbot/main/logo-goatify-footer.png" alt="GOATIFY Logo" class="w-24 h-24 object-contain mb-6 animate-pulse" onerror="this.onerror=null;this.src='https://placehold.co/96x96/121212/e0e0e0?text=LOGO';">
+        <img src="https://raw.githubusercontent.com/GoatFactoryDev/goatbot/main/logo-goatify-header.png" alt="GOATIFY Logo" class="w-24 h-24 object-contain mb-6 animate-pulse" onerror="this.onerror=null;this.src='https://placehold.co/96x96/121212/e0e0e0?text=LOGO';">
         <div class="text-text-light text-center">
              <i class="fas fa-spinner fa-spin fa-2x"></i>
              <p class="mt-3 text-lg font-semibold">Inicializando...</p>
         </div>
     </div>
 
+    <!-- Mobile Sidebar Overlay -->
     <div id="sidebar-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-20 md:hidden opacity-0 pointer-events-none"></div>
 
+    <!-- App Container -->
     <div id="app-container" class="flex h-full w-full relative opacity-0 transition-opacity duration-300">
         <aside id="sidebar" class="w-72 flex-shrink-0 flex flex-col p-3 transition-transform duration-300 -translate-x-full md:translate-x-0 absolute md:relative z-30 h-full">
             <div class="flex-shrink-0">
                 <div id="logo-space" class="w-24 h-24 rounded-lg mx-auto mb-4 flex items-center justify-center overflow-hidden bg-input">
-                    <img src="https://raw.githubusercontent.com/GoatFactoryDev/goatbot/main/logo-goatify-footer.png" alt="GOATIFY Logo" class="w-full h-full object-contain" onerror="this.onerror=null;this.src='https://placehold.co/96x96/2c2c2c/e0e0e0?text=LOGO';">
+                    <img src="https://raw.githubusercontent.com/GoatFactoryDev/goatbot/main/logo-goatify-header.png" alt="GOATIFY Logo" class="w-full h-full object-contain" onerror="this.onerror=null;this.src='https://placehold.co/96x96/2c2c2c/e0e0e0?text=LOGO';">
                 </div>
                 <div class="flex flex-col space-y-2 mb-4">
                     <button id="new-chat-btn" class="flex items-center justify-center font-semibold p-3 rounded-lg btn-primary transition-colors"><i class="fas fa-plus mr-2"></i><span>Nuevo Chat</span></button>
@@ -138,7 +141,7 @@
             <div id="chat-messages" class="flex-1 overflow-y-auto p-3 sm:p-6">
                 <div class="flex justify-center items-center h-full" id="initial-message-container">
                     <div id="welcome-message-wrapper" class="text-center text-text-medium">
-                        <img src="https://raw.githubusercontent.com/GoatFactoryDev/goatbot/main/logo-goatify-footer.png" alt="GOATIFY Logo" class="w-24 h-24 object-contain mx-auto mb-4" onerror="this.onerror=null;this.src='https://placehold.co/96x96/2c2c2c/e0e0e0?text=LOGO';">
+                        <img src="https://raw.githubusercontent.com/GoatFactoryDev/goatbot/main/logo-goatify-header.png" alt="GOATIFY Logo" class="w-24 h-24 object-contain mx-auto mb-4" onerror="this.onerror=null;this.src='https://placehold.co/96x96/2c2c2c/e0e0e0?text=LOGO';">
                         <div id="personalized-welcome" class="hidden">
                             <h2 class="text-2xl font-bold">¡Hola, <span id="user-name"></span>!</h2>
                             <p class="text-lg mt-1">Hoy es un gran día. ¡Puedes con todo!</p>
@@ -164,7 +167,7 @@
                     <select id="model-selector" class="rounded-md p-1.5 focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm bg-input text-text-light border border-themed">
                         <option value="gpt-3.5-turbo">Goatify Pro (Texto)</option>
                         <option value="gpt-4o">Goatify Nebula (Archivos)</option>
-                        <option value="perplexity/sonar-small-online">Búsqueda Web (Sonar)</option>
+                        <option value="sonar">Búsqueda Web (Sonar)</option>
                     </select>
                 </div>
                 <div class="relative rounded-xl flex items-center bg-input p-1 sm:p-2">
@@ -180,6 +183,7 @@
         </main>
     </div>
 
+    <!-- Modals -->
     <div id="generic-modal" class="fixed inset-0 bg-black bg-opacity-70 hidden items-center justify-center z-40 p-4">
         <div class="modal-content rounded-lg w-full max-w-sm p-6 relative">
             <h3 id="modal-title" class="text-lg font-bold mb-4"></h3><p id="modal-message" class="mb-4 text-text-medium"></p>
@@ -344,86 +348,60 @@
             }
             
             async function getAIResponse(prompt, history, image, pdf, model, workflow) {
-                 const token = currentUser ? await currentUser.jwt() : null;
-                let fullHistory = [...history];
-                let modelForApi = model;
+                const token = currentUser ? await currentUser.jwt() : null;
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 25000);
 
-                const friendlyPrompt = {
-                    role: "system",
-                    content: "Eres GOATBOT, un asistente de IA excepcionalmente amable y servicial. Siempre saluda al usuario con cariño y de forma positiva (ej. '¡Muy buenos días! Espero que tengas un día increíble. ¿Cómo te sientes hoy?'), y despídete de forma muy atenta (ej. '¡Fue un verdadero placer ayudarte! Estoy a tus órdenes para lo que necesites. ¡Que tengas un excelente día!'). Trata al usuario con el máximo respeto, empatía y positividad en todo momento."
-                };
-                
-                if (history.filter(m => m.role === 'assistant').length === 0) {
-                    fullHistory.unshift(friendlyPrompt);
-                }
+                try {
+                    // This function now correctly passes the `model` identifier ('sonar', 'gpt-4o', etc.)
+                    // to the backend. The backend is responsible for calling the correct API.
+                    const response = await fetch('/.netlify/functions/get-ai-response', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', ...(token && { 'Authorization': `Bearer ${token}` }) },
+                        body: JSON.stringify({ prompt, history, model, imageData: image, pdfText: pdf, workflow }),
+                        signal: controller.signal
+                    });
 
-                if (workflow === 'english-teacher') {
-                    const teacherPrompt = {
-                        role: "system",
-                        content: "You are an expert English Teacher and translator. Your primary language for conversation is English. ALWAYS respond in English. If the user writes or speaks in English and makes a mistake, gently correct them, explain the error briefly, and then provide the correct version before continuing the conversation. If the user asks for a translation, provide it clearly. You must always speak your full English response. Only provide Spanish text if the user explicitly asks for a translation or an explanation in Spanish."
-                    };
-                    fullHistory.unshift(teacherPrompt);
-                }
-                
-                if (model === 'perplexity/sonar-small-online') {
-                    modelForApi = 'gpt-4o'; // Use a reliable model for the search
-                    const webSearchPrompt = {
-                        role: 'system',
-                        content: `[SYSTEM INSTRUCTION: YOU MUST BROWSE THE WEB. Search for real-time, up-to-date information to answer the following user query. Do not use your training data.]`
-                    };
-                    fullHistory.unshift(webSearchPrompt);
-                }
+                    clearTimeout(timeoutId);
 
-
-                const response = await fetch('/.netlify/functions/get-ai-response', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', ...(token && { 'Authorization': `Bearer ${token}` }) },
-                    body: JSON.stringify({ prompt, history: fullHistory, model: modelForApi, imageData: image, pdfText: pdf })
-                });
-
-                if (response.status === 403) {
-                    return { error: 'LIMIT_REACHED' };
+                    if (response.status === 403) { return { error: 'LIMIT_REACHED' }; }
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        console.error("Backend Error:", errorText);
+                        throw new Error(`Error del servidor: ${response.status}.`);
+                    }
+                    
+                    // The backend should return the updated credit count if a user is logged in.
+                    return await response.json();
+                } catch (error) {
+                    clearTimeout(timeoutId);
+                    if (error.name === 'AbortError') {
+                        throw new Error('La solicitud tardó demasiado. Inténtalo de nuevo.');
+                    }
+                    throw error;
                 }
-                
-                if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.details || `Error del servidor: ${response.statusText}`);
-                }
-                
-                const responseData = await response.json();
-
-                if (currentUser && typeof responseData.new_credit_count !== 'undefined') {
-                    currentUser.app_metadata.credits = responseData.new_credit_count;
-                    updateCreditCounter();
-                }
-                
-                return responseData;
             }
             
             function getCreditCount() {
                 if (currentUser) {
-                    return currentUser.app_metadata.credits !== undefined ? currentUser.app_metadata.credits : FREE_PLAN_CREDIT_LIMIT;
+                    const credits = localStorage.getItem(`userCredits_${currentUser.id}`);
+                    return credits === null ? FREE_PLAN_CREDIT_LIMIT : parseInt(credits, 10);
+                } else {
+                    const credits = localStorage.getItem('guestCreditCount');
+                    return credits === null ? GUEST_CREDIT_LIMIT : parseInt(credits, 10);
                 }
-                const guestCredits = localStorage.getItem('guestCreditCount');
-                return guestCredits !== null ? parseInt(guestCredits, 10) : GUEST_CREDIT_LIMIT;
             }
             
-            function setGuestCreditCount(count) {
-                const newCount = Math.max(0, count);
-                localStorage.setItem('guestCreditCount', String(newCount));
+            function setCreditCount(newCount) {
+                const count = Math.max(0, newCount);
+                if (currentUser) {
+                    localStorage.setItem(`userCredits_${currentUser.id}`, count);
+                } else {
+                    localStorage.setItem('guestCreditCount', count);
+                }
                 updateCreditCounter();
             }
 
-            async function forceUserRefresh() {
-                if (!currentUser) return;
-                try {
-                    await currentUser.jwt(true);
-                    currentUser = netlifyIdentity.currentUser();
-                } catch (error) {
-                    console.error("Failed to refresh user token:", error);
-                }
-            }
-            
             function loadStateForUser() {
                 const key = currentUser ? `goatbotState_${currentUser.id}` : 'guestState';
                 const saved = localStorage.getItem(key);
@@ -500,7 +478,7 @@
                 selectChat(id); 
                 saveState(); 
                 renderSidebar(); 
-                dom.modelSelector.value = options.model || (options.workflow ? 'gpt-4o' : 'gpt-3.5-turbo');
+                dom.modelSelector.value = options.model || 'gpt-3.5-turbo';
                 updateWebSearchButtonState();
                 if (window.innerWidth < 768) toggleSidebar(false);
                 return id; 
@@ -641,9 +619,9 @@
             function autoSelectModel(prompt = '') {
                 const currentChat = state.chats[currentChatId];
                 if (hasFile() || currentChat?.workflow) return;
-                const searchKeywords = ['noticias', 'qué pasó hoy', 'fecha de hoy', 'actualidad', 'tiempo real', 'busca en la web'];
+                const searchKeywords = ['noticias', 'qué pasó hoy', 'fecha de hoy', 'actualidad', 'tiempo real', 'busca en la web', '@web'];
                 if (searchKeywords.some(kw => prompt.toLowerCase().includes(kw))) {
-                    dom.modelSelector.value = 'perplexity/sonar-small-online';
+                    dom.modelSelector.value = 'sonar';
                 } else {
                     dom.modelSelector.value = 'gpt-3.5-turbo';
                 }
@@ -671,19 +649,24 @@
                 else if (currentChat?.workflow === 'copywriting') cost = COSTS.COPYWRITING;
                 else if (currentChat?.workflow === 'sales-response') cost = COSTS.SALES_RESPONSE;
                 else if (currentChat?.workflow === 'english-teacher') cost = COSTS.ENGLISH_TEACHER;
-                else if (model === 'perplexity/sonar-small-online') cost = COSTS.SEARCH;
+                else if (model === 'sonar') cost = COSTS.SEARCH;
                 else if (model === 'gpt-4o' && hasFile()) cost = COSTS.NEBULA;
                 
                 if (count < cost && !forceSend) {
-                    showPricingModal(); return;
+                    if (currentUser) {
+                        showPricingModal();
+                    } else {
+                        showModal({ title: 'Créditos de Invitado Agotados', message: `Ya has usado los 5 créditos de invitado. Por favor, inicia sesión para obtener más créditos y guardar tu historial.`, confirmText: 'Iniciar Sesión' })
+                        .then(wantsToLogin => { if (wantsToLogin) netlifyIdentity.open(); });
+                    }
+                    return;
                 }
 
                 let chatIdToUpdate = currentChatId || createNewChat({ model: model });
                 if (!state.chats[chatIdToUpdate]) return;
                 
-                if (!currentUser) {
-                    setGuestCreditCount(count - cost);
-                }
+                // Deduct credit immediately on the frontend
+                setCreditCount(count - cost);
                 
                 const [image, pdf] = [selectedImageBase64, selectedPdfText];
                 state.chats[chatIdToUpdate].messages.push({ role: 'user', content: userMessage, image, pdfText: pdf });
@@ -697,27 +680,32 @@
                     
                     if (responseData.error === 'LIMIT_REACHED') {
                         updateMessageInUI(thinkingBubble, `Has alcanzado el límite de créditos de tu plan. ¡Actualiza para continuar!`);
+                        setCreditCount(0);
                         showPricingModal(); 
                         return;
                     }
 
                     if (responseData.reply) {
+                        // The backend might return an updated credit count, but we are managing it locally for simplicity.
+                        updateCreditCounter();
                         state.chats[chatIdToUpdate].messages.push({ role: 'assistant', content: responseData.reply });
                         updateMessageInUI(thinkingBubble, responseData.reply);
                         speak(responseData.reply);
                         saveState();
                     } else if (responseData.error) {
                         updateMessageInUI(thinkingBubble, `❌ **Error**<br><small>${responseData.details || 'Error del servidor.'}</small>`);
+                        setCreditCount(count); // Revert credit if backend fails
                     }
                 } catch (error) {
                     updateMessageInUI(thinkingBubble, `❌ **Error de Conexión**<br><small>${error.message || 'No se pudo conectar al servidor.'}</small>`);
+                    setCreditCount(count); // Revert credit if fetch fails
                 }
             }
 
             function toggleWebSearchMode() {
                 isWebSearchMode = !isWebSearchMode;
                 if (isWebSearchMode) {
-                    dom.modelSelector.value = 'perplexity/sonar-small-online';
+                    dom.modelSelector.value = 'sonar';
                 } else {
                     dom.modelSelector.value = 'gpt-3.5-turbo';
                 }
@@ -725,7 +713,7 @@
             }
 
             function updateWebSearchButtonState() {
-                isWebSearchMode = dom.modelSelector.value === 'perplexity/sonar-small-online';
+                isWebSearchMode = dom.modelSelector.value === 'sonar';
                 dom.webSearchBtn.classList.toggle('text-primary', isWebSearchMode);
                 dom.webSearchBtn.classList.toggle('text-text-medium', !isWebSearchMode);
             }
@@ -797,24 +785,28 @@
                 });
             }
             
-            async function initApp() {
+            function initApp() {
                 setTheme(localStorage.getItem('theme') === 'dark' || (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches));
+                
                 let initFired = false;
-                if (localStorage.getItem('guestCreditCount') === null) {
-                    localStorage.setItem('guestCreditCount', GUEST_CREDIT_LIMIT);
-                }
 
-                const finishInitialization = async (user) => {
-                    if (initFired) return; initFired = true;
+                const finishInitialization = (user) => {
+                    if (initFired) return;
+                    initFired = true;
 
-                    if (user) {
-                        await forceUserRefresh();
-                        currentUser = await ensureUserMetadata(netlifyIdentity.currentUser());
-                    } else {
-                        currentUser = null;
-                    }
+                    currentUser = user;
                     
-                    updateUserUI(); 
+                    if (user) {
+                        if (localStorage.getItem(`userCredits_${user.id}`) === null) {
+                            localStorage.setItem(`userCredits_${user.id}`, FREE_PLAN_CREDIT_LIMIT);
+                        }
+                    } else {
+                        if (localStorage.getItem('guestCreditCount') === null) {
+                            localStorage.setItem('guestCreditCount', GUEST_CREDIT_LIMIT);
+                        }
+                    }
+
+                    updateUserUI();
                     loadStateForUser();
                     
                     if (!currentUser && getCreditCount() <= 0) {
@@ -823,38 +815,37 @@
                     }
 
                     dom.appContainer.classList.remove('opacity-0');
-                    dom.loadingOverlay.classList.add('opacity-0');
-                    setTimeout(() => dom.loadingOverlay.style.display = 'none', 300);
+                    dom.loadingOverlay.style.display = 'none';
                 };
 
-                const ensureUserMetadata = async (user) => {
-                    if (user && user.app_metadata.credits === undefined) {
-                        await updateUserCreditsOnBackend(FREE_PLAN_CREDIT_LIMIT);
-                        return netlifyIdentity.currentUser();
-                    }
-                    return user;
-                };
-
-                netlifyIdentity.on('init', (user) => finishInitialization(user));
-                setTimeout(() => { if (!initFired) finishInitialization(netlifyIdentity.currentUser()); }, 2500);
+                netlifyIdentity.on('init', (user) => {
+                    finishInitialization(user);
+                });
                 
-                netlifyIdentity.on('login', async user => {
+                // Fallback timer in case the 'init' event doesn't fire for any reason.
+                setTimeout(() => finishInitialization(netlifyIdentity.currentUser()), 2000);
+
+                netlifyIdentity.on('login', (user) => {
                     netlifyIdentity.close(); 
-                    localStorage.removeItem('guestCreditCount');
-                    await forceUserRefresh();
-                    currentUser = await ensureUserMetadata(netlifyIdentity.currentUser());
+                    currentUser = user;
+                    // When a user logs in, set their credits if they don't exist in localStorage yet.
+                    if (localStorage.getItem(`userCredits_${user.id}`) === null) {
+                        localStorage.setItem(`userCredits_${user.id}`, FREE_PLAN_CREDIT_LIMIT);
+                    }
+                    localStorage.removeItem('guestCreditCount'); // Guest credits are no longer needed.
                     updateUserUI(); 
                     loadStateForUser();
                 });
 
                 netlifyIdentity.on('logout', () => { 
                     currentUser = null; 
+                    // When logging out, reset guest credits to the limit.
                     localStorage.setItem('guestCreditCount', GUEST_CREDIT_LIMIT);
                     updateUserUI(); 
                     loadStateForUser(); 
                     resetChatView(); 
                 });
-                
+
                 populateVoiceList();
                 setupEventListeners();
                 updateWebSearchButtonState();
