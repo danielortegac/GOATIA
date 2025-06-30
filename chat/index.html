@@ -226,6 +226,7 @@
 
             // 2. DOM ELEMENTS
             const dom = {
+                appContainer: document.getElementById('app-container'),
                 msgInput: document.getElementById('msg'), sendBtn: document.getElementById('send'),
                 messageCounterEl: document.getElementById('message-counter'), upgradePlanBtn: document.getElementById('upgrade-plan-btn'),
                 newChatBtn: document.getElementById('new-chat-btn'), newProjectBtn: document.getElementById('new-project-btn'),
@@ -252,11 +253,6 @@
                 genericWelcome: document.getElementById('generic-welcome'),
                 userName: document.getElementById('user-name'),
                 loadingOverlay: document.getElementById('loading-overlay'),
-                appContainer: document.getElementById('app-container'),
-                copywritingWorkflowBtn: document.getElementById('copywriting-workflow-btn'),
-                salesResponseWorkflowBtn: document.getElementById('sales-response-workflow-btn'),
-                webPageWorkflowBtn: document.getElementById('web-page-workflow-btn'),
-                englishTeacherWorkflowBtn: document.getElementById('english-teacher-workflow-btn'),
                 htmlPreviewModal: document.getElementById('html-preview-modal'),
                 closeHtmlPreviewModalBtn: document.getElementById('close-html-preview-modal'),
                 htmlPreviewIframe: document.getElementById('html-preview-iframe'),
@@ -662,7 +658,6 @@
                 let chatIdToUpdate = currentChatId || createNewChat({ model: model });
                 if (!state.chats[chatIdToUpdate]) return;
                 
-                // Deduct credit immediately on the frontend
                 setCreditCount(count - cost);
                 
                 const [image, pdf] = [selectedImageBase64, selectedPdfText];
@@ -715,20 +710,19 @@
             }
 
             function setupEventListeners() {
-                dom.genericModal.querySelector('#modal-confirm').addEventListener('click', () => { const input = dom.genericModal.querySelector('#modal-input'); hideModal(input.style.display !== 'none' ? input.value : true); });
-                dom.genericModal.querySelector('#modal-cancel').addEventListener('click', () => hideModal(null));
-                dom.sendBtn.addEventListener('click', sendMessage);
-                dom.msgInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
-                dom.msgInput.addEventListener('input', () => { dom.msgInput.style.height = 'auto'; dom.msgInput.style.height = (dom.msgInput.scrollHeight) + 'px';});
+                dom.genericModal?.querySelector('#modal-confirm').addEventListener('click', () => { const input = dom.genericModal.querySelector('#modal-input'); hideModal(input.style.display !== 'none' ? input.value : true); });
+                dom.genericModal?.querySelector('#modal-cancel').addEventListener('click', () => hideModal(null));
+                dom.sendBtn?.addEventListener('click', sendMessage);
+                dom.msgInput?.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
+                dom.msgInput?.addEventListener('input', () => { dom.msgInput.style.height = 'auto'; dom.msgInput.style.height = (dom.msgInput.scrollHeight) + 'px';});
+                dom.newChatBtn?.addEventListener('click', () => createNewChat());
+                dom.newProjectBtn?.addEventListener('click', async () => { const name = await showModal({ title: 'Crear Proyecto', useInput: true, placeholder: 'Nombre del Proyecto...' }); if (name && name.trim()) { const id = 'project-' + crypto.randomUUID(); state.projects[id] = { id, title: name.trim(), chatIds: [] }; state.structure.unshift(id); saveState(); renderSidebar(); } hideModal(); });
+                dom.upgradePlanBtn?.addEventListener('click', showPricingModal);
+                dom.closePricingModalBtn?.addEventListener('click', hidePricingModal);
+                dom.themeToggle?.addEventListener('click', () => setTheme(!document.body.classList.contains('dark-theme')));
+                dom.loginBtn?.addEventListener('click', () => netlifyIdentity.open('login'));
 
-                dom.newChatBtn.addEventListener('click', () => createNewChat());
-                dom.newProjectBtn.addEventListener('click', async () => { const name = await showModal({ title: 'Crear Proyecto', useInput: true, placeholder: 'Nombre del Proyecto...' }); if (name && name.trim()) { const id = 'project-' + crypto.randomUUID(); state.projects[id] = { id, title: name.trim(), chatIds: [] }; state.structure.unshift(id); saveState(); renderSidebar(); } hideModal(); });
-                dom.upgradePlanBtn.addEventListener('click', showPricingModal);
-                dom.closePricingModalBtn.addEventListener('click', hidePricingModal);
-                dom.themeToggle.addEventListener('click', () => setTheme(!document.body.classList.contains('dark-theme')));
-                dom.loginBtn.addEventListener('click', () => netlifyIdentity.open('login'));
-
-                if (SR) {
+                if (SR && dom.voiceBtn) {
                     recognition = new SR(); recognition.continuous = false; recognition.lang = 'es-ES'; recognition.interimResults = false;
                     recognition.onstart = () => { isRecognizing = true; dom.voiceBtn.classList.add('glowing-mic'); };
                     recognition.onend = () => { isRecognizing = false; dom.voiceBtn.classList.remove('glowing-mic'); };
@@ -736,34 +730,36 @@
                     dom.voiceBtn.addEventListener('click', () => { if (isRecognizing) recognition.stop(); else recognition.start(); });
                 } else { if(dom.voiceBtn) dom.voiceBtn.style.display = 'none'; }
                 
-                const ttsIcon = dom.ttsToggle.querySelector('i');
-                dom.ttsToggle.addEventListener('click', () => { 
-                    speechOn = !speechOn;
-                    ttsIcon.classList.toggle('fa-volume-high', speechOn); ttsIcon.classList.toggle('fa-volume-mute', !speechOn);
-                    dom.ttsToggle.classList.toggle('text-yellow-400', speechOn); dom.ttsToggle.classList.toggle('text-text-medium', !speechOn);
-                    if (!speechOn) speechSynthesis.cancel();
-                });
-
-                dom.webSearchBtn.addEventListener('click', toggleWebSearchMode);
-                dom.modelSelector.addEventListener('change', updateWebSearchButtonState);
-
-                dom.imageUploadBtn.addEventListener('click', () => dom.imageUploadInput.click());
-                dom.pdfUploadBtn.addEventListener('click', () => dom.pdfUploadInput.click());
-                dom.clearImageBtn.addEventListener('click', clearImageData);
-                dom.clearPdfBtn.addEventListener('click', clearPdfData);
-                dom.imageUploadInput.addEventListener('change', (e) => { if (e.target.files && e.target.files[0]) { clearPdfData(); const reader = new FileReader(); reader.onload = (ev) => { selectedImageBase64 = ev.target.result; dom.imagePreview.src = selectedImageBase64; dom.imagePreviewContainer.classList.remove('hidden'); autoSelectModel(); }; reader.readAsDataURL(e.target.files[0]); } });
-                dom.pdfUploadInput.addEventListener('change', (e) => { const file = e.target.files[0]; if (!file || file.type !== 'application/pdf') return; clearImageData(); dom.pdfNameEl.textContent = file.name; dom.pdfStatusEl.textContent = 'Leyendo...'; dom.pdfPreviewContainer.classList.remove('hidden'); const reader = new FileReader(); reader.onload = async (ev) => { dom.pdfStatusEl.textContent = 'Procesando...'; try { const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(ev.target.result) }).promise; let text = ''; for (let i = 1; i <= pdf.numPages; i++) { const page = await pdf.getPage(i); const content = await page.getTextContent(); text += content.items.map(item => item.str).join(' ') + '\n'; } selectedPdfText = text; dom.pdfStatusEl.textContent = `✅ Listo (${pdf.numPages} pág.)`; autoSelectModel(); } catch (err) { console.error("Error al procesar el PDF:", err); dom.pdfStatusEl.textContent = '❌ Error al leer PDF.'; selectedPdfText = null; setTimeout(clearPdfData, 2000); } }; reader.readAsArrayBuffer(file); });
+                if (dom.ttsToggle) {
+                    const ttsIcon = dom.ttsToggle.querySelector('i');
+                    dom.ttsToggle.addEventListener('click', () => { 
+                        speechOn = !speechOn;
+                        ttsIcon.classList.toggle('fa-volume-high', speechOn); ttsIcon.classList.toggle('fa-volume-mute', !speechOn);
+                        dom.ttsToggle.classList.toggle('text-yellow-400', speechOn); dom.ttsToggle.classList.toggle('text-text-medium', !speechOn);
+                        if (!speechOn) speechSynthesis.cancel();
+                    });
+                }
                 
-                dom.menuToggle.addEventListener('click', (e) => { e.stopPropagation(); toggleSidebar(true); });
-                dom.sidebarOverlay.addEventListener('click', () => toggleSidebar(false));
-                dom.userMenuBtn.addEventListener('click', (e) => { e.stopPropagation(); dom.userMenuPopup.classList.toggle('hidden'); });
-                dom.logoutBtn.addEventListener('click', () => { netlifyIdentity.logout(); dom.userMenuPopup.classList.add('hidden');});
+                dom.webSearchBtn?.addEventListener('click', toggleWebSearchMode);
+                dom.modelSelector?.addEventListener('change', updateWebSearchButtonState);
+
+                dom.imageUploadBtn?.addEventListener('click', () => dom.imageUploadInput.click());
+                dom.pdfUploadBtn?.addEventListener('click', () => dom.pdfUploadInput.click());
+                dom.clearImageBtn?.addEventListener('click', clearImageData);
+                dom.clearPdfBtn?.addEventListener('click', clearPdfData);
+                dom.imageUploadInput?.addEventListener('change', (e) => { if (e.target.files && e.target.files[0]) { clearPdfData(); const reader = new FileReader(); reader.onload = (ev) => { selectedImageBase64 = ev.target.result; dom.imagePreview.src = selectedImageBase64; dom.imagePreviewContainer.classList.remove('hidden'); autoSelectModel(); }; reader.readAsDataURL(e.target.files[0]); } });
+                dom.pdfUploadInput?.addEventListener('change', (e) => { const file = e.target.files[0]; if (!file || file.type !== 'application/pdf') return; clearImageData(); dom.pdfNameEl.textContent = file.name; dom.pdfStatusEl.textContent = 'Leyendo...'; dom.pdfPreviewContainer.classList.remove('hidden'); const reader = new FileReader(); reader.onload = async (ev) => { dom.pdfStatusEl.textContent = 'Procesando...'; try { const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(ev.target.result) }).promise; let text = ''; for (let i = 1; i <= pdf.numPages; i++) { const page = await pdf.getPage(i); const content = await page.getTextContent(); text += content.items.map(item => item.str).join(' ') + '\n'; } selectedPdfText = text; dom.pdfStatusEl.textContent = `✅ Listo (${pdf.numPages} pág.)`; autoSelectModel(); } catch (err) { console.error("Error al procesar el PDF:", err); dom.pdfStatusEl.textContent = '❌ Error al leer PDF.'; selectedPdfText = null; setTimeout(clearPdfData, 2000); } }; reader.readAsArrayBuffer(file); });
+                
+                dom.menuToggle?.addEventListener('click', (e) => { e.stopPropagation(); toggleSidebar(true); });
+                dom.sidebarOverlay?.addEventListener('click', () => toggleSidebar(false));
+                dom.userMenuBtn?.addEventListener('click', (e) => { e.stopPropagation(); dom.userMenuPopup.classList.toggle('hidden'); });
+                dom.logoutBtn?.addEventListener('click', () => { netlifyIdentity.logout(); dom.userMenuPopup.classList.add('hidden');});
                 
                 const createWorkflowChat = (opts) => { createNewChat(opts); if (window.innerWidth < 768) toggleSidebar(false); };
-                dom.copywritingWorkflowBtn.addEventListener('click', () => createWorkflowChat({ title: "Nuevo Copy", workflow: "copywriting", model: "gpt-3.5-turbo", initialMessages: [{ role: 'assistant', content: `¡Claro! Empecemos un nuevo copy (costo: ${COSTS.COPYWRITING} créditos). Por favor, dame el contexto: ¿cuál es el producto o servicio, a quién te diriges y cuál es el objetivo principal del copy?` }] }));
-                dom.salesResponseWorkflowBtn.addEventListener('click', () => createWorkflowChat({ title: "Respuesta de Venta", workflow: "sales-response", model: "gpt-3.5-turbo", initialMessages: [{ role: 'assistant', content: `¡Excelente! Estoy listo para ayudarte a cerrar esa venta (costo: ${COSTS.SALES_RESPONSE} créditos). Pega el mensaje de tu cliente y te daré la respuesta perfecta para convencerlo.` }] }));
-                dom.webPageWorkflowBtn.addEventListener('click', () => createWorkflowChat({ title: "Nueva Página Web", workflow: "web-page", model: "gpt-4o", initialMessages: [{ role: 'assistant', content: `¡Perfecto! Estoy listo para generar una página web profesional con HTML y Tailwind CSS (costo: ${COSTS.WEB_PAGE} créditos).\n\n**En tu próximo mensaje, describe con todo el detalle posible la página que quieres crear.**` }] }));
-                dom.englishTeacherWorkflowBtn.addEventListener('click', () => createWorkflowChat({
+                dom.copywritingWorkflowBtn?.addEventListener('click', () => createWorkflowChat({ title: "Nuevo Copy", workflow: "copywriting", model: "gpt-3.5-turbo", initialMessages: [{ role: 'assistant', content: `¡Claro! Empecemos un nuevo copy (costo: ${COSTS.COPYWRITING} créditos). Por favor, dame el contexto: ¿cuál es el producto o servicio, a quién te diriges y cuál es el objetivo principal del copy?` }] }));
+                dom.salesResponseWorkflowBtn?.addEventListener('click', () => createWorkflowChat({ title: "Respuesta de Venta", workflow: "sales-response", model: "gpt-3.5-turbo", initialMessages: [{ role: 'assistant', content: `¡Excelente! Estoy listo para ayudarte a cerrar esa venta (costo: ${COSTS.SALES_RESPONSE} créditos). Pega el mensaje de tu cliente y te daré la respuesta perfecta para convencerlo.` }] }));
+                dom.webPageWorkflowBtn?.addEventListener('click', () => createWorkflowChat({ title: "Nueva Página Web", workflow: "web-page", model: "gpt-4o", initialMessages: [{ role: 'assistant', content: `¡Perfecto! Estoy listo para generar una página web profesional con HTML y Tailwind CSS (costo: ${COSTS.WEB_PAGE} créditos).\n\n**En tu próximo mensaje, describe con todo el detalle posible la página que quieres crear.**` }] }));
+                dom.englishTeacherWorkflowBtn?.addEventListener('click', () => createWorkflowChat({
                     title: "English Teacher",
                     workflow: "english-teacher",
                     model: "gpt-3.5-turbo",
@@ -773,13 +769,24 @@
                     }]
                 }));
 
-                dom.closeHtmlPreviewModalBtn.addEventListener('click', () => dom.htmlPreviewModal.classList.add('hidden'));
-                dom.voiceSelector.addEventListener('change', (e) => { selectedVoice = availableVoices.find(voice => voice.name === e.target.value); });
+                dom.closeHtmlPreviewModalBtn?.addEventListener('click', () => dom.htmlPreviewModal.classList.add('hidden'));
+                dom.voiceSelector?.addEventListener('change', (e) => { selectedVoice = availableVoices.find(voice => voice.name === e.target.value); });
 
                 document.addEventListener('click', (e) => {
-                    if (!dom.userMenuBtn.contains(e.target) && !dom.userMenuPopup.contains(e.target)) dom.userMenuPopup.classList.add('hidden');
-                    if (window.innerWidth < 768 && !dom.sidebar.contains(e.target) && dom.sidebar.classList.contains('is-open')) toggleSidebar(false);
+                    if (dom.userMenuBtn && dom.userMenuPopup && !dom.userMenuBtn.contains(e.target) && !dom.userMenuPopup.contains(e.target)) {
+                        dom.userMenuPopup.classList.add('hidden');
+                    }
+                    if (dom.sidebar && window.innerWidth < 768 && !dom.sidebar.contains(e.target) && dom.sidebar.classList.contains('is-open')) {
+                        toggleSidebar(false);
+                    }
                 });
+
+                // Mobile Height Fix
+                const setAppHeight = () => {
+                    if(dom.appContainer) dom.appContainer.style.height = `${window.innerHeight}px`;
+                };
+                setAppHeight();
+                window.addEventListener('resize', setAppHeight);
             }
             
             function initApp() {
