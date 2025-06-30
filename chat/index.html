@@ -64,10 +64,8 @@
         #sidebar.is-open { transform: translateX(0); }
         #sidebar-overlay { transition: opacity 0.3s ease-in-out; }
         #app-container { height: 100vh; height: -webkit-fill-available; } /* Fix for mobile viewport height */
-        #pricing-modal .modal-content-body {
-            max-height: 80vh;
-            overflow-y: auto;
-        }
+        #pricing-modal .modal-content-body { max-height: 80vh; overflow-y: auto; }
+        .chat-item.selected-for-delete { background-color: var(--primary) !important; color: white; }
     </style>
 </head>
 <body class="w-screen overflow-x-hidden dark-theme">
@@ -95,6 +93,14 @@
                     <button id="new-chat-btn" class="flex items-center justify-center font-semibold p-3 rounded-lg btn-primary transition-colors"><i class="fas fa-plus mr-2"></i><span>Nuevo Chat</span></button>
                     <button id="new-project-btn" class="flex items-center justify-center font-semibold p-3 rounded-lg bg-input"><i class="fas fa-folder-plus mr-2"></i><span>Nuevo Proyecto</span></button>
                     <button id="upgrade-plan-btn" class="hidden flex items-center justify-center font-semibold p-3 rounded-lg bg-yellow-500 text-black hover:bg-yellow-400"><i class="fas fa-rocket mr-2"></i><span>Mejorar Plan</span></button>
+                </div>
+            </div>
+             <!-- Multi-select controls -->
+            <div id="multi-select-controls" class="flex-shrink-0 space-y-2 mb-4">
+                <button id="select-chats-btn" class="w-full flex items-center justify-center font-semibold p-3 rounded-lg bg-input"><i class="fas fa-check-double mr-2"></i><span>Seleccionar Chats</span></button>
+                <div id="delete-mode-controls" class="hidden flex space-x-2">
+                    <button id="delete-selected-btn" class="flex-1 flex items-center justify-center font-semibold p-3 rounded-lg bg-red-600 text-white disabled:opacity-50" disabled><i class="fas fa-trash-alt mr-2"></i><span>Borrar</span></button>
+                    <button id="cancel-select-mode-btn" class="flex-1 flex items-center justify-center font-semibold p-3 rounded-lg bg-gray-600 text-white"><span>Cancelar</span></button>
                 </div>
             </div>
             <div class="flex-shrink-0 border-t border-b border-themed my-3 py-3">
@@ -131,7 +137,7 @@
                     <div id="voice-selector-container" class="hidden sm:flex items-center space-x-2">
                         <select id="voice-selector" class="rounded-md p-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 bg-input text-text-light border border-themed"></select>
                     </div>
-                    <div id="message-counter" class="text-xs font-mono whitespace-nowrap hidden sm:block"></div>
+                    <div id="message-counter" class="text-xs font-mono whitespace-nowrap"></div>
                     <button id="ttsToggle" title="Activar/Desactivar Voz" class="text-xl hover:opacity-80 transition-colors p-2"><i class="fa fa-volume-high"></i></button>
                     <button id="theme-toggle" title="Cambiar Tema" class="text-xl p-2"><i class="fas fa-moon" id="theme-icon"></i></button>
                 </div>
@@ -219,7 +225,6 @@
     
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script type="module">
-        // **RESTRUCTURED SCRIPT START**
         window.addEventListener('DOMContentLoaded', () => {
             
             // 1. CONSTANTS & STATE
@@ -230,6 +235,8 @@
             let currentChatId = null, currentUser = null, speechOn = true, availableVoices = [], selectedVoice = null, isRecognizing = false, selectedImageBase64 = null, selectedPdfText = null, isWebSearchMode = false;
             let micWasOnBeforeSpeaking = false;
             let modalResolve = null;
+            let isSelectModeActive = false;
+            let chatsToDelete = new Set();
 
             // 2. DOM ELEMENTS
             const dom = {
@@ -269,6 +276,10 @@
                 htmlPreviewIframe: document.getElementById('html-preview-iframe'),
                 voiceSelector: document.getElementById('voice-selector'),
                 webSearchBtn: document.getElementById('web-search-btn'),
+                selectChatsBtn: document.getElementById('select-chats-btn'),
+                deleteModeControls: document.getElementById('delete-mode-controls'),
+                deleteSelectedBtn: document.getElementById('delete-selected-btn'),
+                cancelSelectModeBtn: document.getElementById('cancel-select-mode-btn'),
             };
             
             const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -384,21 +395,19 @@
                 const timeoutId = setTimeout(() => controller.abort(), 25000);
                 
                 const name = (userName || '').split(' ')[0];
-                let title = 'Jefe/a';
-                if (name.slice(-1).toLowerCase() === 'a') {
+                let title = 'Jefe';
+                if (name.slice(-1).toLowerCase() === 'a' || ['isabel', 'dolores'].includes(name.toLowerCase())) {
                     title = 'Jefa';
-                } else if (name.slice(-1).toLowerCase() === 'o') {
-                    title = 'Jefe';
                 }
 
                 const body = { 
                     prompt, 
                     history, 
-                    model, 
+                    model: workflow === 'web-page' ? 'gpt-4o' : model, // Force gpt-4o for web-page workflow
                     imageData: image, 
                     pdfText: pdf, 
                     workflow, 
-                    userName,
+                    userName: name, // Send only first name
                     title, // Send the determined title
                     includeLinks: model === 'sonar' // Flag to request links for sonar model
                 };
@@ -540,6 +549,7 @@
             }
 
             function selectChat(chatId) { 
+                if (isSelectModeActive) return;
                 if (!chatId || !state.chats[chatId]) { 
                     resetChatView(); 
                     return; 
@@ -635,8 +645,53 @@
                  }
             }
 
-            function renderSidebar() { dom.sidebarContent.innerHTML = ''; const frag = document.createDocumentFragment(); (state.structure || []).forEach(id => { if (id.startsWith('project-')) frag.appendChild(createProjectElement(id)); else if (id.startsWith('chat-')) frag.appendChild(createChatItemElement(id)); }); dom.sidebarContent.appendChild(frag); updateActiveChatHighlight(); }
-            function createChatItemElement(id, isSubItem = false) { const chat = state.chats[id]; if (!chat) return document.createDocumentFragment(); const item = document.createElement('div'); item.className = `chat-item group flex items-center justify-between p-2 rounded-md cursor-pointer ${isSubItem ? 'pl-5' : ''}`; item.dataset.id = id; item.draggable = true; item.innerHTML = `<i class="far fa-comment-dots mr-2"></i><span class="flex-grow truncate text-sm font-medium">${chat.title}</span><div class="chat-item-actions flex-shrink-0"><button class="rename-btn text-text-medium hover:text-primary p-1"><i class="fas fa-pencil-alt fa-xs"></i></button><button class="delete-btn text-text-medium hover:text-red-500 p-1"><i class="fas fa-trash-alt fa-xs"></i></button></div>`; item.addEventListener('click', e => { if (!e.target.closest('.chat-item-actions')) selectChat(id); }); item.addEventListener('dragstart', e => handleDragStart(e, id)); item.querySelector('.rename-btn').addEventListener('click', () => renameItem('chat', id)); item.querySelector('.delete-btn').addEventListener('click', () => deleteItem('chat', id)); return item; }
+            function renderSidebar() { 
+                dom.sidebarContent.innerHTML = ''; 
+                const frag = document.createDocumentFragment(); 
+                (state.structure || []).forEach(id => { 
+                    if (id.startsWith('project-')) {
+                        frag.appendChild(createProjectElement(id));
+                    } else if (id.startsWith('chat-')) {
+                         frag.appendChild(createChatItemElement(id));
+                    }
+                }); 
+                dom.sidebarContent.appendChild(frag); 
+                updateActiveChatHighlight(); 
+            }
+            function createChatItemElement(id, isSubItem = false) { 
+                const chat = state.chats[id]; 
+                if (!chat) return document.createDocumentFragment(); 
+                const item = document.createElement('div'); 
+                item.className = `chat-item group flex items-center justify-between p-2 rounded-md cursor-pointer ${isSubItem ? 'pl-5' : ''}`; item.dataset.id = id; 
+                
+                if (isSelectModeActive) {
+                    item.draggable = false;
+                    const isSelected = chatsToDelete.has(id);
+                    item.innerHTML = `
+                        <i class="far ${isSelected ? 'fa-check-square' : 'fa-square'} mr-2 text-primary"></i>
+                        <span class="flex-grow truncate text-sm font-medium">${chat.title}</span>`;
+                    if (isSelected) item.classList.add('selected-for-delete');
+                    
+                    item.addEventListener('click', () => {
+                        if (chatsToDelete.has(id)) {
+                            chatsToDelete.delete(id);
+                            item.querySelector('i').classList.replace('fa-check-square', 'fa-square');
+                            item.classList.remove('selected-for-delete');
+                        } else {
+                            chatsToDelete.add(id);
+                            item.querySelector('i').classList.replace('fa-square', 'fa-check-square');
+                            item.classList.add('selected-for-delete');
+                        }
+                        dom.deleteSelectedBtn.disabled = chatsToDelete.size === 0;
+                    });
+                } else {
+                    item.draggable = true;
+                    item.innerHTML = `<i class="far fa-comment-dots mr-2"></i><span class="flex-grow truncate text-sm font-medium">${chat.title}</span><div class="chat-item-actions flex-shrink-0"><button class="rename-btn text-text-medium hover:text-primary p-1"><i class="fas fa-pencil-alt fa-xs"></i></button><button class="delete-btn text-text-medium hover:text-red-500 p-1"><i class="fas fa-trash-alt fa-xs"></i></button></div>`; 
+                    item.addEventListener('click', e => { if (!e.target.closest('.chat-item-actions')) selectChat(id); }); 
+                    item.addEventListener('dragstart', e => handleDragStart(e, id)); item.querySelector('.rename-btn').addEventListener('click', () => renameItem('chat', id)); item.querySelector('.delete-btn').addEventListener('click', () => deleteItem('chat', id));
+                }
+                return item; 
+            }
             function createProjectElement(id) {
                 const project = state.projects[id];
                 if (!project) return document.createDocumentFragment();
@@ -754,11 +809,11 @@
                         saveState();
                     } else if (responseData.error) {
                         updateMessageInUI(thinkingBubble, `❌ **Error**<br><small>${responseData.details || 'Error del servidor.'}</small>`);
-                        setCreditCount(count); // Revert credit if backend fails
+                        setCreditCount(count);
                     }
                 } catch (error) {
                     updateMessageInUI(thinkingBubble, `❌ **Error de Conexión**<br><small>${error.message || 'No se pudo conectar al servidor.'}</small>`);
-                    setCreditCount(count); // Revert credit if fetch fails
+                    setCreditCount(count);
                 }
             }
 
@@ -777,6 +832,18 @@
                 dom.webSearchBtn.classList.toggle('text-primary', isWebSearchMode);
                 dom.webSearchBtn.classList.toggle('text-text-medium', !isWebSearchMode);
             }
+            
+            function toggleSelectMode(active) {
+                isSelectModeActive = active;
+                dom.selectChatsBtn.classList.toggle('hidden', active);
+                dom.deleteModeControls.classList.toggle('hidden', !active);
+                if (!active) {
+                    chatsToDelete.clear();
+                    dom.deleteSelectedBtn.disabled = true;
+                }
+                renderSidebar();
+            }
+
 
             function setupEventListeners() {
                 dom.genericModal?.querySelector('#modal-confirm').addEventListener('click', () => { const input = dom.genericModal.querySelector('#modal-input'); hideModal(input.style.display !== 'none' ? input.value : true); });
@@ -806,12 +873,10 @@
 
                 if (SR && dom.voiceBtn) {
                     recognition = new SR(); 
-                    recognition.continuous = false; // Stop after a pause
+                    recognition.continuous = false; 
                     recognition.interimResults = false;
                     recognition.lang = 'es-ES'; 
                     
-                    let finalTranscript = '';
-
                     recognition.onstart = () => { isRecognizing = true; dom.voiceBtn.classList.add('glowing-mic'); };
                     recognition.onend = () => { isRecognizing = false; dom.voiceBtn.classList.remove('glowing-mic'); };
                     recognition.onerror = (e) => { console.error("Speech recognition error", e); isRecognizing = false; dom.voiceBtn.classList.remove('glowing-mic'); };
@@ -860,17 +925,12 @@
                 dom.logoutBtn?.addEventListener('click', () => { netlifyIdentity.logout(); dom.userMenuPopup.classList.add('hidden');});
                 
                 const createWorkflowChat = (opts) => { createNewChat(opts); if (window.innerWidth < 768) toggleSidebar(false); };
-                dom.copywritingWorkflowBtn?.addEventListener('click', () => createWorkflowChat({ title: "Nuevo Copy", workflow: "copywriting", model: "gpt-3.5-turbo", initialMessages: [{ role: 'assistant', content: `¡Claro! Empecemos un nuevo copy (costo: ${COSTS.COPYWRITING} créditos). Por favor, dame el contexto: ¿cuál es el producto o servicio, a quién te diriges y cuál es el objetivo principal del copy?` }] }));
-                dom.salesResponseWorkflowBtn?.addEventListener('click', () => createWorkflowChat({ title: "Respuesta de Venta", workflow: "sales-response", model: "gpt-3.5-turbo", initialMessages: [{ role: 'assistant', content: `¡Excelente! Estoy listo para ayudarte a cerrar esa venta (costo: ${COSTS.SALES_RESPONSE} créditos). Pega el mensaje de tu cliente y te daré la respuesta perfecta para convencerlo.` }] }));
-                dom.webPageWorkflowBtn?.addEventListener('click', () => createWorkflowChat({ title: "Nueva Página Web", workflow: "web-page", model: "gpt-4o", initialMessages: [{ role: 'assistant', content: `¡Perfecto, Jefe/a! Estoy listo para generar una página web profesional con HTML y Tailwind CSS usando el modelo GPT-4o (costo: ${COSTS.WEB_PAGE} créditos).\n\n**En tu próximo mensaje, describe con todo el detalle posible la página que quieres crear.**` }] }));
+                dom.copywritingWorkflowBtn?.addEventListener('click', () => createWorkflowChat({ title: "Nuevo Copy", workflow: "copywriting", model: "gpt-4o", initialMessages: [{ role: 'assistant', content: `¡A la orden, Jefe/a! Iniciemos el proceso de copywriting (costo: ${COSTS.COPYWRITING} créditos). Pegue o describa el producto/servicio, el público objetivo y el objetivo del copy, y crearé el texto ideal para usted.` }] }));
+                dom.salesResponseWorkflowBtn?.addEventListener('click', () => createWorkflowChat({ title: "Respuesta de Venta", workflow: "sales-response", model: "gpt-4o", initialMessages: [{ role: 'assistant', content: `¡Entendido, Jefe/a! Estoy listo para crear la respuesta de venta perfecta (costo: ${COSTS.SALES_RESPONSE} créditos). Pegue el mensaje de su cliente y yo me encargaré del resto.` }] }));
+                dom.webPageWorkflowBtn?.addEventListener('click', () => createWorkflowChat({ title: "Nueva Página Web", workflow: "web-page", model: "gpt-4o", initialMessages: [{ role: 'assistant', content: `¡Perfecto, Jefe/a! Estoy listo para generar una página web profesional con HTML y Tailwind CSS usando el modelo de código más avanzado, GPT-4o (costo: ${COSTS.WEB_PAGE} créditos).\n\n**En tu próximo mensaje, describe con todo el detalle posible la página que quieres crear.**` }] }));
                 dom.englishTeacherWorkflowBtn?.addEventListener('click', () => createWorkflowChat({
-                    title: "English Teacher",
-                    workflow: "english-teacher",
-                    model: "gpt-3.5-turbo",
-                    initialMessages: [{
-                        role: 'assistant',
-                        content: "Hello! Do you want me to translate something, or would you like to learn something new?\n\n(¡Hola! ¿Quieres que traduzca algo, o te gustaría aprender algo nuevo?)"
-                    }]
+                    title: "English Teacher", workflow: "english-teacher", model: "gpt-3.5-turbo",
+                    initialMessages: [{ role: 'assistant', content: "Hello! Do you want me to translate something, or would you like to learn something new?\n\n(¡Hola! ¿Quieres que traduzca algo, o te gustaría aprender algo nuevo?)" }]
                 }));
 
                 dom.closeHtmlPreviewModalBtn?.addEventListener('click', () => dom.htmlPreviewModal.classList.add('hidden'));
@@ -891,13 +951,48 @@
                 };
                 setAppHeight();
                 window.addEventListener('resize', setAppHeight);
+                
+                // Multi-select listeners
+                dom.selectChatsBtn.addEventListener('click', () => toggleSelectMode(true));
+                dom.cancelSelectModeBtn.addEventListener('click', () => toggleSelectMode(false));
+                dom.deleteSelectedBtn.addEventListener('click', async () => {
+                    if (chatsToDelete.size === 0) return;
+                    const confirm = await showModal({
+                        title: `Eliminar ${chatsToDelete.size} chat(s)`,
+                        message: '¿Estás seguro? Esta acción no se puede deshacer.',
+                        confirmText: 'Eliminar'
+                    });
+                    if (confirm) {
+                        chatsToDelete.forEach(id => {
+                            state.structure = state.structure.filter(i => i !== id);
+                            delete state.chats[id];
+                             Object.values(state.projects).forEach(p => { 
+                                if(p.chatIds) p.chatIds = p.chatIds.filter(cid => cid !== id)
+                            });
+                            if (currentChatId === id) resetChatView();
+                        });
+                        saveState();
+                        toggleSelectMode(false);
+                    }
+                     hideModal();
+                });
             }
             
             function initApp() {
                 setTheme(localStorage.getItem('theme') === 'dark' || (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches));
                 
-                let initFired = false;
+                // Unlock speech synthesis on iOS
+                const unlockAudio = () => {
+                    const silence = new SpeechSynthesisUtterance('');
+                    silence.volume = 0;
+                    window.speechSynthesis.speak(silence);
+                    document.body.removeEventListener('touchstart', unlockAudio);
+                    document.body.removeEventListener('click', unlockAudio);
+                };
+                document.body.addEventListener('touchstart', unlockAudio, { once: true });
+                document.body.addEventListener('click', unlockAudio, { once: true });
 
+                let initFired = false;
                 const finishInitialization = (user) => {
                     if (initFired) return;
                     initFired = true;
@@ -920,16 +1015,8 @@
                     dom.loadingOverlay.style.display = 'none';
                 };
 
-                netlifyIdentity.on('init', (user) => {
-                    finishInitialization(user);
-                });
-                
-                setTimeout(() => {
-                    if (!initFired) {
-                        finishInitialization(netlifyIdentity.currentUser());
-                    }
-                }, 1500);
-
+                netlifyIdentity.on('init', (user) => finishInitialization(user));
+                setTimeout(() => { if (!initFired) { finishInitialization(netlifyIdentity.currentUser()); } }, 1500);
                 netlifyIdentity.on('login', (user) => {
                     netlifyIdentity.close(); 
                     currentUser = user;
@@ -941,7 +1028,6 @@
                     updateUserUI(); 
                     loadStateForUser();
                 });
-
                 netlifyIdentity.on('logout', () => { 
                     currentUser = null; 
                     localStorage.setItem('guestCreditCount', '0');
