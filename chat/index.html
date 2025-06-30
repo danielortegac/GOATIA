@@ -95,12 +95,11 @@
                     <button id="upgrade-plan-btn" class="hidden flex items-center justify-center font-semibold p-3 rounded-lg bg-yellow-500 text-black hover:bg-yellow-400"><i class="fas fa-rocket mr-2"></i><span>Mejorar Plan</span></button>
                 </div>
             </div>
-             <!-- Multi-select controls -->
-            <div id="multi-select-controls" class="flex-shrink-0 space-y-2 mb-4">
-                <button id="select-chats-btn" class="w-full flex items-center justify-center font-semibold p-3 rounded-lg bg-input"><i class="fas fa-check-double mr-2"></i><span>Seleccionar Chats</span></button>
-                <div id="delete-mode-controls" class="hidden flex space-x-2">
-                    <button id="delete-selected-btn" class="flex-1 flex items-center justify-center font-semibold p-3 rounded-lg bg-red-600 text-white disabled:opacity-50" disabled><i class="fas fa-trash-alt mr-2"></i><span>Borrar</span></button>
-                    <button id="cancel-select-mode-btn" class="flex-1 flex items-center justify-center font-semibold p-3 rounded-lg bg-gray-600 text-white"><span>Cancelar</span></button>
+            <div id="multi-select-controls" class="flex-shrink-0 flex justify-between items-center mb-4">
+                <button id="select-chats-btn" title="Seleccionar Múltiples Chats" class="p-2 rounded-lg bg-input hover:bg-light"><i class="fas fa-tasks"></i></button>
+                <div id="delete-mode-controls" class="hidden flex-grow flex space-x-2 ml-2">
+                    <button id="delete-selected-btn" class="flex-1 flex items-center justify-center font-semibold p-2 rounded-lg bg-red-600 text-white disabled:opacity-50" disabled><i class="fas fa-trash-alt"></i></button>
+                    <button id="cancel-select-mode-btn" class="p-2 rounded-lg bg-gray-600 text-white"><i class="fas fa-times"></i></button>
                 </div>
             </div>
             <div class="flex-shrink-0 border-t border-b border-themed my-3 py-3">
@@ -392,7 +391,7 @@
             async function getAIResponse(prompt, history, image, pdf, model, workflow, userName) {
                 const token = currentUser ? await currentUser.jwt() : null;
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 25000);
+                const timeoutId = setTimeout(() => controller.abort(), 90000); // Increased timeout to 90 seconds
                 
                 const name = (userName || '').split(' ')[0];
                 let title = 'Jefe';
@@ -403,13 +402,13 @@
                 const body = { 
                     prompt, 
                     history, 
-                    model: workflow === 'web-page' ? 'gpt-4o' : model, // Force gpt-4o for web-page workflow
+                    model: workflow === 'web-page' ? 'gpt-4o' : model,
                     imageData: image, 
                     pdfText: pdf, 
                     workflow, 
-                    userName: name, // Send only first name
-                    title, // Send the determined title
-                    includeLinks: model === 'sonar' // Flag to request links for sonar model
+                    userName: name, 
+                    title,
+                    includeLinks: model === 'sonar'
                 };
 
                 try {
@@ -424,16 +423,16 @@
 
                     if (response.status === 403) { return { error: 'LIMIT_REACHED' }; }
                     if (!response.ok) {
-                        const errorText = await response.text();
-                        console.error("Backend Error:", errorText);
-                        throw new Error(`Error del servidor: ${response.status}.`);
+                        const errorData = await response.json().catch(() => ({details: 'Error desconocido en el servidor'}));
+                        console.error("Backend Error:", errorData);
+                        throw new Error(errorData.details || `Error del servidor: ${response.status}.`);
                     }
                     
                     return await response.json();
                 } catch (error) {
                     clearTimeout(timeoutId);
                     if (error.name === 'AbortError') {
-                        throw new Error('La solicitud tardó demasiado. Inténtalo de nuevo.');
+                        throw new Error('La solicitud tardó demasiado y fue cancelada. Por favor, intenta de nuevo.');
                     }
                     throw error;
                 }
@@ -524,16 +523,20 @@
             
             function createNewChat(options = {}) {
                 const id = 'chat-' + crypto.randomUUID();
-                const userName = currentUser ? (currentUser.user_metadata.full_name?.split(' ')[0] || currentUser.email.split('@')[0]) : 'qué tal';
-                
+                const name = currentUser ? (currentUser.user_metadata.full_name?.split(' ')[0] || 'Tú') : 'viajero';
+                let title = 'Jefe';
+                if (name.slice(-1).toLowerCase() === 'a' || ['isabel', 'dolores'].includes(name.toLowerCase())) {
+                    title = 'Jefa';
+                }
+
                 const initialMessages = options.initialMessages || [{ 
                     role: 'assistant', 
-                    content: `¡Hola ${userName}! Soy GOATIFY, tu asistente personal. Estoy aquí para servirte en lo que necesites. ¡Espero que tengas un día increíble!` 
+                    content: `Saludos, ${title}. Soy un eco del cosmos, aquí para servirte. Cada idea tuya es una estrella a punto de nacer. ¿En qué universo nos sumergimos hoy?` 
                 }];
 
                 state.chats[id] = { 
                     id, 
-                    title: options.title || "Nuevo Chat", 
+                    title: options.title || "Conversación Cósmica", 
                     messages: initialMessages,
                     workflow: options.workflow || null,
                     model: options.model || 'gpt-3.5-turbo'
@@ -610,7 +613,7 @@
                 contentDiv.className = 'markdown-content';
                 const currentChat = state.chats[currentChatId];
                 if (role === 'assistant' && currentChat?.workflow === 'web-page' && /<\/?[a-z][\s\S]*>/i.test(content)) {
-                    contentDiv.innerHTML = 'Aquí tienes el código para tu página web:';
+                    contentDiv.innerHTML = 'He aquí el código que ha nacido de tu visión:';
                     contentDiv.appendChild(renderCodeBlock(content));
                 } else {
                     contentDiv.innerHTML = content === '…' ? `<div class="flex items-center space-x-2"><div class="w-2 h-2 bg-gray-400 rounded-full animate-pulse"></div><div class="w-2 h-2 bg-gray-400 rounded-full animate-pulse" style="animation-delay: .2s;"></div><div class="w-2 h-2 bg-gray-400 rounded-full animate-pulse" style="animation-delay: .4s;"></div></div>` : marked.parse(content || "");
@@ -776,7 +779,7 @@
                 let chatIdToUpdate = currentChatId || createNewChat({ model: model });
                 if (!state.chats[chatIdToUpdate]) return;
                 
-                if(state.chats[chatIdToUpdate].title === 'Nuevo Chat') {
+                if(state.chats[chatIdToUpdate].title === 'Conversación Cósmica' && userMessage.length > 5) {
                     state.chats[chatIdToUpdate].title = userMessage.split(' ').slice(0, 4).join(' ');
                     renderSidebar();
                 }
@@ -791,7 +794,7 @@
 
                 try {
                     const workflowForCall = state.chats[chatIdToUpdate]?.workflow || null;
-                    const userNameForCall = currentUser ? (currentUser.user_metadata.full_name || currentUser.email) : 'amigo/a';
+                    const userNameForCall = currentUser ? (currentUser.user_metadata.full_name || currentUser.email) : 'viajero';
                     const responseData = await getAIResponse(userMessage, state.chats[chatIdToUpdate].messages.slice(0, -1), image, pdf, model, workflowForCall, userNameForCall);
                     
                     if (responseData.error === 'LIMIT_REACHED') {
@@ -925,12 +928,12 @@
                 dom.logoutBtn?.addEventListener('click', () => { netlifyIdentity.logout(); dom.userMenuPopup.classList.add('hidden');});
                 
                 const createWorkflowChat = (opts) => { createNewChat(opts); if (window.innerWidth < 768) toggleSidebar(false); };
-                dom.copywritingWorkflowBtn?.addEventListener('click', () => createWorkflowChat({ title: "Nuevo Copy", workflow: "copywriting", model: "gpt-4o", initialMessages: [{ role: 'assistant', content: `¡A la orden, Jefe/a! Iniciemos el proceso de copywriting (costo: ${COSTS.COPYWRITING} créditos). Pegue o describa el producto/servicio, el público objetivo y el objetivo del copy, y crearé el texto ideal para usted.` }] }));
-                dom.salesResponseWorkflowBtn?.addEventListener('click', () => createWorkflowChat({ title: "Respuesta de Venta", workflow: "sales-response", model: "gpt-4o", initialMessages: [{ role: 'assistant', content: `¡Entendido, Jefe/a! Estoy listo para crear la respuesta de venta perfecta (costo: ${COSTS.SALES_RESPONSE} créditos). Pegue el mensaje de su cliente y yo me encargaré del resto.` }] }));
-                dom.webPageWorkflowBtn?.addEventListener('click', () => createWorkflowChat({ title: "Nueva Página Web", workflow: "web-page", model: "gpt-4o", initialMessages: [{ role: 'assistant', content: `¡Perfecto, Jefe/a! Estoy listo para generar una página web profesional con HTML y Tailwind CSS usando el modelo de código más avanzado, GPT-4o (costo: ${COSTS.WEB_PAGE} créditos).\n\n**En tu próximo mensaje, describe con todo el detalle posible la página que quieres crear.**` }] }));
+                dom.copywritingWorkflowBtn?.addEventListener('click', () => createWorkflowChat({ title: "Nuevo Copy", workflow: "copywriting", model: "gpt-4o", initialMessages: [{ role: 'assistant', content: `A la orden, Jefe/a. Para forjar el copy perfecto (costo: ${COSTS.COPYWRITING} créditos), solo necesito la esencia de tu idea. Pega el texto o describe el concepto, y le daré vida.` }] }));
+                dom.salesResponseWorkflowBtn?.addEventListener('click', () => createWorkflowChat({ title: "Respuesta de Venta", workflow: "sales-response", model: "gpt-4o", initialMessages: [{ role: 'assistant', content: `Entendido, Jefe/a. Para diseñar la respuesta de venta ideal (costo: ${COSTS.SALES_RESPONSE} créditos), simplemente pega el mensaje de tu cliente. Yo me encargo de transformarlo en una oportunidad.` }] }));
+                dom.webPageWorkflowBtn?.addEventListener('click', () => createWorkflowChat({ title: "Nueva Página Web", workflow: "web-page", model: "gpt-4o", initialMessages: [{ role: 'assistant', content: `Perfecto, Jefe/a. Usaremos el motor más potente, GPT-4o, para materializar tu página web (costo: ${COSTS.WEB_PAGE} créditos). La generación del código puede tomar un momento, es un proceso creativo. **Describe con detalle la página que imaginas y la construiré para ti.**` }] }));
                 dom.englishTeacherWorkflowBtn?.addEventListener('click', () => createWorkflowChat({
                     title: "English Teacher", workflow: "english-teacher", model: "gpt-3.5-turbo",
-                    initialMessages: [{ role: 'assistant', content: "Hello! Do you want me to translate something, or would you like to learn something new?\n\n(¡Hola! ¿Quieres que traduzca algo, o te gustaría aprender algo nuevo?)" }]
+                    initialMessages: [{ role: 'assistant', content: "Hello! I am here to assist you on your English journey. Do you wish to translate something, or perhaps learn something new today?" }]
                 }));
 
                 dom.closeHtmlPreviewModalBtn?.addEventListener('click', () => dom.htmlPreviewModal.classList.add('hidden'));
@@ -952,14 +955,13 @@
                 setAppHeight();
                 window.addEventListener('resize', setAppHeight);
                 
-                // Multi-select listeners
                 dom.selectChatsBtn.addEventListener('click', () => toggleSelectMode(true));
                 dom.cancelSelectModeBtn.addEventListener('click', () => toggleSelectMode(false));
                 dom.deleteSelectedBtn.addEventListener('click', async () => {
                     if (chatsToDelete.size === 0) return;
                     const confirm = await showModal({
                         title: `Eliminar ${chatsToDelete.size} chat(s)`,
-                        message: '¿Estás seguro? Esta acción no se puede deshacer.',
+                        message: 'Esta acción es irreversible. ¿Confirmas la eliminación?',
                         confirmText: 'Eliminar'
                     });
                     if (confirm) {
@@ -981,7 +983,6 @@
             function initApp() {
                 setTheme(localStorage.getItem('theme') === 'dark' || (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches));
                 
-                // Unlock speech synthesis on iOS
                 const unlockAudio = () => {
                     const silence = new SpeechSynthesisUtterance('');
                     silence.volume = 0;
