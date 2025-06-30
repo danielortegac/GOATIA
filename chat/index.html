@@ -356,8 +356,6 @@
                 const timeoutId = setTimeout(() => controller.abort(), 25000);
 
                 try {
-                    // This function now correctly passes the `model` identifier ('sonar', 'gpt-4o', etc.)
-                    // to the backend. The backend is responsible for calling the correct API.
                     const response = await fetch('/.netlify/functions/get-ai-response', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', ...(token && { 'Authorization': `Bearer ${token}` }) },
@@ -374,8 +372,6 @@
                         throw new Error(`Error del servidor: ${response.status}.`);
                     }
                     
-                    // The backend is responsible for sending back the correct credit count.
-                    // The frontend trusts this response.
                     return await response.json();
                 } catch (error) {
                     clearTimeout(timeoutId);
@@ -623,12 +619,15 @@
             function autoSelectModel(prompt = '') {
                 const currentChat = state.chats[currentChatId];
                 if (hasFile() || currentChat?.workflow) return;
-                const searchKeywords = ['noticias', 'qué pasó hoy', 'fecha de hoy', 'actualidad', 'tiempo real', 'busca en la web', '@web'];
-                if (searchKeywords.some(kw => prompt.toLowerCase().includes(kw))) {
-                    dom.modelSelector.value = 'sonar';
-                } else {
-                    dom.modelSelector.value = 'gpt-3.5-turbo';
+                
+                // If user hasn't already selected web search, check for keywords.
+                if (dom.modelSelector.value !== 'sonar') {
+                    const searchKeywords = ['noticias', 'qué pasó hoy', 'fecha de hoy', 'actualidad', 'tiempo real', 'busca en la web', '@web'];
+                    if (searchKeywords.some(kw => prompt.toLowerCase().includes(kw))) {
+                        dom.modelSelector.value = 'sonar';
+                    }
                 }
+                // Do NOT add an 'else' block here that reverts to gpt-3.5-turbo.
                 updateWebSearchButtonState();
             }
 
@@ -649,7 +648,7 @@
                 const model = dom.modelSelector.value;
                 let cost = COSTS.GENERAL;
                 
-                if (currentChat?.workflow === 'web-page') { model = 'gpt-4o'; cost = COSTS.WEB_PAGE; }
+                if (currentChat?.workflow === 'web-page') { cost = COSTS.WEB_PAGE; }
                 else if (currentChat?.workflow === 'copywriting') { cost = COSTS.COPYWRITING; }
                 else if (currentChat?.workflow === 'sales-response') { cost = COSTS.SALES_RESPONSE; }
                 else if (currentChat?.workflow === 'english-teacher') { cost = COSTS.ENGLISH_TEACHER; }
@@ -733,6 +732,7 @@
                 dom.upgradePlanBtn.addEventListener('click', showPricingModal);
                 dom.closePricingModalBtn.addEventListener('click', hidePricingModal);
                 dom.themeToggle.addEventListener('click', () => setTheme(!document.body.classList.contains('dark-theme')));
+                dom.loginBtn.addEventListener('click', () => netlifyIdentity.open());
 
                 if (SR) {
                     recognition = new SR(); recognition.continuous = false; recognition.lang = 'es-ES'; recognition.interimResults = false;
@@ -800,12 +800,10 @@
                     currentUser = user;
                     
                     if (user) {
-                        // On initial load, set credits if they don't exist in localStorage
                         if (localStorage.getItem(`userCredits_${user.id}`) === null) {
                             localStorage.setItem(`userCredits_${user.id}`, FREE_PLAN_CREDIT_LIMIT);
                         }
                     } else {
-                         // On initial load, set guest credits if they don't exist in localStorage
                         if (localStorage.getItem('guestCreditCount') === null) {
                             localStorage.setItem('guestCreditCount', GUEST_CREDIT_LIMIT);
                         }
@@ -822,8 +820,11 @@
                     finishInitialization(user);
                 });
                 
-                // Fallback timer in case the 'init' event doesn't fire for any reason.
-                setTimeout(() => finishInitialization(netlifyIdentity.currentUser()), 1500);
+                setTimeout(() => {
+                    if (!initFired) {
+                        finishInitialization(netlifyIdentity.currentUser());
+                    }
+                }, 1500);
 
                 netlifyIdentity.on('login', (user) => {
                     netlifyIdentity.close(); 
@@ -832,6 +833,7 @@
                     if (localStorage.getItem(`userCredits_${user.id}`) === null) {
                         localStorage.setItem(`userCredits_${user.id}`, FREE_PLAN_CREDIT_LIMIT);
                     }
+                    localStorage.removeItem('guestCreditCount');
                     updateUserUI(); 
                     loadStateForUser();
                 });
