@@ -12,20 +12,22 @@ exports.handler = async (event) => {
     return { statusCode: 400, body: JSON.stringify({ error: 'Request body is missing' }) };
   }
   
+  // Se extraen los datos del cuerpo de la petición.
   const { prompt, history = [], model = 'perplexity' } = JSON.parse(event.body);
 
   /* ─ 1.   Elegir modelo válido ───────────────────────────── */
-  // Mapea los valores del frontend a modelos reales de la API de Perplexity.
+  // Mapea los valores del frontend a modelos reales y válidos de la API de Perplexity.
   const MODEL_MAP = {
-    perplexity:        'sonar-small-chat',      // selector del front
-    sonar:             'sonar-small-chat',
+    perplexity:        'sonar-small-chat',      // Valor por defecto y del selector del front
+    sonar:             'sonar-small-chat',      // Acepta 'sonar' también
     'sonar-small-chat':'sonar-small-chat',
     'sonar-medium-chat':'sonar-medium-chat'
   };
+  // Se usa el modelo del mapa, o el de por defecto si no se encuentra.
   const modelName = MODEL_MAP[model.toLowerCase()] || MODEL_MAP.perplexity;
 
   /* ─ 2.   Limpiar el history ─────────────────────────────── */
-  // Este bucle es clave para garantizar un payload válido.
+  // Este bucle es clave para garantizar un payload válido para la API.
   const clean = [];
   for (const m of history) {
     if (!['user', 'assistant'].includes(m.role)) continue;      // Ignora sistemas viejos del historial.
