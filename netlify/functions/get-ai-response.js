@@ -17,21 +17,17 @@ exports.handler = async (event) => {
         
         // --- INICIO DE LA LÓGICA DE ENRUTAMIENTO DE MODELO ---
 
-        // 2. CORRECCIÓN: Si el modelo comienza con 'sonar', usar la API de Perplexity.
-        // Esto captura tanto 'sonar' como 'sonar-pro' o cualquier variación.
+        // 2. Si el modelo es 'sonar', usar la API de Perplexity
         if (model && model.startsWith('sonar')) {
-            console.log(`Redirigiendo al modelo de Perplexity: ${model}`); // Log para confirmar
             const PERPLEXITY_API_KEY = process.env.PERPLEXITY_API_KEY;
             if (!PERPLEXITY_API_KEY) {
                 throw new Error('La clave de API de Perplexity (PERPLEXITY_API_KEY) no está configurada en Netlify.');
             }
 
             const perplexityBody = {
-                // CORRECCIÓN: Usar el 'model' que llega desde el front-end dinámicamente.
-                // Así se envía 'sonar' o 'sonar-pro' según corresponda.
-                model: model, 
+                model: model, // 'sonar' o 'sonar-pro'
                 messages: [
-                    { role: 'system', content: 'Eres un asistente de búsqueda preciso y conciso. Responde en español y cita tus fuentes cuando sea posible.' },
+                    { role: 'system', content: 'You are a helpful AI assistant with real-time web access. Provide concise, up-to-date, and accurate answers in Spanish.' },
                     ...(history || []),
                     { role: 'user', content: prompt }
                 ]
@@ -42,7 +38,7 @@ exports.handler = async (event) => {
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${PERPLEXITY_API_KEY}`,
-                    'Accept': 'application/json' // Cabecera importante
+                    'Accept': 'application/json' // Cabecera crucial añadida
                 },
                 body: JSON.stringify(perplexityBody),
             });
@@ -57,8 +53,7 @@ exports.handler = async (event) => {
             botReply = data.choices[0].message.content;
 
         } else { 
-            // 3. Si no es un modelo 'sonar', usar la API de OpenAI (comportamiento por defecto)
-            console.log(`Redirigiendo al modelo de OpenAI: ${model}`); // Log para confirmar
+            // 3. Si no es 'sonar', usar la API de OpenAI
             const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
             if (!OPENAI_API_KEY) {
                 throw new Error('La clave de API de OpenAI (OPENAI_API_KEY) no está configurada en Netlify.');
@@ -68,6 +63,7 @@ exports.handler = async (event) => {
             let messages = [];
 
             // --- Construcción de los Mensajes para OpenAI ---
+
             const friendlyPrompt = `Eres GOATBOT, un asistente de IA excepcionalmente amable y servicial. Siempre que sea relevante, dirígete al usuario por su nombre, '${userName || 'amigo/a'}'. Saluda con cariño (ej. '¡Hola ${userName || 'qué tal'}! Espero que tengas un día increíble.'), y despídete de forma atenta. Tu tono debe ser siempre positivo y respetuoso.`;
             messages.push({ role: 'system', content: friendlyPrompt });
 
