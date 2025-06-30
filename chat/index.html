@@ -296,7 +296,9 @@
                 
                 utterance.onend = () => {
                     if (micWasOnBeforeSpeaking) {
-                        recognition.start();
+                        if (recognition && !isRecognizing) {
+                            recognition.start();
+                        }
                         micWasOnBeforeSpeaking = false;
                     }
                 };
@@ -479,7 +481,7 @@
                 
                 const initialMessages = options.initialMessages || [{ 
                     role: 'assistant', 
-                    content: `¡Hola ${userName}! Soy GOATIFY, estoy aquí para servirte en lo que necesites. ¡Espero que tengas un día increíble!` 
+                    content: `¡Hola ${userName}! Soy GOATIFY, tu asistente personal. Estoy aquí para servirte en lo que necesites. ¡Espero que tengas un día increíble!` 
                 }];
 
                 state.chats[id] = { 
@@ -748,7 +750,7 @@
 
                 if (SR && dom.voiceBtn) {
                     recognition = new SR(); 
-                    recognition.continuous = false; 
+                    recognition.continuous = false; // Stop after user pauses
                     recognition.interimResults = false;
                     recognition.lang = 'es-ES'; 
                     
@@ -758,8 +760,9 @@
                     recognition.onend = () => { 
                         isRecognizing = false; 
                         dom.voiceBtn.classList.remove('glowing-mic'); 
-                        if (!userManuallyStopped) {
-                            recognition.start(); // Restart listening automatically
+                        if (!userManuallyStopped && micWasOnBeforeSpeaking) {
+                             micWasOnBeforeSpeaking = false;
+                             recognition.start();
                         }
                     };
                     
