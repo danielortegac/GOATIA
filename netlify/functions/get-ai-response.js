@@ -1,5 +1,5 @@
 // --- Netlify Function: get-ai-response.js ---
-// VERSIÓN 6 - SOLUCIÓN PARA EL ERROR 400 DE PERPLEXITY
+// VERSIÓN 7 - VALIDACIÓN ROBUSTA DEL PROMPT
 
 // Usamos el 'fetch' global de Node.js 18 (nativo).
 const { OpenAI } = require('openai');
@@ -10,7 +10,7 @@ exports.handler = async (event) => {
         return { statusCode: 405, body: JSON.stringify({ error: 'Método no permitido' }) };
     }
 
-    console.log("--- INICIO EJECUCIÓN V6 ---");
+    console.log("--- INICIO EJECUCIÓN V7 ---");
 
     try {
         const body = JSON.parse(event.body);
@@ -19,7 +19,6 @@ exports.handler = async (event) => {
         const cleanedModel = (model && typeof model === 'string') ? model.trim().toLowerCase() : '';
         console.log(`Modelo recibido: '${model}', Modelo limpiado: '${cleanedModel}'`);
 
-        // Usar la variable limpia para decidir la ruta.
         if (cleanedModel.startsWith('sonar')) {
             console.log(`Ruta seleccionada: Perplexity (modelo: ${model})`);
             
@@ -28,19 +27,24 @@ exports.handler = async (event) => {
                 throw new Error('La clave de API de Perplexity no está configurada.');
             }
 
-            // --- CAMBIO CLAVE APLICADO ---
-            // Se elimina el historial para cumplir con la regla "system -> user" de Perplexity.
+            // --- CAMBIO CLAVE: Validación del prompt ---
+            // Nos aseguramos de que el prompt exista y sea un string antes de enviarlo.
+            if (!prompt || typeof prompt !== 'string' || prompt.trim() === '') {
+                console.error("Error Crítico: El 'prompt' del usuario está ausente, no es un string o está vacío.");
+                throw new Error("El prompt del usuario está vacío o es inválido.");
+            }
+
             const perplexityBody = {
                model, // 'sonar' o 'sonar-pro'
                max_tokens: 1024,
                temperature: 0.7,
                messages: [
                  { role: 'system', content: 'Eres un asistente de búsqueda en español. Cita tus fuentes al final.' },
-                 { role: 'user',   content: prompt } // Primer mensaje USER justo después del system
+                 { role: 'user',   content: prompt }
                ]
             };
             
-            console.log("Enviando petición a la API de Perplexity...");
+            console.log("Enviando petición a la API de Perplexity con prompt validado...");
             const apiResponse = await fetch('https://api.perplexity.ai/chat/completions', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${PERPLEXITY_API_KEY}`, 'Accept': 'application/json' },
@@ -61,7 +65,6 @@ exports.handler = async (event) => {
         } else { 
             console.log(`Ruta seleccionada: OpenAI (modelo: ${model})`);
 
-            // La lógica para OpenAI se mantiene igual, ya que sí maneja el historial correctamente.
             const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
             if (!OPENAI_API_KEY) {
                 throw new Error('La clave de API de OpenAI no está configurada.');
