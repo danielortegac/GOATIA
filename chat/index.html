@@ -126,10 +126,10 @@
                 <button id="menu-toggle" class="md:hidden text-xl p-2"><i class="fas fa-bars"></i></button>
                 <h1 id="chat-title" class="text-lg font-semibold truncate cursor-pointer mx-2" title="Renombrar Chat">GOATBOT Pro</h1>
                 <div class="flex items-center space-x-1 sm:space-x-2">
-                    <div id="voice-selector-container" class="flex items-center space-x-2">
+                    <div id="voice-selector-container" class="hidden sm:flex items-center space-x-2">
                         <select id="voice-selector" class="rounded-md p-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-purple-500 bg-input text-text-light border border-themed"></select>
                     </div>
-                    <div id="message-counter" class="text-xs font-mono whitespace-nowrap"></div>
+                    <div id="message-counter" class="text-xs font-mono whitespace-nowrap hidden sm:block"></div>
                     <button id="ttsToggle" title="Activar/Desactivar Voz" class="text-xl hover:opacity-80 transition-colors p-2"><i class="fa fa-volume-high"></i></button>
                     <button id="theme-toggle" title="Cambiar Tema" class="text-xl p-2"><i class="fas fa-moon" id="theme-icon"></i></button>
                 </div>
@@ -315,45 +315,40 @@
 
                 const setVoices = () => {
                     if (typeof speechSynthesis === 'undefined') {
-                        voiceContainer.style.display = 'flex';
-                        dom.voiceSelector.innerHTML = '<option value="">No hay voces</option>';
-                        dom.voiceSelector.disabled = true;
+                        if (voiceContainer) voiceContainer.style.display = 'none';
+                        if (dom.ttsToggle) dom.ttsToggle.style.display = 'none';
                         return;
                     }
 
                     const allVoices = speechSynthesis.getVoices();
-                    const preferredVoices = [ "Microsoft Sabina Online (Natural) - Spanish (Mexico)", "Paulina", "Google español de Estados Unidos", "Google español" ];
-                    
-                    availableVoices = allVoices.filter(v => v.lang.startsWith('es-') && !v.lang.startsWith('es-ES'));
-                    
-                    if (availableVoices.length === 0) {
-                        availableVoices = allVoices.filter(v => v.lang.startsWith('es-'));
-                    }
+                    availableVoices = allVoices.filter(v => v.lang.startsWith('es-'));
                     
                     availableVoices.sort((a, b) => {
-                        let aIdx = preferredVoices.indexOf(a.name); let bIdx = preferredVoices.indexOf(b.name);
-                        if (aIdx === -1) aIdx = Infinity; if (bIdx === -1) bIdx = Infinity;
-                        if (aIdx !== bIdx) return aIdx - bIdx;
+                        const preferred = ["Sabina", "Paulina", "Marisol", "Jorge"];
+                        const aIdx = preferred.findIndex(p => a.name.includes(p));
+                        const bIdx = preferred.findIndex(p => b.name.includes(p));
+                        if (aIdx > -1 && bIdx > -1) return aIdx - bIdx;
+                        if (aIdx > -1) return -1;
+                        if (bIdx > -1) return 1;
                         return a.name.localeCompare(b.name);
                     });
 
-                    dom.voiceSelector.innerHTML = '';
-                    voiceContainer.style.display = 'flex';
+                    if(voiceContainer) {
+                        voiceContainer.style.display = availableVoices.length > 0 ? 'flex' : 'none';
+                        dom.voiceSelector.innerHTML = '';
 
-                    if(availableVoices.length === 0) {
-                        dom.voiceSelector.innerHTML = '<option value="">No hay voces</option>';
-                        dom.voiceSelector.disabled = true;
-                    } else {
-                        dom.voiceSelector.disabled = false;
-                        availableVoices.forEach(voice => {
-                            const option = document.createElement('option');
-                            const displayName = voice.name.replace('Microsoft', '').replace('Online (Natural) -', '').replace('Google', '').replace('Spanish (Mexico)','Mex').trim();
-                            option.textContent = displayName || voice.lang;
-                            option.value = voice.name;
-                            dom.voiceSelector.appendChild(option);
-                        });
-                        selectedVoice = availableVoices[0];
-                        if (selectedVoice) dom.voiceSelector.value = selectedVoice.name;
+                        if(availableVoices.length > 0) {
+                            dom.voiceSelector.disabled = false;
+                            availableVoices.forEach(voice => {
+                                const option = document.createElement('option');
+                                const displayName = voice.name.replace('Microsoft', '').replace('Online (Natural) -', '').replace('Google', '').replace('Spanish (Mexico)','Mex').trim();
+                                option.textContent = displayName || voice.lang;
+                                option.value = voice.name;
+                                dom.voiceSelector.appendChild(option);
+                            });
+                            selectedVoice = availableVoices[0];
+                            if (selectedVoice) dom.voiceSelector.value = selectedVoice.name;
+                        }
                     }
                 }
 
@@ -457,7 +452,7 @@
                 const count = getCreditCount();
                 const limit = currentUser ? FREE_PLAN_CREDIT_LIMIT : GUEST_CREDIT_LIMIT;
                 const planName = currentUser ? 'Plan Gratuito' : 'Invitado';
-                dom.messageCounterEl.textContent = `${planName}: ${count}/${limit} créditos`;
+                dom.messageCounterEl.textContent = `${count}/${limit}`;
             }
 
             function setTheme(isDark) { 
@@ -483,9 +478,14 @@
                 const id = 'chat-' + crypto.randomUUID();
                 const userName = currentUser ? (currentUser.user_metadata.full_name?.split(' ')[0] || currentUser.email.split('@')[0]) : 'qué tal';
                 
+                let initialContent = `¡Hola, ${userName}! Soy GOATBOT, tu asistente personal.`;
+                if(Math.random() < 0.3) { // 30% chance to use "jefe/jefa"
+                    initialContent = `A la orden, ${currentUser.user_metadata.gender === 'female' ? 'jefa' : 'jefe'}. ¿En qué te puedo ayudar hoy?`;
+                }
+
                 const initialMessages = options.initialMessages || [{ 
                     role: 'assistant', 
-                    content: `¡Hola ${userName}! Soy GOATIFY, tu asistente personal. Estoy aquí para servirte en lo que necesites. ¡Espero que tengas un día increíble!` 
+                    content: initialContent
                 }];
 
                 state.chats[id] = { 
@@ -809,6 +809,7 @@
                     };
 
                     dom.voiceBtn.addEventListener('click', () => { 
+                        stopSpeech();
                         if(isRecognizing) {
                             userManuallyStopped = true;
                             recognition.stop();
@@ -872,13 +873,10 @@
 
                 // Mobile Height Fix
                 const setAppHeight = () => {
-                    if(dom.appContainer) dom.appContainer.style.height = `${window.innerHeight}px`;
+                    document.documentElement.style.setProperty('--vh', `${window.innerHeight * 0.01}px`);
                 };
                 setAppHeight();
                 window.addEventListener('resize', setAppHeight);
-                if (window.visualViewport) {
-                    window.visualViewport.onresize = setAppHeight;
-                }
             }
             
             function initApp() {
@@ -911,7 +909,7 @@
 
                 netlifyIdentity.on('init', (user) => {
                     finishInitialization(user);
-                });
+});
                 
                 setTimeout(() => {
                     if (!initFired) {
