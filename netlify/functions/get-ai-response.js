@@ -1,6 +1,10 @@
 // --- Netlify Function: get-ai-response.js ---
-// VERSIÓN A PRUEBA DE BALAS
+// VERSIÓN CORREGIDA Y DEFINITIVA
 
+const { OpenAI } = require("openai"); // Asegúrate de tener esta dependencia
+const fetch = require('node-fetch'); // Y esta también
+
+// Límite para el plan gratuito
 const FREE_PLAN_MESSAGE_LIMIT = 15;
 
 exports.handler = async (event, context) => {
@@ -10,24 +14,26 @@ exports.handler = async (event, context) => {
     }
 
     try {
-        const { prompt, history, model, imageData, pdfText } = JSON.parse(event.body);
+        const { prompt, history, model, imageData, pdfText, workflow, userName } = JSON.parse(event.body);
         const { user } = context.clientContext;
         let botReply = '';
 
-        // 2. Guarda de seguridad para el límite de mensajes
+        // 2. Guarda de seguridad para el límite de mensajes (si aplica)
+        // (Esta lógica depende de cómo manejes los planes, la dejo como referencia)
         if (user && user.app_metadata.plan === 'free' && (user.app_metadata.message_count || 0) >= FREE_PLAN_MESSAGE_LIMIT) {
             return { statusCode: 403, body: JSON.stringify({ error: 'Límite de mensajes alcanzado' }) };
         }
 
         // 3. Lógica de enrutamiento a la API correcta
-        if (model === 'perplexity') {
+        // ¡AQUÍ ESTÁ LA CORRECCIÓN! Ahora busca 'sonar'.
+        if (model === 'sonar') {
             const PERPLEXITY_API_KEY = process.env.PERPLEXITY_API_KEY;
             if (!PERPLEXITY_API_KEY) throw new Error('La clave de API de Perplexity no está configurada en Netlify.');
 
             const perplexityBody = {
-                model: 'sonar', // Nombre de modelo correcto y limpio.
+                model: 'sonar', // Usamos el modelo correcto para la API
                 messages: [
-                    { role: 'system', content: 'Eres un asistente de búsqueda web preciso y conciso. Responde en español.' },
+                    { role: 'system', content: 'You are a helpful AI assistant with real-time web access. Provide concise, up-to-date, and accurate answers in Spanish.' },
                     ...(history || []),
                     { role: 'user', content: prompt }
                 ]
@@ -50,7 +56,25 @@ exports.handler = async (event, context) => {
         } else { // Lógica para OpenAI
             const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
             if (!OPENAI_API_KEY) throw new Error('La clave de API de OpenAI no está configurada en Netlify.');
+            
+            const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
 
+            let messages = [];
+
+            // System Prompts for Personality & Workflows
+            const friendlyPrompt = `Eres GOATBOT, un asistente de IA excepcionalmente amable y servicial. Siempre que sea relevante, dirígete al usuario por su nombre, '${userName}'. Saluda con cariño (ej. '¡Hola ${userName}! Espero que tengas un día increíble.'), y despídete de forma atenta. Tu tono debe ser siempre positivo y respetuoso.`;
+            messages.push({ role: 'system', content: friendlyPrompt });
+
+            if (workflow === 'english-teacher') {
+                messages.push({ role: 'system', content: "You are an expert English Teacher. ALWAYS respond in English. If the user makes a mistake, gently correct them, explain the error, and provide the correct version before continuing. If the user asks for a translation, provide it clearly. You must always speak your full English response." });
+            }
+
+            // Add chat history
+            if (history) {
+                messages.push(...history);
+            }
+
+            // Format User Message (with files if present)
             let userMessageContent = [];
             const fullPrompt = pdfText 
                 ? `Analiza el siguiente texto de un PDF y responde a la pregunta.\n\n--- INICIO PDF ---\n${pdfText}\n--- FIN PDF ---\n\nPregunta: ${prompt}`
@@ -61,50 +85,21 @@ exports.handler = async (event, context) => {
                 userMessageContent.push({ type: 'image_url', image_url: { "url": imageData } });
             }
             
-            const openAIBody = {
+            messages.push({ role: 'user', content: userMessageContent });
+            
+            const completion = await openai.chat.completions.create({
                 model: model, 
-                messages: [
-                    { role: 'system', content: 'Eres GOATBOT, un asistente experto y amigable. Responde en español.' },
-                    ...(history || []),
-                    { role: 'user', content: userMessageContent }
-                ],
+                messages: messages,
                 max_tokens: (imageData || pdfText) ? 2048 : 1000
-            };
-
-            const apiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${OPENAI_API_KEY}` },
-                body: JSON.stringify(openAIBody),
             });
-            
-            if (!apiResponse.ok) {
-                const errorData = await apiResponse.json();
-                throw new Error(`Error de OpenAI: ${errorData.error?.message || apiResponse.statusText}`);
-            }
 
-            const data = await apiResponse.json();
-            botReply = data.choices[0].message.content;
+            botReply = completion.choices[0].message.content;
         }
 
-        // 4. Actualizar contador de mensajes
-        let newMessageCount = null;
-        if (user) {
-            const currentCount = user.app_metadata.message_count || 0;
-            newMessageCount = currentCount + 1;
-            
-            const adminAuthHeader = `Bearer ${context.clientContext.identity.token}`;
-            const userUpdateUrl = `${context.clientContext.identity.url}/admin/users/${user.sub}`;
-            fetch(userUpdateUrl, {
-                method: 'PUT',
-                headers: { 'Authorization': adminAuthHeader },
-                body: JSON.stringify({ app_metadata: { ...user.app_metadata, message_count: newMessageCount } }),
-            }).catch(err => console.error("Fallo al actualizar el contador en background:", err));
-        }
-        
-        // 5. Enviar respuesta y el nuevo conteo al frontend
+        // 4. Enviar respuesta final al frontend
         return {
             statusCode: 200,
-            body: JSON.stringify({ reply: botReply, new_message_count: newMessageCount }),
+            body: JSON.stringify({ reply: botReply }),
         };
 
     } catch (error) {
