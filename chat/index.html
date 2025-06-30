@@ -683,6 +683,11 @@
                 let chatIdToUpdate = currentChatId || createNewChat({ model: model });
                 if (!state.chats[chatIdToUpdate]) return;
                 
+                if(state.chats[chatIdToUpdate].title === 'Nuevo Chat') {
+                    state.chats[chatIdToUpdate].title = userMessage.split(' ').slice(0, 4).join(' ');
+                    renderSidebar();
+                }
+
                 setCreditCount(count - cost);
                 
                 const [image, pdf] = [selectedImageBase64, selectedPdfText];
@@ -768,7 +773,8 @@
                     recognition.lang = 'es-ES'; 
                     
                     let userManuallyStopped = false;
-                    let finalTranscriptTimeout;
+                    let finalTranscript = '';
+                    let speechTimeout;
 
                     recognition.onstart = () => { isRecognizing = true; dom.voiceBtn.classList.add('glowing-mic'); };
                     recognition.onend = () => { 
@@ -780,18 +786,23 @@
                     };
                     
                     recognition.onresult = (event) => {
-                        clearTimeout(finalTranscriptTimeout);
-                        let final_transcript = '';
+                        clearTimeout(speechTimeout);
+                        let interim_transcript = '';
                         for (let i = event.resultIndex; i < event.results.length; ++i) {
                             if (event.results[i].isFinal) {
-                                final_transcript += event.results[i][0].transcript;
+                                finalTranscript += event.results[i][0].transcript;
+                            } else {
+                                interim_transcript += event.results[i][0].transcript;
                             }
                         }
                         
-                        // Send the message after a short pause of silence
-                        if (final_transcript) {
-                             sendMessage(false, final_transcript.trim());
-                        }
+                        // Set a timeout to send the message if the user stops talking
+                        speechTimeout = setTimeout(() => {
+                            if (finalTranscript.trim()) {
+                                sendMessage(false, finalTranscript.trim());
+                                finalTranscript = '';
+                            }
+                        }, 1000); // 1 second of silence
                     };
 
                     dom.voiceBtn.addEventListener('click', () => { 
@@ -862,6 +873,10 @@
                 };
                 setAppHeight();
                 window.addEventListener('resize', setAppHeight);
+                // Also adjust on virtual keyboard changes
+                if (window.visualViewport) {
+                    window.visualViewport.onresize = setAppHeight;
+                }
             }
             
             function initApp() {
