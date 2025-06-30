@@ -74,7 +74,6 @@
 </head>
 <body class="h-screen w-screen overflow-hidden dark-theme">
 
-    <!-- Loading Overlay -->
     <div id="loading-overlay" class="fixed inset-0 bg-bg-dark bg-opacity-95 flex flex-col items-center justify-center z-[100] transition-opacity duration-300">
         <img src="https://raw.githubusercontent.com/GoatFactoryDev/goatbot/main/logo-goatify-footer.png" alt="GOATIFY Logo" class="w-24 h-24 object-contain mb-6 animate-pulse" onerror="this.onerror=null;this.src='https://placehold.co/96x96/121212/e0e0e0?text=LOGO';">
         <div class="text-text-light text-center">
@@ -83,10 +82,8 @@
         </div>
     </div>
 
-    <!-- Mobile Sidebar Overlay -->
     <div id="sidebar-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-20 md:hidden opacity-0 pointer-events-none"></div>
 
-    <!-- App Container -->
     <div id="app-container" class="flex h-full w-full relative opacity-0 transition-opacity duration-300">
         <aside id="sidebar" class="w-72 flex-shrink-0 flex flex-col p-3 transition-transform duration-300 -translate-x-full md:translate-x-0 absolute md:relative z-30 h-full">
             <div class="flex-shrink-0">
@@ -183,7 +180,6 @@
         </main>
     </div>
 
-    <!-- Modals -->
     <div id="generic-modal" class="fixed inset-0 bg-black bg-opacity-70 hidden items-center justify-center z-40 p-4">
         <div class="modal-content rounded-lg w-full max-w-sm p-6 relative">
             <h3 id="modal-title" class="text-lg font-bold mb-4"></h3><p id="modal-message" class="mb-4 text-text-medium"></p>
@@ -350,6 +346,8 @@
             async function getAIResponse(prompt, history, image, pdf, model, workflow) {
                  const token = currentUser ? await currentUser.jwt() : null;
                 let fullHistory = [...history];
+                let modelForApi = model;
+
                 const friendlyPrompt = {
                     role: "system",
                     content: "Eres GOATBOT, un asistente de IA excepcionalmente amable y servicial. Siempre saluda al usuario con cariño y de forma positiva (ej. '¡Muy buenos días! Espero que tengas un día increíble. ¿Cómo te sientes hoy?'), y despídete de forma muy atenta (ej. '¡Fue un verdadero placer ayudarte! Estoy a tus órdenes para lo que necesites. ¡Que tengas un excelente día!'). Trata al usuario con el máximo respeto, empatía y positividad en todo momento."
@@ -366,15 +364,24 @@
                     };
                     fullHistory.unshift(teacherPrompt);
                 }
+                
+                if (model === 'perplexity/sonar-small-online') {
+                    modelForApi = 'gpt-4o'; // Use a reliable model for the search
+                    const webSearchPrompt = {
+                        role: 'system',
+                        content: `[SYSTEM INSTRUCTION: YOU MUST BROWSE THE WEB. Search for real-time, up-to-date information to answer the following user query. Do not use your training data.]`
+                    };
+                    fullHistory.unshift(webSearchPrompt);
+                }
+
 
                 const response = await fetch('/.netlify/functions/get-ai-response', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', ...(token && { 'Authorization': `Bearer ${token}` }) },
-                    body: JSON.stringify({ prompt, history: fullHistory, model, imageData: image, pdfText: pdf })
+                    body: JSON.stringify({ prompt, history: fullHistory, model: modelForApi, imageData: image, pdfText: pdf })
                 });
 
                 if (response.status === 403) {
-                    await updateUserCreditsOnBackend(0);
                     return { error: 'LIMIT_REACHED' };
                 }
                 
@@ -386,24 +393,11 @@
                 const responseData = await response.json();
 
                 if (currentUser && typeof responseData.new_credit_count !== 'undefined') {
-                    await forceUserRefresh();
                     currentUser.app_metadata.credits = responseData.new_credit_count;
                     updateCreditCounter();
                 }
                 
                 return responseData;
-            }
-            
-            async function updateUserCreditsOnBackend(newCount) {
-                if (!currentUser || !netlifyIdentity.gotrue) return;
-                try {
-                    await netlifyIdentity.gotrue.user.update({
-                        data: { credits: newCount }
-                    });
-                    await forceUserRefresh();
-                } catch (error) {
-                    console.error("Error updating credits on backend:", error);
-                }
             }
             
             function getCreditCount() {
@@ -422,8 +416,12 @@
 
             async function forceUserRefresh() {
                 if (!currentUser) return;
-                await currentUser.jwt(true);
-                currentUser = netlifyIdentity.currentUser();
+                try {
+                    await currentUser.jwt(true);
+                    currentUser = netlifyIdentity.currentUser();
+                } catch (error) {
+                    console.error("Failed to refresh user token:", error);
+                }
             }
             
             function loadStateForUser() {
