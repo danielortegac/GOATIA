@@ -45,7 +45,7 @@ exports.handler = async (event) => {
             }
             
             const data = await apiResponse.json();
-            botReply = data.choices[0]?.message?.content;
+            botReply = data.choices[0].message.content;
 
         } else { 
             // 3. Si no es 'sonar', usar la API de OpenAI
@@ -92,7 +92,7 @@ exports.handler = async (event) => {
                 max_tokens: (imageData || pdfText) ? 2048 : 1000
             });
 
-            botReply = completion.choices[0]?.message?.content;
+            botReply = completion.choices[0].message.content;
         }
 
         // 4. Enviar la respuesta al frontend
