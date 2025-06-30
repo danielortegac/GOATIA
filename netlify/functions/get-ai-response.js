@@ -1,8 +1,25 @@
 // --- Netlify Function: get-ai-response.js ---
-// VERSIÓN 7 - VALIDACIÓN ROBUSTA DEL PROMPT
+// VERSIÓN 8 - REFACTOR CON FUNCIÓN HELPER
 
 // Usamos el 'fetch' global de Node.js 18 (nativo).
 const { OpenAI } = require('openai');
+
+/**
+ * Helper function to build the message structure for the Perplexity API.
+ * @param {string} prompt The user's prompt.
+ * @returns {Array<Object>} The messages array for the API request.
+ */
+function buildPerplexityMessages(prompt) {
+  /* Siempre: 1 system + 1 user   */
+  return [
+    {
+      role: 'system',
+      content:
+        'Eres un asistente de búsqueda en español. Responde breve y cita fuentes al final.',
+    },
+    { role: 'user', content: prompt },
+  ];
+}
 
 exports.handler = async (event) => {
     // 1. Validar que la solicitud sea un POST
@@ -10,7 +27,7 @@ exports.handler = async (event) => {
         return { statusCode: 405, body: JSON.stringify({ error: 'Método no permitido' }) };
     }
 
-    console.log("--- INICIO EJECUCIÓN V7 ---");
+    console.log("--- INICIO EJECUCIÓN V8 ---");
 
     try {
         const body = JSON.parse(event.body);
@@ -27,24 +44,20 @@ exports.handler = async (event) => {
                 throw new Error('La clave de API de Perplexity no está configurada.');
             }
 
-            // --- CAMBIO CLAVE: Validación del prompt ---
-            // Nos aseguramos de que el prompt exista y sea un string antes de enviarlo.
             if (!prompt || typeof prompt !== 'string' || prompt.trim() === '') {
                 console.error("Error Crítico: El 'prompt' del usuario está ausente, no es un string o está vacío.");
                 throw new Error("El prompt del usuario está vacío o es inválido.");
             }
 
+            // --- CAMBIO APLICADO: Usando la función helper ---
             const perplexityBody = {
-               model, // 'sonar' o 'sonar-pro'
+               model,                      // 'sonar'  o  'sonar-pro'
                max_tokens: 1024,
                temperature: 0.7,
-               messages: [
-                 { role: 'system', content: 'Eres un asistente de búsqueda en español. Cita tus fuentes al final.' },
-                 { role: 'user',   content: prompt }
-               ]
+               messages: buildPerplexityMessages(prompt),
             };
             
-            console.log("Enviando petición a la API de Perplexity con prompt validado...");
+            console.log("Enviando petición a la API de Perplexity con helper...");
             const apiResponse = await fetch('https://api.perplexity.ai/chat/completions', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${PERPLEXITY_API_KEY}`, 'Accept': 'application/json' },
