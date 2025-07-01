@@ -1,21 +1,32 @@
 // netlify/functions/generate-image.js
-
 const fetch = require('node-fetch');
 
 exports.handler = async function (event) {
   if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, body: 'Method Not Allowed' };
+    return { 
+        statusCode: 405, 
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({error: 'Method Not Allowed'}) 
+    };
   }
 
   const { prompt } = JSON.parse(event.body);
   const openAIKey = process.env.OPENAI_API_KEY;
   
   if (!openAIKey) {
-    return { statusCode: 500, body: JSON.stringify({ error: 'La clave API de OpenAI no está configurada en el servidor.' }) };
+    return { 
+        statusCode: 500, 
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: 'La clave API de OpenAI no está configurada en el servidor.' }) 
+    };
   }
 
   if (!prompt) {
-    return { statusCode: 400, body: JSON.stringify({ error: 'El prompt es requerido.' }) };
+    return { 
+        statusCode: 400, 
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: 'El prompt es requerido.' }) 
+    };
   }
 
   try {
@@ -37,7 +48,11 @@ exports.handler = async function (event) {
     if (!response.ok) {
         const errorData = await response.json();
         console.error('OpenAI Image API Error:', errorData);
-        return { statusCode: response.status, body: JSON.stringify({ error: 'Error en la API de OpenAI', details: errorData.error.message }) };
+        return { 
+            statusCode: response.status, 
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ error: 'Error en la API de OpenAI', details: errorData.error.message }) 
+        };
     }
 
     const data = await response.json();
@@ -45,6 +60,7 @@ exports.handler = async function (event) {
 
     return {
       statusCode: 200,
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ imageData }),
     };
 
@@ -52,6 +68,7 @@ exports.handler = async function (event) {
     console.error('Image Generation Error:', error);
     return { 
         statusCode: 500, 
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
             error: 'Ocurrió un error interno en el servidor.',
             details: error.message 
