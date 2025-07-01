@@ -53,6 +53,7 @@
         #app-container { height: 100vh; height: -webkit-fill-available; }
         #pricing-modal .modal-content-body { max-height: 80vh; overflow-y: auto; }
         .chat-item.selected-for-delete { background-color: var(--primary) !important; color: white; }
+        #model-selector option:disabled { color: var(--text-medium); }
     </style>
 </head>
 <body class="w-screen overflow-x-hidden dark-theme">
@@ -361,6 +362,18 @@
                 }
                 setTimeout(setVoices, 200);
             }
+
+            function updateModelSelectorState() {
+                const hasFileAttached = hasFile();
+                const premiumOption = dom.modelSelector.querySelector('option[value="gpt-4o-mini"]');
+                if (premiumOption) {
+                    premiumOption.disabled = !hasFileAttached;
+                    if (premiumOption.disabled && dom.modelSelector.value === 'gpt-4o-mini') {
+                        dom.modelSelector.value = 'gpt-3.5-turbo-1106';
+                    }
+                }
+                updateWebSearchButtonState();
+            }
             
             function getModelForRequest(workflow, hasFile) {
                 if (workflow === "design-web") return "gpt-4o";
@@ -512,14 +525,14 @@
                     title: options.title || "Conversación Cósmica", 
                     messages: initialMessages,
                     workflow: options.workflow || null,
-                    model: options.model || 'gpt-3.5-turbo'
+                    model: options.model || 'gpt-3.5-turbo-1106'
                 }; 
                 state.structure.unshift(id); 
                 selectChat(id); 
                 saveState(); 
                 renderSidebar(); 
-                dom.modelSelector.value = options.model || 'gpt-3.5-turbo';
-                updateWebSearchButtonState();
+                dom.modelSelector.value = options.model || 'gpt-3.5-turbo-1106';
+                updateModelSelectorState();
                 if (window.innerWidth < 768) toggleSidebar(false);
                 return id; 
             }
@@ -536,13 +549,23 @@
                 const chat = state.chats[chatId]; 
                 dom.chatTitle.textContent = chat.title; 
                 chat.messages.forEach((msg) => addMessageToUI(msg.role, msg.content, msg.image)); 
-                dom.modelSelector.value = chat.model || 'gpt-3.5-turbo';
-                updateWebSearchButtonState();
+                dom.modelSelector.value = chat.model || 'gpt-3.5-turbo-1106';
                 updateActiveChatHighlight(); 
                 saveState();
+                updateModelSelectorState();
                 if (window.innerWidth < 768) toggleSidebar(false);
             }
-            function resetChatView() { currentChatId = null; dom.chatTitle.textContent = "GOATBOT Pro"; dom.chatMessages.innerHTML = ''; dom.initialMessageContainer.style.display = 'flex'; updateUserUI(); updateActiveChatHighlight(); dom.modelSelector.value = 'gpt-3.5-turbo'; updateWebSearchButtonState(); }
+
+            function resetChatView() { 
+                currentChatId = null; 
+                dom.chatTitle.textContent = "GOATBOT Pro"; 
+                dom.chatMessages.innerHTML = ''; 
+                dom.initialMessageContainer.style.display = 'flex'; 
+                updateUserUI(); 
+                updateActiveChatHighlight(); 
+                dom.modelSelector.value = 'gpt-3.5-turbo-1106';
+                updateModelSelectorState();
+            }
             
             function renderCodeBlock(content) {
                 const codeBlock = document.createElement('div');
@@ -698,8 +721,8 @@
             async function deleteItem(type, id) { const item = type === 'chat' ? state.chats[id] : state.projects[id]; const conf = await showModal({ title: `Eliminar ${item.title}?`, message: 'Esta acción no se puede deshacer.', confirmText: 'Eliminar' }); if (conf) { state.structure = state.structure.filter(i => i !== id); if (type === 'project') { (item.chatIds || []).forEach(cid => delete state.chats[cid]); delete state.projects[id]; } else { delete state.chats[id]; Object.values(state.projects).forEach(p => { if(p.chatIds) p.chatIds = p.chatIds.filter(cid => cid !== id)}); } if(currentChatId === id || (type === 'project' && (item.chatIds || []).includes(currentChatId))) resetChatView(); saveState(); renderSidebar(); } hideModal(); }
             function updateActiveChatHighlight() { document.querySelectorAll('.chat-item').forEach(item => { item.style.backgroundColor = item.dataset.id === currentChatId ? 'var(--current-primary)' : 'transparent'; }); }
             
-            function clearImageData() { dom.imageUploadInput.value = ''; dom.imagePreviewContainer.classList.add('hidden'); selectedImageBase64 = null; }
-            function clearPdfData() { dom.pdfUploadInput.value = ''; dom.pdfPreviewContainer.classList.add('hidden'); selectedPdfText = null; }
+            function clearImageData() { dom.imageUploadInput.value = ''; dom.imagePreviewContainer.classList.add('hidden'); selectedImageBase64 = null; updateModelSelectorState(); }
+            function clearPdfData() { dom.pdfUploadInput.value = ''; dom.pdfPreviewContainer.classList.add('hidden'); selectedPdfText = null; updateModelSelectorState(); }
             function hasFile() { return selectedImageBase64 || selectedPdfText; }
             
             async function sendMessage(forceSend = false, spokenMessage = null) {
@@ -709,14 +732,21 @@
                 const currentChat = state.chats[chatIdToUpdate];
                 if (!currentChat) return;
                 
-                const model = getModelForRequest(currentChat.workflow, hasFile());
+                let modelToUse = getModelForRequest(currentChat.workflow, hasFile());
+                const webSearchTriggers = ['que es', 'quien es', 'noticias sobre', 'precio actual de', 'clima en', 'resultados de', 'cotizacion de', 'define', 'explica', 'investiga sobre'];
+                const requiresWebSearch = webSearchTriggers.some(trigger => userMessage.toLowerCase().startsWith(trigger));
+
+                if (requiresWebSearch && !hasFile() && currentChat.workflow !== 'design-web') {
+                    modelToUse = 'sonar';
+                }
+
                 let cost = COSTS.GENERAL;
                 if (currentChat.workflow === 'web-page') { cost = COSTS.WEB_PAGE; }
                 else if (currentChat.workflow === 'copywriting') { cost = COSTS.COPYWRITING; }
                 else if (currentChat.workflow === 'sales-response') { cost = COSTS.SALES_RESPONSE; }
                 else if (currentChat.workflow === 'english-teacher') { cost = COSTS.ENGLISH_TEACHER; }
-                else if (model === 'sonar') { cost = COSTS.SEARCH; }
-                else if (model.includes('gpt-4') && hasFile()) { cost = COSTS.NEBULA; }
+                else if (modelToUse === 'sonar') { cost = COSTS.SEARCH; }
+                else if (modelToUse.includes('gpt-4') && hasFile()) { cost = COSTS.NEBULA; }
                 
                 let count = getCreditCount();
                 if (count < cost && !forceSend) {
@@ -736,7 +766,7 @@
                 dom.msgInput.value = ''; dom.msgInput.style.height = 'auto'; clearImageData(); clearPdfData();
                 try {
                     const userNameForCall = currentUser ? (currentUser.user_metadata.full_name || currentUser.email) : 'viajero';
-                    const responseData = await getAIResponse(userMessage, currentChat.messages.slice(0, -1), image, pdf, model, currentChat.workflow, userNameForCall);
+                    const responseData = await getAIResponse(userMessage, currentChat.messages.slice(0, -1), image, pdf, modelToUse, currentChat.workflow, userNameForCall);
                     if (responseData.error === 'LIMIT_REACHED') {
                         updateMessageInUI(thinkingBubble, `Has alcanzado el límite de créditos de tu plan. ¡Actualiza para continuar!`);
                         setCreditCount(0); showPricingModal(); return;
@@ -875,7 +905,7 @@
                    updateWebSearchButtonState();
                 });
                 dom.webSearchBtn.addEventListener('click', () => {
-                    dom.modelSelector.value = dom.modelSelector.value === 'sonar' ? 'gpt-3.5-turbo' : 'sonar';
+                    dom.modelSelector.value = dom.modelSelector.value === 'sonar' ? 'gpt-3.5-turbo-1106' : 'sonar';
                     updateWebSearchButtonState();
                 });
 
@@ -883,8 +913,8 @@
                 dom.pdfUploadBtn?.addEventListener('click', () => dom.pdfUploadInput.click());
                 dom.clearImageBtn?.addEventListener('click', clearImageData);
                 dom.clearPdfBtn?.addEventListener('click', clearPdfData);
-                dom.imageUploadInput?.addEventListener('change', (e) => { if (e.target.files && e.target.files[0]) { clearPdfData(); const reader = new FileReader(); reader.onload = (ev) => { selectedImageBase64 = ev.target.result; dom.imagePreview.src = selectedImageBase64; dom.imagePreviewContainer.classList.remove('hidden'); dom.modelSelector.value = 'gpt-4o-mini'; }; reader.readAsDataURL(e.target.files[0]); } });
-                dom.pdfUploadInput?.addEventListener('change', (e) => { const file = e.target.files[0]; if (!file || file.type !== 'application/pdf') return; clearImageData(); dom.pdfNameEl.textContent = file.name; dom.pdfStatusEl.textContent = 'Leyendo...'; dom.pdfPreviewContainer.classList.remove('hidden'); const reader = new FileReader(); reader.onload = async (ev) => { dom.pdfStatusEl.textContent = 'Procesando...'; try { const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(ev.target.result) }).promise; let text = ''; for (let i = 1; i <= pdf.numPages; i++) { const page = await pdf.getPage(i); const content = await page.getTextContent(); text += content.items.map(item => item.str).join(' ') + '\n'; } selectedPdfText = text; dom.pdfStatusEl.textContent = `✅ Listo (${pdf.numPages} pág.)`; dom.modelSelector.value = 'gpt-4o-mini'; } catch (err) { console.error("Error al procesar el PDF:", err); dom.pdfStatusEl.textContent = '❌ Error al leer PDF.'; selectedPdfText = null; setTimeout(clearPdfData, 2000); } }; reader.readAsArrayBuffer(file); });
+                dom.imageUploadInput?.addEventListener('change', (e) => { if (e.target.files && e.target.files[0]) { clearPdfData(); const reader = new FileReader(); reader.onload = (ev) => { selectedImageBase64 = ev.target.result; dom.imagePreview.src = selectedImageBase64; dom.imagePreviewContainer.classList.remove('hidden'); dom.modelSelector.value = 'gpt-4o-mini'; updateModelSelectorState(); }; reader.readAsDataURL(e.target.files[0]); } });
+                dom.pdfUploadInput?.addEventListener('change', (e) => { const file = e.target.files[0]; if (!file || file.type !== 'application/pdf') return; clearImageData(); dom.pdfNameEl.textContent = file.name; dom.pdfStatusEl.textContent = 'Leyendo...'; dom.pdfPreviewContainer.classList.remove('hidden'); const reader = new FileReader(); reader.onload = async (ev) => { dom.pdfStatusEl.textContent = 'Procesando...'; try { const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(ev.target.result) }).promise; let text = ''; for (let i = 1; i <= pdf.numPages; i++) { const page = await pdf.getPage(i); const content = await page.getTextContent(); text += content.items.map(item => item.str).join(' ') + '\n'; } selectedPdfText = text; dom.pdfStatusEl.textContent = `✅ Listo (${pdf.numPages} pág.)`; dom.modelSelector.value = 'gpt-4o-mini'; updateModelSelectorState(); } catch (err) { console.error("Error al procesar el PDF:", err); dom.pdfStatusEl.textContent = '❌ Error al leer PDF.'; selectedPdfText = null; setTimeout(clearPdfData, 2000); } }; reader.readAsArrayBuffer(file); });
                 
                 dom.menuToggle?.addEventListener('click', (e) => { e.stopPropagation(); toggleSidebar(true); });
                 dom.sidebarOverlay?.addEventListener('click', () => toggleSidebar(false));
@@ -894,7 +924,7 @@
                 const createWorkflowChat = (opts) => { createNewChat(opts); if (window.innerWidth < 768) toggleSidebar(false); };
                 dom.copywritingWorkflowBtn?.addEventListener('click', () => createWorkflowChat({ title: "Nuevo Copy", workflow: "copywriting", initialMessages: [{ role: 'assistant', content: `A la orden, Jefe/a. Para forjar el copy perfecto (costo: ${COSTS.COPYWRITING} créditos), solo necesito la esencia de tu idea. Pega el texto o describe el concepto, y le daré vida.` }] }));
                 dom.salesResponseWorkflowBtn?.addEventListener('click', () => createWorkflowChat({ title: "Respuesta de Venta", workflow: "sales-response", initialMessages: [{ role: 'assistant', content: `Entendido, Jefe/a. Para diseñar la respuesta de venta ideal (costo: ${COSTS.SALES_RESPONSE} créditos), simplemente pega el mensaje de tu cliente. Yo me encargo de transformarlo en una oportunidad.` }] }));
-                dom.designWebWorkflowBtn?.addEventListener('click', () => createWorkflowChat({ title: "Nuevo Diseño Web", workflow: "design-web", initialMessages: [{ role: 'assistant', content: `Perfecto, Jefe/a. Usaremos el motor más potente, GPT-4o, para materializar tu página web (costo: ${COSTS.WEB_PAGE} créditos). **Describe con detalle la página que imaginas y la construiré para ti.**` }] }));
+                dom.designWebWorkflowBtn?.addEventListener('click', () => createWorkflowChat({ title: "Nuevo Diseño Web", workflow: "design-web", model: "gpt-4o", initialMessages: [{ role: 'assistant', content: `Perfecto, Jefe/a. Usaremos el motor más potente, GPT-4o, para materializar tu página web (costo: ${COSTS.WEB_PAGE} créditos). **Describe con detalle la página que imaginas y la construiré para ti.**` }] }));
                 dom.englishTeacherWorkflowBtn?.addEventListener('click', () => createWorkflowChat({ title: "English Teacher", workflow: "english-teacher", initialMessages: [{ role: 'assistant', content: "Hello! I am here to assist you. Do you wish to translate something, or perhaps learn something new today?" }] }));
 
                 dom.closeHtmlPreviewModalBtn?.addEventListener('click', () => dom.htmlPreviewModal.classList.add('hidden'));
@@ -952,6 +982,7 @@
                     }
                     updateUserUI();
                     loadStateForUser();
+                    updateModelSelectorState();
                     dom.appContainer.classList.remove('opacity-0');
                     dom.loadingOverlay.style.display = 'none';
                 };
@@ -979,7 +1010,7 @@
                 });
                 populateVoiceList();
                 setupEventListeners();
-                updateWebSearchButtonState();
+                updateModelSelectorState();
             }
 
             initApp();
