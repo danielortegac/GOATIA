@@ -34,9 +34,9 @@ exports.handler = async function (event) {
           'Authorization': `Bearer ${perplexityApiKey}`
         },
         body: JSON.stringify({
-          model: "llama-3-sonar-large-32k-online",
+          model: "sonar",
           messages: [
-            { role: 'system', content: 'Eres un asistente de investigación preciso y útil.' },
+            { role: 'system', content: 'Eres un asistente de investigación preciso y útil siempre pon links de tus consultas.' },
             { role: 'user', content: prompt }
           ]
         })
