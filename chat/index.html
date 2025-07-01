@@ -432,17 +432,54 @@
                 updateCreditCounter();
             }
 
-            function loadStateForUser() {
-                const key = currentUser ? `goatbotState_${currentUser.id}` : 'guestState';
-                const saved = localStorage.getItem(key);
-                if (saved) {
-                    const parsed = JSON.parse(saved);
-                    state = parsed.state || { chats: {}, projects: {}, structure: [] };
-                    currentChatId = parsed.currentChatId;
-                } else {
-                    state = { chats: {}, projects: {}, structure: [] };
-                    currentChatId = null;
+            async function loadStateForUser() {
+                // Para usuarios no registrados, seguimos usando localStorage
+                if (!currentUser) {
+                    const saved = localStorage.getItem('guestState');
+                    if (saved) {
+                        const parsed = JSON.parse(saved);
+                        state = parsed.state || { chats: {}, projects: {}, structure: [] };
+                        currentChatId = parsed.currentChatId;
+                    } else {
+                        state = { chats: {}, projects: {}, structure: [] };
+                        currentChatId = null;
+                    }
+                    renderSidebar();
+                    selectChat(currentChatId);
+                    return;
                 }
+
+                // Para usuarios registrados, cargamos desde la base de datos
+                try {
+                    const response = await fetch('/.netlify/functions/load-chats', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ userId: currentUser.id }),
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`Server error: ${response.status}`);
+                    }
+
+                    const dbState = await response.json();
+                    
+                    state = dbState.state || { chats: {}, projects: {}, structure: [] };
+                    currentChatId = dbState.currentChatId;
+
+                } catch (error) {
+                    console.error("Could not load from DB, falling back to localStorage:", error);
+                    // Si falla la carga de la DB, como respaldo, intenta cargar de localStorage
+                    const saved = localStorage.getItem(`goatbotState_${currentUser.id}`);
+                    if (saved) {
+                        const parsed = JSON.parse(saved);
+                        state = parsed.state || { chats: {}, projects: {}, structure: [] };
+                        currentChatId = parsed.currentChatId;
+                    } else {
+                        state = { chats: {}, projects: {}, structure: [] };
+                        currentChatId = null;
+                    }
+                }
+                
                 renderSidebar();
                 selectChat(currentChatId);
             }
@@ -981,7 +1018,7 @@
                         }
                     }
                     updateUserUI();
-                    loadStateForUser();
+                    loadStateForUser(); // <-- Esto ahora es una función async
                     updateModelSelectorState();
                     dom.appContainer.classList.remove('opacity-0');
                     dom.loadingOverlay.style.display = 'none';
