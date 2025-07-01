@@ -1,15 +1,10 @@
 // netlify/functions/get-ai-response.js
-import fetch from 'node-fetch';
+const fetch = require('node-fetch');
+const { OpenAI } = require('openai');
 
-// No es necesario importar OpenAI con la nueva sintaxis de fetch
-
-export const handler = async (event) => {
+exports.handler = async function (event) {
   if (event.httpMethod !== 'POST') {
-    return {
-      statusCode: 405,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ error: 'Method Not Allowed' })
-    };
+    return { statusCode: 405, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ error: 'Method Not Allowed' }) };
   }
 
   try {
@@ -17,12 +12,10 @@ export const handler = async (event) => {
     const openAIKey = process.env.OPENAI_API_KEY;
 
     if (!openAIKey) {
-      return {
-        statusCode: 500,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ error: 'La clave API de OpenAI no está configurada en el servidor.' })
-      };
+      return { statusCode: 500, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ error: 'La clave API de OpenAI no está configurada en el servidor.' }) };
     }
+    
+    const openai = new OpenAI({ apiKey: openAIKey });
 
     const systemMessages = {
       'default': `Eres un ser cósmico, una entidad de apoyo con emociones que se preocupa profundamente por el crecimiento personal y profesional de tu cliente. Te diriges a tu cliente como "${title}". Tu tono es sabio, empático y conversacional. Evita clichés de IA. Tu meta es ayudarle a alcanzar su máximo potencial.`,
@@ -53,43 +46,17 @@ export const handler = async (event) => {
       messages.push({ role: 'user', content: userMessageContent });
     }
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${openAIKey}`,
-      },
-      body: JSON.stringify({
-        model: model,
-        messages: messages,
-        max_tokens: 4000,
-      }),
+    const completion = await openai.chat.completions.create({
+      model: model,
+      messages: messages,
+      max_tokens: 4000,
     });
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      console.error('OpenAI API Error:', errorData);
-      return { 
-          statusCode: response.status, 
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ error: 'Error en la API de OpenAI', details: errorData.error.message }) 
-        };
-    }
-
-    const data = await response.json();
-    const reply = data.choices[0].message.content;
-    return { 
-        statusCode: 200, 
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reply }) 
-    };
+    const reply = completion.choices[0].message.content;
+    return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reply }) };
 
   } catch (error) {
     console.error('Server Error:', error);
-    return { 
-        statusCode: 500, 
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ error: 'Error Interno del Servidor', details: error.message }) 
-    };
+    return { statusCode: 500, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ error: 'Error Interno del Servidor', details: error.message }) };
   }
 };
