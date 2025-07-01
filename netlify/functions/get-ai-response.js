@@ -1,9 +1,14 @@
 // netlify/functions/get-ai-response.js
+const fetch = require('node-fetch');
 const { OpenAI } = require('openai');
 
 exports.handler = async function (event) {
   if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ error: 'Method Not Allowed' }) };
+    return { 
+        statusCode: 405, 
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: 'Method Not Allowed' }) 
+    };
   }
 
   const { prompt, history, model, imageData, pdfText, workflow, userName, title } = JSON.parse(event.body);
@@ -28,19 +33,20 @@ exports.handler = async function (event) {
     }
 
     try {
+      // Usando el nombre de modelo correcto: 'sonar'
       const response = await fetch('https://api.perplexity.ai/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${perplexityApiKey}`,
+          'Authorization': `Bearer ${perplexityApiKey}`
         },
         body: JSON.stringify({
-          model: "sonar-medium-online", // Usando el modelo correcto
+          model: "sonar", // **CORRECCIÓN DEFINITIVA: Usando el modelo válido.**
           messages: [
-            { role: 'system', content: 'Eres un asistente de investigación preciso y útil.' },
+            { role: 'system', content: 'Eres un asistente de investigación preciso y útil SIEMPRE ENTREGA LINKS DE TU CONSULTA.' },
             { role: 'user', content: prompt }
           ]
-        }),
+        })
       });
 
       if (!response.ok) {
