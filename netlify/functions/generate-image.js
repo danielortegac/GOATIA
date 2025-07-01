@@ -1,43 +1,54 @@
 // netlify/functions/generate-image.js
-exports.handler = async (event) => {
-  if (event.httpMethod !== 'POST')
-    return { statusCode: 405, body: 'Method Not Allowed' };
+exports.handler = async function (event) {
+  if (event.httpMethod !== "POST") {
+    return {
+      statusCode: 405,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ error: "Method Not Allowed" })
+    };
+  }
 
-  const { prompt = '' } = JSON.parse(event.body || '{}');
-  if (prompt.trim().length < 5)
-    return { statusCode: 400, body: 'Prompt ≥ 5 caracteres.' };
-
-  const KEY = process.env.OPENAI_API_KEY;
-  if (!KEY)
-    return { statusCode: 500, body: 'OPENAI_API_KEY no configurada.' };
+  let prompt;
 
   try {
-    const r = await fetch('https://api.openai.com/v1/images/generations', {
-      method: 'POST',
+    const body = JSON.parse(event.body);
+    prompt = (body.prompt || "").trim();
+
+    if (!prompt || prompt.length < 5) {
+      return {
+        statusCode: 400,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ error: "El prompt debe tener al menos 5 caracteres." })
+      };
+    }
+  } catch (e) {
+    return {
+      statusCode: 400,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ error: "Formato JSON inválido." })
+    };
+  }
+
+  const apiKey = process.env.OPENAI_API_KEY;
+
+  if (!apiKey) {
+    return {
+      statusCode: 500,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ error: "La clave API de OpenAI no está configurada." })
+    };
+  }
+
+  try {
+    const response = await fetch("https://api.openai.com/v1/images/generations", {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${KEY}`
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: 'dall-e-3',
-        prompt,
+        model: "dall-e-3",
+        prompt: prompt,
         n: 1,
-        size: '512x512',            // más barato; cambia si quieres
-        response_format: 'b64_json'
-      })
-    });
-
-    if (!r.ok) {
-      const e = await r.json().catch(() => ({}));
-      return { statusCode: r.status, body: JSON.stringify({ error: 'OpenAI error', details: e }) };
-    }
-
-    const data = await r.json();
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ imageData: `data:image/png;base64,${data.data[0].b64_json}` })
-    };
-  } catch (err) {
-    return { statusCode: 500, body: JSON.stringify({ error: 'Network error', details: err.message }) };
-  }
-};
+        size: "1024x1024",
+        response_format: "b64_json
