@@ -4,7 +4,11 @@ const { OpenAI } = require("openai");
 
 exports.handler = async (event) => {
   if (event.httpMethod !== "POST") {
-    return { statusCode: 405, headers: { "Content-Type": "application/json" }, body: JSON.stringify({error: "Method Not Allowed"}) };
+    return { 
+        statusCode: 405, 
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({error: "Method Not Allowed"}) 
+    };
   }
 
   const { prompt } = JSON.parse(event.body || "{}");
@@ -51,7 +55,6 @@ exports.handler = async (event) => {
         details: e.message
     };
     if (e.response) {
-        // Extract more specific error from OpenAI response if available
         const openAIError = await e.response.json();
         errorBody.details = openAIError.error?.message || e.message;
     }
