@@ -1,78 +1,74 @@
 // netlify/functions/generate-image.js
-const fetch = require('node-fetch');
+const fetch = require("node-fetch");
 
-exports.handler = async function (event) {
-  if (event.httpMethod !== 'POST') {
+exports.handler = async (event) => {
+  if (event.httpMethod !== "POST") {
     return { 
         statusCode: 405, 
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({error: 'Method Not Allowed'}) 
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({error: "Method Not Allowed"}) 
     };
   }
 
-  const { prompt } = JSON.parse(event.body);
+  const { prompt } = JSON.parse(event.body || "{}");
   const openAIKey = process.env.OPENAI_API_KEY;
-  
+
   if (!openAIKey) {
     return { 
         statusCode: 500, 
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ error: 'La clave API de OpenAI no está configurada en el servidor.' }) 
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ error: "La clave API de OpenAI no está configurada en el servidor." }) 
     };
   }
 
-  if (!prompt) {
-    return { 
-        statusCode: 400, 
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ error: 'El prompt es requerido.' }) 
+  if (!prompt || prompt.length < 5) {
+    return {
+      statusCode: 400,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ error: "El prompt debe tener 5 o más caracteres." })
     };
   }
 
   try {
-    const response = await fetch('https://api.openai.com/v1/images/generations', {
-      method: 'POST',
+    const response = await fetch("https://api.openai.com/v1/images/generations", {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${openAIKey}`,
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${openAIKey}`
       },
       body: JSON.stringify({
         model: "dall-e-3",
-        prompt: prompt,
+        prompt,
         n: 1,
         size: "1024x1024",
-        response_format: "b64_json",
-      }),
+        response_format: "b64_json"
+      })
     });
 
     if (!response.ok) {
-        const errorData = await response.json();
-        console.error('OpenAI Image API Error:', errorData);
-        return { 
-            statusCode: response.status, 
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ error: 'Error en la API de OpenAI', details: errorData.error.message }) 
-        };
+      const err = await response.json();
+      console.error("OpenAI error", err);
+      return {
+        statusCode: response.status,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ error: err.error.message })
+      };
     }
 
     const data = await response.json();
     const imageData = `data:image/png;base64,${data.data[0].b64_json}`;
-
+    
     return {
       statusCode: 200,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ imageData }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ imageData })
     };
-
-  } catch (error) {
-    console.error('Image Generation Error:', error);
-    return { 
-        statusCode: 500, 
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-            error: 'Ocurrió un error interno en el servidor.',
-            details: error.message 
-        }) 
+  } catch (e) {
+    console.error("Internal function error:", e);
+    return {
+      statusCode: 500,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ error: "Error interno en la función.", details: e.message })
     };
   }
 };
