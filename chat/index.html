@@ -23,7 +23,7 @@
             width: 100%;
             overflow: hidden;
         }
-        body { font-family: 'Inter', sans-serif; transition: background-color 0.3s ease, color 0.3s ease; font-size: 16px; }
+        body { font-family: 'Inter', sans-serif; transition: background-color: 0.3s ease, color: 0.3s ease; font-size: 16px; }
         .dark-theme { --current-bg-dark: var(--bg-dark); --current-bg-medium: var(--bg-medium); --current-bg-light: var(--bg-light); --current-primary: var(--primary); --current-primary-hover: var(--primary-hover); --current-text-light: var(--text-light); --current-text-medium: var(--text-medium); --current-border-color: var(--border-color); background-color: var(--current-bg-dark); color: var(--text-light); }
         .light-theme { --current-bg-dark: var(--light-bg-dark); --current-bg-medium: var(--light-bg-medium); --current-bg-light: var(--light-bg-light); --current-primary: var(--light-primary); --current-primary-hover: var(--light-primary-hover); --current-text-light: var(--light-text-dark); --current-text-medium: var(--light-text-medium); --current-border-color: var(--light-border-color); background-color: var(--light-bg-dark); color: var(--light-text-dark); }
         #sidebar { background-color: var(--current-bg-dark); border-right: 1px solid var(--current-border-color); }
@@ -178,7 +178,6 @@
         </main>
     </div>
 
-    <!-- Modals -->
     <div id="generic-modal" class="fixed inset-0 bg-black bg-opacity-70 hidden items-center justify-center z-40 p-4">
         <div class="modal-content rounded-lg w-full max-w-sm p-6 relative">
             <h3 id="modal-title" class="text-lg font-bold mb-4"></h3><p id="modal-message" class="mb-4 text-text-medium"></p>
@@ -435,7 +434,22 @@
                 selectChat(currentChatId);
             }
 
-            function saveState() { localStorage.setItem(currentUser ? `goatbotState_${currentUser.id}` : 'guestState', JSON.stringify({ state, currentChatId })); }
+            function saveState() {
+                try {
+                    localStorage.setItem(currentUser ? `goatbotState_${currentUser.id}` : 'guestState', JSON.stringify({ state, currentChatId }));
+                } catch (e) {
+                    if (e.name === 'QuotaExceededError' || (e.message && e.message.toLowerCase().includes('exceeded the quota'))) {
+                        console.error("Error: LocalStorage quota exceeded.", e);
+                        showModal({
+                            title: 'Almacenamiento Lleno',
+                            message: 'Has alcanzado el límite de almacenamiento de tu navegador. Para guardar nuevas conversaciones, por favor, elimina algunos chats antiguos.',
+                            confirmText: 'Entendido'
+                        });
+                    } else {
+                        console.error("Error saving state:", e);
+                    }
+                }
+            }
             
             function updateUserUI() {
                 if (currentUser) {
@@ -972,4 +986,4 @@
         });
     </script>
 </body>
-</html>
+</ht
