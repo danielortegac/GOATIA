@@ -484,20 +484,31 @@
                 selectChat(currentChatId);
             }
 
-            function saveState() {
-                try {
-                    localStorage.setItem(currentUser ? `goatbotState_${currentUser.id}` : 'guestState', JSON.stringify({ state, currentChatId }));
-                } catch (e) {
-                    if (e.name === 'QuotaExceededError' || (e.message && e.message.toLowerCase().includes('exceeded the quota'))) {
-                        console.error("Error: LocalStorage quota exceeded.", e);
-                        showModal({
-                            title: 'Almacenamiento Lleno',
-                            message: 'Has alcanzado el límite de almacenamiento de tu navegador. Para guardar nuevas conversaciones, por favor, elimina algunos chats antiguos.',
-                            confirmText: 'Entendido'
-                        });
-                    } else {
-                        console.error("Error saving state:", e);
+            async function saveState() {
+                // Para usuarios invitados, seguimos usando el almacenamiento local.
+                if (!currentUser) {
+                    try {
+                        localStorage.setItem('guestState', JSON.stringify({ state, currentChatId }));
+                    } catch (e) {
+                        console.error("Guest localStorage is full.", e);
                     }
+                    return;
+                }
+
+                // Para usuarios registrados, guardamos en la base de datos.
+                try {
+                    const stateToSave = { state, currentChatId };
+                    await fetch('/.netlify/functions/save-chats', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            userId: currentUser.id,
+                            stateToSave: stateToSave
+                        }),
+                    });
+                } catch (error) {
+                    console.error("Failed to save state to DB:", error);
+                    // Opcional: podrías mostrar un aviso al usuario de que no se pudo guardar en la nube.
                 }
             }
             
