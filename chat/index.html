@@ -362,7 +362,7 @@
             }
             
             function getModelForRequest(workflow, hasFile) {
-                if (workflow === "web-page") return "gpt-4-turbo";
+                if (workflow === "web-page") return "gpt-4o-mini";
                 if (workflow === "copywriting" || workflow === "sales-response") return "gpt-4o";
                 if (hasFile) return "gpt-4o";
                 
@@ -779,9 +779,15 @@
                         headers: { 'Content-Type': 'application/json', ...(token && { 'Authorization': `Bearer ${token}` }) },
                         body: JSON.stringify({ prompt })
                     });
-                    if (!response.ok) {
-                        const errorData = await response.json();
-                        throw new Error(errorData.error || 'No se pudo generar la imagen.');
+                     if (!response.ok) {
+                        let errorText;
+                        try {
+                            const errorData = await response.json();
+                            errorText = errorData.error || 'No se pudo generar la imagen.';
+                        } catch (e) {
+                            errorText = `Error del servidor (${response.status}). Inténtalo de nuevo.`;
+                        }
+                        throw new Error(errorText);
                     }
                     const { imageData } = await response.json();
                     const imageContent = `¡Aquí está tu creación, Jefe/a!`;
