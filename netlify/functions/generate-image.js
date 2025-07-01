@@ -1,13 +1,10 @@
 // netlify/functions/generate-image.js
-import fetch from "node-fetch";
+const fetch = require("node-fetch");
+const { OpenAI } = require("openai");
 
-export const handler = async (event) => {
+exports.handler = async (event) => {
   if (event.httpMethod !== "POST") {
-    return { 
-        statusCode: 405, 
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({error: "Method Not Allowed"}) 
-    };
+    return { statusCode: 405, headers: { "Content-Type": "application/json" }, body: JSON.stringify({error: "Method Not Allowed"}) };
   }
 
   const { prompt } = JSON.parse(event.body || "{}");
@@ -21,6 +18,8 @@ export const handler = async (event) => {
     };
   }
 
+  const openai = new OpenAI({ apiKey: openAIKey });
+
   if (!prompt || prompt.length < 5) {
     return {
       statusCode: 400,
@@ -30,33 +29,15 @@ export const handler = async (event) => {
   }
 
   try {
-    const response = await fetch("https://api.openai.com/v1/images/generations", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${openAIKey}`
-      },
-      body: JSON.stringify({
-        model: "dall-e-3",
-        prompt,
-        n: 1,
-        size: "1024x1024",
-        response_format: "b64_json"
-      })
+    const response = await openai.images.generate({
+      model: "dall-e-3",
+      prompt,
+      n: 1,
+      size: "1024x1024",
+      response_format: "b64_json"
     });
 
-    if (!response.ok) {
-      const err = await response.json();
-      console.error("OpenAI error", err);
-      return {
-        statusCode: response.status,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ error: err.error.message })
-      };
-    }
-
-    const data = await response.json();
-    const imageData = `data:image/png;base64,${data.data[0].b64_json}`;
+    const imageData = `data:image/png;base64,${response.data[0].b64_json}`;
     
     return {
       statusCode: 200,
@@ -65,10 +46,19 @@ export const handler = async (event) => {
     };
   } catch (e) {
     console.error("Internal function error:", e);
+    const errorBody = {
+        error: "Error en la API de OpenAI.",
+        details: e.message
+    };
+    if (e.response) {
+        // Extract more specific error from OpenAI response if available
+        const openAIError = await e.response.json();
+        errorBody.details = openAIError.error?.message || e.message;
+    }
     return {
-      statusCode: 500,
+      statusCode: e.response?.status || 500,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ error: "Error interno en la función.", details: e.message })
+      body: JSON.stringify(errorBody)
     };
   }
 };
