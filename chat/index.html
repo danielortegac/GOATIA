@@ -374,8 +374,6 @@
 
             async function getAIResponse(prompt, history, image, pdf, model, workflow, userName) {
                 const token = currentUser ? await currentUser.jwt() : null;
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minutes timeout
                 const name = (userName || '').split(' ')[0];
                 let title = 'Jefe';
                 if (name.slice(-1).toLowerCase() === 'a' || ['isabel', 'dolores'].includes(name.toLowerCase())) {
@@ -392,10 +390,7 @@
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', ...(token && { 'Authorization': `Bearer ${token}` }) },
                         body: JSON.stringify(body),
-                        signal: controller.signal
                     });
-                    clearTimeout(timeoutId);
-                    if (response.status === 403) { return { error: 'LIMIT_REACHED' }; }
                     if (!response.ok) {
                         const errorData = await response.json().catch(() => ({details: 'Error desconocido en el servidor'}));
                         console.error("Backend Error:", errorData);
@@ -403,10 +398,7 @@
                     }
                     return await response.json();
                 } catch (error) {
-                    clearTimeout(timeoutId);
-                    if (error.name === 'AbortError') {
-                        throw new Error('La solicitud tardó demasiado y fue cancelada. Por favor, intenta de nuevo.');
-                    }
+                    console.error("Fetch Error:", error);
                     throw error;
                 }
             }
