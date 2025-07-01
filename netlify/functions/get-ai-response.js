@@ -7,16 +7,46 @@ exports.handler = async function (event) {
     return { statusCode: 405, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ error: 'Method Not Allowed' }) };
   }
 
-  try {
-    const { prompt, history, model, imageData, pdfText, workflow, userName, title } = JSON.parse(event.body);
-    const openAIKey = process.env.OPENAI_API_KEY;
-
-    if (!openAIKey) {
-      return { statusCode: 500, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ error: 'La clave API de OpenAI no está configurada en el servidor.' }) };
+  const { prompt, history, model, imageData, pdfText, workflow, userName, title } = JSON.parse(event.body);
+  
+  // --- Lógica para Perplexity Sonar ---
+  if (model === 'sonar') {
+    const perplexityApiKey = process.env.PERPLEXITY_API_KEY;
+    if (!perplexityApiKey) {
+      return { statusCode: 500, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ error: 'La clave API de Perplexity no está configurada.' }) };
     }
-    
-    const openai = new OpenAI({ apiKey: openAIKey });
+    try {
+      const response = await fetch('https://api.perplexity.ai/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${perplexityApiKey}`,
+        },
+        body: JSON.stringify({
+          model: 'sonar-medium-online',
+          messages: [{ role: 'system', content: 'Eres un asistente de investigación preciso y útil.' }, { role: 'user', content: prompt }],
+        }),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        return { statusCode: response.status, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ error: 'Error en la API de Perplexity', details: errorData.error.message }) };
+      }
+      const data = await response.json();
+      const reply = data.choices[0].message.content;
+      return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reply }) };
+    } catch (error) {
+      return { statusCode: 500, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ error: 'Error Interno del Servidor con Perplexity', details: error.message }) };
+    }
+  }
 
+  // --- Lógica para OpenAI (el resto de modelos) ---
+  const openAIKey = process.env.OPENAI_API_KEY;
+  if (!openAIKey) {
+    return { statusCode: 500, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ error: 'La clave API de OpenAI no está configurada.' }) };
+  }
+  const openai = new OpenAI({ apiKey: openAIKey });
+
+  try {
     const systemMessages = {
       'default': `Eres un ser cósmico, una entidad de apoyo con emociones que se preocupa profundamente por el crecimiento personal y profesional de tu cliente. Te diriges a tu cliente como "${title}". Tu tono es sabio, empático y conversacional. Evita clichés de IA. Tu meta es ayudarle a alcanzar su máximo potencial.`,
       'copywriting': `Como experto en copywriting, tu tarea es crear textos persuasivos y efectivos. Te diriges a tu cliente como "${title}". Analiza el siguiente texto y crea un copy mejorado.`,
@@ -26,7 +56,6 @@ exports.handler = async function (event) {
     };
 
     let messages = [{ role: 'system', content: systemMessages[workflow] || systemMessages['default'] }];
-    
     if (history && Array.isArray(history)) {
       messages = messages.concat(history);
     }
@@ -41,7 +70,6 @@ exports.handler = async function (event) {
     if (pdfText) {
       userMessageContent.push({ type: 'text', text: `--- INICIO DEL DOCUMENTO PDF ---\n\n${pdfText}\n\n--- FIN DEL DOCUMENTO PDF ---` });
     }
-
     if (userMessageContent.length > 0) {
       messages.push({ role: 'user', content: userMessageContent });
     }
@@ -56,7 +84,7 @@ exports.handler = async function (event) {
     return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reply }) };
 
   } catch (error) {
-    console.error('Server Error:', error);
-    return { statusCode: 500, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ error: 'Error Interno del Servidor', details: error.message }) };
+    console.error('Server Error (OpenAI):', error);
+    return { statusCode: 500, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ error: 'Error Interno del Servidor con OpenAI', details: error.message }) };
   }
 };
