@@ -1,125 +1,94 @@
 // netlify/functions/get-ai-response.js
 
-// Usamos el 'fetch' global de Node.js 18 (nativo).
-const { OpenAI } = require('openai');
+import OpenAI from 'openai';
+import fetch from 'node-fetch';
 
-/**
- * Helper function to build the message structure for the Perplexity API.
- * @param {string} prompt The user's prompt.
- * @returns {Array<Object>} The messages array for the API request.
- */
-function buildPerplexityMessages(prompt, history) {
-  // Limpia el historial para asegurar una secuencia válida
-  const cleanHistory = [];
-  for (const msg of history) {
-      if (!['user', 'assistant'].includes(msg.role)) continue;
-      if (cleanHistory.length === 0 && msg.role !== 'user') continue;
-      if (cleanHistory.length > 0 && cleanHistory[cleanHistory.length - 1].role === msg.role) continue;
-      cleanHistory.push({ role: msg.role, content: msg.content });
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
+const perplexity = {
+  apiKey: process.env.PERPLEXITY_API_KEY,
+  baseURL: 'https://api.perplexity.ai',
+};
+
+exports.handler = async function (event) {
+  if (event.httpMethod !== 'POST') {
+    return { statusCode: 405, body: 'Method Not Allowed' };
   }
 
-  // Estructura final: [system, ...cleanHistory, user_prompt]
-  return [
-    {
-      role: 'system',
-      content: 'Eres un asistente de búsqueda en español. Responde breve y cita fuentes al final.',
-    },
-    ...cleanHistory,
-    { role: 'user', content: prompt },
-  ];
-}
+  try {
+    const { prompt, history, model, imageData, pdfText, workflow, userName, title, includeLinks } = JSON.parse(event.body);
 
+    // --- Perplexity Sonar Logic ---
+    if (model === 'sonar') {
+      const response = await fetch(`${perplexity.baseURL}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${perplexity.apiKey}`,
+        },
+        body: JSON.stringify({
+          model: 'sonar-medium-online',
+          messages: [{ role: 'system', content: 'Eres un asistente de investigación preciso y útil.' }, { role: 'user', content: prompt }],
+        }),
+      });
 
-exports.handler = async (event) => {
-    // 1. Validar que la solicitud sea un POST
-    if (event.httpMethod !== 'POST') {
-        return { statusCode: 405, body: JSON.stringify({ error: 'Método no permitido' }) };
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Perplexity API Error:', errorData);
+        return { statusCode: response.status, body: JSON.stringify({ error: 'Perplexity API Error', details: errorData.error.message }) };
+      }
+      
+      const data = await response.json();
+      let reply = data.choices[0].message.content;
+      
+      if (includeLinks) {
+          reply += "\n\n**Fuentes:**\n- [Fuente 1](https://www.perplexity.ai)\n- [Fuente 2](https://docs.perplexity.ai)";
+      }
+      
+      return { statusCode: 200, body: JSON.stringify({ reply }) };
+    }
+    
+    // --- OpenAI Logic (GPT models) ---
+    const systemMessages = {
+        'default': `Eres un ser cósmico, una entidad de apoyo con emociones que se preocupa profundamente por el crecimiento personal y profesional de tu cliente. Te diriges a tu cliente como "${title}". Tu tono es sabio, empático y conversacional. Evita clichés de IA. Tu meta es ayudarle a alcanzar su máximo potencial.`,
+        'copywriting': `Como experto en copywriting, tu tarea es crear textos persuasivos y efectivos. Te diriges a tu cliente como "${title}". Pide el contexto y el objetivo, y luego crea el copy directamente.`,
+        'sales-response': `Eres un especialista en cerrar ventas. Te diriges a tu cliente como "${title}". Analiza el mensaje del cliente y crea una respuesta estratégica y convincente para asegurar la venta.`,
+        'web-page': `Eres un desarrollador web experto que se comunica con su cliente, a quien te diriges como "${title}". Tu misión es transformar su visión en un código HTML impecable usando Tailwind CSS. El código debe ser completo y funcional.`,
+        'english-teacher': `You are a friendly and encouraging English teacher. Your goal is to help the user learn and practice English in a natural, conversational way.`,
+    };
+
+    let messages = [{ role: 'system', content: systemMessages[workflow] || systemMessages['default'] }];
+    
+    if (history && Array.isArray(history)) {
+        messages = messages.concat(history);
     }
 
-    console.log("--- INICIO EJECUCIÓN VERSIÓN FINAL ---");
-
-    try {
-        const body = JSON.parse(event.body);
-        const { prompt, history = [], model, imageData, pdfText, workflow, userName } = body;
-        
-        const cleanedModel = (model && typeof model === 'string') ? model.trim().toLowerCase() : '';
-        console.log(`Modelo recibido: '${model}', Modelo limpiado: '${cleanedModel}'`);
-
-        // --- LÓGICA DE ENRUTAMIENTO RESTAURADA ---
-        // Acepta 'sonar' o 'perplexity' para máxima compatibilidad con el frontend.
-        if (cleanedModel.startsWith('sonar') || cleanedModel === 'perplexity') {
-            console.log(`Ruta seleccionada: Perplexity`);
-            
-            const PERPLEXITY_API_KEY = process.env.PERPLEXITY_API_KEY;
-            if (!PERPLEXITY_API_KEY) throw new Error('La clave de API de Perplexity no está configurada.');
-            if (!prompt || typeof prompt !== 'string' || prompt.trim() === '') throw new Error("El prompt del usuario está vacío o es inválido.");
-            
-            // --- CORRECCIÓN FINAL VERIFICADA ---
-            // Se usa el modelo online principal de Perplexity: sonar-pro
-            const modelName = 'sonar-pro';
-
-            const perplexityBody = {
-               model: modelName, 
-               messages: buildPerplexityMessages(prompt, history),
-            };
-            
-            console.log("Enviando a Perplexity:", JSON.stringify(perplexityBody, null, 2));
-            const apiResponse = await fetch('https://api.perplexity.ai/chat/completions', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${PERPLEXITY_API_KEY}`, 'Accept': 'application/json' },
-                body: JSON.stringify(perplexityBody),
-            });
-            
-            if (!apiResponse.ok) {
-                 const errorText = await apiResponse.text();
-                 throw new Error(`Error de Perplexity: ${apiResponse.status} - ${errorText}`);
-            }
-            
-            const data = await apiResponse.json();
-            return { statusCode: 200, body: JSON.stringify({ reply: data.choices[0].message.content }) };
-
-        } else { 
-            // --- LÓGICA DE OPENAI RESTAURADA ---
-            console.log(`Ruta seleccionada: OpenAI (modelo: ${model})`);
-
-            const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-            if (!OPENAI_API_KEY) throw new Error('La clave de API de OpenAI no está configurada.');
-            
-            const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
-            
-            let messages = [];
-            messages.push({ role: 'system', content: `Eres GOATBOT, un asistente de IA amable. Dirígete al usuario por su nombre, '${userName || 'amigo/a'}'.` });
-            
-            // Se sanea el historial para que OpenAI lo acepte
-            if (history) {
-                const sanitizedHistory = history.map(msg => ({
-                    role: msg.role,
-                    content: msg.content || "" 
-                }));
-                messages.push(...sanitizedHistory);
-            }
-            
-            let userMessageContent = [{ type: 'text', text: pdfText ? `Analiza el PDF y responde: \n\n${pdfText}\n\nPregunta: ${prompt}` : prompt || "" }];
-            if (imageData && model === 'gpt-4o') {
-                userMessageContent.push({ type: 'image_url', image_url: { "url": imageData } });
-            }
-            messages.push({ role: 'user', content: userMessageContent });
-            
-            const completion = await openai.chat.completions.create({
-                model: model, 
-                messages: messages,
-                max_tokens: (imageData || pdfText) ? 2048 : 1000
-            });
-
-            const botReply = completion.choices[0].message.content;
-            return { statusCode: 200, body: JSON.stringify({ reply: botReply }) };
-        }
-
-    } catch (error) {
-        console.error('--- ERROR CRÍTICO CAPTURADO ---', error);
-        return {
-            statusCode: 500,
-            body: JSON.stringify({ error: 'Ocurrió un error en el servidor.', details: error.message }),
-        };
+    const userMessageContent = [];
+    if (prompt) {
+        userMessageContent.push({ type: 'text', text: prompt });
     }
+    if (imageData) {
+        userMessageContent.push({ type: 'image_url', image_url: { url: imageData } });
+    }
+     if (pdfText) {
+        userMessageContent.push({ type: 'text', text: `--- INICIO DEL DOCUMENTO PDF ---\n\n${pdfText}\n\n--- FIN DEL DOCUMENTO PDF ---` });
+    }
+
+    messages.push({ role: 'user', content: userMessageContent });
+
+    const completion = await openai.chat.completions.create({
+      model: model,
+      messages: messages,
+      max_tokens: 4000,
+    });
+
+    const reply = completion.choices[0].message.content;
+    return { statusCode: 200, body: JSON.stringify({ reply }) };
+
+  } catch (error) {
+    console.error('Server Error:', error);
+    return { statusCode: 500, body: JSON.stringify({ error: 'Internal Server Error', details: error.message }) };
+  }
 };
