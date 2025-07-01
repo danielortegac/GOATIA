@@ -159,7 +159,7 @@
                     <label for="model-selector" class="font-medium text-sm text-text-medium">Modelo:</label>
                     <select id="model-selector" class="rounded-md p-1.5 focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm bg-input text-text-light border border-themed">
                         <option value="gpt-3.5-turbo-1106">Chat General (Turbo)</option>
-                        <option value="gpt-4o">Análisis Premium (Archivos)</option>
+                        <option value="gpt-4o-mini">Análisis Premium (Archivos)</option>
                         <option value="sonar">Búsqueda Web (Sonar)</option>
                     </select>
                 </div>
@@ -364,11 +364,11 @@
             function getModelForRequest(workflow, hasFile) {
                 if (workflow === "web-page") return "gpt-4o-mini";
                 if (workflow === "copywriting" || workflow === "sales-response") return "gpt-4o";
-                if (hasFile) return "gpt-4o";
+                if (hasFile) return "gpt-4o-mini";
                 
                 const selectedModel = dom.modelSelector.value;
                 if (selectedModel === 'sonar') return 'sonar';
-                if (selectedModel === 'gpt-4o') return 'gpt-4o';
+                if (selectedModel === 'gpt-4o-mini') return 'gpt-4o-mini';
                 return 'gpt-3.5-turbo-1106';
             }
 
@@ -705,7 +705,7 @@
                 else if (currentChat.workflow === 'sales-response') { cost = COSTS.SALES_RESPONSE; }
                 else if (currentChat.workflow === 'english-teacher') { cost = COSTS.ENGLISH_TEACHER; }
                 else if (model === 'sonar') { cost = COSTS.SEARCH; }
-                else if (model === 'gpt-4o' && hasFile()) { cost = COSTS.NEBULA; }
+                else if (model.includes('gpt-4') && hasFile()) { cost = COSTS.NEBULA; }
                 
                 let count = getCreditCount();
                 if (count < cost && !forceSend) {
@@ -875,8 +875,8 @@
                 dom.pdfUploadBtn?.addEventListener('click', () => dom.pdfUploadInput.click());
                 dom.clearImageBtn?.addEventListener('click', clearImageData);
                 dom.clearPdfBtn?.addEventListener('click', clearPdfData);
-                dom.imageUploadInput?.addEventListener('change', (e) => { if (e.target.files && e.target.files[0]) { clearPdfData(); const reader = new FileReader(); reader.onload = (ev) => { selectedImageBase64 = ev.target.result; dom.imagePreview.src = selectedImageBase64; dom.imagePreviewContainer.classList.remove('hidden'); dom.modelSelector.value = 'gpt-4o'; }; reader.readAsDataURL(e.target.files[0]); } });
-                dom.pdfUploadInput?.addEventListener('change', (e) => { const file = e.target.files[0]; if (!file || file.type !== 'application/pdf') return; clearImageData(); dom.pdfNameEl.textContent = file.name; dom.pdfStatusEl.textContent = 'Leyendo...'; dom.pdfPreviewContainer.classList.remove('hidden'); const reader = new FileReader(); reader.onload = async (ev) => { dom.pdfStatusEl.textContent = 'Procesando...'; try { const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(ev.target.result) }).promise; let text = ''; for (let i = 1; i <= pdf.numPages; i++) { const page = await pdf.getPage(i); const content = await page.getTextContent(); text += content.items.map(item => item.str).join(' ') + '\n'; } selectedPdfText = text; dom.pdfStatusEl.textContent = `✅ Listo (${pdf.numPages} pág.)`; dom.modelSelector.value = 'gpt-4o'; } catch (err) { console.error("Error al procesar el PDF:", err); dom.pdfStatusEl.textContent = '❌ Error al leer PDF.'; selectedPdfText = null; setTimeout(clearPdfData, 2000); } }; reader.readAsArrayBuffer(file); });
+                dom.imageUploadInput?.addEventListener('change', (e) => { if (e.target.files && e.target.files[0]) { clearPdfData(); const reader = new FileReader(); reader.onload = (ev) => { selectedImageBase64 = ev.target.result; dom.imagePreview.src = selectedImageBase64; dom.imagePreviewContainer.classList.remove('hidden'); dom.modelSelector.value = 'gpt-4o-mini'; }; reader.readAsDataURL(e.target.files[0]); } });
+                dom.pdfUploadInput?.addEventListener('change', (e) => { const file = e.target.files[0]; if (!file || file.type !== 'application/pdf') return; clearImageData(); dom.pdfNameEl.textContent = file.name; dom.pdfStatusEl.textContent = 'Leyendo...'; dom.pdfPreviewContainer.classList.remove('hidden'); const reader = new FileReader(); reader.onload = async (ev) => { dom.pdfStatusEl.textContent = 'Procesando...'; try { const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(ev.target.result) }).promise; let text = ''; for (let i = 1; i <= pdf.numPages; i++) { const page = await pdf.getPage(i); const content = await page.getTextContent(); text += content.items.map(item => item.str).join(' ') + '\n'; } selectedPdfText = text; dom.pdfStatusEl.textContent = `✅ Listo (${pdf.numPages} pág.)`; dom.modelSelector.value = 'gpt-4o-mini'; } catch (err) { console.error("Error al procesar el PDF:", err); dom.pdfStatusEl.textContent = '❌ Error al leer PDF.'; selectedPdfText = null; setTimeout(clearPdfData, 2000); } }; reader.readAsArrayBuffer(file); });
                 
                 dom.menuToggle?.addEventListener('click', (e) => { e.stopPropagation(); toggleSidebar(true); });
                 dom.sidebarOverlay?.addEventListener('click', () => toggleSidebar(false));
