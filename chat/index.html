@@ -164,6 +164,8 @@
                     </select>
                 </div>
                 <div class="relative rounded-xl flex items-center bg-input p-1 sm:p-2">
+                    <input type="file" id="pdf-upload" accept=".pdf,application/pdf" class="hidden">
+                    <input type="file" id="image-upload" accept="image/*" class="hidden">
                     <button id="image-gen-btn" title="Crear Imagen" class="p-2 sm:p-3 hover:text-primary transition-colors rounded-full text-text-medium"><i class="fas fa-paint-brush text-xl"></i></button>
                     <button id="pdf-upload-btn" title="Subir PDF" class="p-2 sm:p-3 hover:text-primary transition-colors rounded-full text-text-medium"><i class="fa fa-file-pdf text-xl"></i></button>
                     <button id="image-upload-btn" title="Subir Imagen" class="p-2 sm:p-3 hover:text-primary transition-colors rounded-full text-text-medium"><i class="fa fa-image text-xl"></i></button>
@@ -373,7 +375,6 @@
             }
 
             async function getAIResponse(prompt, history, image, pdf, model, workflow, userName) {
-                const token = currentUser ? await currentUser.jwt() : null;
                 const name = (userName || '').split(' ')[0];
                 let title = 'Jefe';
                 if (name.slice(-1).toLowerCase() === 'a' || ['isabel', 'dolores'].includes(name.toLowerCase())) {
@@ -388,7 +389,7 @@
                 try {
                     const response = await fetch('/.netlify/functions/get-ai-response', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json', ...(token && { 'Authorization': `Bearer ${token}` }) },
+                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(body),
                     });
                     if (!response.ok) {
@@ -501,13 +502,13 @@
                     title: options.title || "Conversación Cósmica", 
                     messages: initialMessages,
                     workflow: options.workflow || null,
-                    model: options.model || 'gpt-3.5-turbo-1106'
+                    model: options.model || 'gpt-3.5-turbo'
                 }; 
                 state.structure.unshift(id); 
                 selectChat(id); 
                 saveState(); 
                 renderSidebar(); 
-                dom.modelSelector.value = options.model || 'gpt-3.5-turbo-1106';
+                dom.modelSelector.value = options.model || 'gpt-3.5-turbo';
                 updateWebSearchButtonState();
                 if (window.innerWidth < 768) toggleSidebar(false);
                 return id; 
@@ -525,13 +526,13 @@
                 const chat = state.chats[chatId]; 
                 dom.chatTitle.textContent = chat.title; 
                 chat.messages.forEach((msg) => addMessageToUI(msg.role, msg.content, msg.image)); 
-                dom.modelSelector.value = chat.model || 'gpt-3.5-turbo-1106';
+                dom.modelSelector.value = chat.model || 'gpt-3.5-turbo';
                 updateWebSearchButtonState();
                 updateActiveChatHighlight(); 
                 saveState();
                 if (window.innerWidth < 768) toggleSidebar(false);
             }
-            function resetChatView() { currentChatId = null; dom.chatTitle.textContent = "GOATBOT Pro"; dom.chatMessages.innerHTML = ''; dom.initialMessageContainer.style.display = 'flex'; updateUserUI(); updateActiveChatHighlight(); dom.modelSelector.value = 'gpt-3.5-turbo-1106'; updateWebSearchButtonState(); }
+            function resetChatView() { currentChatId = null; dom.chatTitle.textContent = "GOATBOT Pro"; dom.chatMessages.innerHTML = ''; dom.initialMessageContainer.style.display = 'flex'; updateUserUI(); updateActiveChatHighlight(); dom.modelSelector.value = 'gpt-3.5-turbo'; updateWebSearchButtonState(); }
             
             function renderCodeBlock(content) {
                 const codeBlock = document.createElement('div');
@@ -765,10 +766,9 @@
                 const thinkingBubble = addMessageToUI('assistant', 'Creando tu visión...');
 
                 try {
-                    const token = currentUser ? await currentUser.jwt() : null;
                     const response = await fetch('/.netlify/functions/generate-image', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json', ...(token && { 'Authorization': `Bearer ${token}` }) },
+                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ prompt })
                     });
                      if (!response.ok) {
@@ -857,8 +857,6 @@
                         speechOn = !speechOn;
                         ttsIcon.classList.toggle('fa-volume-high', speechOn);
                         ttsIcon.classList.toggle('fa-volume-mute', !speechOn);
-                        dom.ttsToggle.classList.toggle('text-yellow-400', speechOn);
-                        dom.ttsToggle.classList.toggle('text-text-medium', !speechOn);
                         if (!speechOn) speechSynthesis.cancel();
                     });
                 }
@@ -867,7 +865,7 @@
                    updateWebSearchButtonState();
                 });
                 dom.webSearchBtn.addEventListener('click', () => {
-                    dom.modelSelector.value = dom.modelSelector.value === 'sonar' ? 'gpt-3.5-turbo-1106' : 'sonar';
+                    dom.modelSelector.value = dom.modelSelector.value === 'sonar' ? 'gpt-3.5-turbo' : 'sonar';
                     updateWebSearchButtonState();
                 });
 
