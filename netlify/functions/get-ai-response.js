@@ -8,14 +8,26 @@ exports.handler = async function (event) {
 
   const { prompt, history, model, imageData, pdfText, workflow, userName, title } = JSON.parse(event.body);
   
+  if (!prompt || prompt.trim().length < 1) {
+    return { 
+      statusCode: 400, 
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ error: 'El prompt está vacío o es demasiado corto.' })
+    };
+  }
+
   // --- Lógica para Perplexity Sonar ---
   if (model === 'sonar') {
     const perplexityApiKey = process.env.PERPLEXITY_API_KEY;
     if (!perplexityApiKey) {
-      return { statusCode: 500, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ error: 'La clave API de Perplexity no está configurada.' }) };
+      return {
+        statusCode: 500,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ error: 'La clave API de Perplexity no está configurada.' })
+      };
     }
+
     try {
-      // Usando el fetch nativo de Node 18+
       const response = await fetch('https://api.perplexity.ai/chat/completions', {
         method: 'POST',
         headers: {
@@ -23,18 +35,33 @@ exports.handler = async function (event) {
           'Authorization': `Bearer ${perplexityApiKey}`,
         },
         body: JSON.stringify({
-          model: 'llama-3-sonar-large-32k-online',
-          messages: [{ role: 'system', content: 'Eres un asistente de investigación preciso y útil.' }, { role: 'user', content: prompt }],
+          model: "sonar-medium-online", // Usando el modelo correcto
+          messages: [
+            { role: 'system', content: 'Eres un asistente de investigación preciso y útil.' },
+            { role: 'user', content: prompt }
+          ]
         }),
       });
+
       if (!response.ok) {
-        const errorData = await response.json();
-        return { statusCode: response.status, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ error: 'Error en la API de Perplexity', details: errorData.error.message }) };
+        const err = await response.json().catch(() => ({}));
+        console.error("Perplexity API Error:", err);
+        return {
+          statusCode: response.status,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ error: 'Error en la API de Perplexity', details: err.error?.message || 'Error desconocido' })
+        };
       }
+
       const data = await response.json();
       const reply = data.choices[0].message.content;
-      return { statusCode: 200, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reply }) };
+      return {
+        statusCode: 200,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reply })
+      };
     } catch (error) {
+      console.error('Error en el handler de Perplexity:', error);
       return { statusCode: 500, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ error: 'Error Interno del Servidor con Perplexity', details: error.message }) };
     }
   }
