@@ -36,7 +36,7 @@ exports.handler = async (event) => {
       model: "dall-e-3",
       prompt,
       n: 1,
-      size: "1024x1024", // Mantengo 1024x1024, si da error de tamaño lo bajamos a 512x512
+      size: "512x512", // Tamaño reducido para optimizar costos y evitar errores de límite
       response_format: "b64_json"
     });
 
