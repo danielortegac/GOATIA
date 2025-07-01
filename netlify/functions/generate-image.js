@@ -5,18 +5,18 @@ exports.handler = async (event) => {
     return {
       statusCode: 405,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ error: "Method Not Allowed" })
+      body: JSON.stringify({ error: "Método no permitido" })
     };
   }
 
   const { prompt } = JSON.parse(event.body || "{}");
-
   const openAIKey = process.env.OPENAI_API_KEY;
+
   if (!openAIKey) {
     return {
       statusCode: 500,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ error: "La clave API de OpenAI no está configurada." })
+      body: JSON.stringify({ error: "API key de OpenAI no configurada" })
     };
   }
 
@@ -36,26 +36,38 @@ exports.handler = async (event) => {
         Authorization: `Bearer ${openAIKey}`
       },
       body: JSON.stringify({
-        model: "dall-e-3", // este modelo es el correcto
+        model: "dall-e-3",
         prompt: prompt,
-        n: 1,
         size: "1024x1024",
+        quality: "standard",
+        n: 1,
         response_format: "b64_json"
       })
     });
 
-    const data = await response.json();
+    const result = await response.json();
 
-    if (!response.ok || !data.data || !data.data[0] || !data.data[0].b64_json) {
-      console.error("OpenAI API error:", data);
+    if (!response.ok) {
+      console.error("❌ OpenAI Error:", result);
       return {
         statusCode: 500,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ error: "La API de OpenAI no devolvió una imagen válida.", details: data })
+        body: JSON.stringify({ error: result.error?.message || "Error desconocido al generar imagen" })
       };
     }
 
-    const imageData = `data:image/png;base64,${data.data[0].b64_json}`;
+    const b64Image = result.data?.[0]?.b64_json;
+
+    if (!b64Image) {
+      console.error("❌ Imagen vacía:", result);
+      return {
+        statusCode: 500,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ error: "La API no devolvió imagen válida" })
+      };
+    }
+
+    const imageData = `data:image/png;base64,${b64Image}`;
 
     return {
       statusCode: 200,
@@ -63,12 +75,12 @@ exports.handler = async (event) => {
       body: JSON.stringify({ imageData })
     };
 
-  } catch (err) {
-    console.error("Error interno generando la imagen:", err);
+  } catch (error) {
+    console.error("💥 Error interno:", error);
     return {
       statusCode: 500,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ error: "Error interno al generar la imagen.", details: err.message })
+      body: JSON.stringify({ error: "Error interno al generar imagen", details: error.message })
     };
   }
 };
