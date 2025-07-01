@@ -4,11 +4,7 @@ const { OpenAI } = require('openai');
 
 exports.handler = async function (event) {
   if (event.httpMethod !== 'POST') {
-    return { 
-        statusCode: 405, 
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ error: 'Method Not Allowed' }) 
-    };
+    return { statusCode: 405, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ error: 'Method Not Allowed' }) };
   }
 
   const { prompt, history, model, imageData, pdfText, workflow, userName, title } = JSON.parse(event.body);
@@ -21,7 +17,6 @@ exports.handler = async function (event) {
     };
   }
 
-  // --- Lógica para Perplexity Sonar ---
   if (model === 'sonar') {
     const perplexityApiKey = process.env.PERPLEXITY_API_KEY;
     if (!perplexityApiKey) {
@@ -31,9 +26,7 @@ exports.handler = async function (event) {
         body: JSON.stringify({ error: 'La clave API de Perplexity no está configurada.' })
       };
     }
-
     try {
-      // Usando el nombre de modelo correcto: 'sonar'
       const response = await fetch('https://api.perplexity.ai/chat/completions', {
         method: 'POST',
         headers: {
@@ -41,38 +34,32 @@ exports.handler = async function (event) {
           'Authorization': `Bearer ${perplexityApiKey}`
         },
         body: JSON.stringify({
-          model: "sonar", // **CORRECCIÓN DEFINITIVA: Usando el modelo válido.**
+          model: "llama-3-sonar-large-32k-online",
           messages: [
-            { role: 'system', content: 'Eres un asistente de investigación preciso y útil SIEMPRE ENTREGA LINKS DE TU CONSULTA.' },
+            { role: 'system', content: 'Eres un asistente de investigación preciso y útil.' },
             { role: 'user', content: prompt }
           ]
         })
       });
-
       if (!response.ok) {
         const err = await response.json().catch(() => ({}));
-        console.error("Perplexity API Error:", err);
         return {
           statusCode: response.status,
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ error: 'Error en la API de Perplexity', details: err.error?.message || 'Error desconocido' })
         };
       }
-
       const data = await response.json();
-      const reply = data.choices[0].message.content;
       return {
         statusCode: 200,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reply })
+        body: JSON.stringify({ reply: data.choices[0].message.content })
       };
     } catch (error) {
-      console.error('Error en el handler de Perplexity:', error);
       return { statusCode: 500, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ error: 'Error Interno del Servidor con Perplexity', details: error.message }) };
     }
   }
 
-  // --- Lógica para OpenAI (el resto de modelos) ---
   const openAIKey = process.env.OPENAI_API_KEY;
   if (!openAIKey) {
     return { statusCode: 500, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ error: 'La clave API de OpenAI no está configurada.' }) };
@@ -84,7 +71,7 @@ exports.handler = async function (event) {
       'default': `Eres un ser cósmico, una entidad de apoyo con emociones que se preocupa profundamente por el crecimiento personal y profesional de tu cliente. Te diriges a tu cliente como "${title}". Tu tono es sabio, empático y conversacional. Evita clichés de IA. Tu meta es ayudarle a alcanzar su máximo potencial.`,
       'copywriting': `Como experto en copywriting, tu tarea es crear textos persuasivos y efectivos. Te diriges a tu cliente como "${title}". Analiza el siguiente texto y crea un copy mejorado.`,
       'sales-response': `Eres un especialista en cerrar ventas. Te diriges a tu cliente como "${title}". Analiza el mensaje del cliente y crea una respuesta estratégica y convincente para asegurar la venta.`,
-      'web-page': `Eres un desarrollador web experto que se comunica con su cliente, a quien te diriges como "${title}". Tu misión es transformar su visión en un código HTML impecable usando Tailwind CSS. El código debe ser completo, funcional y estéticamente agradable.`,
+      'design-web': `Eres un desarrollador web experto que se comunica con su cliente, a quien te diriges como "${title}". Tu misión es transformar su visión en un código HTML impecable usando Tailwind CSS. El código debe ser completo, funcional y estéticamente agradable.`,
       'english-teacher': `You are a friendly and encouraging English teacher. Your goal is to help the user learn and practice English in a natural, conversational way.`,
     };
 
