@@ -1,5 +1,4 @@
 // netlify/functions/get-ai-response.js
-
 const fetch = require('node-fetch');
 
 exports.handler = async function (event) {
