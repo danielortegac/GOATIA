@@ -23,7 +23,7 @@ exports.handler = async function (event) {
           'Authorization': `Bearer ${perplexityApiKey}`,
         },
         body: JSON.stringify({
-          model: 'sonar-medium-online',
+          model: 'llama-3-sonar-large-32k-online', // MODELO CORREGIDO
           messages: [{ role: 'system', content: 'Eres un asistente de investigación preciso y útil.' }, { role: 'user', content: prompt }],
         }),
       });
