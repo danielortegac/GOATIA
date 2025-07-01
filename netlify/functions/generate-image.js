@@ -1,11 +1,12 @@
 const fetch = require("node-fetch");
 
 exports.handler = async (event) => {
-  // 1. Asegurarse de que el método sea POST
+  // Agregamos un log para saber que la función se inició
+  console.log("[LOG] La función generate-image ha sido invocada.");
+
   if (event.httpMethod !== "POST") {
     return {
       statusCode: 405,
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ error: "Método no permitido" }),
     };
   }
@@ -14,79 +15,81 @@ exports.handler = async (event) => {
     const { prompt } = JSON.parse(event.body || "{}");
     const openAIKey = process.env.OPENAI_API_KEY;
 
-    // 2. Validar que la API Key y el prompt existan
+    console.log(`[LOG] Prompt recibido: "${prompt}"`);
+
     if (!openAIKey) {
+      console.error("[ERROR] La API Key de OpenAI no está configurada.");
       return {
         statusCode: 500,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ error: "La variable de entorno OPENAI_API_KEY no está configurada en Netlify." }),
+        body: JSON.stringify({ error: "La API Key de OpenAI no está configurada." }),
       };
     }
 
     if (!prompt || prompt.trim().length < 5) {
+      console.error(`[ERROR] El prompt es demasiado corto: "${prompt}"`);
       return {
         statusCode: 400,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ error: "La descripción de la imagen debe tener al menos 5 caracteres." }),
+        body: JSON.stringify({ error: "El prompt debe tener al menos 5 caracteres." }),
       };
     }
 
-    // 3. Llamar a la API de OpenAI con el modelo DALL-E 3
+    const apiRequestBody = {
+      model: "dall-e-3",
+      prompt: prompt,
+      n: 1,
+      size: "1024x1024",
+      quality: "standard",
+      response_format: "b64_json",
+    };
+
+    console.log("[LOG] Llamando a la API de OpenAI...");
     const response = await fetch("https://api.openai.com/v1/images/generations", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${openAIKey}`,
       },
-      body: JSON.stringify({
-        model: "dall-e-3", // Modelo más reciente y de mayor calidad
-        prompt: prompt,
-        n: 1,
-        size: "1024x1024", // Tamaño estándar para DALL-E 3
-        quality: "standard", // "standard" o "hd"
-        response_format: "b64_json", // Formato para obtener la imagen en base64
-      }),
+      body: JSON.stringify(apiRequestBody),
     });
 
-    const result = await response.json();
+    // Leemos la respuesta como texto para depurar sin riesgo de error en JSON
+    const resultText = await response.text();
+    console.log(`[LOG] Respuesta de OpenAI (Status ${response.status}):`, resultText);
 
-    // 4. Manejo de errores de la API de OpenAI
     if (!response.ok) {
-      console.error("❌ Error de OpenAI:", result);
-      const errorMessage = result.error?.message || "Error desconocido al contactar la API de OpenAI.";
+      // Intentamos interpretar el texto como JSON para obtener el mensaje de error
+      const errorResult = JSON.parse(resultText);
+      const errorMessage = errorResult.error?.message || "Error desconocido en la respuesta de OpenAI.";
+      console.error(`[ERROR] La API de OpenAI devolvió un error: ${errorMessage}`);
       return {
         statusCode: response.status,
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ error: errorMessage }),
       };
     }
-
+    
+    const result = JSON.parse(resultText);
     const b64Image = result.data?.[0]?.b64_json;
 
-    // 5. Validar que la respuesta contenga la imagen
     if (!b64Image) {
-      console.error("❌ Respuesta de API no contenía una imagen:", result);
+      console.error("[ERROR] La respuesta de la API no contenía una imagen válida.");
       return {
         statusCode: 500,
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ error: "La API no devolvió una imagen válida." }),
       };
     }
 
-    // 6. Enviar la imagen de vuelta al frontend
+    console.log("[LOG] Imagen generada con éxito.");
     const imageData = `data:image/png;base64,${b64Image}`;
     return {
       statusCode: 200,
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ imageData: imageData }),
     };
 
   } catch (error) {
-    console.error("💥 Error interno en la función:", error);
+    console.error("💥 Error catastrófico en la función:", error);
     return {
       statusCode: 500,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ error: "Ocurrió un error interno en el servidor.", details: error.message }),
+      body: JSON.stringify({ error: "Ocurrió un error interno grave en el servidor.", details: error.message }),
     };
   }
 };
