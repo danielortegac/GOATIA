@@ -1048,25 +1048,30 @@
             }
 
             function setupEventListeners() {
-                dom.sendBtn?.addEventListener('click', () => sendMessage());
+                if (dom.sendBtn) dom.sendBtn.addEventListener('click', () => sendMessage());
+                
                 const stopSpeech = () => { if(speechSynthesis.speaking) speechSynthesis.cancel(); };
-                dom.msgInput?.addEventListener('keydown', (e) => { 
-                    stopSpeech();
-                    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } 
-                });
-                dom.msgInput?.addEventListener('input', () => { 
-                    stopSpeech();
-                    dom.msgInput.style.height = 'auto'; 
-                    dom.msgInput.style.height = (dom.msgInput.scrollHeight) + 'px';
-                });
-                dom.newChatBtn?.addEventListener('click', () => createNewChat());
-                dom.newProjectBtn?.addEventListener('click', async () => { const name = await showModal({ title: 'Crear Proyecto', useInput: true, placeholder: 'Nombre del Proyecto...' }); if (name && name.trim()) { const id = 'project-' + crypto.randomUUID(); state.projects[id] = { id, title: name.trim(), chatIds: [] }; state.structure.unshift(id); saveState(); renderSidebar(); } hideModal(); });
-                dom.upgradePlanBtn?.addEventListener('click', showPricingModal);
-                dom.closePricingModalBtn?.addEventListener('click', hidePricingModal);
-                dom.themeToggle?.addEventListener('click', () => setTheme(!document.body.classList.contains('dark-theme')));
-                dom.loginBtn?.addEventListener('click', () => netlifyIdentity.open('login'));
-                dom.chatTitle.addEventListener('click', () => { if(currentChatId) renameItem('chat', currentChatId); });
-                dom.imageGenBtn.addEventListener('click', generateImage);
+                
+                if (dom.msgInput) {
+                    dom.msgInput.addEventListener('keydown', (e) => { 
+                        stopSpeech();
+                        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } 
+                    });
+                    dom.msgInput.addEventListener('input', () => { 
+                        stopSpeech();
+                        dom.msgInput.style.height = 'auto'; 
+                        dom.msgInput.style.height = (dom.msgInput.scrollHeight) + 'px';
+                    });
+                }
+                
+                if (dom.newChatBtn) dom.newChatBtn.addEventListener('click', () => createNewChat());
+                if (dom.newProjectBtn) dom.newProjectBtn.addEventListener('click', async () => { const name = await showModal({ title: 'Crear Proyecto', useInput: true, placeholder: 'Nombre del Proyecto...' }); if (name && name.trim()) { const id = 'project-' + crypto.randomUUID(); state.projects[id] = { id, title: name.trim(), chatIds: [] }; state.structure.unshift(id); saveState(); renderSidebar(); } hideModal(); });
+                if (dom.upgradePlanBtn) dom.upgradePlanBtn.addEventListener('click', showPricingModal);
+                if (dom.closePricingModalBtn) dom.closePricingModalBtn.addEventListener('click', hidePricingModal);
+                if (dom.themeToggle) dom.themeToggle.addEventListener('click', () => setTheme(!document.body.classList.contains('dark-theme')));
+                if (dom.loginBtn) dom.loginBtn.addEventListener('click', () => netlifyIdentity.open('login'));
+                if (dom.chatTitle) dom.chatTitle.addEventListener('click', () => { if(currentChatId) renameItem('chat', currentChatId); });
+                if (dom.imageGenBtn) dom.imageGenBtn.addEventListener('click', generateImage);
 
                 if (SR && dom.micBtn) {
                     recognition = new SR(); 
@@ -1074,16 +1079,14 @@
                     recognition.onstart = () => { 
                         isRecognizing = true; 
                         dom.micBtn.classList.add('glowing-mic');
-                        dom.voiceSelectorContainer.classList.remove('hidden');
-                        dom.voiceSelectorContainer.classList.add('flex');
+                        if (dom.voiceSelectorContainer) dom.voiceSelectorContainer.classList.remove('hidden', 'flex');
                     };
                     recognition.onend = () => { 
                         isRecognizing = false; 
                         dom.micBtn.classList.remove('glowing-mic'); 
-                        dom.voiceSelectorContainer.classList.add('hidden');
-                        dom.voiceSelectorContainer.classList.remove('flex');
+                        if (dom.voiceSelectorContainer) dom.voiceSelectorContainer.classList.add('hidden');
                     };
-                    recognition.onerror = (e) => { console.error("Speech recognition error", e); isRecognizing = false; dom.micBtn.classList.remove('glowing-mic'); };
+                    recognition.onerror = (e) => { console.error("Speech recognition error", e); isRecognizing = false; if (dom.micBtn) dom.micBtn.classList.remove('glowing-mic'); };
                     recognition.onresult = (event) => {
                         const transcript = event.results[0][0].transcript;
                         if(transcript) { dom.msgInput.value = transcript; sendMessage(); }
@@ -1098,30 +1101,30 @@
                     });
                 } else { if(dom.micBtn) dom.micBtn.style.display = 'none'; }
                 
-                dom.ttsToggle?.addEventListener('click', () => {
-                    speechOn = !speechOn;
-                    const icon = dom.ttsToggle.querySelector('i');
-                    icon.classList.toggle('fa-volume-high', speechOn);
-                    icon.classList.toggle('fa-volume-mute', !speechOn);
-                    if (!speechOn) {
-                        speechSynthesis.cancel();
-                    }
-                });
+                if (dom.ttsToggle) {
+                    dom.ttsToggle.addEventListener('click', () => {
+                        speechOn = !speechOn;
+                        const icon = dom.ttsToggle.querySelector('i');
+                        icon.classList.toggle('fa-volume-high', speechOn);
+                        icon.classList.toggle('fa-volume-mute', !speechOn);
+                        if (!speechOn) {
+                            speechSynthesis.cancel();
+                        }
+                    });
+                }
 
-                dom.modelSelector?.addEventListener('change', () => {
-                   updateModelSelectorState();
-                });
-                dom.imageUploadBtn?.addEventListener('click', () => dom.imageUploadInput.click());
-                dom.pdfUploadBtn?.addEventListener('click', () => dom.pdfUploadInput.click());
-                dom.clearImageBtn?.addEventListener('click', clearImageData);
-                dom.clearPdfBtn?.addEventListener('click', clearPdfData);
-                dom.imageUploadInput?.addEventListener('change', (e) => { if (e.target.files && e.target.files[0]) { clearPdfData(); const reader = new FileReader(); reader.onload = (ev) => { selectedImageBase64 = ev.target.result; dom.imagePreview.src = selectedImageBase64; dom.imagePreviewContainer.classList.remove('hidden'); updateModelSelectorState(); }; reader.readAsDataURL(e.target.files[0]); } });
-                dom.pdfUploadInput?.addEventListener('change', (e) => { const file = e.target.files[0]; if (!file || file.type !== 'application/pdf') return; clearImageData(); dom.pdfNameEl.textContent = file.name; dom.pdfStatusEl.textContent = 'Leyendo...'; dom.pdfPreviewContainer.classList.remove('hidden'); const reader = new FileReader(); reader.onload = async (ev) => { dom.pdfStatusEl.textContent = 'Procesando...'; try { const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(ev.target.result) }).promise; let text = ''; for (let i = 1; i <= pdf.numPages; i++) { const page = await pdf.getPage(i); const content = await page.getTextContent(); text += content.items.map(item => item.str).join(' ') + '\n'; } selectedPdfText = text; dom.pdfStatusEl.textContent = `✅ Listo (${pdf.numPages} pág.)`; updateModelSelectorState(); } catch (err) { console.error("Error al procesar el PDF:", err); dom.pdfStatusEl.textContent = '❌ Error al leer PDF.'; selectedPdfText = null; setTimeout(clearPdfData, 2000); } }; reader.readAsArrayBuffer(file); });
+                if (dom.modelSelector) dom.modelSelector.addEventListener('change', () => updateModelSelectorState());
+                if (dom.imageUploadBtn) dom.imageUploadBtn.addEventListener('click', () => dom.imageUploadInput.click());
+                if (dom.pdfUploadBtn) dom.pdfUploadBtn.addEventListener('click', () => dom.pdfUploadInput.click());
+                if (dom.clearImageBtn) dom.clearImageBtn.addEventListener('click', clearImageData);
+                if (dom.clearPdfBtn) dom.clearPdfBtn.addEventListener('click', clearPdfData);
+                if (dom.imageUploadInput) dom.imageUploadInput.addEventListener('change', (e) => { if (e.target.files && e.target.files[0]) { clearPdfData(); const reader = new FileReader(); reader.onload = (ev) => { selectedImageBase64 = ev.target.result; dom.imagePreview.src = selectedImageBase64; dom.imagePreviewContainer.classList.remove('hidden'); updateModelSelectorState(); }; reader.readAsDataURL(e.target.files[0]); } });
+                if (dom.pdfUploadInput) dom.pdfUploadInput.addEventListener('change', (e) => { const file = e.target.files[0]; if (!file || file.type !== 'application/pdf') return; clearImageData(); dom.pdfNameEl.textContent = file.name; dom.pdfStatusEl.textContent = 'Leyendo...'; dom.pdfPreviewContainer.classList.remove('hidden'); const reader = new FileReader(); reader.onload = async (ev) => { dom.pdfStatusEl.textContent = 'Procesando...'; try { const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(ev.target.result) }).promise; let text = ''; for (let i = 1; i <= pdf.numPages; i++) { const page = await pdf.getPage(i); const content = await page.getTextContent(); text += content.items.map(item => item.str).join(' ') + '\n'; } selectedPdfText = text; dom.pdfStatusEl.textContent = `✅ Listo (${pdf.numPages} pág.)`; updateModelSelectorState(); } catch (err) { console.error("Error al procesar el PDF:", err); dom.pdfStatusEl.textContent = '❌ Error al leer PDF.'; selectedPdfText = null; setTimeout(clearPdfData, 2000); } }; reader.readAsArrayBuffer(file); });
                 
-                dom.menuToggle?.addEventListener('click', (e) => { e.stopPropagation(); toggleSidebar(true); });
-                dom.sidebarOverlay?.addEventListener('click', () => toggleSidebar(false));
-                dom.userMenuBtn?.addEventListener('click', (e) => { e.stopPropagation(); dom.userMenuPopup.classList.toggle('hidden'); });
-                dom.logoutBtn?.addEventListener('click', () => { netlifyIdentity.logout(); dom.userMenuPopup.classList.add('hidden');});
+                if (dom.menuToggle) dom.menuToggle.addEventListener('click', (e) => { e.stopPropagation(); toggleSidebar(true); });
+                if (dom.sidebarOverlay) dom.sidebarOverlay.addEventListener('click', () => toggleSidebar(false));
+                if (dom.userMenuBtn) dom.userMenuBtn.addEventListener('click', (e) => { e.stopPropagation(); dom.userMenuPopup.classList.toggle('hidden'); });
+                if (dom.logoutBtn) dom.logoutBtn.addEventListener('click', () => { netlifyIdentity.logout(); dom.userMenuPopup.classList.add('hidden');});
                 
                 const workflowConfigs = {
                     'create-full-post': { title: "Creador de Posts", workflow: 'create-full-post', initialMessages: [{ role: 'assistant', content: '¡Claro! Vamos a crear un post increíble. ¿Para qué red social lo necesitas (Instagram, Facebook, LinkedIn, etc.)?' }] },
@@ -1138,30 +1141,32 @@
                     'english-teacher-practice': { title: "Conversation Practice", workflow: 'english-teacher-practice', initialMessages: [{ role: 'assistant', content: 'Great! Let\'s practice our conversation. So, tell me about your day.' }] },
                 };
 
-                document.querySelectorAll('[data-workflow]').forEach(button => {
-                    button.addEventListener('click', () => {
-                        const workflowKey = button.dataset.workflow;
-                        const config = workflowConfigs[workflowKey];
-                        if (config) {
-                            createNewChat({
-                                title: config.title,
-                                workflow: config.workflow,
-                                model: config.model, // This will be undefined for most, defaulting to general. 'competitor-analysis' will correctly use sonar.
-                                initialMessages: config.initialMessages
-                            });
+                if (dom.workflowsContainer) {
+                    dom.workflowsContainer.addEventListener('click', (e) => {
+                        const workflowButton = e.target.closest('[data-workflow]');
+                        if (workflowButton) {
+                            const workflowKey = workflowButton.dataset.workflow;
+                            const config = workflowConfigs[workflowKey];
+                            if (config) {
+                                // BUG FIX: Explicitly set model to default for all workflows unless specified.
+                                const model = config.model || 'gpt-3.5-turbo-1106';
+                                createNewChat({
+                                    title: config.title,
+                                    workflow: config.workflow,
+                                    model: model,
+                                    initialMessages: config.initialMessages
+                                });
+                            }
+                        }
+                        const header = e.target.closest('.workflow-header');
+                        if (header) {
+                            const category = header.closest('.workflow-category');
+                            if (category) category.classList.toggle('open');
                         }
                     });
-                });
+                }
                 
-                dom.workflowsContainer.addEventListener('click', e => {
-                    const header = e.target.closest('.workflow-header');
-                    if (header) {
-                        const category = header.closest('.workflow-category');
-                        if (category) category.classList.toggle('open');
-                    }
-                });
-                
-                dom.webLaunchOfferBtn.addEventListener('click', () => {
+                if (dom.webLaunchOfferBtn) dom.webLaunchOfferBtn.addEventListener('click', () => {
                     const offerTitle = `<i class="fas fa-gift mr-2"></i>Tu Oferta de Lanzamiento Exclusiva`;
                     const offerMessage = `<p class="font-bold mb-2">Al suscribirte a nuestro Plan Pro por $17/mes, desbloqueas:</p><ul class="list-disc list-inside space-y-2 text-left"><li><strong>Acceso Ilimitado a Goatify AI:</strong> Todos los modelos y workflows sin restricciones.</li><li><strong>Construcción de tu Página Web Profesional:</strong> Nosotros construiremos la primera versión, ¡gratis!</li></ul><p class="font-bold mt-4 mb-2">¿Cómo funciona?</p><ol class="list-decimal list-inside space-y-1 text-left"><li><strong>Agenda tu Sesión Estratégica:</strong> Al confirmar, agenda tu llamada de 20 min.</li><li><strong>Co-creación:</strong> En la llamada definiremos objetivos y crearemos el borrador con IA.</li><li><strong>Entrega:</strong> Nuestro equipo lo pulirá y te entregará una web de una sección, lista.</li></ol><p class="text-xs mt-4 italic"><strong>Importante:</strong> La web es tuya para siempre. Para mantenerla online con nuestro hosting, necesitas tu suscripción Pro activa. Si cancelas, te entregamos el código completo.</p>`;
                     showModal({ title: offerTitle, message: offerMessage, confirmText: 'Agendar Sesión Estratégica' })
@@ -1172,7 +1177,7 @@
                         });
                 });
 
-                 dom.freeGuidesLink.addEventListener('click', (e) => {
+                 if (dom.freeGuidesLink) dom.freeGuidesLink.addEventListener('click', (e) => {
                     e.preventDefault();
                     const isPaidUser = currentUser && currentUser.app_metadata?.plan && currentUser.app_metadata.plan !== 'free';
                     if (isPaidUser) {
@@ -1189,10 +1194,10 @@
                     }
                 });
 
-                dom.closeHtmlPreviewModalBtn?.addEventListener('click', () => dom.htmlPreviewModal.classList.add('hidden'));
-                dom.voiceSelector?.addEventListener('change', (e) => { selectedVoice = availableVoices.find(voice => voice.name === e.target.value); });
+                if (dom.closeHtmlPreviewModalBtn) dom.closeHtmlPreviewModalBtn.addEventListener('click', () => dom.htmlPreviewModal.classList.add('hidden'));
+                if (dom.voiceSelector) dom.voiceSelector.addEventListener('change', (e) => { selectedVoice = availableVoices.find(voice => voice.name === e.target.value); });
                 
-                dom.servicesMenuBtn?.addEventListener('click', (e) => {
+                if (dom.servicesMenuBtn) dom.servicesMenuBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
                     const menu = dom.servicesMenu;
                     const isHidden = menu.classList.contains('opacity-0');
@@ -1204,7 +1209,7 @@
                 });
 
                 document.addEventListener('click', (e) => {
-                    if (dom.userMenuBtn && dom.userMenuPopup && !dom.userMenuBtn.contains(e.target) && !dom.userMenuPopup.contains(e.target)) { dom.userMenuPopup.classList.add('hidden'); }
+                    if (dom.userMenuBtn && !dom.userMenuBtn.contains(e.target) && dom.userMenuPopup && !dom.userMenuPopup.contains(e.target)) { dom.userMenuPopup.classList.add('hidden'); }
                     if (dom.servicesMenu && !dom.servicesMenu.classList.contains('opacity-0') && !dom.servicesMenuBtn.contains(e.target) && !dom.servicesMenu.contains(e.target)) {
                         dom.servicesMenu.classList.add('opacity-0', 'scale-95', '-translate-y-2', 'pointer-events-none');
                     }
@@ -1214,9 +1219,9 @@
                 const setAppHeight = () => { const app = document.getElementById('app-container'); if(app) app.style.height = `${window.innerHeight}px`; };
                 setAppHeight();
                 window.addEventListener('resize', setAppHeight);
-                dom.selectChatsBtn?.addEventListener('click', () => toggleSelectMode(true));
-                dom.cancelSelectModeBtn?.addEventListener('click', () => toggleSelectMode(false));
-                dom.deleteSelectedBtn?.addEventListener('click', async () => {
+                if (dom.selectChatsBtn) dom.selectChatsBtn.addEventListener('click', () => toggleSelectMode(true));
+                if (dom.cancelSelectModeBtn) dom.cancelSelectModeBtn.addEventListener('click', () => toggleSelectMode(false));
+                if (dom.deleteSelectedBtn) dom.deleteSelectedBtn.addEventListener('click', async () => {
                     if (chatsToDelete.size === 0) return;
                     const confirm = await showModal({ title: `Eliminar ${chatsToDelete.size} chat(s)`, message: 'Esta acción es irreversible. ¿Confirmas la eliminación?', confirmText: 'Eliminar' });
                     if (confirm) {
