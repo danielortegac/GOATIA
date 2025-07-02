@@ -581,7 +581,6 @@
                 return null;
             }
 
-            // ✨ CAMBIO: Modelo para 'design-web' actualizado a 'gpt-4o-mini'
             function getModelForRequest(workflow, hasFile) {
                 if (workflow === "design-web") return "gpt-4o-mini";
                 if (hasFile) return "gpt-4o-mini";
@@ -829,7 +828,6 @@
                 return codeBlock;
             }
 
-            // ✨ CAMBIO: Lógica de Vista Previa para HTML
             function addMessageToUI(role, content, imageSrc) {
                 const wrapper = document.createElement('div');
                 wrapper.className = `chat-bubble-wrapper flex items-start gap-2 my-2 ${role === 'user' ? 'justify-end' : 'justify-start'}`;
@@ -848,7 +846,6 @@
                 
                 bubble.appendChild(contentDiv);
 
-                // Si el mensaje del asistente contiene HTML, añade el botón de vista previa
                 if (role === 'assistant' && /<\/?[a-z][\s\S]*>/i.test(content)) {
                     const previewButton = document.createElement('button');
                     previewButton.innerHTML = '<i class="fas fa-eye mr-2"></i>Vista Previa';
@@ -1026,6 +1023,8 @@
                     setCreditCount(count);
                 }
             }
+            
+            // ✨ CAMBIO: Función de generar imagen actualizada para usar DALL-E 2
             async function generateImage() {
                 const prompt = await showModal({ title: 'Crear Imagen', message: 'Describe la imagen que quieres crear:', useInput: true, placeholder: 'Ej: Un astronauta en un caballo cósmico', confirmText: 'Generar' });
                 if (!prompt) { hideModal(); return; }
@@ -1042,13 +1041,13 @@
                 const currentChat = state.chats[chatIdToUpdate];
                 currentChat.messages.push({ role: 'user', content: `Generar imagen: "${prompt}"` });
                 addMessageToUI('user', `Generar imagen: "${prompt}"`);
-                const thinkingBubble = addMessageToUI('assistant', 'Creando tu visión...');
+                const thinkingBubble = addMessageToUI('assistant', 'Creando tu visión con DALL·E 2...');
 
                 try {
                     const response = await fetch('/.netlify/functions/generate-image', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ prompt })
+                        body: JSON.stringify({ prompt, model: 'dall-e-2' }) // Se especifica el modelo
                     });
                      if (!response.ok) {
                         let errorText;
@@ -1067,9 +1066,10 @@
                     saveState();
                 } catch (error) {
                     updateMessageInUI(thinkingBubble, `❌ **Error al crear la imagen:**<br><small>${error.message}</small>`);
-                    setCreditCount(count); // Refund credits
+                    setCreditCount(count); // Devolver créditos si falla
                 }
             }
+
             function toggleSelectMode(active) {
                 isSelectModeActive = active;
                 dom.selectChatsBtn.classList.toggle('hidden', active);
@@ -1157,7 +1157,6 @@
                 dom.userMenuBtn?.addEventListener('click', (e) => { e.stopPropagation(); dom.userMenuPopup.classList.toggle('hidden'); });
                 dom.logoutBtn?.addEventListener('click', () => { netlifyIdentity.logout(); dom.userMenuPopup.classList.add('hidden');});
                 
-                // ✨ CAMBIO: Configuración del nuevo workflow 'design-web'
                 const workflowConfigs = {
                     'create-full-post': { title: "Creador de Posts", workflow: 'create-full-post', initialMessages: [{ role: 'assistant', content: '¡Claro! Vamos a crear un post increíble. ¿Para qué red social lo necesitas (Instagram, Facebook, LinkedIn, etc.)?' }] },
                     'persuasive-copy': { title: "Redactor de Copys", workflow: 'persuasive-copy', initialMessages: [{ role: 'assistant', content: 'Estoy listo para redactar textos que vendan. ¿Para qué necesitas este copy? (ej: Anuncio de Facebook, Post de Venta, Descripción de Producto)' }] },
