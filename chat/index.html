@@ -78,22 +78,22 @@
                 <div class="flex flex-col space-y-2 mb-4">
                     <button id="new-chat-btn" class="flex items-center justify-center font-semibold p-3 rounded-lg btn-primary transition-colors"><i class="fas fa-plus mr-2"></i><span>Nuevo Chat</span></button>
                     <button id="new-project-btn" class="flex items-center justify-center font-semibold p-3 rounded-lg bg-input"><i class="fas fa-folder-plus mr-2"></i><span>Nuevo Proyecto</span></button>
-                    <div id="upgrade-plan-container" class="hidden text-center p-2 mt-2 bg-yellow-500/20 rounded-lg">
-                         <button id="upgrade-plan-btn" class="text-xs font-semibold text-yellow-400 hover:underline">
+                    <div id="upgrade-plan-container" class="hidden text-center p-2 bg-yellow-400 rounded-lg">
+                         <button id="upgrade-plan-btn" class="text-xs font-semibold text-black hover:text-gray-800">
                              <i class="fas fa-rocket mr-1"></i>
                              <span>Mejorar Plan</span>
                          </button>
                      </div>
+                    <div class="text-center p-2 bg-input rounded-lg">
+                        <a href="#" id="free-guides-link" class="text-xs font-semibold text-primary hover:underline">
+                            <i class="fas fa-book-open mr-1"></i>
+                            Guías de IA Gratis
+                        </a>
+                    </div>
                 </div>
             </div>
 
             <div class="flex-grow overflow-y-auto min-h-0">
-                <div class="text-center p-2 my-2 bg-input rounded-lg">
-                    <a href="#" id="free-guides-link" class="text-xs font-semibold text-primary hover:underline">
-                        <i class="fas fa-book-open mr-1"></i>
-                        Guías de IA Gratis
-                    </a>
-                </div>
                 <div class="border-t border-b border-themed my-3 py-3">
                     <div class="flex justify-between items-center mb-2 px-2">
                         <h3 class="text-xs font-semibold uppercase text-text-medium">Workflows</h3>
@@ -140,14 +140,14 @@
                         <i class="fab fa-whatsapp text-xl"></i>
                     </a>
                     <button id="services-menu-btn" title="Potenciar mi Negocio" class="text-xl p-2 hover:opacity-80 transition-opacity flex items-center gap-2">
-                        <i class="fas fa-rocket text-primary" style="filter: drop-shadow(0 0 5px var(--current-primary));"></i>
-                        <span class="text-sm font-semibold">Soluciones</span>
+                        <i class="fas fa-rocket text-primary"></i>
+                        <span class="text-sm font-semibold text-primary">Soluciones</span>
                     </button>
                     <div id="message-counter" class="text-xs font-mono whitespace-nowrap"></div>
                     <button id="theme-toggle" title="Cambiar Tema" class="text-xl p-2"><i class="fas fa-moon" id="theme-icon"></i></button>
                 </div>
 
-                <div id="services-menu" class="hidden absolute top-full right-4 mt-2 w-80 rounded-xl shadow-lg border border-themed z-30 p-4">
+                <div id="services-menu" class="absolute top-full right-4 mt-2 w-80 rounded-xl shadow-lg border border-themed z-30 p-4 transition-all duration-300 ease-in-out opacity-0 scale-95 -translate-y-2 pointer-events-none origin-top-right">
                     <h4 class="font-bold text-lg mb-1 text-text-light">Somos tu Aliado Estratégico</h4>
                     <p class="text-sm text-text-medium mb-4">Goatify no es solo un chat. Somos una IA personalizada con un equipo de expertos listos para ayudarte a escalar tu negocio.</p>
                     <ul class="space-y-3">
@@ -349,29 +349,47 @@
             function showPricingModal() { dom.pricingModal.classList.remove('hidden'); dom.pricingModal.classList.add('flex'); setTimeout(() => { dom.pricingModal.querySelector('.modal-content').classList.remove('scale-95'); }, 10); }
             function hidePricingModal() { dom.pricingModal.querySelector('.modal-content').classList.add('scale-95'); setTimeout(() => { dom.pricingModal.classList.add('hidden'); dom.pricingModal.classList.remove('flex'); }, 300); }
 
+            /**
+             * LÓGICA DE VOZ MANOS LIBRES:
+             * Esta función gestiona la coordinación entre la voz de la IA (altavoz) y el micrófono.
+             */
             function speak(text) { 
                 if (!speechOn || !('speechSynthesis' in window) || !text) return; 
+                
                 speechSynthesis.cancel();
+
+                // 1. Antes de que la IA hable: Revisa si el micrófono estaba encendido.
                 micWasOnBeforeSpeaking = isRecognizing;
+                
+                // 2. Si el micrófono estaba encendido, lo apaga temporalmente.
+                //    Esto evita que la IA se escuche a sí misma en un bucle.
                 if (isRecognizing) {
                     recognition.stop();
                 }
+
                 const cleanText = text.replace(/<[^>]*>/g, '').replace(/[*_`#~[\]()🔍]|(-{3,})/g, ''); 
                 const utterance = new SpeechSynthesisUtterance(cleanText); 
+                
                 if (selectedVoice) {
                     utterance.voice = selectedVoice;
                 }
                 utterance.rate = 1.15;
+
+                // 3. Justo cuando la IA termina de hablar, se ejecuta este código.
                 utterance.onend = () => {
+                    // 4. Revisa la "memoria": ¿Estaba el micrófono encendido antes?
                     if (micWasOnBeforeSpeaking) {
+                        // 5. Si la respuesta es sí, lo vuelve a encender automáticamente.
                         if (recognition && !isRecognizing) {
                             try { recognition.start(); } catch(e) { console.error("Error restarting recognition:", e); }
                         }
                         micWasOnBeforeSpeaking = false;
                     }
                 };
+
                 utterance.onerror = (e) => {
                     console.error('Speech synthesis error:', e);
+                     // En caso de error, también intenta reactivar el micrófono si estaba encendido.
                      if (micWasOnBeforeSpeaking) {
                         if (recognition && !isRecognizing) {
                            try { recognition.start(); } catch(e) { console.error("Error restarting recognition on error:", e); }
@@ -379,6 +397,8 @@
                         micWasOnBeforeSpeaking = false;
                     }
                 }
+                
+                // Dispara la voz de la IA.
                 speechSynthesis.speak(utterance); 
             }
 
@@ -1050,12 +1070,24 @@
                 
                 dom.servicesMenuBtn?.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    dom.servicesMenu.classList.toggle('hidden');
+                    const menu = dom.servicesMenu;
+                    const isHidden = menu.classList.contains('opacity-0');
+                    
+                    if (isHidden) {
+                        menu.classList.remove('opacity-0', 'scale-95', '-translate-y-2', 'pointer-events-none');
+                        menu.classList.add('opacity-100', 'scale-100', 'translate-y-0', 'pointer-events-auto');
+                    } else {
+                        menu.classList.remove('opacity-100', 'scale-100', 'translate-y-0', 'pointer-events-auto');
+                        menu.classList.add('opacity-0', 'scale-95', '-translate-y-2', 'pointer-events-none');
+                    }
                 });
 
                 document.addEventListener('click', (e) => {
                     if (dom.userMenuBtn && dom.userMenuPopup && !dom.userMenuBtn.contains(e.target) && !dom.userMenuPopup.contains(e.target)) { dom.userMenuPopup.classList.add('hidden'); }
-                    if (dom.servicesMenu && !dom.servicesMenu.classList.contains('hidden') && !dom.servicesMenuBtn.contains(e.target) && !dom.servicesMenu.contains(e.target)) { dom.servicesMenu.classList.add('hidden'); }
+                    if (dom.servicesMenu && !dom.servicesMenu.classList.contains('opacity-0') && !dom.servicesMenuBtn.contains(e.target) && !dom.servicesMenu.contains(e.target)) {
+                        dom.servicesMenu.classList.remove('opacity-100', 'scale-100', 'translate-y-0', 'pointer-events-auto');
+                        dom.servicesMenu.classList.add('opacity-0', 'scale-95', '-translate-y-2', 'pointer-events-none');
+                    }
                     if (dom.sidebar && window.innerWidth < 768 && !dom.sidebar.contains(e.target) && dom.sidebar.classList.contains('is-open')) { toggleSidebar(false); }
                 });
                 const setAppHeight = () => { const app = document.getElementById('app-container'); if(app) app.style.height = `${window.innerHeight}px`; };
