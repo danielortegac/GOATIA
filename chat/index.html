@@ -106,10 +106,17 @@
                     </div>
                     <div id="workflows-container" class="space-y-1">
                         <div class="workflow-category">
-                            <button id="social-media-potentiator-btn" class="w-full workflow-header flex items-center p-2 rounded-md cursor-pointer hover:bg-light">
+                            <div class="workflow-header flex items-center p-2 rounded-md cursor-pointer hover:bg-light">
+                                <i class="fas fa-chevron-right workflow-arrow mr-2 transition-transform text-xs"></i>
                                 <i class="fas fa-share-alt w-6 mr-2 text-pink-400"></i>
                                 <span class="text-sm font-bold">Potenciador de Redes Sociales</span>
-                            </button>
+                            </div>
+                            <div class="workflow-content pl-4 pt-1 space-y-1">
+                                <button data-workflow="create-full-post" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center">Crear un Post Completo</button>
+                                <button data-workflow="persuasive-copy" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center">Redacción de Copys Persuasivos</button>
+                                <button data-workflow="post-ideas" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center">Lluvia de Ideas para Posts</button>
+                                <button data-workflow="brand-strategy" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center">Definir Estrategia de Marca</button>
+                            </div>
                         </div>
                         <div class="workflow-category">
                             <div class="workflow-header flex items-center p-2 rounded-md cursor-pointer hover:bg-light">
@@ -135,10 +142,16 @@
                             </div>
                         </div>
                         <div class="workflow-category">
-                             <button data-workflow="english-teacher" class="w-full workflow-header flex items-center p-2 rounded-md cursor-pointer hover:bg-light">
+                            <div class="workflow-header flex items-center p-2 rounded-md cursor-pointer hover:bg-light">
+                                <i class="fas fa-chevron-right workflow-arrow mr-2 transition-transform text-xs"></i>
                                 <i class="fas fa-language w-6 mr-2 text-red-400"></i>
                                 <span class="text-sm font-bold">Herramientas y Aprendizaje</span>
-                            </button>
+                            </div>
+                            <div class="workflow-content pl-4 pt-1 space-y-1">
+                                 <button data-workflow="english-teacher-translate" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center">Traducir/Corregir Texto</button>
+                                 <button data-workflow="english-teacher-vocabulary" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center">Aprender Vocabulario Nuevo</button>
+                                 <button data-workflow="english-teacher-practice" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center">Practicar Conversación</button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -344,7 +357,6 @@
                 logoutBtn: document.getElementById('logout-btn'),
                 webLaunchOfferBtn: document.getElementById('web-launch-offer-btn'),
                 workflowsContainer: document.getElementById('workflows-container'),
-                socialMediaPotentiatorBtn: document.getElementById('social-media-potentiator-btn'),
                 personalizedWelcome: document.getElementById('personalized-welcome'),
                 genericWelcome: document.getElementById('generic-welcome'),
                 userName: document.getElementById('user-name'),
@@ -369,13 +381,13 @@
             const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
             let recognition;
 
-            function showModal({ title, message, useInput = false, placeholder = '', confirmText = 'Confirmar', customButtons = false }) {
+            function showModal({ title, message, useInput = false, placeholder = '', confirmText = 'Confirmar' }) {
                 const modalTitle = dom.genericModal.querySelector('#modal-title');
                 const modalMessage = dom.genericModal.querySelector('#modal-message');
                 const modalInput = dom.genericModal.querySelector('#modal-input');
                 const modalButtonsContainer = dom.genericModal.querySelector('#modal-buttons-container');
                 
-                modalTitle.innerHTML = title;
+                modalTitle.innerHTML = title; 
                 modalMessage.innerHTML = message;
                 modalMessage.style.display = message ? 'block' : 'none';
                 
@@ -383,14 +395,10 @@
                 modalInput.value = '';
                 modalInput.placeholder = placeholder;
                 
-                if (customButtons) {
-                    modalButtonsContainer.innerHTML = ''; // Clear existing buttons
-                } else {
-                    modalButtonsContainer.innerHTML = `<button id="modal-cancel" class="px-4 py-2 bg-gray-600 text-white rounded">Cancelar</button><button id="modal-confirm" class="px-4 py-2 rounded text-white btn-primary">${confirmText}</button>`;
-                    dom.genericModal.querySelector('#modal-confirm').addEventListener('click', () => hideModal(useInput ? modalInput.value : true));
-                    dom.genericModal.querySelector('#modal-cancel').addEventListener('click', () => hideModal(null));
-                }
-
+                modalButtonsContainer.innerHTML = `<button id="modal-cancel" class="px-4 py-2 bg-gray-600 text-white rounded">Cancelar</button><button id="modal-confirm" class="px-4 py-2 rounded text-white btn-primary">${confirmText}</button>`;
+                dom.genericModal.querySelector('#modal-confirm').addEventListener('click', () => hideModal(useInput ? modalInput.value : true), { once: true });
+                dom.genericModal.querySelector('#modal-cancel').addEventListener('click', () => hideModal(null), { once: true });
+                
                 dom.genericModal.classList.remove('hidden');
                 dom.genericModal.classList.add('flex');
                 if (useInput) modalInput.focus();
@@ -404,47 +412,25 @@
             function showPricingModal() { dom.pricingModal.classList.remove('hidden'); dom.pricingModal.classList.add('flex'); setTimeout(() => { dom.pricingModal.querySelector('.modal-content').classList.remove('scale-95'); }, 10); }
             function hidePricingModal() { dom.pricingModal.querySelector('.modal-content').classList.add('scale-95'); setTimeout(() => { dom.pricingModal.classList.add('hidden'); dom.pricingModal.classList.remove('flex'); }, 300); }
 
-            /**
-             * LÓGICA DE VOZ MANOS LIBRES:
-             * Esta función gestiona la coordinación entre la voz de la IA (altavoz) y el micrófono.
-             */
             function speak(text) { 
                 if (!speechOn || !('speechSynthesis' in window) || !text) return; 
-                
                 speechSynthesis.cancel();
-
-                // 1. Antes de que la IA hable: Revisa si el micrófono estaba encendido.
                 micWasOnBeforeSpeaking = isRecognizing;
-                
-                // 2. Si el micrófono estaba encendido, lo apaga temporalmente.
-                //    Esto evita que la IA se escuche a sí misma en un bucle.
-                if (isRecognizing) {
-                    recognition.stop();
-                }
-
+                if (isRecognizing) { recognition.stop(); }
                 const cleanText = text.replace(/<[^>]*>/g, '').replace(/[*_`#~[\]()🔍]|(-{3,})/g, ''); 
                 const utterance = new SpeechSynthesisUtterance(cleanText); 
-                
-                if (selectedVoice) {
-                    utterance.voice = selectedVoice;
-                }
+                if (selectedVoice) { utterance.voice = selectedVoice; }
                 utterance.rate = 1.15;
-
-                // 3. Justo cuando la IA termina de hablar, se ejecuta este código.
                 utterance.onend = () => {
-                    // 4. Revisa la "memoria": ¿Estaba el micrófono encendido antes?
                     if (micWasOnBeforeSpeaking) {
-                        // 5. Si la respuesta es sí, lo vuelve a encender automáticamente.
                         if (recognition && !isRecognizing) {
                             try { recognition.start(); } catch(e) { console.error("Error restarting recognition:", e); }
                         }
                         micWasOnBeforeSpeaking = false;
                     }
                 };
-
                 utterance.onerror = (e) => {
                     console.error('Speech synthesis error:', e);
-                     // En caso de error, también intenta reactivar el micrófono si estaba encendido.
                      if (micWasOnBeforeSpeaking) {
                         if (recognition && !isRecognizing) {
                            try { recognition.start(); } catch(e) { console.error("Error restarting recognition on error:", e); }
@@ -452,8 +438,6 @@
                         micWasOnBeforeSpeaking = false;
                     }
                 }
-                
-                // Dispara la voz de la IA.
                 speechSynthesis.speak(utterance); 
             }
 
@@ -491,9 +475,7 @@
                 setTimeout(setVoices, 200);
             }
 
-            function updateModelSelectorState() {
-                // No complex UI change needed. The logic in getModelForRequest handles it.
-            }
+            function updateModelSelectorState() {}
 
             function updateContextualFooter(workflow) {
                 let footerHTML = '';
@@ -1112,19 +1094,57 @@
                 dom.logoutBtn?.addEventListener('click', () => { netlifyIdentity.logout(); dom.userMenuPopup.classList.add('hidden');});
                 
                 // --- NEW WORKFLOWS LOGIC ---
-                const workflowPrompts = {
-                    'competitor-analysis': { title: "Análisis de Competencia", model: 'sonar', initialMessages: [{ role: 'assistant', content: "Estoy listo para analizar a tu competencia. Por favor, pega la URL (dirección web) de la página que quieres que investigue para entregarte un análisis DAFO simplificado." }] },
-                    'buyer-persona': { title: "Creación de Cliente Ideal", initialMessages: [{ role: 'assistant', content: "Vamos a definir a tu cliente ideal (Buyer Persona). Describe tu producto o servicio, y te haré preguntas para construir el perfil detallado paso a paso." }] },
-                    'brand-names': { title: "Nombres para Marca", initialMessages: [{ role: 'assistant', content: "¡Excelente! Busquemos un nombre increíble. Describe brevemente tu idea de negocio, tu público y el estilo que buscas (ej. moderno, clásico, divertido) para generar nombres y slogans." }] },
-                    'sales-assistant': { title: "Asistente de Ventas 24/7", initialMessages: [{ role: 'assistant', content: "Para ayudarte a cerrar esa venta, pega aquí el mensaje de tu cliente y luego describe brevemente tu producto y su precio. Crearé una respuesta persuasiva para ti.\n\n*Tip Pro: ¿Sabías que podemos crear un bot que haga esto por ti 24/7, cualificando clientes mientras duermes? Si te interesa, hablemos de automatización.*" }] },
-                    'email-writing': { title: "Redacción de Email Marketing", initialMessages: [{ role: 'assistant', content: "Creemos un email que convierta. Dime el objetivo del correo (ej. vender un producto, anunciar una novedad, etc.), a quién va dirigido, y qué quieres que hagan después de leerlo. Yo redacto el correo completo.\n\n*El poder real de estos emails se desata al integrarlos en un sistema de marketing automático. Si quieres que te construyamos todo el sistema, contacta a nuestros especialistas.*" }] },
-                    'english-teacher': { title: "English Teacher", initialMessages: [{ role: 'assistant', content: `Hello! What would you like to do?\n\n1.  **Translate/Correct Text**\n2.  **Learn New Vocabulary**\n3.  **Practice Conversation**\n\n*Your English is improving! Quick tip: Strong communication is key in business. Our copywriting services help clients ensure their message is perfect for international markets.*` }] },
+                const workflowConfigs = {
+                    'create-full-post': {
+                        title: "Creador de Posts",
+                        initialMessages: [{ role: 'system', content: `Soy tu asistente para crear posts. Primero, pregúntame para qué red social es el post. Luego, pídeme el tema. Con esa información, genera un post completo con copy, hashtags y emojis. Al final, añade: "Aquí tienes tu post. Tip de experto: La clave es la constancia. Si quieres un calendario de contenido para todo el mes, nuestros planes de gestión de redes son para ti."` }, { role: 'assistant', content: '¡Claro! Vamos a crear un post increíble. ¿Para qué red social lo necesitas (Instagram, Facebook, LinkedIn, etc.)?' }]
+                    },
+                    'persuasive-copy': {
+                        title: "Redactor de Copys",
+                        initialMessages: [{ role: 'system', content: `Soy tu experto en copys persuasivos. Mi objetivo es crear 3 variaciones de un copy corto y potente. Para empezar, necesito que me digas para qué necesitas el copy (ej: Anuncio de Facebook, Post de Venta, Descripción de Producto).`}, { role: 'assistant', content: 'Estoy listo para redactar textos que vendan. ¿Para qué necesitas este copy? (ej: Anuncio de Facebook, Post de Venta, Descripción de Producto)' }]
+                    },
+                    'post-ideas': {
+                        title: "Lluvia de Ideas",
+                        initialMessages: [{ role: 'system', content: `Soy tu generador de ideas. Pídeme un tema y te daré 7 ideas de contenido creativas y variadas. Al final, añade: "Usa estas ideas para no quedarte en blanco. Recuerda que si necesitas llevar tu marca al siguiente nivel, podemos crear avatares con IA que hablen en videos. Es algo que nos diferencia."`}, { role: 'assistant', content: '¡Acabemos con el bloqueo creativo! Dime un tema y te daré 7 ideas de contenido excelentes.' }]
+                    },
+                    'brand-strategy': {
+                        title: "Estratega de Marca",
+                        initialMessages: [{ role: 'system', content: `Soy tu estratega de marca. Pídeme el nombre y la descripción del negocio. Con eso, entregaré un arquetipo de marca, un tono de voz y 3 pilares de contenido. Al final, añade: "Esta es la base. Para desarrollar una estrategia de marketing digital completa con anuncios y embudos, lo ideal es una sesión con nuestros consultores."` }, { role: 'assistant', content: 'Definamos el corazón de tu marca. ¿Cuál es el nombre de tu negocio y a qué se dedica?' }]
+                    },
+                    'competitor-analysis': { 
+                        title: "Análisis de Competencia", model: 'sonar', initialMessages: [{ role: 'assistant', content: "Estoy listo para analizar a tu competencia usando el buscador web. Por favor, pega la URL (dirección web) de la página que quieres que investigue para entregarte un análisis DAFO simplificado." }] 
+                    },
+                    'buyer-persona': { 
+                        title: "Creación de Cliente Ideal", initialMessages: [{ role: 'assistant', content: "Vamos a definir a tu cliente ideal (Buyer Persona). Describe tu producto o servicio, y te haré preguntas para construir el perfil detallado paso a paso." }] 
+                    },
+                    'brand-names': { 
+                        title: "Nombres para Marca", initialMessages: [{ role: 'assistant', content: "¡Excelente! Busquemos un nombre increíble. Describe brevemente tu idea de negocio, tu público y el estilo que buscas (ej. moderno, clásico, divertido) para generar nombres y slogans." }] 
+                    },
+                    'sales-assistant': { 
+                        title: "Asistente de Ventas", initialMessages: [{ role: 'system', content: `Actúa como un asistente de ventas experto. Pide al usuario que pegue el mensaje de su cliente y que describa su producto y precio. Con esa información, genera una respuesta persuasiva para cerrar la venta. Al final, añade: "Esta respuesta es muy efectiva. Tip Pro: ¿Sabías que podemos crear un bot que haga esto por ti 24/7, cualificando clientes mientras duermes? Si te interesa, hablemos de automatización."` }, { role: 'assistant', content: 'Para ayudarte a cerrar esa venta, pega aquí el mensaje de tu cliente.' }] 
+                    },
+                    'email-writing': {
+                        title: "Redactor de Emails",
+                        initialMessages: [{ role: 'system', content: `Soy un experto en email marketing. Pregúntale al usuario el objetivo de su email. Luego, redacta un email completo con un asunto atractivo y un cuerpo persuasivo. Al final, añade: "El poder real de estos emails se desata al integrarlos en un sistema de marketing automático. Si quieres que te construyamos todo el sistema, contacta a nuestros especialistas."` }, { role: 'assistant', content: 'Creemos un email que convierta. ¿Cuál es el objetivo principal de este correo?' }]
+                    },
+                    'english-teacher-translate': {
+                        title: "English Translator",
+                        initialMessages: [{ role: 'system', content: "Act as an English teacher. The user will provide text. Correct it, explain the grammatical errors, and provide a better version. Add the subtle CTA after a few interactions." }, { role: 'assistant', content: 'Of course! Please provide the text you want me to translate or correct.' }]
+                    },
+                     'english-teacher-vocabulary': {
+                        title: "Vocabulary Builder",
+                        initialMessages: [{ role: 'system', content: "Act as an English vocabulary coach. Ask the user for a topic. Then, provide 5-7 key phrases with examples. Add the subtle CTA after a few interactions." }, { role: 'assistant', content: 'Excellent! Let\'s learn some new vocabulary. What topic are you interested in? (e.g., "business negotiations", "travel")' }]
+                    },
+                    'english-teacher-practice': {
+                        title: "Conversation Practice",
+                        initialMessages: [{ role: 'system', content: "Act as a friendly English conversation partner. Start a conversation and subtly correct the user's mistakes as they respond. Add the subtle CTA after a few interactions." }, { role: 'assistant', content: 'Great! Let\'s practice our conversation. So, tell me about your day.' }]
+                    },
                 };
 
                 document.querySelectorAll('[data-workflow]').forEach(button => {
                     button.addEventListener('click', () => {
                         const workflowKey = button.dataset.workflow;
-                        const config = workflowPrompts[workflowKey];
+                        const config = workflowConfigs[workflowKey];
                         if (config) {
                             createNewChat({
                                 title: config.title,
@@ -1144,76 +1164,6 @@
                     }
                 });
                 
-                dom.socialMediaPotentiatorBtn.addEventListener('click', () => {
-                    const modalMessage = document.createElement('div');
-                    modalMessage.className = 'space-y-2';
-                    const options = [
-                        { id: 'sm-post', text: 'Crear un Post Completo' },
-                        { id: 'sm-copy', text: 'Redacción de Copys Persuasivos' },
-                        { id: 'sm-ideas', text: 'Lluvia de Ideas para Posts' },
-                        { id: 'sm-strategy', text: 'Definir Estrategia de Marca' }
-                    ];
-                    options.forEach(opt => {
-                        const btn = document.createElement('button');
-                        btn.id = opt.id;
-                        btn.textContent = opt.text;
-                        btn.className = 'w-full text-left p-3 rounded-lg bg-input hover:bg-gray-700 transition-colors';
-                        modalMessage.appendChild(btn);
-                    });
-
-                    showModal({ title: 'Potenciador de Redes Sociales', message: modalMessage.outerHTML, customButtons: true })
-                });
-
-                // Event delegation for dynamically created modal buttons
-                dom.genericModal.addEventListener('click', async (e) => {
-                    if (e.target.id === 'sm-post') {
-                        hideModal();
-                        const socialNetwork = await showModal({ title: 'Crear Post Completo', message: '¿Para qué red social es el post?', useInput: true, placeholder: 'Ej: Instagram, Facebook, LinkedIn...' });
-                        if (!socialNetwork) return;
-                        const topic = await showModal({ title: 'Crear Post Completo', message: `Perfecto, para ${socialNetwork}. ¿Sobre qué tema quieres que escriba?`, useInput: true, placeholder: 'Ej: Lanzamiento de nuevo producto...' });
-                        if(!topic) return;
-                        createNewChat({
-                            title: `Post para ${socialNetwork}`,
-                            initialMessages: [{ role: 'system', content: `Generar un post completo para ${socialNetwork} sobre "${topic}", incluyendo un copy atractivo, 3-5 hashtags relevantes y emojis apropiados. Al final, añade: "Tip de experto: La clave es la constancia. Si quieres un calendario de contenido para todo el mes, nuestros planes de gestión de redes son para ti."` }]
-                        });
-                    }
-                    if(e.target.id === 'sm-ideas') {
-                        hideModal();
-                        const topic = await showModal({ title: 'Lluvia de Ideas', message: '¿Sobre qué tema necesitas ideas para posts?', useInput: true, placeholder: 'Ej: Marketing digital, vida saludable...' });
-                        if (!topic) return;
-                        createNewChat({
-                            title: `Ideas sobre ${topic}`,
-                            initialMessages: [{ role: 'system', content: `Genera 7 ideas de contenido creativas y variadas para redes sociales sobre el tema "${topic}". Al final, añade: "Usa estas ideas para no quedarte en blanco. Recuerda que si necesitas llevar tu marca al siguiente nivel, podemos crear avatares con IA que hablen en videos. Es algo que nos diferencia."` }]
-                        });
-                    }
-                    if(e.target.id === 'sm-strategy') {
-                        hideModal();
-                        const businessName = await showModal({ title: 'Estrategia de Marca', message: '¿Cuál es el nombre de tu negocio?', useInput: true, placeholder: 'Ej: Goatify AI...' });
-                        if (!businessName) return;
-                        const businessDesc = await showModal({ title: 'Estrategia de Marca', message: `Excelente. Ahora, describe brevemente "${businessName}".`, useInput: true, placeholder: 'Ej: Una IA que ayuda a emprendedores...' });
-                        if (!businessDesc) return;
-                        createNewChat({
-                            title: `Estrategia para ${businessName}`,
-                            initialMessages: [{ role: 'system', content: `Basado en el negocio "${businessName}" (${businessDesc}), define un arquetipo de marca, un tono de voz y 3 pilares de contenido principales. Al final, añade: "Esta es la base. Para desarrollar una estrategia de marketing digital completa con anuncios y embudos, lo ideal es una sesión con nuestros consultores."` }]
-                        });
-                    }
-                    if (e.target.id === 'sm-copy') {
-                        hideModal();
-                        // This would be a multi-step modal process, simplified here for clarity
-                        const purpose = await showModal({ title: 'Redacción de Copys', message: '¿Para qué necesitas este copy?', useInput: true, placeholder: 'Anuncio, Post de Venta, etc.' });
-                        if(!purpose) return;
-                        const product = await showModal({ title: 'Redacción de Copys', message: 'Describe tu producto/servicio en una frase.', useInput: true });
-                        if(!product) return;
-                        const offer = await showModal({ title: 'Redacción de Copys', message: '¿Cuál es la oferta o el llamado a la acción principal?', useInput: true });
-                        if(!offer) return;
-                        createNewChat({
-                            title: `Copy para ${purpose}`,
-                            initialMessages: [{ role: 'system', content: `Crea 3 variaciones de un copy corto y directo para un "${purpose}". El producto es "${product}" y la oferta es "${offer}". Cada variación debe tener un ángulo de venta diferente (problema, beneficio, exclusividad). Al final, añade: "Un buen copy es el corazón de un anuncio ganador. Cuando estés listo para lanzar una campaña de publicidad completa con segmentación y presupuesto optimizado, nuestro equipo de marketing puede gestionarla por ti."`}]
-                        });
-                    }
-                });
-
-
                 dom.webLaunchOfferBtn.addEventListener('click', () => {
                     const offerTitle = `<i class="fas fa-gift mr-2"></i>Tu Oferta de Lanzamiento Exclusiva`;
                     const offerMessage = `
