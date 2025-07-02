@@ -138,6 +138,7 @@
                             <div class="workflow-content pl-4 pt-1 space-y-1">
                                 <button data-workflow="sales-assistant" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center">Asistente de Ventas 24/7</button>
                                 <button data-workflow="email-writing" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center">Redacción de Email</button>
+                                <button data-workflow="design-web" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center">Diseño Web</button>
                             </div>
                         </div>
                         <div class="workflow-category">
@@ -445,22 +446,21 @@
 
             Object.assign(dom, fullDom);
 
-            // ✨ INICIO DE LA REPARACIÓN: Función 'updateContextualFooter' añadida.
             function updateContextualFooter(workflowKey) {
-                if (!dom.contextualFooter) return; // Añadida verificación por si el elemento no existe
+                if (!dom.contextualFooter) return;
                 const workflowTexts = {
                     'create-full-post': 'Modo Redes Sociales: Define tu red social y tema para un post completo.',
                     'persuasive-copy': 'Modo Copywriter: Dime qué vendes y para dónde es el texto.',
                     'brand-strategy': 'Modo Estratega: Dime el nombre y rubro de tu negocio para empezar.',
                     'competitor-analysis': 'Modo Analista: Pega la URL de tu competencia para investigarla.',
                     'sales-assistant': 'Modo Asistente de Ventas: Pega el mensaje de tu cliente para responder.',
-                    'english-teacher-practice': 'Practice mode: Let\'s talk. How was your day?'
+                    'english-teacher-practice': 'Practice mode: Let\'s talk. How was your day?',
+                    'design-web': 'Modo Diseñador Web: Describe el componente visual y lo crearé en HTML.'
                 };
                 const currentChat = state.chats[currentChatId];
                 const key = workflowKey || (currentChat ? currentChat.workflow : null);
                 dom.contextualFooter.textContent = workflowTexts[key] || 'Tu copiloto de IA para hacer crecer tu negocio.';
             }
-            // ✨ FIN DE LA REPARACIÓN
 
             const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
             let recognition;
@@ -581,8 +581,9 @@
                 return null;
             }
 
+            // ✨ CAMBIO: Modelo para 'design-web' actualizado a 'gpt-4o-mini'
             function getModelForRequest(workflow, hasFile) {
-                if (workflow === "design-web") return "gpt-4o";
+                if (workflow === "design-web") return "gpt-4o-mini";
                 if (hasFile) return "gpt-4o-mini";
                 return dom.modelSelector.value;
             }
@@ -828,6 +829,7 @@
                 return codeBlock;
             }
 
+            // ✨ CAMBIO: Lógica de Vista Previa para HTML
             function addMessageToUI(role, content, imageSrc) {
                 const wrapper = document.createElement('div');
                 wrapper.className = `chat-bubble-wrapper flex items-start gap-2 my-2 ${role === 'user' ? 'justify-end' : 'justify-start'}`;
@@ -841,15 +843,30 @@
                 }
                 const contentDiv = document.createElement('div');
                 contentDiv.className = 'markdown-content';
-                const currentChat = state.chats[currentChatId];
-                if (role === 'assistant' && currentChat?.workflow === 'design-web' && /<\/?[a-z][\s\S]*>/i.test(content)) {
-                    contentDiv.innerHTML = 'He aquí el código que ha nacido de tu visión:';
-                    contentDiv.appendChild(renderCodeBlock(content));
-                } else {
-                    contentDiv.innerHTML = content === '…' ? `<div class="flex items-center space-x-2"><div class="w-2 h-2 bg-gray-400 rounded-full animate-pulse"></div><div class="w-2 h-2 bg-gray-400 rounded-full animate-pulse" style="animation-delay: .2s;"></div><div class="w-2 h-2 bg-gray-400 rounded-full animate-pulse" style="animation-delay: .4s;"></div></div>` : marked.parse(content || "");
-                }
+                
+                contentDiv.innerHTML = content === '…' ? `<div class="flex items-center space-x-2"><div class="w-2 h-2 bg-gray-400 rounded-full animate-pulse"></div><div class="w-2 h-2 bg-gray-400 rounded-full animate-pulse" style="animation-delay: .2s;"></div><div class="w-2 h-2 bg-gray-400 rounded-full animate-pulse" style="animation-delay: .4s;"></div></div>` : marked.parse(content || "");
+                
                 bubble.appendChild(contentDiv);
 
+                // Si el mensaje del asistente contiene HTML, añade el botón de vista previa
+                if (role === 'assistant' && /<\/?[a-z][\s\S]*>/i.test(content)) {
+                    const previewButton = document.createElement('button');
+                    previewButton.innerHTML = '<i class="fas fa-eye mr-2"></i>Vista Previa';
+                    previewButton.className = 'btn-primary text-xs font-semibold px-3 py-1 rounded-md mt-3';
+                    
+                    previewButton.addEventListener('click', () => {
+                        const match = content.match(/```html\n([\s\S]*?)```/);
+                        const htmlToPreview = match ? match[1] : content;
+                        
+                        dom.htmlPreviewIframe.srcdoc = htmlToPreview;
+                        dom.htmlPreviewModal.classList.remove('hidden');
+                        dom.htmlPreviewModal.classList.add('flex');
+                    });
+                    
+                    bubble.appendChild(previewButton);
+                }
+
+                const currentChat = state.chats[currentChatId];
                 if (role === 'assistant' && currentChat?.workflow) {
                     if (currentChat.messages.filter(m => m.role === 'assistant').length > 1 || currentChat.messages.filter(m => m.role === 'user').length > 0) {
                          const upsellElement = createSubtleUpsell(currentChat.workflow);
@@ -1140,6 +1157,7 @@
                 dom.userMenuBtn?.addEventListener('click', (e) => { e.stopPropagation(); dom.userMenuPopup.classList.toggle('hidden'); });
                 dom.logoutBtn?.addEventListener('click', () => { netlifyIdentity.logout(); dom.userMenuPopup.classList.add('hidden');});
                 
+                // ✨ CAMBIO: Configuración del nuevo workflow 'design-web'
                 const workflowConfigs = {
                     'create-full-post': { title: "Creador de Posts", workflow: 'create-full-post', initialMessages: [{ role: 'assistant', content: '¡Claro! Vamos a crear un post increíble. ¿Para qué red social lo necesitas (Instagram, Facebook, LinkedIn, etc.)?' }] },
                     'persuasive-copy': { title: "Redactor de Copys", workflow: 'persuasive-copy', initialMessages: [{ role: 'assistant', content: 'Estoy listo para redactar textos que vendan. ¿Para qué necesitas este copy? (ej: Anuncio de Facebook, Post de Venta, Descripción de Producto)' }] },
@@ -1153,6 +1171,7 @@
                     'english-teacher-translate': { title: "English Translator", workflow: 'english-teacher-translate', initialMessages: [{ role: 'assistant', content: 'Of course! Please provide the text you want me to translate or correct.' }] },
                     'english-teacher-vocabulary': { title: "Vocabulary Builder", workflow: 'english-teacher-vocabulary', initialMessages: [{ role: 'assistant', content: 'Excellent! Let\'s learn some new vocabulary. What topic are you interested in? (e.g., "business negotiations", "travel")' }] },
                     'english-teacher-practice': { title: "Conversation Practice", workflow: 'english-teacher-practice', initialMessages: [{ role: 'assistant', content: 'Great! Let\'s practice our conversation. So, tell me about your day.' }] },
+                    'design-web': { title: "Diseñador Web", workflow: 'design-web', model: 'gpt-4o-mini', initialMessages: [{ role: 'assistant', content: 'Estoy listo para diseñar con código. Describe la página o componente que quieres crear, y lo programaré para ti.' }] },
                 };
 
                 document.querySelectorAll('[data-workflow]').forEach(button => {
@@ -1163,7 +1182,7 @@
                             createNewChat({
                                 title: config.title,
                                 workflow: config.workflow,
-                                model: config.model, // This will be undefined for most, defaulting to general. 'competitor-analysis' will correctly use sonar.
+                                model: config.model,
                                 initialMessages: config.initialMessages
                             });
                         }
@@ -1206,7 +1225,7 @@
                     }
                 });
 
-                dom.closeHtmlPreviewModalBtn?.addEventListener('click', () => dom.htmlPreviewModal.classList.add('hidden'));
+                dom.closeHtmlPreviewModalBtn?.addEventListener('click', () => { dom.htmlPreviewModal.classList.add('hidden'); dom.htmlPreviewModal.classList.remove('flex'); });
                 dom.voiceSelector?.addEventListener('change', (e) => { selectedVoice = availableVoices.find(voice => voice.name === e.target.value); });
                 
                 dom.servicesMenuBtn?.addEventListener('click', (e) => {
