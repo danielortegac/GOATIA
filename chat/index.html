@@ -81,6 +81,9 @@
                 <div class="flex flex-col space-y-2 mb-4">
                     <button id="new-chat-btn" class="flex items-center justify-center font-semibold p-3 rounded-lg btn-primary transition-colors"><i class="fas fa-plus mr-2"></i><span>Nuevo Chat</span></button>
                     <button id="new-project-btn" class="flex items-center justify-center font-semibold p-3 rounded-lg bg-input"><i class="fas fa-folder-plus mr-2"></i><span>Nuevo Proyecto</span></button>
+                    <button id="web-launch-offer-btn" class="w-full text-left font-semibold text-sm p-3 rounded-lg btn-primary transition-colors animate-pulse">
+                        🚀 Lanza tu Negocio: Web Gratis con Pro
+                    </button>
                     <div id="upgrade-plan-container" class="hidden text-center p-2 bg-yellow-400 rounded-lg">
                          <button id="upgrade-plan-btn" class="text-xs font-semibold text-black hover:text-gray-800">
                              <i class="fas fa-rocket mr-1"></i>
@@ -97,12 +100,12 @@
             </div>
 
             <div class="flex-grow overflow-y-auto min-h-0">
-                <button id="web-launch-offer-btn" class="w-full text-left font-semibold text-sm p-3 mb-3 rounded-lg btn-primary transition-colors animate-pulse">
-                    <i class="fas fa-gift mr-2"></i>Tu Web de Lanzamiento (Gratis)
-                </button>
                 <div class="border-t border-b border-themed my-3 py-3">
                     <div class="flex justify-between items-center mb-2 px-2">
                         <h3 class="text-xs font-semibold uppercase text-text-medium">Workflows</h3>
+                        <div id="multi-select-controls">
+                            <button id="select-chats-btn" title="Seleccionar Múltiples Chats" class="p-2 rounded-lg hover:bg-light"><i class="fas fa-tasks text-sm"></i></button>
+                        </div>
                     </div>
                     <div id="workflows-container" class="space-y-1">
                         <div class="workflow-category">
@@ -145,7 +148,7 @@
                             <div class="workflow-header flex items-center p-2 rounded-md cursor-pointer hover:bg-light">
                                 <i class="fas fa-chevron-right workflow-arrow mr-2 transition-transform text-xs"></i>
                                 <i class="fas fa-language w-6 mr-2 text-red-400"></i>
-                                <span class="text-sm font-bold">Herramientas y Aprendizaje</span>
+                                <span class="text-sm font-bold">English Teacher</span>
                             </div>
                             <div class="workflow-content pl-4 pt-1 space-y-1">
                                  <button data-workflow="english-teacher-translate" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center">Traducir/Corregir Texto</button>
@@ -1016,8 +1019,6 @@
             }
 
             function setupEventListeners() {
-                dom.genericModal?.querySelector('#modal-confirm')?.addEventListener('click', () => { const input = dom.genericModal.querySelector('#modal-input'); hideModal(input.style.display !== 'none' ? input.value : true); });
-                dom.genericModal?.querySelector('#modal-cancel')?.addEventListener('click', () => hideModal(null));
                 dom.sendBtn?.addEventListener('click', () => sendMessage());
                 const stopSpeech = () => { if(speechSynthesis.speaking) speechSynthesis.cancel(); };
                 dom.msgInput?.addEventListener('keydown', (e) => { 
@@ -1097,47 +1098,55 @@
                 const workflowConfigs = {
                     'create-full-post': {
                         title: "Creador de Posts",
-                        initialMessages: [{ role: 'system', content: `Soy tu asistente para crear posts. Primero, pregúntame para qué red social es el post. Luego, pídeme el tema. Con esa información, genera un post completo con copy, hashtags y emojis. Al final, añade: "Aquí tienes tu post. Tip de experto: La clave es la constancia. Si quieres un calendario de contenido para todo el mes, nuestros planes de gestión de redes son para ti."` }, { role: 'assistant', content: '¡Claro! Vamos a crear un post increíble. ¿Para qué red social lo necesitas (Instagram, Facebook, LinkedIn, etc.)?' }]
+                        workflow: 'post-creator',
+                        initialMessages: [{ role: 'assistant', content: '¡Claro! Vamos a crear un post increíble. ¿Para qué red social lo necesitas (Instagram, Facebook, LinkedIn, etc.)?' }]
                     },
                     'persuasive-copy': {
                         title: "Redactor de Copys",
-                        initialMessages: [{ role: 'system', content: `Soy tu experto en copys persuasivos. Mi objetivo es crear 3 variaciones de un copy corto y potente. Para empezar, necesito que me digas para qué necesitas el copy (ej: Anuncio de Facebook, Post de Venta, Descripción de Producto).`}, { role: 'assistant', content: 'Estoy listo para redactar textos que vendan. ¿Para qué necesitas este copy? (ej: Anuncio de Facebook, Post de Venta, Descripción de Producto)' }]
+                        workflow: 'copy-writer',
+                        initialMessages: [{ role: 'assistant', content: 'Estoy listo para redactar textos que vendan. ¿Para qué necesitas este copy? (ej: Anuncio de Facebook, Post de Venta, Descripción de Producto)' }]
                     },
                     'post-ideas': {
                         title: "Lluvia de Ideas",
-                        initialMessages: [{ role: 'system', content: `Soy tu generador de ideas. Pídeme un tema y te daré 7 ideas de contenido creativas y variadas. Al final, añade: "Usa estas ideas para no quedarte en blanco. Recuerda que si necesitas llevar tu marca al siguiente nivel, podemos crear avatares con IA que hablen en videos. Es algo que nos diferencia."`}, { role: 'assistant', content: '¡Acabemos con el bloqueo creativo! Dime un tema y te daré 7 ideas de contenido excelentes.' }]
+                        workflow: 'idea-generator',
+                        initialMessages: [{ role: 'assistant', content: '¡Acabemos con el bloqueo creativo! Dime un tema y te daré 7 ideas de contenido excelentes.' }]
                     },
                     'brand-strategy': {
                         title: "Estratega de Marca",
-                        initialMessages: [{ role: 'system', content: `Soy tu estratega de marca. Pídeme el nombre y la descripción del negocio. Con eso, entregaré un arquetipo de marca, un tono de voz y 3 pilares de contenido. Al final, añade: "Esta es la base. Para desarrollar una estrategia de marketing digital completa con anuncios y embudos, lo ideal es una sesión con nuestros consultores."` }, { role: 'assistant', content: 'Definamos el corazón de tu marca. ¿Cuál es el nombre de tu negocio y a qué se dedica?' }]
+                        workflow: 'brand-strategist',
+                        initialMessages: [{ role: 'assistant', content: 'Definamos el corazón de tu marca. ¿Cuál es el nombre de tu negocio y a qué se dedica?' }]
                     },
                     'competitor-analysis': { 
-                        title: "Análisis de Competencia", model: 'sonar', initialMessages: [{ role: 'assistant', content: "Estoy listo para analizar a tu competencia usando el buscador web. Por favor, pega la URL (dirección web) de la página que quieres que investigue para entregarte un análisis DAFO simplificado." }] 
+                        title: "Análisis de Competencia", model: 'sonar', workflow: 'competitor-analyzer', initialMessages: [{ role: 'assistant', content: "Estoy listo para analizar a tu competencia usando el buscador web. Por favor, pega la URL (dirección web) de la página que quieres que investigue para entregarte un análisis DAFO simplificado." }] 
                     },
                     'buyer-persona': { 
-                        title: "Creación de Cliente Ideal", initialMessages: [{ role: 'assistant', content: "Vamos a definir a tu cliente ideal (Buyer Persona). Describe tu producto o servicio, y te haré preguntas para construir el perfil detallado paso a paso." }] 
+                        title: "Creación de Cliente Ideal", workflow: 'persona-builder', initialMessages: [{ role: 'assistant', content: "Vamos a definir a tu cliente ideal (Buyer Persona). Describe tu producto o servicio, y te haré preguntas para construir el perfil detallado paso a paso." }] 
                     },
                     'brand-names': { 
-                        title: "Nombres para Marca", initialMessages: [{ role: 'assistant', content: "¡Excelente! Busquemos un nombre increíble. Describe brevemente tu idea de negocio, tu público y el estilo que buscas (ej. moderno, clásico, divertido) para generar nombres y slogans." }] 
+                        title: "Nombres para Marca", workflow: 'name-generator', initialMessages: [{ role: 'assistant', content: "¡Excelente! Busquemos un nombre increíble. Describe brevemente tu idea de negocio, tu público y el estilo que buscas (ej. moderno, clásico, divertido) para generar nombres y slogans." }] 
                     },
                     'sales-assistant': { 
-                        title: "Asistente de Ventas", initialMessages: [{ role: 'system', content: `Actúa como un asistente de ventas experto. Pide al usuario que pegue el mensaje de su cliente y que describa su producto y precio. Con esa información, genera una respuesta persuasiva para cerrar la venta. Al final, añade: "Esta respuesta es muy efectiva. Tip Pro: ¿Sabías que podemos crear un bot que haga esto por ti 24/7, cualificando clientes mientras duermes? Si te interesa, hablemos de automatización."` }, { role: 'assistant', content: 'Para ayudarte a cerrar esa venta, pega aquí el mensaje de tu cliente.' }] 
+                        title: "Asistente de Ventas", workflow: 'sales-assistant', initialMessages: [{ role: 'assistant', content: 'Para ayudarte a cerrar esa venta, pega aquí el mensaje de tu cliente.' }] 
                     },
                     'email-writing': {
                         title: "Redactor de Emails",
-                        initialMessages: [{ role: 'system', content: `Soy un experto en email marketing. Pregúntale al usuario el objetivo de su email. Luego, redacta un email completo con un asunto atractivo y un cuerpo persuasivo. Al final, añade: "El poder real de estos emails se desata al integrarlos en un sistema de marketing automático. Si quieres que te construyamos todo el sistema, contacta a nuestros especialistas."` }, { role: 'assistant', content: 'Creemos un email que convierta. ¿Cuál es el objetivo principal de este correo?' }]
+                        workflow: 'email-writer',
+                        initialMessages: [{ role: 'assistant', content: 'Creemos un email que convierta. ¿Cuál es el objetivo principal de este correo?' }]
                     },
                     'english-teacher-translate': {
                         title: "English Translator",
-                        initialMessages: [{ role: 'system', content: "Act as an English teacher. The user will provide text. Correct it, explain the grammatical errors, and provide a better version. Add the subtle CTA after a few interactions." }, { role: 'assistant', content: 'Of course! Please provide the text you want me to translate or correct.' }]
+                        workflow: 'en-translate',
+                        initialMessages: [{ role: 'assistant', content: 'Of course! Please provide the text you want me to translate or correct.' }]
                     },
                      'english-teacher-vocabulary': {
                         title: "Vocabulary Builder",
-                        initialMessages: [{ role: 'system', content: "Act as an English vocabulary coach. Ask the user for a topic. Then, provide 5-7 key phrases with examples. Add the subtle CTA after a few interactions." }, { role: 'assistant', content: 'Excellent! Let\'s learn some new vocabulary. What topic are you interested in? (e.g., "business negotiations", "travel")' }]
+                        workflow: 'en-vocabulary',
+                        initialMessages: [{ role: 'assistant', content: 'Excellent! Let\'s learn some new vocabulary. What topic are you interested in? (e.g., "business negotiations", "travel")' }]
                     },
                     'english-teacher-practice': {
                         title: "Conversation Practice",
-                        initialMessages: [{ role: 'system', content: "Act as a friendly English conversation partner. Start a conversation and subtly correct the user's mistakes as they respond. Add the subtle CTA after a few interactions." }, { role: 'assistant', content: 'Great! Let\'s practice our conversation. So, tell me about your day.' }]
+                        workflow: 'en-practice',
+                        initialMessages: [{ role: 'assistant', content: 'Great! Let\'s practice our conversation. So, tell me about your day.' }]
                     },
                 };
 
@@ -1148,7 +1157,7 @@
                         if (config) {
                             createNewChat({
                                 title: config.title,
-                                workflow: workflowKey,
+                                workflow: config.workflow,
                                 model: config.model || 'gpt-3.5-turbo-1106',
                                 initialMessages: config.initialMessages
                             });
