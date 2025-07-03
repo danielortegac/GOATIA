@@ -318,7 +318,7 @@
             </div>
         </div>
     </div>
-
+    
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script type="module">
         window.addEventListener('DOMContentLoaded', () => {
@@ -678,7 +678,7 @@
                 document.body.className = 'w-screen overflow-x-hidden';
                 document.body.classList.add(isDark ? 'dark-theme' : 'light-theme');
                 localStorage.setItem('theme', isDark ? 'dark' : 'light'); 
-                applyStoredSettings(); // Actualiza los iconos en la UI
+                applyStoredSettings();
             }
             
             function setFontSize(size) {
@@ -688,6 +688,7 @@
             }
 
             function updateFontSizeUI() {
+                if (!dom.fontSizeControls) return;
                 const currentSize = localStorage.getItem('fontSize') || '16px';
                 dom.fontSizeControls.querySelectorAll('button').forEach(button => {
                     button.classList.toggle('active', button.dataset.size === currentSize);
@@ -695,18 +696,17 @@
             }
 
             function updateConfigThemeUI() {
+                if (!dom.configThemeToggle || !dom.configThemeText) return;
                 const isDark = document.body.classList.contains('dark-theme');
                 dom.configThemeToggle.querySelector('i').className = `fas fa-${isDark ? 'moon' : 'sun'}`;
                 dom.configThemeText.textContent = isDark ? 'Oscuro' : 'Claro';
             }
             
             function applyStoredSettings() {
-                // Tema
                 const isDark = localStorage.getItem('theme') === 'dark';
-                dom.themeIcon.className = `fas fa-${isDark ? 'sun' : 'moon'}`;
+                if(dom.themeIcon) dom.themeIcon.className = `fas fa-${isDark ? 'sun' : 'moon'}`;
                 updateConfigThemeUI();
 
-                // Tamaño de letra
                 const savedFontSize = localStorage.getItem('fontSize');
                 if (savedFontSize) {
                     document.body.style.fontSize = savedFontSize;
@@ -1081,7 +1081,7 @@
                 dom.closePricingModalBtn?.addEventListener('click', hidePricingModal);
                 dom.themeToggle?.addEventListener('click', () => setTheme(!document.body.classList.contains('dark-theme')));
                 dom.loginBtn?.addEventListener('click', () => netlifyIdentity.open('login'));
-                dom.chatTitle.addEventListener('click', () => { if(currentChatId) renameItem('chat', currentChatId); });
+                dom.chatTitle?.addEventListener('click', () => { if(currentChatId) renameItem('chat', currentChatId); });
                 dom.mobileChatTitle?.addEventListener('click', () => { if(currentChatId) renameItem('chat', currentChatId); });
 
                 dom.imageGenBtn?.addEventListener('click', generateImage);
@@ -1185,7 +1185,6 @@
                 dom.selectChatsBtn?.addEventListener('click', () => toggleSelectMode(true));
                 dom.cancelSelectModeBtn?.addEventListener('click', () => toggleSelectMode(false));
                 dom.deleteSelectedBtn?.addEventListener('click', async () => { if (chatsToDelete.size === 0) return; const confirm = await showModal({ title: `Eliminar ${chatsToDelete.size} chat(s)`, message: 'Esta acción es irreversible. ¿Confirmas la eliminación?', confirmText: 'Eliminar' }); if (confirm) { chatsToDelete.forEach(id => { state.structure = state.structure.filter(i => i !== id); delete state.chats[id]; Object.values(state.projects).forEach(p => { if(p.chatIds) p.chatIds = p.chatIds.filter(cid => cid !== id) }); if (currentChatId === id) resetChatView(); }); saveState(); toggleSelectMode(false); } hideModal(); });
-                // Listeners para el nuevo modal de configuración
                 dom.configBtn?.addEventListener('click', openConfigModal);
                 dom.closeConfigModalBtn?.addEventListener('click', closeConfigModal);
                 dom.configUpgradePlanBtn?.addEventListener('click', () => { closeConfigModal(); showPricingModal(); });
