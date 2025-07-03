@@ -9,7 +9,9 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/dayjs@1.10.7/dayjs.min.js"></script> <style>
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1.10.7/dayjs.min.js"></script>
+    
+    <style>
         :root {
             --bg-dark: #121212;
             --bg-medium: #1e1e1e;
@@ -99,12 +101,19 @@
         #pricing-modal .modal-content-body { max-height: 80vh; overflow-y: auto; }
         .chat-item.selected-for-delete { background-color: var(--primary) !important; color: white; }
         
-        /* Model/Voice Selectors - Adjust width to fit content */
+        /* Model/Voice Selectors - Adjust width to fit content and ensure dropdown arrow */
+        .model-selector-wrapper {
+            position: relative;
+            display: inline-flex; /* Changed from flex to inline-flex */
+            align-items: center;
+            /* No explicit width, let content dictate */
+        }
+
         .model-selector-wrapper select {
             -webkit-appearance: none;
             -moz-appearance: none;
             appearance: none;
-            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%239ca3af' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%239ca3af' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e"); /* Dropdown arrow */
             background-position: right 0.5rem center;
             background-repeat: no-repeat;
             background-size: 1.5em 1.5em;
@@ -115,22 +124,30 @@
             line-height: 1.25rem;
             border: none;
             outline: none;
+            cursor: pointer; /* Indicate it's clickable */
+            min-width: 120px; /* Ensure it has some minimum width */
         }
+        .model-selector-wrapper select::-ms-expand { display: none; }
 
         /* Ensure .pro-controls-bg adjusts its width to content */
         .pro-controls-bg {
-            display: inline-flex; /* Use inline-flex to wrap content */
+            display: flex; /* Changed to flex to align content horizontally */
             align-items: center;
             justify-content: space-between;
-            padding: 0.375rem; /* Adjusted padding */
+            padding: 0.375rem;
             border-radius: 0.5rem;
-            overflow: hidden; /* Important for the cool-light-effect to work without expanding container */
+            overflow: hidden; 
+            width: fit-content; /* Make the container fit its content */
+            max-width: 100%; /* Prevent it from overflowing on small screens */
+            gap: 0.5rem; /* Add some gap between elements */
         }
         
-        .pro-controls-bg .flex.items-center.space-x-2 {
-            flex-wrap: nowrap; /* Prevent wrapping for labels and selects */
+        /* Remove explicit flex from inner div if not needed for layout, let parent flex handle it */
+        .pro-controls-bg > div:first-child {
+            display: flex; /* Keep this to align label and select */
+            align-items: center;
+            gap: 0.5rem;
         }
-
 
         .workflow-content { display: none; }
         .workflow-category.open .workflow-content { display: block; }
@@ -166,21 +183,21 @@
             position: relative;
             padding-left: 24px;
         }
-        #chat-title-wrapper .edit-icon {
+        /* Make edit icon always visible for chat titles */
+        #chat-title-wrapper .edit-icon,
+        #mobile-chat-title-wrapper .edit-icon {
             position: absolute;
             left: 0;
             top: 50%;
             transform: translateY(-50%);
-            opacity: 0.6; 
-            transition: opacity 0.2s ease, transform 0.2s ease;
+            opacity: 1; /* Always visible */
+            transition: transform 0.2s ease;
         }
-        #chat-title-wrapper:hover .edit-icon {
-            opacity: 1;
-            transform: translateY(-50%) scale(1.1);
+        #chat-title-wrapper:hover .edit-icon,
+        #mobile-chat-title-wrapper:hover .edit-icon {
+            transform: translateY(-50%) scale(1.1); /* Subtle scale on hover */
         }
 
-        /* Removed duplicated model-selector-wrapper i rule */
-        
         .btn-disabled { background-color: #3a3a3a !important; color: #888 !important; cursor: not-allowed !important; border-color: #3a3a3a !important;}
 
         /* Sidebar chat item text colors */
@@ -267,6 +284,90 @@
             min-width: 18px;
             text-align: center;
         }
+
+        /* In-app notification box */
+        #in-app-notification {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: var(--primary);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            z-index: 1000;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        #in-app-notification.show {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        /* Calendar View Toggle */
+        .calendar-view-toggle {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+        .calendar-view-toggle button {
+            flex-grow: 1;
+            padding: 8px 12px;
+            border-radius: 6px;
+            background-color: var(--current-bg-light);
+            color: var(--current-text-light);
+            font-weight: 600;
+            transition: background-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        .calendar-view-toggle button.active {
+            background-color: var(--current-primary);
+            color: white;
+            box-shadow: 0 0 8px rgba(138, 79, 255, 0.4);
+        }
+        .calendar-view-toggle button:hover:not(.active) {
+            background-color: var(--current-bg-medium);
+        }
+
+        /* Week View Specific Styles */
+        #week-view-container {
+            display: none; /* Hidden by default */
+            max-height: 400px; /* Adjust as needed */
+            overflow-y: auto;
+            border: 1px solid var(--current-border-color);
+            border-radius: 8px;
+            padding: 10px;
+        }
+        .week-day-section {
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px dashed var(--current-border-color);
+        }
+        .week-day-section:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+        .week-day-section h5 {
+            font-weight: 700;
+            color: var(--current-primary);
+            margin-bottom: 5px;
+        }
+        .week-day-section .task-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 5px 0;
+        }
+        .week-day-section .task-item.task-item-completed {
+            opacity: 0.6;
+            text-decoration: line-through;
+        }
+
     </style>
 </head>
 <body class="w-screen overflow-x-hidden dark-theme">
@@ -547,22 +648,37 @@
     <div id="calendar-modal" class="fixed inset-0 bg-black bg-opacity-70 hidden items-center justify-center z-40 p-4">
         <div class="modal-content rounded-lg w-full max-w-2xl p-6 relative">
             <h3 class="text-lg font-bold mb-4">Mi Calendario y Tareas</h3>
-            <div class="calendar-header">
-                <button id="prev-month" class="px-3 py-1 rounded-md bg-gray-600 hover:bg-gray-700"><i class="fas fa-chevron-left"></i></button>
-                <h4 id="current-month-year" class="text-xl font-semibold"></h4>
-                <button id="next-month" class="px-3 py-1 rounded-md bg-gray-600 hover:bg-gray-700"><i class="fas fa-chevron-right"></i></button>
+            <div class="calendar-view-toggle">
+                <button id="day-view-btn" class="active">Vista de Día</button>
+                <button id="week-view-btn">Vista de Semana</button>
             </div>
-            <div class="calendar-grid mb-4">
-                <div class="font-bold text-primary">Lun</div>
-                <div class="font-bold text-primary">Mar</div>
-                <div class="font-bold text-primary">Mié</div>
-                <div class="font-bold text-primary">Jue</div>
-                <div class="font-bold text-primary">Vie</div>
-                <div class="font-bold text-primary">Sáb</div>
-                <div class="font-bold text-primary">Dom</div>
-            </div>
-            <div id="calendar-days-grid" class="calendar-grid">
+            <div id="month-view-container">
+                <div class="calendar-header">
+                    <button id="prev-month" class="px-3 py-1 rounded-md bg-gray-600 hover:bg-gray-700"><i class="fas fa-chevron-left"></i></button>
+                    <h4 id="current-month-year" class="text-xl font-semibold"></h4>
+                    <button id="next-month" class="px-3 py-1 rounded-md bg-gray-600 hover:bg-gray-700"><i class="fas fa-chevron-right"></i></button>
                 </div>
+                <div class="calendar-grid mb-4">
+                    <div class="font-bold text-primary">Lun</div>
+                    <div class="font-bold text-primary">Mar</div>
+                    <div class="font-bold text-primary">Mié</div>
+                    <div class="font-bold text-primary">Jue</div>
+                    <div class="font-bold text-primary">Vie</div>
+                    <div class="font-bold text-primary">Sáb</div>
+                    <div class="font-bold text-primary">Dom</div>
+                </div>
+                <div id="calendar-days-grid" class="calendar-grid">
+                    </div>
+            </div>
+
+            <div id="week-view-container">
+                <div class="calendar-header">
+                    <button id="prev-week" class="px-3 py-1 rounded-md bg-gray-600 hover:bg-gray-700"><i class="fas fa-chevron-left"></i></button>
+                    <h4 id="current-week-range" class="text-xl font-semibold"></h4>
+                    <button id="next-week" class="px-3 py-1 rounded-md bg-gray-600 hover:bg-gray-700"><i class="fas fa-chevron-right"></i></button>
+                </div>
+                <div id="week-days-content"></div>
+            </div>
 
             <div class="mt-6">
                 <h4 class="font-semibold mb-2">Tareas para <span id="selected-date-display"></span>:</h4>
@@ -580,6 +696,10 @@
         </div>
     </div>
 
+    <div id="in-app-notification" class="hidden">
+        <i class="fas fa-bell"></i>
+        <span id="notification-message"></span>
+    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script type="module">
@@ -606,13 +726,18 @@
                     model_web: "Búsqueda Web", voice: "Voz:", placeholder_main: "Escribe tu mensaje...", cancel: "Cancelar",
                     confirm: "Confirmar", plans_title: "Planes Goatify", plan_free_sub: "Para Siempre", plan_free_cta: "Empezar Gratis",
                     plan_feat_ltd_chat: "Acceso limitado al chat", plan_feat_ltd_hist: "Historial limitado", plan_feat_ltd_proj: "Organización por proyectos (Limitado)",
-                    plan_boost_cta: "Obtener Boost", plan_feat_fast: "Respuestas ultrarrápidas ⚡️", plan_feat_unl_hist: "Historial ilimitado",
-                    plan_feat_proj: "Organización por Proyectos", plan_feat_ltd_wf: "Workflows Limitados", plan_pro_cta: "Quiero mi Plan Pro + Web",
-                    plan_feat_all_boost: "Todo lo de Boost y más", plan_feat_all_models: "Acceso a todos los modelos de IA",
-                    plan_feat_all_wf: "Acceso a todos los Workflows", plan_feat_community: "Comunidad privada y webinars", plan_feat_support: "Asistencia prioritaria 1-a-1",
-                    plan_feat_free_web: "Página Web Gratis", preview: "Vista Previa", settings_email: "Correo Electrónico:", settings_plan: "Plan de Suscripción:",
+                    plan_boost_cta: "Obtener Boost", plan_feat_fast: "Respuestas ultrarrápidas ⚡️", plan_feat_unl_hist: "Unlimited history",
+                    plan_feat_proj: "Project Organization", plan_feat_ltd_wf: "Limited Workflows", plan_pro_cta: "Quiero mi Plan Pro + Web",
+                    plan_feat_all_boost: "Todo lo de Boost y más", plan_feat_all_models: "Access to all AI models",
+                    plan_feat_all_wf: "Access to all Workflows", plan_feat_community: "Private community & webinars", plan_feat_support: "1-on-1 priority support",
+                    plan_feat_free_web: "Página Web Gratis", preview: "Preview", settings_email: "Correo Electrónico:", settings_plan: "Plan de Suscripción:",
                     settings_fontsize: "Tamaño de Letra:", settings_theme: "Personalización:", settings_dark_mode: "Modo Oscuro",
                     settings_lang: "Idioma:", settings_whatsapp: "Conectarse a WhatsApp", current_plan: "Tu Plan Actual",
+                    calendar_today: "Hoy", calendar_this_week: "Esta Semana", calendar_mon: "Lun", calendar_tue: "Mar", calendar_wed: "Mié",
+                    calendar_thu: "Jue", calendar_fri: "Vie", calendar_sat: "Sáb", calendar_sun: "Dom",
+                    calendar_no_tasks: "No hay tareas para este día.", calendar_add_task_placeholder: "Añadir nueva tarea...",
+                    calendar_add_task_btn: "Añadir Tarea", calendar_my_calendar: "Mi Calendario y Tareas",
+                    notification_task_due: "Es hora de: "
                 },
                 en: {
                     initializing: "Initializing...", new_chat: "New Chat", new_project: "New Project",
@@ -639,6 +764,11 @@
                     plan_feat_free_web: "Free Website", preview: "Preview", settings_email: "Email Address:", settings_plan: "Subscription Plan:",
                     settings_fontsize: "Font Size:", settings_theme: "Personalization:", settings_dark_mode: "Dark Mode",
                     settings_lang: "Language:", settings_whatsapp: "Connect to WhatsApp", current_plan: "Current Plan",
+                    calendar_today: "Today", calendar_this_week: "This Week", calendar_mon: "Mon", calendar_tue: "Tue", calendar_wed: "Wed",
+                    calendar_thu: "Thu", calendar_fri: "Fri", calendar_sat: "Sat", calendar_sun: "Sun",
+                    calendar_no_tasks: "No tasks for this day.", calendar_add_task_placeholder: "Add new task...",
+                    calendar_add_task_btn: "Add Task", calendar_my_calendar: "My Calendar & Tasks",
+                    notification_task_due: "Time for: "
                 }
             };
             
@@ -652,9 +782,11 @@
             let isSelectModeActive = false;
             let chatsToDelete = new Set();
 
-            let currentMonth = dayjs(); // For calendar navigation
-            let selectedCalendarDate = dayjs(); // For task display
-            
+            let currentMonth = dayjs(); // For month view navigation
+            let currentWeek = dayjs(); // For week view navigation
+            let selectedCalendarDate = dayjs(); // For task display (Day View)
+            let currentCalendarView = 'month'; // 'month' or 'week'
+
             const dom = {};
             
             const fullDom = {
@@ -707,10 +839,20 @@
                 selectedDateDisplay: document.getElementById('selected-date-display'),
                 tasksList: document.getElementById('tasks-list'),
                 newTaskInput: document.getElementById('new-task-input'),
-                newTaskTime: document.getElementById('new-task-time'), // New time input
+                newTaskTime: document.getElementById('new-task-time'), 
                 addTaskBtn: document.getElementById('add-task-btn'),
                 noTasksMessage: document.getElementById('no-tasks-message'),
-                notificationBadge: document.getElementById('notification-badge') // Notification badge element
+                notificationBadge: document.getElementById('notification-badge'),
+                inAppNotification: document.getElementById('in-app-notification'),
+                notificationMessage: document.getElementById('notification-message'),
+                monthViewContainer: document.getElementById('month-view-container'),
+                weekViewContainer: document.getElementById('week-view-container'),
+                dayViewBtn: document.getElementById('day-view-btn'),
+                weekViewBtn: document.getElementById('week-view-btn'),
+                prevWeekBtn: document.getElementById('prev-week'),
+                nextWeekBtn: document.getElementById('next-week'),
+                currentWeekRange: document.getElementById('current-week-range'),
+                weekDaysContent: document.getElementById('week-days-content')
             };
             Object.assign(dom, fullDom);
 
@@ -733,6 +875,7 @@
                 if (currentModalConfirm) {
                     dom.genericModal.querySelector('#modal-cancel').textContent = translationData.cancel;
                 }
+                renderCalendar(); // Re-render calendar to update day names if language changes
             }
             
             function updateContextualFooter(workflowKey) {
@@ -835,8 +978,23 @@
             function showCalendarModal() {
                 dom.calendarModal.classList.remove('hidden');
                 dom.calendarModal.classList.add('flex');
-                renderCalendar();
-                updateTasksDisplay();
+                // Default to month view if no view is selected or if coming from outside
+                if (!currentCalendarView) currentCalendarView = 'month'; 
+                
+                if (currentCalendarView === 'month') {
+                    dom.monthViewContainer.style.display = 'block';
+                    dom.weekViewContainer.style.display = 'none';
+                    dom.dayViewBtn.classList.add('active');
+                    dom.weekViewBtn.classList.remove('active');
+                    renderMonthView();
+                } else {
+                    dom.monthViewContainer.style.display = 'none';
+                    dom.weekViewContainer.style.display = 'block';
+                    dom.dayViewBtn.classList.remove('active');
+                    dom.weekViewBtn.classList.add('active');
+                    renderWeekView();
+                }
+                updateTasksDisplay(); // Update tasks for the current selected date (which is used in both views)
             }
 
             function hideCalendarModal() {
@@ -844,7 +1002,7 @@
                 dom.calendarModal.classList.remove('flex');
             }
 
-            function renderCalendar() {
+            function renderMonthView() {
                 dom.calendarDaysGrid.innerHTML = '';
                 dom.currentMonthYear.textContent = currentMonth.format('MMMM YYYY');
 
@@ -878,14 +1036,67 @@
 
                     dayEl.addEventListener('click', () => {
                         selectedCalendarDate = day;
-                        renderCalendar(); // Re-render to update selection
+                        renderMonthView(); // Re-render to update selection
                         updateTasksDisplay();
                     });
 
                     dom.calendarDaysGrid.appendChild(dayEl);
                 }
-                updateNotificationBadge(); // Update badge after rendering calendar
             }
+
+            function renderWeekView() {
+                dom.weekDaysContent.innerHTML = '';
+                // Adjust currentWeek to start on Monday for consistent week view
+                let startOfWeek = currentWeek.startOf('week'); // Day.js default start of week is Sunday
+                if (startOfWeek.day() === 0) { // If it's Sunday, move to next Monday
+                    startOfWeek = startOfWeek.add(1, 'day');
+                } else { // Otherwise, move back to previous Monday
+                    startOfWeek = startOfWeek.subtract(startOfWeek.day() - 1, 'day');
+                }
+
+                const endOfWeek = startOfWeek.add(6, 'day'); // End of week is Sunday
+
+                dom.currentWeekRange.textContent = `${startOfWeek.format('D MMM')} - ${endOfWeek.format('D MMM YYYY')}`;
+
+                for (let i = 0; i < 7; i++) {
+                    const day = startOfWeek.add(i, 'day');
+                    const dayKey = day.format('YYYY-MM-DD');
+                    const tasks = state.calendar[dayKey] || [];
+                    const dayName = day.format('ddd'); // e.g., Mon, Tue
+                    const displayDate = day.format('D MMM');
+
+                    const daySection = document.createElement('div');
+                    daySection.className = 'week-day-section';
+                    daySection.innerHTML = `
+                        <h5>${dayName}, ${displayDate}</h5>
+                        <div class="space-y-1">
+                            ${tasks.length === 0 ? `<p class="text-xs text-text-medium italic">No hay tareas.</p>` : ''}
+                            ${tasks.map((task, idx) => `
+                                <div class="task-item ${task.completed ? 'task-item-completed' : ''}">
+                                    <input type="checkbox" class="task-checkbox-week" data-date="${dayKey}" data-index="${idx}" ${task.completed ? 'checked' : ''}>
+                                    <span>${task.text} ${task.time ? `(${task.time})` : ''}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    `;
+                    dom.weekDaysContent.appendChild(daySection);
+                }
+
+                dom.weekDaysContent.querySelectorAll('.task-checkbox-week').forEach(checkbox => {
+                    checkbox.addEventListener('change', (e) => {
+                        const dateKey = e.currentTarget.dataset.date;
+                        const indexToToggle = parseInt(e.currentTarget.dataset.index);
+                        if (state.calendar[dateKey] && state.calendar[dateKey][indexToToggle]) {
+                            state.calendar[dateKey][indexToToggle].completed = e.currentTarget.checked;
+                            saveState();
+                            renderWeekView(); // Re-render week view
+                            updateNotificationBadge();
+                        }
+                    });
+                });
+                updateNotificationBadge();
+            }
+
 
             function updateTasksDisplay() {
                 dom.selectedDateDisplay.textContent = selectedCalendarDate.format('DD/MM/YYYY');
@@ -923,7 +1134,7 @@
                                 delete state.calendar[dayKey]; // Clean up empty array
                             }
                             saveState();
-                            renderCalendar(); // Re-render calendar to update task indicators
+                            renderCalendarView(); // Render current view type
                         });
                     });
 
@@ -947,11 +1158,11 @@
                     if (!state.calendar[dayKey]) {
                         state.calendar[dayKey] = [];
                     }
-                    state.calendar[dayKey].push({ text: taskText, time: taskTime, completed: false });
+                    state.calendar[dayKey].push({ text: taskText, time: taskTime, completed: false, notifiedThisMinute: false }); // Add notifiedThisMinute
                     dom.newTaskInput.value = '';
                     dom.newTaskTime.value = ''; // Clear time input
                     saveState();
-                    renderCalendar(); // Re-render calendar to update task indicators
+                    renderCalendarView(); // Re-render calendar to update task indicators
                 }
             }
             
@@ -962,15 +1173,10 @@
 
                 if (state.calendar[todayKey]) {
                     state.calendar[todayKey].forEach(task => {
-                        // Count uncompleted tasks due today (either past time or no time specified)
-                        if (!task.completed) {
-                            if (task.time) {
-                                const taskDateTime = dayjs(`${todayKey}T${task.time}`);
-                                if (taskDateTime.isSame(now, 'minute') || taskDateTime.isBefore(now, 'minute')) {
-                                     pendingNotifications++;
-                                }
-                            } else {
-                                // If no time, it's pending for the whole day
+                        // Count uncompleted tasks whose time has arrived or passed
+                        if (!task.completed && task.time) {
+                            const taskDateTime = dayjs(`${todayKey}T${task.time}`);
+                            if (taskDateTime.isSame(now, 'minute') || taskDateTime.isBefore(now, 'minute')) {
                                 pendingNotifications++;
                             }
                         }
@@ -985,6 +1191,16 @@
                 }
             }
 
+            function showInAppNotification(message) {
+                dom.notificationMessage.textContent = message;
+                dom.inAppNotification.classList.remove('hidden');
+                setTimeout(() => dom.inAppNotification.classList.add('show'), 10); // Start show animation
+                setTimeout(() => {
+                    dom.inAppNotification.classList.remove('show');
+                    setTimeout(() => dom.inAppNotification.classList.add('hidden'), 300); // Hide after animation
+                }, 5000); // Display for 5 seconds
+            }
+
             function checkAndNotifyTasks() {
                 const now = dayjs();
                 const todayKey = now.format('YYYY-MM-DD');
@@ -992,14 +1208,14 @@
 
                 if (state.calendar[todayKey]) {
                     state.calendar[todayKey].forEach(task => {
-                        // Notify if not completed and time matches current minute, and hasn't been notified for this minute
+                        // Notify if not completed, time matches current minute, and hasn't been notified for this minute
                         if (!task.completed && task.time === currentHourMinute && !task.notifiedThisMinute) {
+                            // Browser notification
                             if (Notification.permission === "granted") {
                                 new Notification("Goatify AI - Tarea Pendiente!", {
                                     body: `Es hora de: ${task.text} (${task.time})`,
                                     icon: './Logos HD.png'
                                 });
-                                task.notifiedThisMinute = true; // Mark as notified for this minute
                             } else if (Notification.permission !== "denied") {
                                 Notification.requestPermission().then(permission => {
                                     if (permission === "granted") {
@@ -1007,14 +1223,17 @@
                                             body: `Es hora de: ${task.text} (${task.time})`,
                                             icon: './Logos HD.png'
                                         });
-                                        task.notifiedThisMinute = true;
                                     }
                                 });
                             }
+                            // In-app notification
+                            showInAppNotification(`${translations[localStorage.getItem('goatify-lang') || 'es'].notification_task_due} ${task.text} (${task.time})`);
+                            
+                            task.notifiedThisMinute = true; // Mark as notified for this minute
                         }
                     });
                     // Reset notifiedThisMinute flag for tasks that are no longer due in the *current* minute
-                     state.calendar[todayKey].forEach(task => {
+                    state.calendar[todayKey].forEach(task => {
                         if (task.notifiedThisMinute && task.time !== currentHourMinute) {
                             task.notifiedThisMinute = false;
                         }
@@ -1024,8 +1243,27 @@
                 updateNotificationBadge(); // Always update badge after checking tasks
             }
 
-            // Run checkAndNotifyTasks every minute (or more frequently for testing responsiveness)
-            setInterval(checkAndNotifyTasks, 10 * 1000); // Check every 10 seconds for more responsiveness
+            // Function to render the correct calendar view
+            function renderCalendarView() {
+                if (currentCalendarView === 'month') {
+                    dom.monthViewContainer.style.display = 'block';
+                    dom.weekViewContainer.style.display = 'none';
+                    dom.dayViewBtn.classList.add('active');
+                    dom.weekViewBtn.classList.remove('active');
+                    renderMonthView();
+                } else {
+                    dom.monthViewContainer.style.display = 'none';
+                    dom.weekViewContainer.style.display = 'block';
+                    dom.dayViewBtn.classList.remove('active');
+                    dom.weekViewBtn.classList.add('active');
+                    renderWeekView();
+                }
+                updateTasksDisplay();
+            }
+
+
+            // Run checkAndNotifyTasks periodically
+            setInterval(checkAndNotifyTasks, 10 * 1000); // Check every 10 seconds for responsiveness
 
             // Request notification permission on load
             if ("Notification" in window) {
@@ -1035,8 +1273,6 @@
             } else {
                 console.warn("Browser does not support desktop notifications.");
             }
-
-            // End Calendar functions
 
             function speak(text) { 
                 if (!speechOn || !('speechSynthesis' in window) || !text) return; 
@@ -1215,7 +1451,7 @@
                 } catch (error) {
                     console.error("Could not load from DB, falling back to localStorage:", error);
                     const saved = localStorage.getItem(`goatbotState_${currentUser.id}`);
-                    state = saved ? (JSON.parse(saved).state || { chats: {}, projects: {}, structure: [], calendar: {} }) : { chats: {}, projects: {}, structure: [], calendar: {} };
+                    state = saved ? (JSON.parse(saved).state || { chats: {}, projects: {}, structure: [], calendar: {} }) : { chats: {}, projects: {}, structure: {}, calendar: {} };
                     if (!state.calendar) {
                         state.calendar = {};
                     }
@@ -1806,14 +2042,34 @@
                 // Calendar event listeners
                 dom.calendarBtn?.addEventListener('click', showCalendarModal);
                 dom.closeCalendarModal?.addEventListener('click', hideCalendarModal);
+                
                 dom.prevMonthBtn?.addEventListener('click', () => {
                     currentMonth = currentMonth.subtract(1, 'month');
-                    renderCalendar();
+                    renderCalendarView(); // Always render the current view type
                 });
                 dom.nextMonthBtn?.addEventListener('click', () => {
                     currentMonth = currentMonth.add(1, 'month');
-                    renderCalendar();
+                    renderCalendarView(); // Always render the current view type
                 });
+
+                dom.prevWeekBtn?.addEventListener('click', () => {
+                    currentWeek = currentWeek.subtract(1, 'week');
+                    renderCalendarView();
+                });
+                dom.nextWeekBtn?.addEventListener('click', () => {
+                    currentWeek = currentWeek.add(1, 'week');
+                    renderCalendarView();
+                });
+
+                dom.dayViewBtn.addEventListener('click', () => {
+                    currentCalendarView = 'month';
+                    renderCalendarView();
+                });
+                dom.weekViewBtn.addEventListener('click', () => {
+                    currentCalendarView = 'week';
+                    renderCalendarView();
+                });
+
                 dom.addTaskBtn?.addEventListener('click', addTask);
                 dom.newTaskInput?.addEventListener('keydown', (e) => {
                     if (e.key === 'Enter') {
@@ -1862,7 +2118,7 @@
                 silence.volume = 0;
                 window.speechSynthesis.speak(silence);
                 document.body.removeEventListener('touchstart', unlockAudio);
-                document.body.addEventListener('click', unlockAudio); // Changed to 'click' for wider compatibility
+                document.body.addEventListener('click', unlockAudio); 
             };
             document.body.addEventListener('touchstart', unlockAudio, { once: true });
             document.body.addEventListener('click', unlockAudio, { once: true });
