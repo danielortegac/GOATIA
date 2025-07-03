@@ -1,4 +1,6 @@
-<!DOCTYPE html><html lang="es"><head>
+<!DOCTYPE html>
+<html lang="es">
+<head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Goatify AI</title>
@@ -7,11 +9,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js"></script>
-    <script>
-        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js`;
-    </script>
-    <script type="text/javascript" src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
-
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1.10.7/dayjs.min.js"></script>
+    
     <style>
         :root {
             --bg-dark: #121212;
@@ -161,7 +160,7 @@
             color: white !important; /* Important to override theme color */
         }
         .chat-item.selected-chat .text-sm {
-             color: white !important;
+            color: white !important;
         }
         .light-theme .chat-item {
             color: var(--light-text-dark); /* Ensure high contrast in light mode */
@@ -179,9 +178,75 @@
                 padding-bottom: 0.125rem;
             }
         }
+
+        /* Calendar styles */
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 5px;
+            text-align: center;
+        }
+        .calendar-day {
+            padding: 8px;
+            border-radius: 4px;
+            background-color: var(--current-bg-medium);
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+            position: relative;
+        }
+        .calendar-day:hover {
+            background-color: var(--current-bg-light);
+        }
+        .calendar-day.current-month {
+            color: var(--current-text-light);
+        }
+        .calendar-day.other-month {
+            color: var(--current-text-medium);
+            opacity: 0.5;
+        }
+        .calendar-day.selected {
+            background-color: var(--current-primary);
+            color: white;
+        }
+        .calendar-day.has-tasks {
+            border: 1px solid var(--primary);
+            box-shadow: 0 0 5px rgba(138, 79, 255, 0.3);
+        }
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .task-item-completed {
+            text-decoration: line-through;
+            opacity: 0.6;
+        }
+        .notification-bell-icon {
+            position: relative;
+        }
+        .notification-badge {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background-color: red;
+            color: white;
+            border-radius: 50%;
+            padding: 2px 6px;
+            font-size: 0.7em;
+            line-height: 1;
+            min-width: 18px;
+            text-align: center;
+        }
     </style>
 </head>
 <body class="w-screen overflow-x-hidden dark-theme">
+    <script type="text/javascript" src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+    <script type="text/javascript">
+        // IMPORTANT: Direct initialization of Netlify Identity
+        console.log("Directly calling netlifyIdentity.init() from <body>.");
+        netlifyIdentity.init();
+    </script>
 
     <div id="loading-overlay" class="fixed inset-0 bg-bg-dark bg-opacity-95 flex flex-col items-center justify-center z-[100] transition-opacity duration-300">
         <img src="./Logos HD.png" alt="Goatify Logo" class="w-24 h-24 object-contain mb-6 animate-pulse" onerror="this.onerror=null;this.src='https://placehold.co/96x96/121212/e0e0e0?text=LOGO';">
@@ -224,7 +289,7 @@
                     <div class="border-t border-b border-themed my-3 py-3">
                         <h3 class="text-xs font-semibold uppercase text-text-medium mb-2 px-2" data-translate-key="workflows">Workflows</h3>
                         <div id="workflows-container" class="space-y-1">
-                             <div class="workflow-category">
+                            <div class="workflow-category">
                                 <div class="workflow-header flex items-center p-2 rounded-md cursor-pointer hover:bg-light">
                                     <i class="fas fa-chevron-right workflow-arrow mr-2 transition-transform text-xs"></i><i class="fas fa-share-alt w-6 mr-2 text-pink-400"></i>
                                     <span class="text-sm font-bold" data-translate-key="wf_social">Potenciador de Redes Sociales</span>
@@ -305,7 +370,7 @@
                 <button id="menu-toggle" class="md:hidden text-xl p-2"><i class="fas fa-bars"></i></button>
                 <div id="chat-title-wrapper" class="hidden sm:flex items-center group cursor-pointer mx-2 flex-1 min-w-0" title="Renombrar Chat">
                     <i class="fas fa-pencil-alt text-xs text-text-medium edit-icon"></i>
-                    <h1 id="chat-title" class="text-lg truncate">Goatify AI</h1>
+                    <h1 id="chat-title" class="text-lg font-semibold truncate">Goatify AI</h1>
                 </div>
                 <div class="flex items-center space-x-1 sm:space-x-2 flex-shrink-0 ml-auto">
                     <button id="new-chat-icon-btn" title="Nuevo Chat" class="text-xl p-2 hover:opacity-80 transition-opacity"><i class="fas fa-plus-circle text-primary"></i></button>
@@ -313,19 +378,28 @@
                         <i class="fas fa-rocket text-primary"></i>
                         <span class="text-sm font-semibold text-primary" data-translate-key="solutions">Soluciones</span>
                     </button>
-                    <a href="https://wa.me/17439106116" target="_blank" title="Hablar con un Estratega" class="text-green-500 hover:text-green-400 p-2 transition-colors"><i class="fab fa-whatsapp text-xl"></i></a>
-                    <a href="https://calendly.com/goatify" target="_blank" title="Agendar Sesión Estratégica" class="text-sky-400 hover:text-sky-300 p-2 transition-colors"><i class="fas fa-calendar-days text-xl"></i></a>
+                    <button id="calendar-btn" title="Mi Calendario y Tareas" class="text-sky-400 hover:text-sky-300 p-2 transition-colors">
+                        <i class="fas fa-calendar-days text-xl"></i>
+                        <span id="notification-badge" class="notification-badge hidden">0</span>
+                    </button>
+                    <a href="https://wa.me/17439106116?text=Hola%2C%20estoy%2Fa%20en%20contratar%20uno%20de%20sus%20paquetes%20de%20soluciones%20con%20IA%20para%20mi%20negocio.%20%C2%BFPodr%C3%ADan%20darme%20m%C3%A1s%20informaci%C3%B3n%3F" target="_blank" title="Hablar con un Estratega" class="text-green-500 hover:text-green-400 p-2 transition-colors"><i class="fab fa-whatsapp text-xl"></i></a>
                     <div id="message-counter" class="text-xs font-mono whitespace-nowrap"></div>
                     <button id="theme-toggle" title="Cambiar Tema" class="text-xl p-2"><i class="fas fa-moon" id="theme-icon"></i></button>
                 </div>
                 <div id="services-menu" class="absolute top-full right-4 mt-2 w-80 rounded-xl shadow-lg border border-themed z-30 p-4 transition-all duration-300 ease-in-out opacity-0 scale-95 -translate-y-2 pointer-events-none origin-top-right">
                     <h4 class="font-bold text-lg mb-1 text-text-light" data-translate-key="ally_title">Somos tu Aliado Estratégico</h4>
                     <p class="text-sm text-text-medium mb-4" data-translate-key="ally_desc">Goatify no es solo un chat. Somos una IA personalizada con un equipo de expertos listos para ayudarte a escalar tu negocio.</p>
+                    <ul class="space-y-3">
+                        <li><a href="https://www.goatify.app/diseno-web" target="_blank" class="block p-3 rounded-lg hover:bg-medium transition-colors"><p class="font-semibold text-primary">Páginas Web que Convierten</p><p class="text-sm text-text-medium">Transformamos tus ideas en webs y tiendas online diseñadas para vender.</p></a></li>
+                        <li><a href="https://www.goatify.app/automatizacion" target="_blank" class="block p-3 rounded-lg hover:bg-medium transition-colors"><p class="font-semibold text-primary">Ventas en Piloto Automático</p><p class="text-sm text-text-medium">Implementamos sistemas de IA para automatizar tus ventas y procesos clave.</p></a></li>
+                        <li><a href="https://www.goatify.app/redes-sociales" target="_blank" class="block p-3 rounded-lg hover:bg-medium transition-colors"><p class="font-semibold text-primary">Avatares para Redes Sociales</p><p class="text-sm text-text-medium">Creamos avatares hiperrealistas con IA y estrategias de contenido que captan la atención.</p></a></li>
+                        <li><a href="https://www.goatify.app/consultoria" target="_blank" class="block p-3 rounded-lg hover:bg-medium transition-colors"><p class="font-semibold text-primary">Escala tu Empresa con IA</p><p class="text-sm text-text-medium">Obtén consultoría experta para integrar la IA en el ADN de tu negocio.</p></a></li>
+                    </ul>
                 </div>
             </header>
             <div class="block sm:hidden text-center py-1.5 border-b border-themed bg-current-bg-dark shadow-sm flex-shrink-0">
                 <div id="mobile-chat-title-wrapper" class="flex items-center justify-center group cursor-pointer px-4" title="Renombrar Chat">
-                    <i class="fas fa-pencil-alt text-xs mr-2 text-text-medium edit-icon"></i>
+                    <i class="fas fa-pencil-alt text-xs text-text-medium edit-icon"></i>
                     <h2 id="mobile-chat-title" class="text-sm font-semibold truncate">Goatify AI</h2>
                 </div>
             </div>
@@ -342,23 +416,26 @@
             </div>
             <div id="input-area" class="p-2 sm:p-4 border-t border-themed flex-shrink-0">
                 <div id="file-preview-area" class="mb-2 space-y-2 px-1 sm:px-0">
-                    <div id="image-preview-container" class="hidden relative w-24 h-24 sm:w-32 sm:h-32 rounded-lg overflow-hidden border border-themed"><img id="image-preview" src="#" alt="Image Preview" class="w-full h-full object-contain"><button id="clear-image-btn" class="absolute top-1 right-1 bg-red-500 hover:bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs z-10"><i class="fas fa-times"></i></button></div>
-                    <div id="pdf-preview-container" class="hidden relative rounded-lg border-themed">
-                        <div class="flex items-center">
-                            <i class="fas fa-file-pdf text-red-500 text-3xl mr-4 flex-shrink-0"></i>
-                            <div class="flex-grow min-w-0">
-                                <p id="pdf-name" class="text-sm font-medium truncate"></p><p id="pdf-status" class="text-xs font-mono"></p>
-                            </div>
+                    <div id="image-preview-container" class="hidden relative">
+                        <img id="image-preview" src="#" alt="Image Preview">
+                        <span id="image-name" class="text-xs text-text-medium truncate flex-grow"></span>
+                        <button id="clear-image-btn" class="bg-red-500 hover:bg-red-600 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs z-10 p-0 leading-none">&times;</button>
+                    </div>
+                    <div id="pdf-preview-container" class="hidden relative">
+                        <i class="fas fa-file-pdf text-red-500 text-xl"></i>
+                        <div class="flex-grow min-w-0">
+                            <p id="pdf-name" class="font-medium truncate"></p>
+                            <p id="pdf-status" class="text-xxs font-mono"></p>
                         </div>
-                        <button id="clear-pdf-btn" class="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs z-10"><i class="fas fa-times"></i></button>
+                        <button id="clear-pdf-btn" class="bg-red-500 hover:bg-red-600 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs z-10 p-0 leading-none">&times;</button>
                     </div>
                 </div>
-                <div class="pro-controls-bg rounded-lg p-1 mb-2 cool-light-effect inline-block">
+                <div class="pro-controls-bg rounded-lg p-1.5 mb-2 cool-light-effect">
                     <div class="flex items-center space-x-2">
                         <div class="flex items-center space-x-2">
                             <label for="model-selector" class="font-medium text-xs text-text-medium pl-2 pr-1" data-translate-key="model">Modelo:</label>
                             <div class="model-selector-wrapper">
-                                <select id="model-selector" class="rounded-md py-1 pl-1.5 focus:outline-none focus:ring-2 focus:ring-primary text-sm bg-transparent text-text-light border-none">
+                                <select id="model-selector" class="rounded-md py-1 pl-1.5 focus:outline-none focus:ring-2 focus:ring-primary text-sm bg-transparent text-text-light">
                                     <option value="gpt-3.5-turbo-1106" data-translate-key="model_general">Chat General (Turbo)</option>
                                     <option value="sonar" data-translate-key="model_web">Búsqueda Web</option>
                                 </select><i class="fas fa-chevron-down text-xs"></i>
@@ -367,7 +444,7 @@
                         <div id="voice-selector-container" class="hidden items-center space-x-2">
                             <label for="voice-selector" class="font-medium text-xs text-text-medium" data-translate-key="voice">Voz:</label>
                              <div class="model-selector-wrapper">
-                                <select id="voice-selector" class="rounded-md py-1 pl-1.5 focus:outline-none focus:ring-2 focus:ring-primary text-sm bg-transparent text-text-light border-none w-24"></select>
+                                <select id="voice-selector" class="rounded-md py-1 pl-1.5 focus:outline-none focus:ring-2 focus:ring-primary text-sm bg-transparent text-text-light w-24"></select>
                                 <i class="fas fa-chevron-down text-xs"></i>
                             </div>
                         </div>
@@ -394,7 +471,7 @@
     </div>
 
     <div id="generic-modal" class="fixed inset-0 bg-black bg-opacity-70 hidden items-center justify-center z-40 p-4"><div class="modal-content rounded-lg w-full max-w-md p-6 relative"><h3 id="modal-title" class="text-lg font-bold mb-4"></h3><div id="modal-message" class="mb-4 text-text-medium text-sm"></div><textarea id="modal-textarea" class="w-full p-2 rounded mb-4 hidden bg-input border border-themed h-28" placeholder=""></textarea><input type="text" id="modal-input" class="w-full p-2 rounded mb-4 hidden bg-input border border-themed" placeholder=""><div id="modal-buttons-container" class="flex justify-end space-x-2"><button id="modal-cancel" class="px-4 py-2 bg-gray-600 text-white rounded" data-translate-key="cancel">Cancelar</button><button id="modal-confirm" class="px-4 py-2 rounded text-white btn-primary" data-translate-key="confirm">Confirmar</button></div></div></div>
-    <div id="pricing-modal" class="fixed inset-0 bg-black bg-opacity-80 hidden items-center justify-center z-50 p-4"><div class="modal-content rounded-2xl w-full max-w-5xl max-h-[90vh] flex flex-col p-6 relative transform scale-95 transition-transform duration-300"><div class="flex-shrink-0 flex items-center justify-between mb-6"><h2 class="text-3xl md:text-4xl font-extrabold text-center flex-grow" data-translate-key="plans_title">Planes Goatify</h2><button id="close-pricing-modal" class="absolute top-4 right-4 text-gray-400 hover:text-white z-10"><i class="fas fa-times fa-lg"></i></button></div><div class="modal-content-body flex-grow overflow-y-auto px-2"><div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-text-light"><div class="plan-card border-2 border-themed rounded-xl p-6 flex flex-col"><h3 class="text-2xl font-bold">Free</h3><p class="text-5xl font-extrabold my-3">$0</p><p class="text-sm text-text-medium mb-4" data-translate-key="plan_free_sub">Para Siempre</p><button id="free-plan-btn" class="w-full p-3 rounded-lg font-semibold border-2 border-primary text-primary hover:bg-primary hover:text-white transition-colors" data-translate-key="plan_free_cta">Empezar Gratis</button><ul class="space-y-3 text-sm flex-grow mt-6 mb-4"><li class="flex items-center"><i class="fas fa-check-circle text-green-500 mr-2"></i><span data-translate-key="plan_feat_ltd_chat">Acceso limitado al chat</span></li><li class="flex items-center"><i class="fas fa-check-circle text-green-500 mr-2"></i><span data-translate-key="plan_feat_ltd_hist">Historial limitado</span></li><li class="flex items-center"><i class="fas fa-check-circle text-green-500 mr-2"></i><span data-translate-key="plan_feat_ltd_proj">Organización por proyectos (Limitado)</span></li></ul></div><div class="plan-card border-2 rounded-xl p-6 flex flex-col bg-current-bg-dark plan-card-highlight"><h3 class="text-2xl font-bold">GOAT <span class="text-primary">BOOST</span></h3><p class="text-5xl font-extrabold my-3">$7</p><p class="text-sm text-text-medium mb-4">/ mes</p><button data-plan="boost" class="select-plan-btn w-full p-3 rounded-lg font-semibold btn-primary transition-colors" data-translate-key="plan_boost_cta">Obtener Boost</button><ul class="space-y-3 text-sm flex-grow mt-6 mb-4"><li class="flex items-center"><i class="fas fa-check-circle text-primary mr-2"></i><span data-translate-key="plan_feat_fast">Respuestas ultrarrápidas ⚡️</span></li><li class="flex items-center"><i class="fas fa-check-circle text-primary mr-2"></i><span data-translate-key="plan_feat_unl_hist">Historial ilimitado</span></li><li class="flex items-center"><i class="fas fa-check-circle text-primary mr-2"></i><span data-translate-key="plan_feat_proj">Organización por Proyectos</span></li><li class="flex items-center"><i class="fas fa-check-circle text-primary mr-2"></i>English Teacher</li><li class="flex items-center"><i class="fas fa-check-circle text-primary mr-2"></i><span data-translate-key="plan_feat_ltd_wf">Workflows Limitados</span></li></ul></div><div class="plan-card border-2 border-themed rounded-xl p-6 flex flex-col"><h3 class="text-2xl font-bold">GOAT <span class="text-primary">PRO</span></h3><p class="text-5xl font-extrabold my-3">$17</p><p class="text-sm text-text-medium mb-4">/ mes</p><button data-plan="pro" class="select-plan-btn w-full p-3 rounded-lg font-semibold btn-primary transition-colors" data-translate-key="plan_pro_cta">Quiero mi Plan Pro + Web</button><ul class="space-y-3 text-sm flex-grow mt-6 mb-4"><li class="flex items-center"><i class="fas fa-check-circle text-green-500 mr-2"></i><span data-translate-key="plan_feat_all_boost">Todo lo de Boost</span> y más</li><li class="flex items-center"><i class="fas fa-check-circle text-green-500 mr-2"></i><span data-translate-key="plan_feat_all_models">Acceso a todos los modelos de IA</span></li><li class="flex items-center"><i class="fas fa-check-circle text-green-500 mr-2"></i><span data-translate-key="plan_feat_all_wf">Acceso a todos los Workflows</span></li><li class="flex items-center"><i class="fas fa-check-circle text-green-500 mr-2"></i><span data-translate-key="plan_feat_community">Comunidad privada y webinars</span></li><li class="flex items-center"><i class="fas fa-check-circle text-green-500 mr-2"></i><span data-translate-key="plan_feat_support">Asistencia prioritaria 1-a-1</span></li><li class="flex items-center"><i class="fas fa-check-circle text-green-500 mr-2"></i><span class="font-bold" data-translate-key="plan_feat_free_web">Página Web Gratis</span> para Fundadores</li></ul></div></div></div></div></div>
+    <div id="pricing-modal" class="fixed inset-0 bg-black bg-opacity-80 hidden items-center justify-center z-50 p-4"><div class="modal-content rounded-2xl w-full max-w-5xl max-h-[90vh] flex flex-col p-6 relative transform scale-95 transition-transform duration-300"><div class="flex-shrink-0 flex items-center justify-between mb-6"><h2 class="text-3xl md:text-4xl font-extrabold text-center flex-grow" data-translate-key="plans_title">Planes Goatify</h2><button id="close-pricing-modal" class="absolute top-4 right-4 text-gray-400 hover:text-white z-10"><i class="fas fa-times fa-lg"></i></button></div><div class="modal-content-body flex-grow overflow-y-auto px-2"><div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-text-light"><div class="plan-card border-2 border-themed rounded-xl p-6 flex flex-col"><h3 class="text-2xl font-bold">Free</h3><p class="text-5xl font-extrabold my-3">$0</p><p class="text-sm text-text-medium mb-4" data-translate-key="plan_free_sub">Para Siempre</p><button id="free-plan-button" class="w-full p-3 rounded-lg font-semibold border-2 border-primary text-primary hover:bg-primary hover:text-white transition-colors" data-translate-key="plan_free_cta">Empezar Gratis</button><ul class="space-y-3 text-sm flex-grow mt-6 mb-4"><li class="flex items-center"><i class="fas fa-check-circle text-green-500 mr-2"></i><span data-translate-key="plan_feat_ltd_chat">Acceso limitado al chat</span></li><li class="flex items-center"><i class="fas fa-check-circle text-green-500 mr-2"></i><span data-translate-key="plan_feat_ltd_hist">Historial limitado</span></li><li class="flex items-center"><i class="fas fa-check-circle text-green-500 mr-2"></i><span data-translate-key="plan_feat_ltd_proj">Organización por proyectos (Limitado)</span></li></ul></div><div class="plan-card border-2 rounded-xl p-6 flex flex-col bg-current-bg-dark plan-card-highlight"><h3 class="text-2xl font-bold">GOAT <span class="text-primary">BOOST</span></h3><p class="text-5xl font-extrabold my-3">$7</p><p class="text-sm text-text-medium mb-4">/ mes</p><button data-plan="boost" class="select-plan-btn w-full p-3 rounded-lg font-semibold btn-primary transition-colors" data-translate-key="plan_boost_cta">Obtener Boost</button><ul class="space-y-3 text-sm flex-grow mt-6 mb-4"><li class="flex items-center"><i class="fas fa-check-circle text-primary mr-2"></i><span data-translate-key="plan_feat_fast">Respuestas ultrarrápidas ⚡️</span></li><li class="flex items-center"><i class="fas fa-check-circle text-primary mr-2"></i><span data-translate-key="plan_feat_unl_hist">Historial ilimitado</span></li><li class="flex items-center"><i class="fas fa-check-circle text-primary mr-2"></i><span data-translate-key="plan_feat_proj">Organización por Proyectos</span></li><li class="flex items-center"><i class="fas fa-check-circle text-primary mr-2"></i>English Teacher</li><li class="flex items-center"><i class="fas fa-check-circle text-primary mr-2"></i><span data-translate-key="plan_feat_ltd_wf">Workflows Limitados</span></li></ul></div><div class="plan-card border-2 border-themed rounded-xl p-6 flex flex-col"><h3 class="text-2xl font-bold">GOAT <span class="text-primary">PRO</span></h3><p class="text-5xl font-extrabold my-3">$17</p><p class="text-sm text-text-medium mb-4">/ mes</p><button data-plan="pro" class="select-plan-btn w-full p-3 rounded-lg font-semibold btn-primary transition-colors" data-translate-key="plan_pro_cta">Quiero mi Plan Pro + Web</button><ul class="space-y-3 text-sm flex-grow mt-6 mb-4"><li class="flex items-center"><i class="fas fa-check-circle text-green-500 mr-2"></i><span class="font-bold" data-translate-key="plan_feat_all_boost">Todo lo de Boost</span> y más</li><li class="flex items-center"><i class="fas fa-check-circle text-green-500 mr-2"></i><span data-translate-key="plan_feat_all_models">Acceso a todos los modelos de IA</span></li><li class="flex items-center"><i class="fas fa-check-circle text-green-500 mr-2"></i><span data-translate-key="plan_feat_all_wf">Acceso a todos los Workflows</span></li><li class="flex items-center"><i class="fas fa-check-circle text-green-500 mr-2"></i><span data-translate-key="plan_feat_community">Comunidad privada y webinars</span></li><li class="flex items-center"><i class="fas fa-check-circle text-green-500 mr-2"></i><span data-translate-key="plan_feat_support">Asistencia prioritaria 1-a-1</span></li><li class="flex items-center"><i class="fas fa-check-circle text-green-500 mr-2"></i><span class="font-bold" data-translate-key="plan_feat_free_web">Página Web Gratis</span> para Fundadores</li></ul></div></div></div></div></div>
     <div id="html-preview-modal" class="fixed inset-0 bg-black bg-opacity-80 hidden items-center justify-center z-50 p-4"><div class="modal-content rounded-2xl w-full h-full max-w-4xl p-2 md:p-4 relative flex flex-col"><div class="flex-shrink-0 flex items-center justify-between mb-2"><h3 class="text-lg font-bold" data-translate-key="preview">Vista Previa</h3><button id="close-html-preview-modal" class="text-gray-400 hover:text-white"><i class="fas fa-times fa-lg"></i></button></div><iframe id="html-preview-iframe" class="w-full flex-grow h-full border-2 border-themed rounded-lg bg-white"></iframe></div></div>
     
     <div id="settings-modal" class="fixed inset-0 bg-black bg-opacity-70 hidden items-center justify-center z-40 p-4">
@@ -427,7 +504,7 @@
                     <select id="language-selector" class="w-full p-2 rounded bg-input border border-themed">
                         <option value="es">Español</option>
                         <option value="en">English</option>
-                    </select>
+                        </select>
                 </div>
                 <div>
                     <button id="connect-whatsapp-btn" class="w-full btn-primary p-2 rounded-lg flex items-center justify-center">
@@ -439,9 +516,49 @@
         </div>
     </div>
 
+    <div id="calendar-modal" class="fixed inset-0 bg-black bg-opacity-70 hidden items-center justify-center z-40 p-4">
+        <div class="modal-content rounded-lg w-full max-w-2xl p-6 relative">
+            <h3 class="text-lg font-bold mb-4">Mi Calendario y Tareas</h3>
+            <div class="calendar-header">
+                <button id="prev-month" class="px-3 py-1 rounded-md bg-gray-600 hover:bg-gray-700"><i class="fas fa-chevron-left"></i></button>
+                <h4 id="current-month-year" class="text-xl font-semibold"></h4>
+                <button id="next-month" class="px-3 py-1 rounded-md bg-gray-600 hover:bg-gray-700"><i class="fas fa-chevron-right"></i></button>
+            </div>
+            <div class="calendar-grid mb-4">
+                <div class="font-bold text-primary">Lun</div>
+                <div class="font-bold text-primary">Mar</div>
+                <div class="font-bold text-primary">Mié</div>
+                <div class="font-bold text-primary">Jue</div>
+                <div class="font-bold text-primary">Vie</div>
+                <div class="font-bold text-primary">Sáb</div>
+                <div class="font-bold text-primary">Dom</div>
+            </div>
+            <div id="calendar-days-grid" class="calendar-grid">
+                </div>
+
+            <div class="mt-6">
+                <h4 class="font-semibold mb-2">Tareas para <span id="selected-date-display"></span>:</h4>
+                <div id="tasks-list" class="space-y-2 mb-4 max-h-40 overflow-y-auto">
+                    <p class="text-text-medium italic" id="no-tasks-message">No hay tareas para este día.</p>
+                </div>
+                <div class="flex space-x-2 mb-2">
+                    <input type="text" id="new-task-input" class="flex-grow p-2 rounded bg-input border border-themed" placeholder="Añadir nueva tarea...">
+                    <input type="time" id="new-task-time" class="p-2 rounded bg-input border border-themed">
+                </div>
+                <button id="add-task-btn" class="w-full btn-primary p-2 rounded-lg">Añadir Tarea</button>
+            </div>
+
+            <button id="close-calendar-modal" class="absolute top-4 right-4 text-gray-400 hover:text-text-light"><i class="fas fa-times fa-lg"></i></button>
+        </div>
+    </div>
+
+
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script type="module">
+        // This is the full, unabridged script with all the new improvements.
         window.addEventListener('DOMContentLoaded', () => {
+            console.log("DOMContentLoaded fired.");
+            
             const translations = {
                 es: {
                     initializing: "Inicializando...", new_chat: "Nuevo Chat", new_project: "Nuevo Proyecto",
@@ -500,18 +617,25 @@
             const GUEST_CREDIT_LIMIT = 5;
             const FREE_PLAN_CREDIT_LIMIT = 15;
             const COSTS = { WEB_PAGE: 2, COPYWRITING: 2, SALES_RESPONSE: 2, NEBULA: 2, GENERAL: 1, SEARCH: 1, ENGLISH_TEACHER: 1, IMAGE: 5 };
-            let state = { chats: {}, projects: {}, structure: [] };
+            let state = { chats: {}, projects: {}, structure: [], calendar: {} }; // Added calendar to state
             let currentChatId = null, currentUser = null, speechOn = false, availableVoices = [], selectedVoice = null, isRecognizing = false, selectedImageBase64 = null, selectedPdfText = null;
             let micWasOnBeforeSpeaking = false;
             let modalResolve = null;
             let isSelectModeActive = false;
             let chatsToDelete = new Set();
+
+            let currentMonth = dayjs(); // For calendar navigation
+            let selectedCalendarDate = dayjs(); // For task display
+            
             const dom = {};
             
             const fullDom = {
-                appContainer: document.getElementById('app-container'), msgInput: document.getElementById('msg'), sendBtn: document.getElementById('send'),
-                messageCounterEl: document.getElementById('message-counter'), upgradePlanContainer: document.getElementById('upgrade-plan-container'),
-                upgradePlanBtn: document.getElementById('upgrade-plan-btn'), newChatBtn: document.getElementById('new-chat-btn'), newProjectBtn: document.getElementById('new-project-btn'),
+                appContainer: document.getElementById('app-container'),
+                msgInput: document.getElementById('msg'), sendBtn: document.getElementById('send'),
+                messageCounterEl: document.getElementById('message-counter'), 
+                upgradePlanContainer: document.getElementById('upgrade-plan-container'),
+                upgradePlanBtn: document.getElementById('upgrade-plan-btn'),
+                newChatBtn: document.getElementById('new-chat-btn'), newProjectBtn: document.getElementById('new-project-btn'),
                 pricingModal: document.getElementById('pricing-modal'), closePricingModalBtn: document.getElementById('close-pricing-modal'),
                 genericModal: document.getElementById('generic-modal'), chatMessages: document.getElementById('chat-messages'),
                 chatTitle: document.getElementById('chat-title'), mobileChatTitle: document.getElementById('mobile-chat-title'),
@@ -542,7 +666,23 @@
                 settingsUpgradePlanBtn: document.getElementById('settings-upgrade-plan-btn'), fontSizeSlider: document.getElementById('font-size-slider'),
                 fontSizeValue: document.getElementById('font-size-value'), settingsThemeToggle: document.getElementById('settings-theme-toggle'),
                 settingsThemeIcon: document.getElementById('settings-theme-icon'), languageSelector: document.getElementById('language-selector'),
-                connectWhatsappBtn: document.getElementById('connect-whatsapp-btn'), freePlanBtn: document.getElementById('free-plan-btn')
+                connectWhatsappBtn: document.getElementById('connect-whatsapp-btn'), freePlanButton: document.getElementById('free-plan-button'),
+
+                // Calendar elements
+                calendarBtn: document.getElementById('calendar-btn'),
+                calendarModal: document.getElementById('calendar-modal'),
+                closeCalendarModal: document.getElementById('close-calendar-modal'),
+                prevMonthBtn: document.getElementById('prev-month'),
+                nextMonthBtn: document.getElementById('next-month'),
+                currentMonthYear: document.getElementById('current-month-year'),
+                calendarDaysGrid: document.getElementById('calendar-days-grid'),
+                selectedDateDisplay: document.getElementById('selected-date-display'),
+                tasksList: document.getElementById('tasks-list'),
+                newTaskInput: document.getElementById('new-task-input'),
+                newTaskTime: document.getElementById('new-task-time'), // New time input
+                addTaskBtn: document.getElementById('add-task-btn'),
+                noTasksMessage: document.getElementById('no-tasks-message'),
+                notificationBadge: document.getElementById('notification-badge') // New notification badge
             };
             Object.assign(dom, fullDom);
 
@@ -552,11 +692,11 @@
                 document.querySelectorAll('[data-translate-key]').forEach(el => {
                     const key = el.dataset.translateKey;
                     if (translationData[key]) {
-                         if (el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && el.type === 'text')) {
-                            el.placeholder = translationData[key];
-                        } else {
-                            el.textContent = translationData[key];
-                        }
+                            if (el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && el.type === 'text')) {
+                                el.placeholder = translationData[key];
+                            } else {
+                                el.textContent = translationData[key];
+                            }
                     }
                 });
                 document.documentElement.lang = lang;
@@ -566,7 +706,7 @@
                     dom.genericModal.querySelector('#modal-cancel').textContent = translationData.cancel;
                 }
             }
-
+            
             function updateContextualFooter(workflowKey) {
                 if (!dom.contextualFooter) return;
                 const workflowTexts = {
@@ -628,13 +768,13 @@
                 const isFree = !currentUser || (currentUser.app_metadata?.plan || 'free') === 'free';
                 
                 if (isFree) {
-                    dom.freePlanBtn.textContent = translations[lang].current_plan;
-                    dom.freePlanBtn.disabled = true;
-                    dom.freePlanBtn.classList.add('btn-disabled');
+                    dom.freePlanButton.textContent = translations[lang].current_plan;
+                    dom.freePlanButton.disabled = true;
+                    dom.freePlanButton.classList.add('btn-disabled');
                 } else {
-                    dom.freePlanBtn.textContent = translations[lang].plan_free_cta;
-                    dom.freePlanBtn.disabled = false;
-                    dom.freePlanBtn.classList.remove('btn-disabled');
+                    dom.freePlanButton.textContent = translations[lang].plan_free_cta;
+                    dom.freePlanButton.disabled = false;
+                    dom.freePlanButton.classList.remove('btn-disabled');
                 }
             }
             function hidePricingModal() { dom.pricingModal.querySelector('.modal-content').classList.add('scale-95'); setTimeout(() => { dom.pricingModal.classList.add('hidden'); dom.pricingModal.classList.remove('flex'); }, 300); }
@@ -662,6 +802,216 @@
                 dom.settingsModal.classList.add('hidden');
                 dom.settingsModal.classList.remove('flex');
             }
+
+            // Calendar functions
+            function showCalendarModal() {
+                dom.calendarModal.classList.remove('hidden');
+                dom.calendarModal.classList.add('flex');
+                renderCalendar();
+                updateTasksDisplay();
+            }
+
+            function hideCalendarModal() {
+                dom.calendarModal.classList.add('hidden');
+                dom.calendarModal.classList.remove('flex');
+            }
+
+            function renderCalendar() {
+                dom.calendarDaysGrid.innerHTML = '';
+                dom.currentMonthYear.textContent = currentMonth.format('MMMM YYYY'); // Fixed format to display full year
+
+                const startOfMonth = currentMonth.startOf('month');
+                
+                let firstDayIndex = startOfMonth.day(); // 0 (Sunday) - 6 (Saturday)
+                let daysToPrepend = (firstDayIndex === 0) ? 6 : firstDayIndex - 1; // Number of days from previous month to show
+
+                const startDate = startOfMonth.subtract(daysToPrepend, 'day');
+
+                for (let i = 0; i < 42; i++) { // 6 weeks to cover all days
+                    const day = startDate.add(i, 'day');
+                    const dayEl = document.createElement('div');
+                    dayEl.classList.add('calendar-day');
+                    dayEl.textContent = day.date();
+
+                    if (day.month() === currentMonth.month()) {
+                        dayEl.classList.add('current-month');
+                    } else {
+                        dayEl.classList.add('other-month');
+                    }
+
+                    const dayKey = day.format('YYYY-MM-DD');
+                    if (state.calendar[dayKey] && state.calendar[dayKey].length > 0) {
+                        dayEl.classList.add('has-tasks');
+                    }
+
+                    if (day.isSame(selectedCalendarDate, 'day')) {
+                        dayEl.classList.add('selected');
+                    }
+
+                    dayEl.addEventListener('click', () => {
+                        selectedCalendarDate = day;
+                        renderCalendar(); // Re-render to update selection
+                        updateTasksDisplay();
+                    });
+
+                    dom.calendarDaysGrid.appendChild(dayEl);
+                }
+                updateNotificationBadge(); // Update badge after rendering calendar
+            }
+
+            function updateTasksDisplay() {
+                dom.selectedDateDisplay.textContent = selectedCalendarDate.format('DD/MM/YYYY');
+                dom.tasksList.innerHTML = '';
+                const dayKey = selectedCalendarDate.format('YYYY-MM-DD');
+                const tasks = state.calendar[dayKey] || [];
+
+                if (tasks.length === 0) {
+                    dom.noTasksMessage.style.display = 'block';
+                } else {
+                    dom.noTasksMessage.style.display = 'none';
+                    tasks.sort((a, b) => (a.time || '').localeCompare(b.time || '')); // Sort tasks by time
+                    tasks.forEach((task, index) => {
+                        const taskEl = document.createElement('div');
+                        taskEl.className = 'flex items-center justify-between p-2 rounded-md bg-current-bg-light';
+                        taskEl.classList.toggle('task-item-completed', task.completed); // Apply strikethrough if completed
+
+                        taskEl.innerHTML = `
+                            <div class="flex items-center">
+                                <input type="checkbox" class="task-checkbox mr-2" data-index="${index}" ${task.completed ? 'checked' : ''}>
+                                <span>${task.text} ${task.time ? `<span class="text-xs text-text-medium ml-1">(${task.time})</span>` : ''}</span>
+                            </div>
+                            <button class="text-red-500 hover:text-red-400 delete-task-btn" data-index="${index}">
+                                <i class="fas fa-trash-alt fa-sm"></i>
+                            </button>
+                        `;
+                        dom.tasksList.appendChild(taskEl);
+                    });
+
+                    dom.tasksList.querySelectorAll('.delete-task-btn').forEach(button => {
+                        button.addEventListener('click', (e) => {
+                            const indexToDelete = parseInt(e.currentTarget.dataset.index);
+                            state.calendar[dayKey].splice(indexToDelete, 1);
+                            if (state.calendar[dayKey].length === 0) {
+                                delete state.calendar[dayKey]; // Clean up empty array
+                            }
+                            saveState();
+                            renderCalendar(); // Re-render calendar to update task indicators
+                        });
+                    });
+
+                    dom.tasksList.querySelectorAll('.task-checkbox').forEach(checkbox => {
+                        checkbox.addEventListener('change', (e) => {
+                            const indexToToggle = parseInt(e.currentTarget.dataset.index);
+                            state.calendar[dayKey][indexToToggle].completed = e.currentTarget.checked;
+                            saveState();
+                            updateTasksDisplay(); // Re-render to apply strikethrough and re-sort
+                        });
+                    });
+                }
+                updateNotificationBadge();
+            }
+
+            function addTask() {
+                const taskText = dom.newTaskInput.value.trim();
+                const taskTime = dom.newTaskTime.value.trim(); // Get time input value
+                if (taskText) {
+                    const dayKey = selectedCalendarDate.format('YYYY-MM-DD');
+                    if (!state.calendar[dayKey]) {
+                        state.calendar[dayKey] = [];
+                    }
+                    state.calendar[dayKey].push({ text: taskText, time: taskTime, completed: false });
+                    dom.newTaskInput.value = '';
+                    dom.newTaskTime.value = ''; // Clear time input
+                    saveState();
+                    renderCalendar(); // Re-render calendar to update task indicators
+                }
+            }
+            
+            function updateNotificationBadge() {
+                let pendingNotifications = 0;
+                const now = dayjs();
+                const todayKey = now.format('YYYY-MM-DD');
+
+                if (state.calendar[todayKey]) {
+                    state.calendar[todayKey].forEach(task => {
+                        // Count uncompleted tasks due today (either past time or no time specified)
+                        if (!task.completed) {
+                            if (task.time) {
+                                const taskDateTime = dayjs(`${todayKey}T${task.time}`);
+                                if (taskDateTime.isSame(now, 'minute') || taskDateTime.isBefore(now, 'minute')) {
+                                     pendingNotifications++;
+                                }
+                            } else {
+                                // If no time, it's pending for the whole day
+                                pendingNotifications++;
+                            }
+                        }
+                    });
+                }
+
+                if (pendingNotifications > 0) {
+                    dom.notificationBadge.textContent = pendingNotifications;
+                    dom.notificationBadge.classList.remove('hidden');
+                } else {
+                    dom.notificationBadge.classList.add('hidden');
+                }
+            }
+
+
+            function checkAndNotifyTasks() {
+                const now = dayjs();
+                const todayKey = now.format('YYYY-MM-DD');
+                const currentHourMinute = now.format('HH:mm');
+
+                if (state.calendar[todayKey]) {
+                    state.calendar[todayKey].forEach(task => {
+                        // Notify if not completed and time matches current minute, or if no time and it's morning
+                        // We also add a 'notified' flag to prevent multiple notifications for the same task in the same minute
+                        if (!task.completed && task.time === currentHourMinute && !task.notifiedThisMinute) {
+                            if (Notification.permission === "granted") {
+                                new Notification("Goatify AI - Tarea Pendiente!", {
+                                    body: `Es hora de: ${task.text} (${task.time})`,
+                                    icon: './Logos HD.png'
+                                });
+                                task.notifiedThisMinute = true; // Mark as notified for this minute
+                            } else if (Notification.permission !== "denied") {
+                                Notification.requestPermission().then(permission => {
+                                    if (permission === "granted") {
+                                        new Notification("Goatify AI - Tarea Pendiente!", {
+                                            body: `Es hora de: ${task.text} (${task.time})`,
+                                            icon: './Logos HD.png'
+                                        });
+                                        task.notifiedThisMinute = true;
+                                    }
+                                });
+                            }
+                        }
+                    });
+                    // Reset notifiedThisMinute flag for all tasks each minute, to ensure it triggers if still due next minute
+                    // This is a simple mechanism; for robust notifications across reloads, integrate with local storage and precise timestamps.
+                     state.calendar[todayKey].forEach(task => {
+                        if (task.time !== currentHourMinute) {
+                            task.notifiedThisMinute = false;
+                        }
+                    });
+                    saveState(); // Save state after updating notified flags
+                }
+                updateNotificationBadge(); // Always update badge after checking tasks
+            }
+
+            // Run checkAndNotifyTasks every minute
+            setInterval(checkAndNotifyTasks, 10 * 1000); // Check every 10 seconds for more responsiveness
+
+            // Request notification permission on load
+            if ("Notification" in window) {
+                if (Notification.permission !== "granted" && Notification.permission !== "denied") {
+                    Notification.requestPermission();
+                }
+            } else {
+                console.warn("Browser does not support desktop notifications.");
+            }
+
+            // End Calendar functions
 
             function speak(text) { 
                 if (!speechOn || !('speechSynthesis' in window) || !text) return; 
@@ -726,7 +1076,7 @@
                 setTimeout(setVoices, 200);
             }
 
-            function updateModelSelectorState() {}
+            function updateModelSelectorState() { /* No direct action needed here for now, kept for structure */ }
 
             function createSubtleUpsell(workflowKey) {
                 const upsells = {
@@ -804,15 +1154,18 @@
             }
 
             async function loadStateForUser() {
+                console.log("loadStateForUser called. Current user:", currentUser ? currentUser.id : "guest");
                 if (!currentUser) {
                     const saved = localStorage.getItem('guestState');
                     if (saved) {
                         const parsed = JSON.parse(saved);
-                        state = parsed.state || { chats: {}, projects: {}, structure: [] };
+                        state = parsed.state || { chats: {}, projects: {}, structure: [], calendar: {} };
                         currentChatId = parsed.currentChatId;
+                        console.log("Loaded guest state from localStorage:", state);
                     } else {
-                        state = { chats: {}, projects: {}, structure: [] };
+                        state = { chats: {}, projects: {}, structure: [], calendar: {} };
                         currentChatId = null;
+                        console.log("No guest state found, initialized new state.");
                     }
                     renderSidebar();
                     selectChat(currentChatId);
@@ -828,13 +1181,21 @@
 
                     if (!response.ok) { throw new Error(`Server error: ${response.status}`); }
                     const dbState = await response.json();
-                    state = dbState.state || { chats: {}, projects: {}, structure: [] };
+                    state = dbState.state || { chats: {}, projects: {}, structure: [], calendar: {} };
+                    if (!state.calendar) {
+                        state.calendar = {};
+                    }
                     currentChatId = dbState.currentChatId;
+                    console.log("Loaded user state from DB:", state);
                 } catch (error) {
                     console.error("Could not load from DB, falling back to localStorage:", error);
                     const saved = localStorage.getItem(`goatbotState_${currentUser.id}`);
-                    state = saved ? (JSON.parse(saved).state || { chats: {}, projects: {}, structure: [] }) : { chats: {}, projects: {}, structure: [] };
+                    state = saved ? (JSON.parse(saved).state || { chats: {}, projects: {}, structure: [], calendar: {} }) : { chats: {}, projects: {}, structure: [], calendar: {} };
+                    if (!state.calendar) {
+                        state.calendar = {};
+                    }
                     currentChatId = saved ? JSON.parse(saved).currentChatId : null;
+                    console.log("Loaded user state from localStorage (fallback):", state);
                 }
                 
                 renderSidebar();
@@ -864,6 +1225,7 @@
             }
             
             function updateUserUI() {
+                console.log("updateUserUI called. Current user:", currentUser ? currentUser.email : "none");
                 if (currentUser) {
                     dom.loginView.classList.add('hidden');
                     dom.userMenuView.classList.remove('hidden');
@@ -893,9 +1255,7 @@
                 document.body.className = 'w-screen overflow-x-hidden';
                 document.body.classList.add(isDark ? 'dark-theme' : 'light-theme');
                 dom.themeIcon.className = `fas fa-${isDark ? 'sun' : 'moon'}`; 
-                if (dom.settingsThemeIcon) {
-                    dom.settingsThemeIcon.className = `fas fa-${isDark ? 'moon' : 'sun'} mr-2`;
-                }
+                if (dom.settingsThemeIcon) dom.settingsThemeIcon.className = `fas fa-${isDark ? 'moon' : 'sun'} mr-2`; // Update settings modal icon
                 localStorage.setItem('theme', isDark ? 'dark' : 'light'); 
             }
 
@@ -940,14 +1300,34 @@
             }
 
             function selectChat(chatId) { 
-                if (isSelectModeActive) return; 
+                if (isSelectModeActive) return;
                 if (!chatId || !state.chats[chatId]) { resetChatView(); return; } 
                 currentChatId = chatId; 
                 dom.initialMessageContainer.style.display = 'none'; 
                 dom.chatMessages.innerHTML = ''; 
                 const chat = state.chats[chatId]; 
-                dom.chatTitle.textContent = chat.title;
-                if (dom.mobileChatTitle) dom.mobileChatTitle.textContent = chat.title;
+                
+                // Update the text content of the h1/h2 elements and ensure icon is present
+                // Desktop title
+                if (dom.chatTitle) {
+                    dom.chatTitle.textContent = chat.title; // Set textContent first
+                    if (!dom.chatTitle.querySelector('.edit-icon')) { // Add icon if not present
+                        const icon = document.createElement('i');
+                        icon.className = 'fas fa-pencil-alt text-xs text-text-medium edit-icon';
+                        dom.chatTitle.prepend(icon); // Prepend so icon is on the left
+                    }
+                }
+
+                // Mobile title
+                if (dom.mobileChatTitle) {
+                    dom.mobileChatTitle.textContent = chat.title; // Set textContent first
+                    if (!dom.mobileChatTitle.querySelector('.edit-icon')) { // Add icon if not present
+                        const icon = document.createElement('i');
+                        icon.className = 'fas fa-pencil-alt text-xs text-text-medium edit-icon';
+                        dom.mobileChatTitle.prepend(icon); // Prepend so icon is on the left
+                    }
+                }
+
                 chat.messages.forEach((msg, index) => addMessageToUI(msg.role, msg.content, msg.image, index)); 
                 dom.modelSelector.value = chat.model || 'gpt-3.5-turbo-1106';
                 updateActiveChatHighlight(); 
@@ -959,8 +1339,15 @@
 
             function resetChatView() { 
                 currentChatId = null; 
-                dom.chatTitle.textContent = "Goatify AI";
+                if (dom.chatTitle) dom.chatTitle.textContent = "Goatify AI";
+                // Remove existing edit icon if any (to avoid duplicates on reset)
+                const existingDesktopIcon = dom.chatTitle.querySelector('.edit-icon');
+                if (existingDesktopIcon) existingDesktopIcon.remove();
+
                 if (dom.mobileChatTitle) dom.mobileChatTitle.textContent = "Goatify AI";
+                const existingMobileIcon = dom.mobileChatTitle.querySelector('.edit-icon');
+                if (existingMobileIcon) existingMobileIcon.remove();
+
                 dom.chatMessages.innerHTML = ''; 
                 dom.initialMessageContainer.style.display = 'flex'; 
                 updateUserUI(); 
@@ -1250,13 +1637,13 @@
             function setupEventListeners() {
                 dom.sendBtn?.addEventListener('click', () => sendMessage());
                 const stopSpeech = () => { if(speechSynthesis.speaking) speechSynthesis.cancel(); };
-                dom.msgInput?.addEventListener('keydown', (e) => { 
+                dom.msgInput?.addEventListener('keydown', (e) => { 
                     stopSpeech();
-                    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } 
+                    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } 
                 });
-                dom.msgInput?.addEventListener('input', () => { 
+                dom.msgInput?.addEventListener('input', () => { 
                     stopSpeech();
-                    dom.msgInput.style.height = 'auto'; 
+                    dom.msgInput.style.height = 'auto'; 
                     dom.msgInput.style.height = (dom.msgInput.scrollHeight) + 'px';
                 });
                 dom.newChatBtn?.addEventListener('click', () => createNewChat());
@@ -1278,17 +1665,17 @@
                 dom.imageUploadBtnMobile?.addEventListener('click', () => dom.imageUploadInput.click());
                 
                 if (SR && dom.micBtn) {
-                    recognition = new SR(); 
-                    recognition.continuous = false; recognition.interimResults = false; recognition.lang = 'es-ES'; 
-                    recognition.onstart = () => { 
-                        isRecognizing = true; 
+                    recognition = new SR(); 
+                    recognition.continuous = false; recognition.interimResults = false; recognition.lang = 'es-ES'; 
+                    recognition.onstart = () => { 
+                        isRecognizing = true; 
                         dom.micBtn.classList.add('glowing-mic');
                         dom.voiceSelectorContainer.classList.remove('hidden');
                         dom.voiceSelectorContainer.classList.add('flex');
                     };
-                    recognition.onend = () => { 
-                        isRecognizing = false; 
-                        dom.micBtn.classList.remove('glowing-mic'); 
+                    recognition.onend = () => { 
+                        isRecognizing = false; 
+                        dom.micBtn.classList.remove('glowing-mic'); 
                         dom.voiceSelectorContainer.classList.add('hidden');
                         dom.voiceSelectorContainer.classList.remove('flex');
                     };
@@ -1297,7 +1684,7 @@
                         const transcript = event.results[0][0].transcript;
                         if(transcript) { dom.msgInput.value = transcript; sendMessage(); }
                     };
-                    dom.micBtn.addEventListener('click', () => { 
+                    dom.micBtn.addEventListener('click', () => { 
                         if(isRecognizing) {
                             recognition.stop();
                         } else {
@@ -1442,4 +1829,6 @@
             }
             initApp();
         });
-    </script></body></html>
+    </script>
+</body>
+</html>
