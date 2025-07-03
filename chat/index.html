@@ -200,6 +200,7 @@
             -webkit-appearance: none;
             -moz-appearance: none;
             appearance: none;
+            /* Re-added dropdown arrow */
             background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%239ca3af' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
             background-position: right 0.5rem center;
             background-repeat: no-repeat;
@@ -841,12 +842,22 @@
 
                 const startOfMonth = currentMonth.startOf('month');
                 const endOfMonth = currentMonth.endOf('month');
-                const firstDayOfWeek = startOfMonth.day(); // 0 for Sunday, 1 for Monday etc. (Day.js default)
                 
-                // Adjust first day to be Monday (1)
-                const startDayOffset = firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1; 
+                // Adjust first day to be Monday (Day.js default for .day() is 0=Sunday)
+                // If first day is Sunday (0), we need to subtract 6 days to get to previous Monday
+                // If first day is Monday (1), subtract 0 days
+                // If first day is Tuesday (2), subtract 1 day
+                // So, (firstDayOfWeek + 6) % 7 will give us days to subtract to get to previous Monday
+                // OR more simply: (day() of week + 6) % 7 - 6 == days from previous monday to this day
+                // Day.js day() method: 0 (Sunday) to 6 (Saturday).
+                // Our calendar starts Monday (1st column), ends Sunday (7th column).
+                // So, if startOfMonth.day() is 0 (Sunday), actual first day is 6 days back (previous Monday)
+                // if startOfMonth.day() is 1 (Monday), actual first day is 0 days back (this Monday)
+                // Let's calculate the day of the week for the 1st of the month, adjusted for Monday-start
+                let firstDayIndex = startOfMonth.day(); // 0 (Sunday) - 6 (Saturday)
+                let daysToPrepend = (firstDayIndex === 0) ? 6 : firstDayIndex - 1; // Number of days from previous month to show
 
-                const startDate = startOfMonth.subtract(startDayOffset, 'day');
+                const startDate = startOfMonth.subtract(daysToPrepend, 'day');
 
                 for (let i = 0; i < 42; i++) { // 6 weeks to cover all days
                     const day = startDate.add(i, 'day');
@@ -1222,7 +1233,7 @@
                 
                 // Update the text content of the h1/h2 elements and ensure icon is present
                 dom.chatTitle.childNodes[0].nodeValue = chat.title + ' '; 
-                if (!dom.chatTitle.querySelector('.chat-title-edit-icon')) { // Add icon if not present
+                if (!dom.chatTitle.querySelector('#chat-title-edit-icon-desktop')) { // Add icon if not present
                     const icon = document.createElement('i');
                     icon.className = 'fas fa-pencil-alt chat-title-edit-icon';
                     icon.id = 'chat-title-edit-icon-desktop';
@@ -1231,7 +1242,7 @@
 
                 if (dom.mobileChatTitle) {
                     dom.mobileChatTitle.childNodes[0].nodeValue = chat.title + ' ';
-                    if (!dom.mobileChatTitle.querySelector('.chat-title-edit-icon')) { // Add icon if not present
+                    if (!dom.mobileChatTitle.querySelector('#chat-title-edit-icon-mobile')) { // Add icon if not present
                         const icon = document.createElement('i');
                         icon.className = 'fas fa-pencil-alt chat-title-edit-icon';
                         icon.id = 'chat-title-edit-icon-mobile';
@@ -1726,7 +1737,7 @@
                 });
                 
                 dom.workflowsContainer.addEventListener('click', e => { const header = e.target.closest('.workflow-header'); if (header) { const category = header.closest('.workflow-category'); if (category) category.classList.toggle('open'); } });
-                dom.webLaunchOfferBtn.addEventListener('click', () => { const offerTitle = `<i class="fas fa-gift mr-2"></i>Tu Oferta de Lanzamiento Exclusiva`; const offerMessage = `<p class="font-bold mb-2">Al suscribirte a nuestro Plan Pro por $17/mes, desbloqueas:</p><ul class="list-disc list-inside space-y-2 text-left"><li><strong>Acceso Ilimitado a Goatify AI:</strong> Todos los modelos y workflows sin restricciones.</li><li><strong>Construcción de tu Página Web Profesional:</strong> Nosotros construiremos la primera versión, ¡gratis!</li></ul><p class="font-bold mt-4 mb-2">¿Cómo funciona?</p><ol class="list-decimal list-inside space-y-1 text-left"><li><strong>Agenda tu Sesión Estratégica:</strong> Al confirmar, agenda tu llamada de 20 min.</li><li><strong>Co-creación:</strong> En la llamada definiremos objetivos y crearemos el borrador con IA.</li><li><strong>Entrega:</strong> Nuestro equipo lo pulirá y te entregará una web de una sección, lista.</li></ol><p class="text-xs mt-4 italic"><strong>Importante:</strong> La web es tuya para siempre. Para mantenerla online con nuestro hosting, necesitas tu suscripción Pro activa. Si cancelas, te entregamos el código completo.</p>`; showModal({ title: offerTitle, message: offerMessage, confirmText: 'Agendar Sesión Estratégica' }).then(confirmed => { if (confirmed) { window.open('https://calendly.com/goatify', '_blank'); } }); });
+                dom.webLaunchOfferBtn.addEventListener('click', () => { const offerTitle = `<i class="fas fa-gift mr-2"></i>Tu Oferta de Lanzamiento Exclusiva`; const offerMessage = `<p class="font-bold mb-2">Al suscribirte a nuestro Plan Pro por $17/mes, desbloqueas:</p><ul class="list-disc list-inside space-y-2 text-left"><li><strong>Acceso Ilimitado a Goatify AI:</strong> Todos los modelos y workflows sin restricciones.</li><li><strong>Construcción de tu Página Web Profesional:</strong> Nosotros construiremos la primera versión, ¡gratis!</li></ul><p class="font-bold mt-4 mb-2">¿Cómo funciona?</p><ol class="list-decimal list-inside space-y-1 text-left"><li><strong>Agenda tu Sesión Estratégica:</strong> Al confirmar, agenda tu llamada de 20 min.</li><li><strong>Co-creación:</strong> En la llamada definiremos objetivos y crearemos el borrador con IA.</li><li><strong>Entrega:</strong> Nuestro equipo lo pulirá y te entregará una web de una sección, lista.</li></li></ol><p class="text-xs mt-4 italic"><strong>Importante:</strong> La web es tuya para siempre. Para mantenerla online con nuestro hosting, necesitas tu suscripción Pro activa. Si cancelas, te entregamos el código completo.</p>`; showModal({ title: offerTitle, message: offerMessage, confirmText: 'Agendar Sesión Estratégica' }).then(confirmed => { if (confirmed) { window.open('https://calendly.com/goatify', '_blank'); } }); });
                 dom.freeGuidesLink.addEventListener('click', (e) => { e.preventDefault(); const isPaidUser = currentUser && currentUser.app_metadata?.plan && currentUser.app_metadata.plan !== 'free'; if (isPaidUser) { window.open('https://goatify.app/guiasIA', '_blank'); } else { const title = 'Acceso Exclusivo para Suscriptores'; const message = 'Estas guías se actualizan semanalmente con estrategias de negocio que te ayudarán a crecer un montón. Son un beneficio exclusivo para nuestros suscriptores. ¡Únete a un plan para desbloquearlas!'; showModal({ title, message, confirmText: 'Ver Planes' }).then(confirmed => { if (confirmed) { showPricingModal(); } }); } });
                 dom.closeHtmlPreviewModalBtn?.addEventListener('click', () => { dom.htmlPreviewModal.classList.add('hidden'); dom.htmlPreviewModal.classList.remove('flex'); });
                 dom.voiceSelector?.addEventListener('change', (e) => { selectedVoice = availableVoices.find(voice => voice.name === e.target.value); });
@@ -1785,7 +1796,50 @@
             }
             
             function initApp() {
+                let initFired = false;
+
+                const finishInitialization = (user) => {
+                    if (initFired) {
+                        console.warn("finishInitialization called multiple times.");
+                        return;
+                    }
+                    initFired = true;
+                    currentUser = user;
+                    console.log("Netlify Identity Initialized. User:", user);
+
+                    // Ensure the UI updates and content loads regardless of user status
+                    updateUserUI();
+                    loadStateForUser(); // This will load guest state if user is null
+                    populateVoiceList(); // Ensure voices are loaded
+                    setupEventListeners(); // Setup all event listeners
+                    updateModelSelectorState(); // Update model selector
+                    updateContextualFooter(null); // Set default footer text
+
+                    // Ensure loading overlay is hidden and main app is visible
+                    dom.appContainer.classList.remove('opacity-0');
+                    dom.loadingOverlay.style.display = 'none';
+
+                    // Ensure the chat title has the edit icon on initial load if a chat is selected
+                    if (currentChatId && state.chats[currentChatId]) {
+                        if (!dom.chatTitle.querySelector('#chat-title-edit-icon-desktop')) {
+                            const icon = document.createElement('i');
+                            icon.className = 'fas fa-pencil-alt chat-title-edit-icon';
+                            icon.id = 'chat-title-edit-icon-desktop';
+                            dom.chatTitle.appendChild(icon);
+                        }
+                        if (dom.mobileChatTitle && !dom.mobileChatTitle.querySelector('#chat-title-edit-icon-mobile')) {
+                            const icon = document.createElement('i');
+                            icon.className = 'fas fa-pencil-alt chat-title-edit-icon';
+                            icon.id = 'chat-title-edit-icon-mobile';
+                            dom.mobileChatTitle.appendChild(icon);
+                        }
+                    }
+                };
+
+                // Set theme early
                 setTheme(localStorage.getItem('theme') === 'dark' || (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches));
+
+                // Unlock audio on first user interaction for speech synthesis
                 const unlockAudio = () => {
                     const silence = new SpeechSynthesisUtterance('');
                     silence.volume = 0;
@@ -1795,51 +1849,55 @@
                 };
                 document.body.addEventListener('touchstart', unlockAudio, { once: true });
                 document.body.addEventListener('click', unlockAudio, { once: true });
-                let initFired = false;
-                const finishInitialization = (user) => {
-                    if (initFired) return;
-                    initFired = true;
-                    currentUser = user;
-                    updateUserUI();
-                    loadStateForUser();
-                    updateModelSelectorState();
-                    updateContextualFooter(null);
-                    dom.appContainer.classList.remove('opacity-0');
-                    dom.loadingOverlay.style.display = 'none';
-                };
-                netlifyIdentity.on('init', (user) => finishInitialization(user));
-                setTimeout(() => { if (!initFired) { finishInitialization(netlifyIdentity.currentUser()); } }, 1500);
+                
+                // Netlify Identity Event Handlers
+                netlifyIdentity.on('init', (user) => {
+                    console.log("Netlify Identity 'init' event fired.");
+                    finishInitialization(user);
+                });
+
                 netlifyIdentity.on('login', (user) => {
-                    netlifyIdentity.close(); 
+                    console.log("Netlify Identity 'login' event fired.");
+                    netlifyIdentity.close(); // Close the modal after login
                     currentUser = user;
-                    updateUserUI(); 
-                    loadStateForUser();
+                    updateUserUI(); // Update UI for logged-in user
+                    loadStateForUser(); // Load user-specific state
                 });
-                netlifyIdentity.on('logout', () => { 
-                    currentUser = null; 
-                    updateUserUI(); 
-                    loadStateForUser(); 
-                    resetChatView();
+
+                netlifyIdentity.on('logout', () => {
+                    console.log("Netlify Identity 'logout' event fired.");
+                    currentUser = null;
+                    updateUserUI(); // Update UI for logged-out user (guest)
+                    loadStateForUser(); // Load guest state
+                    resetChatView(); // Reset chat view
                 });
-                populateVoiceList();
-                setupEventListeners();
-                // Ensure the chat title has the edit icon on initial load if a chat is selected
-                if (currentChatId && state.chats[currentChatId]) {
-                    if (!dom.chatTitle.querySelector('.chat-title-edit-icon')) {
-                        const icon = document.createElement('i');
-                        icon.className = 'fas fa-pencil-alt chat-title-edit-icon';
-                        icon.id = 'chat-title-edit-icon-desktop';
-                        dom.chatTitle.appendChild(icon);
+
+                netlifyIdentity.on('error', (err) => {
+                    console.error("Netlify Identity Error:", err);
+                    // Crucially, call finishInitialization even on error to unblock the UI
+                    if (!initFired) {
+                        console.warn("Netlify Identity failed, proceeding as guest.");
+                        finishInitialization(null); // Proceed as guest if Identity init fails
                     }
-                     if (dom.mobileChatTitle && !dom.mobileChatTitle.querySelector('.chat-title-edit-icon')) {
-                        const icon = document.createElement('i');
-                        icon.className = 'fas fa-pencil-alt chat-title-edit-icon';
-                        icon.id = 'chat-title-edit-icon-mobile';
-                        dom.mobileChatTitle.appendChild(icon);
+                });
+
+                // Directly call init; it might trigger 'init' event or resolve internally.
+                // This is a common practice with Netlify Identity to ensure it starts attempting to initialize.
+                console.log("Calling netlifyIdentity.init()");
+                netlifyIdentity.init({
+                    container: '#netlify-identity-modal' // Specify a container if you have one, or it uses body
+                });
+
+                // Fallback timeout in case Netlify Identity 'init' event doesn't fire for some reason
+                setTimeout(() => {
+                    if (!initFired) {
+                        console.warn("Netlify Identity 'init' event did not fire within timeout, forcing initialization as guest.");
+                        finishInitialization(netlifyIdentity.currentUser()); // Attempt to get current user or null
                     }
-                }
+                }, 3000); // Increased timeout for robustness
             }
-            initApp();
+
+            initApp(); // Call the main initialization function
         });
     </script>
 </body>
