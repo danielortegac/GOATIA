@@ -7,7 +7,9 @@
     <link rel="icon" type="image/png" href="./Logos HD.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js"></script>
     <script>
         pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js`;
@@ -24,12 +26,12 @@
             width: 100%;
             overflow: hidden;
         }
-        body { font-family: 'Inter', sans-serif; transition: background-color: 0.3s ease, color: 0.3s ease; font-size: 16px; }
+        body { font-family: 'Poppins', sans-serif; transition: background-color 0.3s ease, color 0.3s ease, font-size 0.2s ease; font-size: 16px; }
         .dark-theme { --current-bg-dark: var(--bg-dark); --current-bg-medium: var(--bg-medium); --current-bg-light: var(--bg-light); --current-primary: var(--primary); --current-primary-hover: var(--primary-hover); --current-text-light: var(--text-light); --current-text-medium: var(--text-medium); --current-border-color: var(--border-color); background-color: var(--current-bg-dark); color: var(--text-light); }
         .light-theme { --current-bg-dark: var(--light-bg-dark); --current-bg-medium: var(--light-bg-medium); --current-bg-light: var(--light-bg-light); --current-primary: var(--light-primary); --current-primary-hover: var(--light-primary-hover); --current-text-light: var(--light-text-dark); --current-text-medium: var(--light-text-medium); --current-border-color: var(--light-border-color); background-color: var(--light-bg-dark); color: var(--light-text-dark); }
         #sidebar { background-color: var(--current-bg-dark); border-right: 1px solid var(--current-border-color); }
         #main-chat-area, .modal-content { background-color: var(--current-bg-medium); }
-        .chat-bubble-bot, .bg-input, #pdf-preview-container, .chat-item, .project-header, #user-menu-popup, #services-menu, .pro-controls-bg { background-color: var(--current-bg-light); }
+        .chat-bubble-bot, .bg-input, #pdf-preview-container, .chat-item, .project-header, #user-menu-popup, #services-menu, #config-modal .bg-setting-item { background-color: var(--current-bg-light); }
         .border-themed { border-color: var(--current-border-color); }
         .chat-bubble-user { background-color: var(--current-primary); color: white; }
         .btn-primary { background-color: var(--current-primary); color: white; }
@@ -48,11 +50,12 @@
         #app-container { height: 100vh; height: -webkit-fill-available; }
         #pricing-modal .modal-content-body { max-height: 80vh; overflow-y: auto; }
         .chat-item.selected-for-delete { background-color: var(--primary) !important; color: white; }
-        #model-selector, #voice-selector { -webkit-appearance: none; -moz-appearance: none; appearance: none; background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%239ca3af' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e"); background-position: right 0.5rem center; background-repeat: no-repeat; background-size: 1.5em 1.5em; padding-right: 2.5rem; }
+        #model-selector, #voice-selector, #language-selector { -webkit-appearance: none; -moz-appearance: none; appearance: none; background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%239ca3af' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e"); background-position: right 0.5rem center; background-repeat: no-repeat; background-size: 1.5em 1.5em; padding-right: 2.5rem; }
         .workflow-content { display: none; }
         .workflow-category.open .workflow-content { display: block; }
         .workflow-category.open .workflow-arrow { transform: rotate(90deg); }
         .plan-card { background-color: var(--current-bg-light); }
+        .font-size-control button.active { background-color: var(--current-primary); color: white; }
         
         @media (max-width: 640px) {
             body { font-size: 15px; }
@@ -174,6 +177,7 @@
                             <i class="fas fa-ellipsis-h"></i>
                         </button>
                         <div id="user-menu-popup" class="absolute bottom-full left-0 w-full mb-2 rounded-lg p-2 border border-themed shadow-lg hidden">
+                            <button id="config-btn" class="w-full text-left text-sm p-2 rounded hover:bg-medium flex items-center"><i class="fas fa-cog w-6 mr-2"></i>Configuración</button>
                             <button id="logout-btn" class="w-full text-left text-sm p-2 rounded hover:bg-medium flex items-center"><i class="fas fa-sign-out-alt w-6 mr-2"></i>Cerrar Sesión</button>
                         </div>
                     </div>
@@ -184,11 +188,12 @@
         <main id="main-chat-area" class="flex-1 flex flex-col h-full overflow-hidden">
            <header class="flex items-center justify-between p-3 md:p-4 border-b border-themed flex-shrink-0 relative">
                 <button id="menu-toggle" class="md:hidden text-xl p-2"><i class="fas fa-bars"></i></button>
+                <button id="new-chat-btn-header" class="md:hidden text-xl p-2"><i class="fas fa-plus"></i></button>
                 <h1 id="chat-title" class="hidden sm:block text-lg font-semibold truncate cursor-pointer mx-2 flex-1 min-w-0" title="Renombrar Chat">Goatify AI</h1>
                 <div class="flex items-center space-x-1 sm:space-x-2 flex-shrink-0 ml-auto">
                     <button id="services-menu-btn" title="Potenciar mi Negocio" class="text-xl p-2 hover:opacity-80 transition-opacity flex items-center gap-2">
                         <i class="fas fa-rocket text-primary"></i>
-                        <span class="text-sm font-semibold text-primary">Soluciones</span>
+                        <span class="text-sm font-semibold text-primary hidden sm:inline">Soluciones</span>
                     </button>
                     <a href="https://wa.me/17439106116?text=Hola%2C%20estoy%20interesado%2Fa%20en%20contratar%20uno%20de%20sus%20paquetes%20de%20soluciones%20con%20IA%20para%20mi%20negocio.%20%C2%BFPodr%C3%ADan%20darme%20m%C3%A1s%20informaci%C3%B3n%3F" target="_blank" title="Hablar con un Estratega" class="text-green-500 hover:text-green-400 p-2 transition-colors">
                         <i class="fab fa-whatsapp text-xl"></i>
@@ -229,24 +234,22 @@
                     <div id="image-preview-container" class="hidden relative w-24 h-24 sm:w-32 sm:h-32 rounded-lg overflow-hidden border border-themed"><img id="image-preview" src="#" alt="Image Preview" class="w-full h-full object-contain"><button id="clear-image-btn" class="absolute top-1 right-1 bg-red-500 hover:bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs z-10"><i class="fas fa-times"></i></button></div>
                     <div id="pdf-preview-container" class="hidden relative p-3 rounded-lg border-themed"><div class="flex items-center"><i class="fas fa-file-pdf text-red-500 text-3xl mr-4 flex-shrink-0"></i><div class="flex-grow min-w-0"><p id="pdf-name" class="text-sm font-medium truncate"></p><p id="pdf-status" class="text-xs font-mono"></p></div></div><button id="clear-pdf-btn" class="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs z-10"><i class="fas fa-times"></i></button></div>
                 </div>
-                <div class="pro-controls-bg rounded-lg p-1.5 mb-2">
-                    <div class="flex items-center justify-between space-x-2">
-                        <div class="flex items-center space-x-2">
-                            <label for="model-selector" class="font-medium text-xs text-text-medium pl-2">Modelo:</label>
-                            <select id="model-selector" class="rounded-md p-1.5 focus:outline-none focus:ring-2 focus:ring-primary text-sm bg-transparent text-text-light border-none">
-                                <option value="gpt-3.5-turbo-1106">Chat General (Turbo)</option>
-                                <option value="sonar">Búsqueda Web</option>
-                            </select>
-                        </div>
-                        <div id="voice-selector-container" class="hidden items-center space-x-2">
-                            <label for="voice-selector" class="font-medium text-xs text-text-medium">Voz:</label>
-                            <select id="voice-selector" class="rounded-md p-1.5 focus:outline-none focus:ring-2 focus:ring-primary text-sm bg-transparent text-text-light border-none w-24"></select>
-                        </div>
-                        <div class="flex sm:hidden items-center space-x-1">
-                            <button id="image-gen-btn-mobile" title="Crear Imagen" class="p-2 hover:text-primary transition-colors rounded-full text-text-medium"><i class="fas fa-paint-brush text-lg"></i></button>
-                            <button id="pdf-upload-btn-mobile" title="Subir PDF" class="p-2 hover:text-primary transition-colors rounded-full text-text-medium"><i class="fa fa-file-pdf text-lg"></i></button>
-                            <button id="image-upload-btn-mobile" title="Subir Imagen" class="p-2 hover:text-primary transition-colors rounded-full text-text-medium"><i class="fa fa-image text-lg"></i></button>
-                        </div>
+                <div class="flex items-center justify-between space-x-2 mb-2">
+                    <div class="flex items-center space-x-2 bg-input rounded-full px-3 py-1">
+                        <label for="model-selector" class="font-medium text-xs text-text-medium">Modelo:</label>
+                        <select id="model-selector" class="rounded-full focus:outline-none focus:ring-0 text-sm bg-transparent text-text-light border-none">
+                            <option value="gpt-3.5-turbo-1106">Chat General</option>
+                            <option value="sonar">Búsqueda Web</option>
+                        </select>
+                    </div>
+                    <div id="voice-selector-container" class="hidden items-center space-x-2">
+                        <label for="voice-selector" class="font-medium text-xs text-text-medium">Voz:</label>
+                        <select id="voice-selector" class="rounded-md p-1.5 focus:outline-none focus:ring-2 focus:ring-primary text-sm bg-transparent text-text-light border-none w-24"></select>
+                    </div>
+                    <div class="flex sm:hidden items-center space-x-1">
+                        <button id="image-gen-btn-mobile" title="Crear Imagen" class="p-2 hover:text-primary transition-colors rounded-full text-text-medium"><i class="fas fa-paint-brush text-lg"></i></button>
+                        <button id="pdf-upload-btn-mobile" title="Subir PDF" class="p-2 hover:text-primary transition-colors rounded-full text-text-medium"><i class="fa fa-file-pdf text-lg"></i></button>
+                        <button id="image-upload-btn-mobile" title="Subir Imagen" class="p-2 hover:text-primary transition-colors rounded-full text-text-medium"><i class="fa fa-image text-lg"></i></button>
                     </div>
                 </div>
                 <div class="relative rounded-xl flex items-center bg-input p-1 sm:p-2">
@@ -269,6 +272,53 @@
     <div id="pricing-modal" class="fixed inset-0 bg-black bg-opacity-80 hidden items-center justify-center z-50 p-4"><div class="modal-content rounded-2xl w-full max-w-5xl max-h-[90vh] flex flex-col p-6 relative transform scale-95 transition-transform duration-300"><div class="flex-shrink-0 flex items-center justify-between mb-6"><h2 class="text-3xl md:text-4xl font-extrabold text-center flex-grow">Planes Goatify</h2><button id="close-pricing-modal" class="absolute top-4 right-4 text-gray-400 hover:text-white z-10"><i class="fas fa-times fa-lg"></i></button></div><div class="modal-content-body flex-grow overflow-y-auto px-2"><div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-text-light"><div class="plan-card border-2 border-themed rounded-xl p-6 flex flex-col"><h3 class="text-2xl font-bold">Free</h3><p class="text-5xl font-extrabold my-3">$0</p><p class="text-sm text-text-medium mb-4">Para Siempre</p><button class="w-full p-3 rounded-lg font-semibold border-2 border-primary text-primary hover:bg-primary hover:text-white transition-colors">Empezar Gratis</button><ul class="space-y-3 text-sm flex-grow mt-6 mb-4"><li class="flex items-center"><i class="fas fa-check-circle text-green-500 mr-2"></i>Acceso limitado al chat</li><li class="flex items-center"><i class="fas fa-check-circle text-green-500 mr-2"></i>Historial limitado</li><li class="flex items-center"><i class="fas fa-check-circle text-green-500 mr-2"></i>Organización por proyectos (Limitado)</li></ul><div class="text-center text-text-medium text-xs mt-auto cursor-pointer hover:text-text-light" onclick="this.nextElementSibling.classList.toggle('hidden')">▼ Ver detalles de uso</div><div class="hidden mt-2 border-t border-themed pt-2 space-y-1 text-xs text-left"><p>Mensajes de texto: <span class="font-bold float-right">100 / mes</span></p><p>Búsquedas web: <span class="font-bold float-right">10 / mes</span></p><p>Archivos / Imágenes: <span class="font-bold float-right">-</span></p></div></div><div class="plan-card border-2 rounded-xl p-6 flex flex-col bg-current-bg-dark plan-card-highlight"><h3 class="text-2xl font-bold">GOAT <span class="text-primary">BOOST</span></h3><p class="text-5xl font-extrabold my-3">$7</p><p class="text-sm text-text-medium mb-4">/ mes</p><button data-plan="boost" class="select-plan-btn w-full p-3 rounded-lg font-semibold btn-primary transition-colors">Obtener Boost</button><ul class="space-y-3 text-sm flex-grow mt-6 mb-4"><li class="flex items-center"><i class="fas fa-check-circle text-primary mr-2"></i>Respuestas ultrarrápidas ⚡️</li><li class="flex items-center"><i class="fas fa-check-circle text-primary mr-2"></i>Historial ilimitado</li><li class="flex items-center"><i class="fas fa-check-circle text-primary mr-2"></i>Organización por Proyectos</li><li class="flex items-center"><i class="fas fa-check-circle text-primary mr-2"></i>English Teacher</li><li class="flex items-center"><i class="fas fa-check-circle text-primary mr-2"></i>Workflows Limitados</li></ul><div class="text-center text-text-medium text-xs mt-auto cursor-pointer hover:text-text-light" onclick="this.nextElementSibling.classList.toggle('hidden')">▼ Ver detalles de uso</div><div class="hidden mt-2 border-t border-themed pt-2 space-y-1 text-xs text-left"><p>Mensajes de texto: <span class="font-bold float-right">500 / mes</span></p><p>Búsquedas web: <span class="font-bold float-right">70 / mes</span></p><p>Archivos / Imágenes: <span class="font-bold float-right">10 / mes</span></p></div></div><div class="plan-card border-2 border-themed rounded-xl p-6 flex flex-col"><h3 class="text-2xl font-bold">GOAT <span class="text-primary">PRO</span></h3><p class="text-5xl font-extrabold my-3">$17</p><p class="text-sm text-text-medium mb-4">/ mes</p><button data-plan="pro" class="select-plan-btn w-full p-3 rounded-lg font-semibold btn-primary transition-colors">Quiero mi Plan Pro + Web</button><ul class="space-y-3 text-sm flex-grow mt-6 mb-4"><li class="flex items-center"><i class="fas fa-check-circle text-green-500 mr-2"></i><span class="font-bold">Todo lo de Boost</span> y más</li><li class="flex items-center"><i class="fas fa-check-circle text-green-500 mr-2"></i>Acceso a todos los modelos de IA</li><li class="flex items-center"><i class="fas fa-check-circle text-green-500 mr-2"></i>Acceso a todos los Workflows</li><li class="flex items-center"><i class="fas fa-check-circle text-green-500 mr-2"></i>Comunidad privada y webinars</li><li class="flex items-center"><i class="fas fa-check-circle text-green-500 mr-2"></i>Asistencia prioritaria 1-a-1</li><li class="flex items-center"><i class="fas fa-check-circle text-green-500 mr-2"></i><span class="font-bold">Página Web Gratis</span> para Fundadores</li></ul><div class="text-center text-text-medium text-xs mt-auto cursor-pointer hover:text-text-light" onclick="this.nextElementSibling.classList.toggle('hidden')">▼ Ver detalles de uso</div><div class="hidden mt-2 border-t border-themed pt-2 space-y-1 text-xs text-left"><p>Mensajes de texto: <span class="font-bold float-right">1,200 / mes</span></p><p>Búsquedas web: <span class="font-bold float-right">150 / mes</span></p><p>Archivos / Imágenes: <span class="font-bold float-right">30 / mes</span></p></div></div></div></div></div></div>
     <div id="html-preview-modal" class="fixed inset-0 bg-black bg-opacity-80 hidden items-center justify-center z-50 p-4"><div class="modal-content rounded-2xl w-full h-full max-w-4xl p-2 md:p-4 relative flex flex-col"><div class="flex-shrink-0 flex items-center justify-between mb-2"><h3 class="text-lg font-bold">Vista Previa</h3><button id="close-html-preview-modal" class="text-gray-400 hover:text-white"><i class="fas fa-times fa-lg"></i></button></div><iframe id="html-preview-iframe" class="w-full flex-grow h-full border-2 border-themed rounded-lg bg-white"></iframe></div></div>
     
+    <div id="config-modal" class="fixed inset-0 bg-black bg-opacity-80 hidden items-center justify-center z-50 p-4">
+        <div class="modal-content rounded-2xl w-full max-w-md p-6 relative flex flex-col">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-2xl font-bold">Configuración</h3>
+                <button id="close-config-modal" class="text-gray-400 hover:text-white"><i class="fas fa-times fa-lg"></i></button>
+            </div>
+            <div class="space-y-6">
+                <div class="bg-setting-item p-4 rounded-lg">
+                    <h4 class="font-semibold mb-2">Cuenta</h4>
+                    <p class="text-sm text-text-medium">Correo: <span id="config-user-email" class="font-medium text-text-light"></span></p>
+                    <p class="text-sm text-text-medium">Plan Actual: <span id="config-user-plan" class="font-medium text-text-light capitalize"></span></p>
+                    <button id="config-upgrade-plan-btn" class="w-full mt-3 p-2 text-sm rounded-lg font-semibold btn-primary">Mejorar Plan</button>
+                </div>
+                <div class="bg-setting-item p-4 rounded-lg">
+                    <h4 class="font-semibold mb-3">Personalización</h4>
+                    <div class="flex items-center justify-between mb-3">
+                        <label class="text-sm text-text-medium">Tamaño de letra</label>
+                        <div class="font-size-control flex items-center border border-themed rounded-full">
+                            <button data-size="14px" class="px-3 py-1 text-xs rounded-l-full">Pequeña</button>
+                            <button data-size="16px" class="px-3 py-1 text-xs border-l border-r border-themed">Normal</button>
+                            <button data-size="18px" class="px-3 py-1 text-xs rounded-r-full">Grande</button>
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <label class="text-sm text-text-medium">Tema de la Interfaz</label>
+                        <button id="config-theme-toggle" class="px-3 py-1 rounded-full border border-themed flex items-center gap-2 text-sm">
+                            <i class="fas"></i> <span id="config-theme-text"></span>
+                        </button>
+                    </div>
+                </div>
+                <div class="bg-setting-item p-4 rounded-lg">
+                    <h4 class="font-semibold mb-3">Idioma y Soporte</h4>
+                    <div class="flex items-center justify-between mb-3">
+                        <label for="language-selector" class="text-sm text-text-medium">Idioma</label>
+                        <select id="language-selector" class="rounded-full focus:outline-none focus:ring-0 text-sm bg-input text-text-light border-none px-3 py-1">
+                            <option value="es">Español</option>
+                            <option value="en" disabled>English (Próximamente)</option>
+                        </select>
+                    </div>
+                    <a id="config-whatsapp-link" href="https://wa.me/17439106116?text=Hola%2C%20estoy%20interesado%2Fa%20en%20contratar%20uno%20de%20sus%20paquetes%20de%20soluciones%20con%20IA%20para%20mi%20negocio.%20%C2%BFPodr%C3%ADan%20darme%20m%C3%A1s%20informaci%C3%B3n%3F" target="_blank" class="w-full mt-3 p-2 text-sm rounded-lg font-semibold bg-green-500 hover:bg-green-600 text-white flex items-center justify-center gap-2">
+                        <i class="fab fa-whatsapp"></i> Hablar con un Estratega
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script type="module">
         window.addEventListener('DOMContentLoaded', () => {
@@ -290,7 +340,9 @@
                 messageCounterEl: document.getElementById('message-counter'), 
                 upgradePlanContainer: document.getElementById('upgrade-plan-container'),
                 upgradePlanBtn: document.getElementById('upgrade-plan-btn'),
-                newChatBtn: document.getElementById('new-chat-btn'), newProjectBtn: document.getElementById('new-project-btn'),
+                newChatBtn: document.getElementById('new-chat-btn'),
+                newChatBtnHeader: document.getElementById('new-chat-btn-header'),
+                newProjectBtn: document.getElementById('new-project-btn'),
                 pricingModal: document.getElementById('pricing-modal'), closePricingModalBtn: document.getElementById('close-pricing-modal'),
                 genericModal: document.getElementById('generic-modal'), chatMessages: document.getElementById('chat-messages'),
                 chatTitle: document.getElementById('chat-title'),
@@ -336,26 +388,19 @@
                 imageGenBtnMobile: document.getElementById('image-gen-btn-mobile'),
                 pdfUploadBtnMobile: document.getElementById('pdf-upload-btn-mobile'),
                 imageUploadBtnMobile: document.getElementById('image-upload-btn-mobile'),
+                configBtn: document.getElementById('config-btn'),
+                configModal: document.getElementById('config-modal'),
+                closeConfigModalBtn: document.getElementById('close-config-modal'),
+                configUserEmail: document.getElementById('config-user-email'),
+                configUserPlan: document.getElementById('config-user-plan'),
+                configUpgradePlanBtn: document.getElementById('config-upgrade-plan-btn'),
+                fontSizeControls: document.querySelector('.font-size-control'),
+                configThemeToggle: document.getElementById('config-theme-toggle'),
+                configThemeText: document.getElementById('config-theme-text')
             };
 
             Object.assign(dom, fullDom);
-
-            function updateContextualFooter(workflowKey) {
-                if (!dom.contextualFooter) return;
-                const workflowTexts = {
-                    'create-full-post': 'Modo Redes Sociales: Define tu red social y tema para un post completo.',
-                    'persuasive-copy': 'Modo Copywriter: Dime qué vendes y para dónde es el texto.',
-                    'brand-strategy': 'Modo Estratega: Dime el nombre y rubro de tu negocio para empezar.',
-                    'competitor-analysis': 'Modo Analista: Pega la URL de tu competencia para investigarla.',
-                    'sales-assistant': 'Modo Asistente de Ventas: Pega el mensaje de tu cliente para responder.',
-                    'english-teacher-practice': 'Practice mode: Let\'s talk. How was your day?',
-                    'design-web': 'Modo Diseñador Web: Describe el componente visual y lo crearé en HTML.'
-                };
-                const currentChat = state.chats[currentChatId];
-                const key = workflowKey || (currentChat ? currentChat.workflow : null);
-                dom.contextualFooter.textContent = workflowTexts[key] || 'Tu copiloto de IA para hacer crecer tu negocio.';
-            }
-
+            
             const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
             let recognition;
 
@@ -393,6 +438,17 @@
             
             function showPricingModal() { dom.pricingModal.classList.remove('hidden'); dom.pricingModal.classList.add('flex'); setTimeout(() => { dom.pricingModal.querySelector('.modal-content').classList.remove('scale-95'); }, 10); }
             function hidePricingModal() { dom.pricingModal.querySelector('.modal-content').classList.add('scale-95'); setTimeout(() => { dom.pricingModal.classList.add('hidden'); dom.pricingModal.classList.remove('flex'); }, 300); }
+            
+            function openConfigModal() {
+                if (!currentUser) return;
+                dom.configUserEmail.textContent = currentUser.email;
+                dom.configUserPlan.textContent = currentUser.app_metadata?.plan || 'Free';
+                updateFontSizeUI();
+                updateConfigThemeUI();
+                dom.configModal.classList.remove('hidden');
+                dom.configModal.classList.add('flex');
+            }
+            function closeConfigModal() { dom.configModal.classList.add('hidden'); dom.configModal.classList.remove('flex'); }
 
             function speak(text) { 
                 if (!speechOn || !('speechSynthesis' in window) || !text) return; 
@@ -426,9 +482,7 @@
             function populateVoiceList() {
                 if(!dom.voiceSelector) return;
                 const setVoices = () => {
-                    if (typeof speechSynthesis === 'undefined') {
-                        return;
-                    }
+                    if (typeof speechSynthesis === 'undefined') { return; }
                     availableVoices = speechSynthesis.getVoices().filter(v => v.lang.startsWith('es-'));
                     const preferredVoices = [ "Microsoft Sabina Online (Natural) - Spanish (Mexico)", "Paulina", "Google español de Estados Unidos", "Google español" ];
                      availableVoices.sort((a, b) => {
@@ -623,8 +677,41 @@
             function setTheme(isDark) { 
                 document.body.className = 'w-screen overflow-x-hidden';
                 document.body.classList.add(isDark ? 'dark-theme' : 'light-theme');
-                dom.themeIcon.className = `fas fa-${isDark ? 'sun' : 'moon'}`; 
                 localStorage.setItem('theme', isDark ? 'dark' : 'light'); 
+                applyStoredSettings(); // Actualiza los iconos en la UI
+            }
+            
+            function setFontSize(size) {
+                document.body.style.fontSize = size;
+                localStorage.setItem('fontSize', size);
+                updateFontSizeUI();
+            }
+
+            function updateFontSizeUI() {
+                const currentSize = localStorage.getItem('fontSize') || '16px';
+                dom.fontSizeControls.querySelectorAll('button').forEach(button => {
+                    button.classList.toggle('active', button.dataset.size === currentSize);
+                });
+            }
+
+            function updateConfigThemeUI() {
+                const isDark = document.body.classList.contains('dark-theme');
+                dom.configThemeToggle.querySelector('i').className = `fas fa-${isDark ? 'moon' : 'sun'}`;
+                dom.configThemeText.textContent = isDark ? 'Oscuro' : 'Claro';
+            }
+            
+            function applyStoredSettings() {
+                // Tema
+                const isDark = localStorage.getItem('theme') === 'dark';
+                dom.themeIcon.className = `fas fa-${isDark ? 'sun' : 'moon'}`;
+                updateConfigThemeUI();
+
+                // Tamaño de letra
+                const savedFontSize = localStorage.getItem('fontSize');
+                if (savedFontSize) {
+                    document.body.style.fontSize = savedFontSize;
+                }
+                updateFontSizeUI();
             }
 
             function toggleSidebar(show) {
@@ -697,7 +784,7 @@
                 updateModelSelectorState();
                 updateContextualFooter(null);
             }
-
+            
             function addMessageToUI(role, content, imageSrc, messageIndex) {
                 const wrapper = document.createElement('div');
                 wrapper.className = `chat-bubble-wrapper flex items-start gap-2 my-2 ${role === 'user' ? 'justify-end' : 'justify-start'}`;
@@ -715,7 +802,7 @@
                 contentDiv.innerHTML = content === '…' ? `<div class="flex items-center space-x-2"><div class="w-2 h-2 bg-gray-400 rounded-full animate-pulse"></div><div class="w-2 h-2 bg-gray-400 rounded-full animate-pulse" style="animation-delay: .2s;"></div><div class="w-2 h-2 bg-gray-400 rounded-full animate-pulse" style="animation-delay: .4s;"></div></div>` : marked.parse(content || "");
                 bubble.appendChild(contentDiv);
 
-                if (role === 'user') {
+                if (role === 'user' && messageIndex !== undefined) {
                     const actionsWrapper = document.createElement('div');
                     actionsWrapper.className = 'absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity';
                     const editBtn = document.createElement('button');
@@ -773,7 +860,7 @@
             }
 
             function updateMessageInUI(bubble, content, imageSrc) {
-                const newBubble = addMessageToUI('assistant', content, imageSrc);
+                const newBubble = addMessageToUI('assistant', content, imageSrc, undefined);
                 if (bubble && bubble.parentElement) {
                     bubble.parentElement.replaceWith(newBubble.parentElement);
                 }
@@ -988,6 +1075,7 @@
                     dom.msgInput.style.height = (dom.msgInput.scrollHeight) + 'px';
                 });
                 dom.newChatBtn?.addEventListener('click', () => createNewChat());
+                dom.newChatBtnHeader?.addEventListener('click', () => createNewChat());
                 dom.newProjectBtn?.addEventListener('click', async () => { const name = await showModal({ title: 'Crear Proyecto', useInput: true, placeholder: 'Nombre del Proyecto...' }); if (name && name.trim()) { const id = 'project-' + crypto.randomUUID(); state.projects[id] = { id, title: name.trim(), chatIds: [] }; state.structure.unshift(id); saveState(); renderSidebar(); } });
                 dom.upgradePlanBtn?.addEventListener('click', showPricingModal);
                 dom.closePricingModalBtn?.addEventListener('click', hidePricingModal);
@@ -1097,10 +1185,17 @@
                 dom.selectChatsBtn?.addEventListener('click', () => toggleSelectMode(true));
                 dom.cancelSelectModeBtn?.addEventListener('click', () => toggleSelectMode(false));
                 dom.deleteSelectedBtn?.addEventListener('click', async () => { if (chatsToDelete.size === 0) return; const confirm = await showModal({ title: `Eliminar ${chatsToDelete.size} chat(s)`, message: 'Esta acción es irreversible. ¿Confirmas la eliminación?', confirmText: 'Eliminar' }); if (confirm) { chatsToDelete.forEach(id => { state.structure = state.structure.filter(i => i !== id); delete state.chats[id]; Object.values(state.projects).forEach(p => { if(p.chatIds) p.chatIds = p.chatIds.filter(cid => cid !== id) }); if (currentChatId === id) resetChatView(); }); saveState(); toggleSelectMode(false); } hideModal(); });
+                // Listeners para el nuevo modal de configuración
+                dom.configBtn?.addEventListener('click', openConfigModal);
+                dom.closeConfigModalBtn?.addEventListener('click', closeConfigModal);
+                dom.configUpgradePlanBtn?.addEventListener('click', () => { closeConfigModal(); showPricingModal(); });
+                dom.fontSizeControls?.addEventListener('click', (e) => { if (e.target.tagName === 'BUTTON') { setFontSize(e.target.dataset.size); } });
+                dom.configThemeToggle?.addEventListener('click', () => setTheme(!document.body.classList.contains('dark-theme')));
             }
             
             function initApp() {
                 setTheme(localStorage.getItem('theme') === 'dark' || (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches));
+                applyStoredSettings();
                 const unlockAudio = () => {
                     const silence = new SpeechSynthesisUtterance('');
                     silence.volume = 0;
