@@ -75,7 +75,7 @@
             color: var(--light-text-dark);
         }
         
-        #sidebar { background-color: var(--current-bg-dark); border-right: 1px solid var(--current-border-color); height: 100vh; transition: width 0.3s ease, padding 0.3s ease; }
+        #sidebar { background-color: var(--current-bg-dark); border-right: 1px solid var(--current-border-color); height: 100vh; transition: width 0.3s ease, padding 0.3s ease, transform 0.3s ease; }
         #sidebar.collapsed { width: 0; padding: 0; overflow: hidden; border-right: none;}
 
         #main-chat-area, .modal-content { background-color: var(--current-bg-medium); }
@@ -1428,8 +1428,9 @@
                         <div class="day-view-hour-label">${hourLabel}</div>
                         <div class="day-view-hour-content">
                             ${tasksInHour.map(task => `
-                                <div class="p-2 rounded-md ${task.completed ? 'bg-green-900 text-gray-400 line-through' : 'bg-input'} text-sm cursor-pointer" data-task-id="${task.id}">
-                                    <strong>${task.time}:</strong> ${task.text} <span class="text-xs text-primary">(${task.source})</span>
+                                <div class="task-item flex items-center gap-2 p-1 rounded-md ${task.completed ? 'bg-green-900 text-gray-400 line-through' : 'bg-input'} text-sm" >
+                                    <input type="checkbox" class="task-checkbox-day" data-task-id="${task.id}" ${task.completed ? 'checked' : ''}>
+                                    <span class="flex-grow cursor-pointer" data-task-id="${task.id}"><strong>${task.time}:</strong> ${task.text} <span class="text-xs text-primary">(${task.source})</span></span>
                                 </div>
                             `).join('')}
                              <button class="add-task-to-time-btn text-lg hover:text-primary" data-date="${selectedCalendarDate.format('YYYY-MM-DD')}" data-time="${hourLabel}">+</button>
@@ -1445,7 +1446,16 @@
                         editCalendarTask(null, date, time);
                     });
                 });
-                 dom.dayViewTimeline.querySelectorAll('[data-task-id]').forEach(item => {
+                dom.dayViewTimeline.querySelectorAll('.task-checkbox-day').forEach(checkbox => {
+                    checkbox.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const taskId = e.currentTarget.dataset.taskId;
+                        toggleTaskCompletion(taskId, e.currentTarget.checked);
+                        renderDayView();
+                        updateNotificationBadge();
+                    });
+                });
+                 dom.dayViewTimeline.querySelectorAll('.task-item span').forEach(item => {
                     item.addEventListener('click', (e) => {
                         const taskId = e.currentTarget.dataset.taskId;
                         editCalendarTask(taskId);
@@ -2475,17 +2485,16 @@
                 if(!chat || !chat.projectData) return;
                 const { projectData } = chat;
 
-                dom.viewToggleKanban.classList.toggle('active', projectData.currentView === 'kanban');
-                dom.viewToggleList.classList.toggle('active', projectData.currentView === 'list');
+                const isKanban = projectData.currentView === 'kanban';
+                dom.viewToggleKanban.classList.toggle('active', isKanban);
+                dom.viewToggleList.classList.toggle('active', !isKanban);
+                dom.kanbanView.classList.toggle('hidden', !isKanban);
+                dom.listView.classList.toggle('hidden', isKanban);
 
-                if (projectData.currentView === 'list') {
-                    dom.kanbanView.classList.add('hidden');
-                    dom.listView.classList.remove('hidden');
-                    renderListView(chatId);
-                } else {
-                    dom.kanbanView.classList.remove('hidden');
-                    dom.listView.classList.add('hidden');
+                if (isKanban) {
                     renderKanbanView(chatId);
+                } else {
+                    renderListView(chatId);
                 }
                 renderTagFilter(chatId);
             }
