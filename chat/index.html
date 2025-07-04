@@ -265,12 +265,15 @@
         .calendar-day.today {
             border-color: var(--current-primary);
         }
-        .calendar-day.has-tasks::after {
-            content: '';
+        .task-dots-container {
             position: absolute;
             bottom: 4px;
             left: 50%;
             transform: translateX(-50%);
+            display: flex;
+            gap: 2px;
+        }
+        .task-dot {
             width: 5px;
             height: 5px;
             border-radius: 50%;
@@ -496,6 +499,18 @@
             border-radius: 0.5rem;
             border-left: 4px solid var(--current-primary);
         }
+        .task-labels {
+            display: flex;
+            gap: 4px;
+            flex-wrap: wrap;
+            margin-top: 8px;
+        }
+        .task-label {
+            padding: 2px 8px;
+            font-size: 0.7rem;
+            border-radius: 12px;
+            font-weight: 600;
+        }
     </style>
 </head>
 <body class="w-screen overflow-x-hidden dark-theme">
@@ -548,12 +563,9 @@
                         <h3 class="text-xs font-semibold uppercase text-text-medium mb-2 px-2" data-translate-key="workflows">Workflows</h3>
                         <div id="workflows-container" class="space-y-1">
                             <div class="workflow-category">
-                                <div class="workflow-header flex items-center p-2 rounded-md cursor-pointer hover:bg-light">
+                                <div id="project-workflow-header" class="workflow-header flex items-center p-2 rounded-md cursor-pointer hover:bg-light">
                                     <i class="fas fa-chevron-right workflow-arrow mr-2 transition-transform text-xs"></i><i class="fas fa-tasks w-6 mr-2 text-purple-400"></i>
                                     <span class="text-sm font-bold" data-translate-key="wf_pm">Dirección de Proyectos</span>
-                                </div>
-                                <div class="workflow-content pl-4 pt-1 space-y-1">
-                                    <button data-workflow="project-management" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_pm_1">Crear Tablero de Proyecto</button>
                                 </div>
                             </div>
                             <div class="workflow-category">
@@ -1016,6 +1028,7 @@
                 settingsThemeIcon: document.getElementById('settings-theme-icon'), languageSelector: document.getElementById('language-selector'),
                 connectWhatsappBtn: document.getElementById('connect-whatsapp-btn'), scheduleMeetingBtn: document.getElementById('schedule-meeting-btn'), freePlanButton: document.getElementById('free-plan-button'),
                 notificationsToggle: document.getElementById('notifications-toggle'),
+                projectWorkflowHeader: document.getElementById('project-workflow-header'),
 
                 // Calendar elements
                 calendarBtn: document.getElementById('calendar-btn'),
@@ -1120,7 +1133,8 @@
                     const value = useInput ? modalInput.value : (useTextarea ? modalTextarea.value : true);
                     const dateValue = dom.genericModal.querySelector('#task-due-date')?.value;
                     const timeValue = dom.genericModal.querySelector('#task-due-time')?.value;
-                    hideModal({value, dateValue, timeValue});
+                    const labelsValue = dom.genericModal.querySelector('#task-labels-input')?.value;
+                    hideModal({value, dateValue, timeValue, labelsValue});
                 }, { once: true });
                 dom.genericModal.querySelector('#modal-cancel').addEventListener('click', () => hideModal(null), { once: true });
                 
@@ -1204,7 +1218,10 @@
                     const day = startDate.add(i, 'day');
                     const dayEl = document.createElement('div');
                     dayEl.classList.add('calendar-day');
-                    dayEl.textContent = day.date();
+                    
+                    const dayNumber = document.createElement('span');
+                    dayNumber.textContent = day.date();
+                    dayEl.appendChild(dayNumber);
 
                     if (day.month() === selectedCalendarDate.month()) {
                         dayEl.classList.add('current-month');
@@ -1219,7 +1236,14 @@
                     const dayKey = day.format('YYYY-MM-DD');
                     const tasksForDay = getTasksForDay(dayKey);
                     if (tasksForDay.length > 0) {
-                        dayEl.classList.add('has-tasks');
+                        const dotsContainer = document.createElement('div');
+                        dotsContainer.className = 'task-dots-container';
+                        tasksForDay.slice(0, 3).forEach(() => {
+                            const dot = document.createElement('div');
+                            dot.className = 'task-dot';
+                            dotsContainer.appendChild(dot);
+                        });
+                        dayEl.appendChild(dotsContainer);
                     }
 
                     dayEl.addEventListener('click', () => {
@@ -1284,7 +1308,7 @@
                 dom.dayViewTimeline.innerHTML = '';
                 const tasksForDay = getTasksForDay(selectedCalendarDate.format('YYYY-MM-DD'));
                 
-                for (let hour = 8; hour <= 20; hour++) {
+                for (let hour = 0; hour < 24; hour++) {
                     const hourEl = document.createElement('div');
                     hourEl.className = 'day-view-hour';
                     const hourLabel = (hour < 10 ? '0' : '') + hour + ':00';
@@ -1352,20 +1376,19 @@
                 if (taskText) {
                     const dayKey = selectedCalendarDate.format('YYYY-MM-DD');
                     
-                    // Add to the first project's "To Do" column
                     const firstProjectChatId = state.structure.find(id => id.startsWith('chat-') && state.chats[id].workflow === 'project-management');
                     if (firstProjectChatId) {
                         const projectChat = state.chats[firstProjectChatId];
                         const todoColumn = projectChat.projectData.columns.find(c => c.id === 'todo');
                         if (todoColumn) {
                             if (!todoColumn.tasks) todoColumn.tasks = [];
-                            todoColumn.tasks.push({ id: crypto.randomUUID(), content: taskText, dueDate: dayKey, time: taskTime, completed: false });
+                            todoColumn.tasks.push({ id: crypto.randomUUID(), content: taskText, dueDate: dayKey, time: taskTime, completed: false, labels: [] });
                         }
-                    } else { // Fallback to personal calendar if no projects exist
+                    } else { 
                          if (!state.calendar[dayKey]) {
                             state.calendar[dayKey] = [];
                         }
-                        state.calendar[dayKey].push({ id: crypto.randomUUID(), text: taskText, time: taskTime, completed: false, notifiedThisMinute: false });
+                        state.calendar[dayKey].push({ id: crypto.randomUUID(), text: taskText, time: taskTime, completed: false, notifiedThisMinute: false, labels: [] });
                     }
 
                     dom.newTaskInput.value = '';
@@ -2034,7 +2057,7 @@
                             const todoColumn = currentChat.projectData.columns.find(c => c.id === 'todo');
                             if (todoColumn) {
                                 responseData.projectUpdate.tasks.forEach(task => {
-                                    todoColumn.tasks.push({ id: crypto.randomUUID(), content: task.content, completed: false });
+                                    todoColumn.tasks.push({ id: crypto.randomUUID(), content: task.content, completed: false, labels: [] });
                                 });
                             }
                             renderProjectView(chatIdToUpdate);
@@ -2186,7 +2209,7 @@
                 dom.logoutBtn?.addEventListener('click', () => { netlifyIdentity.logout(); dom.userMenuPopup.classList.add('hidden');});
                 
                 const workflowConfigs = {
-                    'project-management': { title: "Nuevo Proyecto", workflow: 'project-management', initialMessages: [{ role: 'assistant', content: '¡Perfecto! Vamos a organizar tu próximo gran proyecto. **¿Cuál es el objetivo principal o de qué trata este proyecto?** Describe la idea y yo crearé una estructura inicial de tareas en el tablero.' }] },
+                    'project-management': { title: "Nuevo Proyecto", workflow: 'project-management', initialMessages: [{ role: 'assistant', content: '¡Perfecto! Vamos a organizar tu próximo gran proyecto. **¿Cuál es el objetivo principal o de qué trata este proyecto?** Describe la idea y yo crearé una estructura inicial de tareas.' }] },
                     'create-full-post': { title: "Creador de Posts", workflow: 'create-full-post', initialMessages: [{ role: 'assistant', content: '¡Claro! Vamos a crear un post increíble. ¿Para qué red social lo necesitas (Instagram, Facebook, LinkedIn, etc.)?' }] },
                     'persuasive-copy': { title: "Redactor de Copys", workflow: 'persuasive-copy', initialMessages: [{ role: 'assistant', content: 'Estoy listo para redactar textos que vendan. ¿Para qué necesitas este copy? (ej: Anuncio de Facebook, Post de Venta, Descripción de Producto)' }] },
                     'post-ideas': { title: "Lluvia de Ideas", workflow: 'post-ideas', initialMessages: [{ role: 'assistant', content: '¡Acabemos con el bloqueo creativo! Dime un tema y te daré 7 ideas de contenido excelentes.' }] },
@@ -2201,6 +2224,15 @@
                     'english-teacher-practice': { title: "Conversation Practice", workflow: 'english-teacher-practice', initialMessages: [{ role: 'assistant', content: 'Great! Let\'s practice our conversation. So, tell me about your day.' }] },
                     'design-web': { title: "Diseñador Web", workflow: 'design-web', model: 'gpt-4o-mini', initialMessages: [{ role: 'assistant', content: 'Estoy listo para diseñar con código. Describe la página o componente que quieres crear, y lo programaré para ti.' }] },
                 };
+
+                dom.projectWorkflowHeader.addEventListener('click', () => {
+                    const firstProject = state.structure.find(id => id.startsWith('chat-') && state.chats[id]?.workflow === 'project-management');
+                    if (firstProject) {
+                        selectChat(firstProject);
+                    } else {
+                        createNewChat(workflowConfigs['project-management']);
+                    }
+                });
 
                 document.querySelectorAll('[data-workflow]').forEach(button => {
                     button.addEventListener('click', () => {
@@ -2217,7 +2249,13 @@
                     });
                 });
                 
-                dom.workflowsContainer.addEventListener('click', e => { const header = e.target.closest('.workflow-header'); if (header) { const category = header.closest('.workflow-category'); if (category) category.classList.toggle('open'); } });
+                dom.workflowsContainer.addEventListener('click', e => { 
+                    const header = e.target.closest('.workflow-header'); 
+                    if (header && header.id !== 'project-workflow-header') { 
+                        const category = header.closest('.workflow-category'); 
+                        if (category) category.classList.toggle('open'); 
+                    } 
+                });
                 dom.webLaunchOfferBtn.addEventListener('click', () => { const offerTitle = `<i class="fas fa-gift mr-2"></i>Tu Oferta de Lanzamiento Exclusiva`; const offerMessage = `<p class="font-bold mb-2">Al suscribirte a nuestro Plan Pro por $17/mes, desbloqueas:</p><ul class="list-disc list-inside space-y-2 text-left"><li><strong>Acceso Ilimitado a Goatify AI:</strong> Todos los modelos y workflows sin restricciones.</li><li><strong>Construcción de tu Página Web Profesional:</strong> Nosotros construiremos la primera versión, ¡gratis!</li></ul><p class="font-bold mt-4 mb-2">¿Cómo funciona?</p><ol class="list-decimal list-inside space-y-1 text-left"><li><strong>Agenda tu Sesión Estratégica:</strong> Al confirmar, agenda tu llamada de 20 min.</li><li><strong>Co-creación:</strong> En la llamada definiremos objetivos y crearemos el borrador con IA.</li><li><strong>Entrega:</strong> Nuestro equipo lo pulirá y te entregará una web de una sección, lista.</li></ol><p class="text-xs mt-4 italic"><strong>Importante:</strong> La web es tuya para siempre. Para mantenerla online con nuestro hosting, necesitas tu suscripción Pro activa. Si cancelas, te entregamos el código completo.</p>`; showModal({ title: offerTitle, message: offerMessage, confirmText: 'Agendar Sesión Estratégica' }).then(confirmed => { if (confirmed) { window.open('https://calendly.com/goatify', '_blank'); } }); });
                 dom.freeGuidesLink.addEventListener('click', (e) => { e.preventDefault(); const isPaidUser = currentUser && currentUser.app_metadata?.plan && currentUser.app_metadata.plan !== 'free'; if (isPaidUser) { window.open('https://goatify.app/guiasIA', '_blank'); } else { const title = 'Acceso Exclusivo para Suscriptores'; const message = 'Estas guías se actualizan semanalmente con estrategias de negocio que te ayudarán a crecer un montón. Son un beneficio exclusivo para nuestros suscriptores. ¡Únete a un plan para desbloquearlas!'; showModal({ title, message, confirmText: 'Ver Planes' }).then(confirmed => { if (confirmed) { showPricingModal(); } }); } });
                 dom.closeHtmlPreviewModalBtn?.addEventListener('click', () => { dom.htmlPreviewModal.classList.add('hidden'); dom.htmlPreviewModal.classList.remove('flex'); });
@@ -2289,8 +2327,6 @@
                     const chat = state.chats[currentChatId];
                     if (!chat || !chat.projectData) return;
                     chat.projectData.currentView = 'kanban';
-                    dom.viewToggleKanban.classList.add('active');
-                    dom.viewToggleList.classList.remove('active');
                     renderProjectBoard(currentChatId);
                 });
                 dom.viewToggleList.addEventListener('click', () => {
@@ -2298,8 +2334,6 @@
                     const chat = state.chats[currentChatId];
                     if (!chat || !chat.projectData) return;
                     chat.projectData.currentView = 'list';
-                    dom.viewToggleList.classList.add('active');
-                    dom.viewToggleKanban.classList.remove('active');
                     renderProjectBoard(currentChatId);
                 });
 
@@ -2375,7 +2409,11 @@
                         cardEl.className = 'kanban-card';
                         cardEl.draggable = true;
                         cardEl.dataset.taskId = task.id;
+                        
+                        const labelsHtml = (task.labels || []).map(label => `<span class="task-label" style="background-color: ${getLabelColor(label)}; color: #fff;">${label}</span>`).join('');
+
                         cardEl.innerHTML = `<p>${task.content}</p>
+                        <div class="task-labels">${labelsHtml}</div>
                         <div class="card-footer">
                             <span>${task.dueDate ? `<i class="fas fa-calendar-alt mr-1"></i> ${dayjs(task.dueDate).format('D MMM')}` : ''}</span>
                             <span>${task.time || ''}</span>
@@ -2422,8 +2460,12 @@
                     (column.tasks || []).forEach(task => {
                         const taskEl = document.createElement('div');
                         taskEl.className = 'list-view-task flex justify-between items-center cursor-pointer';
+                        const labelsHtml = (task.labels || []).map(label => `<span class="task-label" style="background-color: ${getLabelColor(label)}; color: #fff;">${label}</span>`).join('');
                         taskEl.innerHTML = `
-                            <span>${task.content}</span>
+                            <div>
+                                <span>${task.content}</span>
+                                <div class="task-labels mt-1">${labelsHtml}</div>
+                            </div>
                             <span class="text-sm text-text-medium">${task.dueDate ? `${dayjs(task.dueDate).format('D MMM')} ${task.time || ''}` : ''}</span>
                         `;
                         taskEl.addEventListener('click', () => editProjectTask(chatId, task.id));
@@ -2447,6 +2489,7 @@
                 const taskContent = isNew ? '' : task.content;
                 const taskDueDate = isNew ? '' : task.dueDate;
                 const taskTime = isNew ? '' : task.time;
+                const taskLabels = isNew ? '' : (task.labels || []).join(', ');
 
                 const modalMessage = `
                     <div class="space-y-4">
@@ -2464,6 +2507,10 @@
                                 <input type="time" id="task-due-time" value="${taskTime}" class="w-full p-2 rounded bg-input border border-themed">
                             </div>
                         </div>
+                        <div>
+                             <label for="task-labels-input" class="block text-sm font-medium text-text-light mb-1">Etiquetas (separadas por coma):</label>
+                             <input type="text" id="task-labels-input" value="${taskLabels}" class="w-full p-2 rounded bg-input border border-themed">
+                        </div>
                     </div>
                 `;
 
@@ -2477,6 +2524,7 @@
                     const newContent = dom.genericModal.querySelector('#task-content-edit').value;
                     const newDate = dom.genericModal.querySelector('#task-due-date').value;
                     const newTime = dom.genericModal.querySelector('#task-due-time').value;
+                    const newLabels = dom.genericModal.querySelector('#task-labels-input').value.split(',').map(l => l.trim()).filter(Boolean);
                     
                     if (newContent.trim()) {
                         if (isNew) {
@@ -2488,13 +2536,15 @@
                                     content: newContent.trim(),
                                     dueDate: newDate || null,
                                     time: newTime || null,
-                                    completed: false
+                                    completed: false,
+                                    labels: newLabels
                                 });
                             }
                         } else {
                             task.content = newContent.trim();
                             task.dueDate = newDate || null;
                             task.time = newTime || null;
+                            task.labels = newLabels;
                         }
                         saveState();
                         renderProjectBoard(chatId);
@@ -2527,6 +2577,19 @@
                         renderProjectBoard(chatId);
                     }
                 }
+            }
+
+            function getLabelColor(label) {
+                let hash = 0;
+                for (let i = 0; i < label.length; i++) {
+                    hash = label.charCodeAt(i) + ((hash << 5) - hash);
+                }
+                let color = '#';
+                for (let i = 0; i < 3; i++) {
+                    let value = (hash >> (i * 8)) & 0xFF;
+                    color += ('00' + value.toString(16)).substr(-2);
+                }
+                return color;
             }
             
             let initFired = false;
