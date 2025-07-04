@@ -77,6 +77,8 @@
         
         #sidebar { background-color: var(--current-bg-dark); border-right: 1px solid var(--current-border-color); height: 100vh; transition: width 0.3s ease, padding 0.3s ease, transform 0.3s ease; }
         #sidebar.collapsed { width: 0; padding: 0; overflow: hidden; border-right: none;}
+        #sidebar.collapsed > * { display: none; }
+
 
         #main-chat-area, .modal-content { background-color: var(--current-bg-medium); }
         .chat-bubble-bot, .bg-input, #pdf-preview-container, .chat-item, .project-header, #user-menu-popup, #services-menu, .pro-controls-bg { background-color: var(--current-bg-light); }
@@ -419,24 +421,40 @@
         }
         
         #project-board-container {
-            flex: 3; 
+            flex: 1; /* Take up available space */
             display: flex;
             flex-direction: column;
             overflow: hidden;
             min-height: 0; /* Fix for flexbox overflow */
         }
         #project-chat-container {
-            flex: 2;
             display: flex;
             flex-direction: column;
             border-top: 1px solid var(--current-border-color);
             padding-top: 1rem;
-            flex-shrink: 0; /* Prevent shrinking on mobile */
-            height: 45%; /* Assign a portion of the height on mobile */
+            transition: height 0.3s ease;
         }
-        #project-chat-container h3 {
+        
+        #project-chat-container-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
             padding-bottom: 0.5rem;
             border-bottom: 1px solid var(--current-border-color);
+        }
+        #project-chat-container.collapsed .project-chat-body {
+            display: none;
+        }
+        #project-chat-container.collapsed {
+            height: auto;
+            flex-grow: 0;
+        }
+        #project-chat-toggle i {
+            transition: transform 0.3s ease;
+        }
+        #project-chat-container.collapsed #project-chat-toggle i {
+            transform: rotate(-90deg);
         }
 
         #project-chat-messages {
@@ -449,7 +467,7 @@
             display: grid;
             grid-template-columns: repeat(3, 1fr); /* Force 3 columns */
             gap: 1rem;
-            overflow-x: hidden; /* No horizontal scroll on desktop */
+            overflow: hidden; /* No horizontal scroll on desktop */
             flex-grow: 1;
         }
 
@@ -550,23 +568,32 @@
                 border-top: none;
                 padding-left: 1rem;
                 padding-top: 0;
-                height: auto; /* Reset height for desktop */
+                height: 100%;
+                flex-basis: 40%;
             }
+            #project-chat-toggle { display: none; }
         }
         
         /* Mobile specific adjustments */
         @media (max-width: 767px) {
-            #kanban-view {
-                display: flex; /* Revert to flex for horizontal scrolling */
-                overflow-x: auto;
-                grid-template-columns: none;
-            }
-            .kanban-column {
-                width: 250px; /* Fixed width for scrolling columns */
-                flex-shrink: 0;
+            #project-management-view {
+                height: 100%;
             }
             #project-board-container {
-                flex-grow: 1;
+                flex: 1 1 50%;
+            }
+            #project-chat-container {
+                flex: 1 1 50%;
+                height: 50%;
+            }
+            #kanban-view {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                overflow-x: hidden;
+            }
+            .kanban-column {
+                min-width: 0;
+                width: auto;
             }
 
             .pro-controls-bg {
@@ -815,12 +842,17 @@
                     </div>
                 </div>
                 <div id="project-chat-container">
-                    <h3 class="text-lg font-semibold mb-2 text-primary">Asistente del Proyecto</h3>
-                    <div id="project-chat-messages" class="chat-bubble-bot"></div>
-                    <div id="project-input-area" class="mt-2">
-                         <div class="relative rounded-xl flex items-center bg-input p-1 sm:p-2 input-wrapper">
-                            <textarea id="project-msg" placeholder="Deja que Goatify organice tu proyecto..." class="flex-1 bg-transparent p-2 h-10 max-h-28 resize-none outline-none placeholder-themed text-sm"></textarea>
-                            <button id="project-send" title="Enviar" class="p-2 sm:p-3 disabled:opacity-50 disabled:cursor-not-allowed text-primary"><i class="fa fa-paper-plane text-lg"></i></button>
+                    <div id="project-chat-container-header">
+                        <h3 class="text-lg font-semibold text-primary">Asistente del Proyecto</h3>
+                        <button id="project-chat-toggle" class="md:hidden text-xl p-2"><i class="fas fa-angle-down"></i></button>
+                    </div>
+                    <div class="project-chat-body flex flex-col flex-grow min-h-0">
+                        <div id="project-chat-messages" class="chat-bubble-bot"></div>
+                        <div id="project-input-area" class="mt-auto pt-2">
+                             <div class="relative rounded-xl flex items-center bg-input p-1 sm:p-2 input-wrapper">
+                                <textarea id="project-msg" placeholder="Deja que Goatify organice tu proyecto..." class="flex-1 bg-transparent p-2 h-10 max-h-28 resize-none outline-none placeholder-themed text-sm"></textarea>
+                                <button id="project-send" title="Enviar" class="p-2 sm:p-3 disabled:opacity-50 disabled:cursor-not-allowed text-primary"><i class="fa fa-paper-plane text-lg"></i></button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1146,6 +1178,9 @@
 
                 // Project Management elements
                 projectManagementView: document.getElementById('project-management-view'),
+                projectBoardContainer: document.getElementById('project-board-container'),
+                projectChatContainer: document.getElementById('project-chat-container'),
+                projectChatToggle: document.getElementById('project-chat-toggle'),
                 chatMessagesView: document.getElementById('chat-messages'),
                 projectViewTitle: document.getElementById('project-view-title'),
                 kanbanView: document.getElementById('kanban-view'),
@@ -2445,6 +2480,10 @@
                     chat.projectData.currentView = 'list';
                     renderProjectBoard(currentChatId);
                 });
+                
+                dom.projectChatToggle?.addEventListener('click', () => {
+                    dom.projectChatContainer.classList.toggle('collapsed');
+                });
 
 
                 setupModalClickOutside(dom.genericModal, ()=>hideModal({confirmed: false}));
@@ -2634,6 +2673,14 @@
                              <label for="task-labels-input" class="block text-sm font-medium text-text-light mb-1">Etiquetas (separadas por coma):</label>
                              <input type="text" id="task-labels-input" value="${taskLabels}" class="w-full p-2 rounded bg-input border border-themed">
                         </div>
+                        ${isNew && !isProjectTask ? `
+                        <div>
+                            <label class="flex items-center">
+                                <input type="checkbox" id="create-project-checkbox" class="rounded bg-input border-themed">
+                                <span class="ml-2 text-sm text-text-light">Crear proyecto para esta tarea</span>
+                            </label>
+                        </div>
+                        ` : ''}
                     </div>
                 `;
 
@@ -2648,7 +2695,8 @@
                     const newDate = result.data['task-due-date'];
                     const newTime = result.data['task-due-time'];
                     const newLabels = result.data['task-labels-input'].split(',').map(l => l.trim()).filter(Boolean);
-                    
+                    const createProject = dom.genericModal.querySelector('#create-project-checkbox')?.checked;
+
                     if (newContent.trim()) {
                         if (isNew) {
                             if (isProjectTask) {
@@ -2660,10 +2708,19 @@
                             } else {
                                 const dayKey = newDate || preselectedDate;
                                 if (!state.calendar[dayKey]) state.calendar[dayKey] = [];
-                                state.calendar[dayKey].push({ id: crypto.randomUUID(), text: newContent.trim(), time: newTime || null, completed: false, labels: newLabels });
+                                const newCalendarTask = { id: crypto.randomUUID(), text: newContent.trim(), time: newTime || null, completed: false, labels: newLabels };
+                                state.calendar[dayKey].push(newCalendarTask);
+
+                                if(createProject) {
+                                    createNewChat({
+                                        title: newContent.trim(),
+                                        workflow: 'project-management',
+                                        initialMessages: [{ role: 'assistant', content: `¡Proyecto creado para la tarea "${newContent.trim()}"! ¿Cuáles son los primeros pasos que debemos dar?` }]
+                                    });
+                                }
                             }
                         } else {
-                            if (source === 'project') {
+                             if (source === 'project') {
                                 task.content = newContent.trim();
                                 task.time = newTime || null;
                                 task.labels = newLabels;
@@ -2690,7 +2747,9 @@
                         }
                         saveState();
                         renderCalendarView();
-                        if(isProjectTask || (source === 'project' && currentChatId)) renderProjectBoard(currentChatId);
+                        if(currentChatId && state.chats[currentChatId]?.workflow === 'project-management') {
+                            renderProjectBoard(currentChatId);
+                        }
                     }
                 }
             }
