@@ -248,8 +248,9 @@
             border-radius: 4px;
             background-color: var(--current-bg-medium);
             cursor: pointer;
-            transition: background-color 0.2s ease;
+            transition: background-color 0.2s ease, border 0.2s ease;
             position: relative;
+            border: 2px solid transparent;
         }
         .calendar-day:hover {
             background-color: var(--current-bg-light);
@@ -261,13 +262,19 @@
             color: var(--current-text-medium);
             opacity: 0.5;
         }
-        .calendar-day.selected {
-            background-color: var(--current-primary);
-            color: white;
+        .calendar-day.today {
+            border-color: var(--current-primary);
         }
-        .calendar-day.has-tasks {
-            border: 1px solid var(--primary);
-            box-shadow: 0 0 5px rgba(138, 79, 255, 0.3);
+        .calendar-day.has-tasks::after {
+            content: '';
+            position: absolute;
+            bottom: 4px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background-color: var(--current-primary);
         }
         .calendar-header {
             display: flex;
@@ -331,7 +338,7 @@
             background-color: var(--current-bg-light);
             color: var(--current-text-light);
             font-weight: 600;
-            transition: background-color 0.2s ease, box-shadow 0.2s ease;
+            transition: background-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease;
         }
         .calendar-view-toggle button.active {
             background-color: var(--current-primary);
@@ -340,6 +347,12 @@
         }
         .calendar-view-toggle button:hover:not(.active) {
             background-color: var(--current-bg-medium);
+        }
+        .dark-theme .project-view-controls button:not(.active) {
+            color: var(--current-text-light);
+        }
+        .light-theme .project-view-controls button:not(.active) {
+            color: var(--current-text-dark);
         }
 
         #month-view-container, #day-view-container {
@@ -676,7 +689,8 @@
                 <div id="project-board-container">
                     <div class="flex justify-between items-center mb-4 flex-shrink-0">
                         <h2 id="project-view-title" class="text-2xl font-bold">Nombre del Proyecto</h2>
-                        <div class="flex items-center space-x-2">
+                        <div class="flex items-center space-x-2 project-view-controls">
+                            <button id="project-calendar-btn" title="Calendario del Proyecto" class="text-sky-400 hover:text-sky-300 p-2 transition-colors"><i class="fas fa-calendar-alt text-xl"></i></button>
                             <span class="text-sm text-text-medium">Vistas:</span>
                             <button id="view-toggle-kanban" class="px-3 py-1 text-sm rounded-md bg-primary text-white">Kanban</button>
                             <button id="view-toggle-list" class="px-3 py-1 text-sm rounded-md bg-input">Lista</button>
@@ -1035,6 +1049,7 @@
                 projectChatMessages: document.getElementById('project-chat-messages'),
                 projectMsgInput: document.getElementById('project-msg'),
                 projectSendBtn: document.getElementById('project-send'),
+                projectCalendarBtn: document.getElementById('project-calendar-btn'),
             };
             Object.assign(dom, fullDom);
 
@@ -1103,7 +1118,11 @@
                 modalTextarea.placeholder = placeholder;
                 
                 modalButtonsContainer.innerHTML = `<button id="modal-cancel" class="px-4 py-2 bg-gray-600 text-white rounded">${translations[lang].cancel}</button><button id="modal-confirm" class="px-4 py-2 rounded text-white btn-primary">${confirmText}</button>`;
-                dom.genericModal.querySelector('#modal-confirm').addEventListener('click', () => hideModal(useInput ? modalInput.value : (useTextarea ? modalTextarea.value : true)), { once: true });
+                dom.genericModal.querySelector('#modal-confirm').addEventListener('click', () => {
+                    const value = useInput ? modalInput.value : (useTextarea ? modalTextarea.value : true);
+                    const dateValue = dom.genericModal.querySelector('#task-due-date')?.value;
+                    hideModal({value, dateValue});
+                }, { once: true });
                 dom.genericModal.querySelector('#modal-cancel').addEventListener('click', () => hideModal(null), { once: true });
                 
                 dom.genericModal.classList.remove('hidden');
@@ -1193,15 +1212,15 @@
                     } else {
                         dayEl.classList.add('other-month');
                     }
+                    
+                    if (day.isSame(dayjs(), 'day')) {
+                        dayEl.classList.add('today');
+                    }
 
                     const dayKey = day.format('YYYY-MM-DD');
                     const tasksForDay = getTasksForDay(dayKey);
                     if (tasksForDay.length > 0) {
                         dayEl.classList.add('has-tasks');
-                    }
-
-                    if (day.isSame(selectedCalendarDate, 'day')) {
-                        dayEl.classList.add('selected');
                     }
 
                     dayEl.addEventListener('click', () => {
@@ -1294,7 +1313,7 @@
                         chat.projectData.columns.forEach(column => {
                             (column.tasks || []).forEach(task => {
                                 if (task.dueDate === dayKey) {
-                                    projectTasks.push({...task, source: chat.projectData.title});
+                                    projectTasks.push({...task, source: chat.projectData.title, text: task.content});
                                 }
                             });
                         });
@@ -1306,7 +1325,7 @@
             function toggleTaskCompletion(taskId, isCompleted) {
                 // Check personal calendar tasks
                 for (const dayKey in state.calendar) {
-                    const taskIndex = state.calendar[dayKey].findIndex(t => t.id === taskId);
+                    const taskIndex = (state.calendar[dayKey] || []).findIndex(t => t.id === taskId);
                     if (taskIndex > -1) {
                         state.calendar[dayKey][taskIndex].completed = isCompleted;
                         saveState();
@@ -1405,13 +1424,10 @@
                             });
                         }
                         
-                        task.notifiedThisMinute = true; // This change won't be saved unless we find the original task and modify it.
-                        // Find and update the original task object
                         updateTaskNotifiedFlag(task.id, true);
                     }
                 });
                 
-                // This part is tricky as we need to find the original task to modify it.
                 allTasksToday.forEach(task => {
                     if (task.notifiedThisMinute && task.time !== currentHourMinute) {
                         updateTaskNotifiedFlag(task.id, false);
@@ -1423,7 +1439,7 @@
 
             function updateTaskNotifiedFlag(taskId, isNotified) {
                  for (const dayKey in state.calendar) {
-                    const task = state.calendar[dayKey].find(t => t.id === taskId);
+                    const task = (state.calendar[dayKey] || []).find(t => t.id === taskId);
                     if (task) {
                         task.notifiedThisMinute = isNotified;
                         return;
@@ -1841,8 +1857,8 @@
                     initialValue: originalContent,
                     confirmText: 'Guardar Cambios'
                 });
-                if (newContent && newContent.trim() !== originalContent.trim()) {
-                    chat.messages[index].content = newContent.trim();
+                if (newContent && newContent.value.trim() !== originalContent.trim()) {
+                    chat.messages[index].content = newContent.value.trim();
                     await saveState();
                     selectChat(currentChatId);
                 }
@@ -1931,9 +1947,9 @@
             async function renameItem(type, id) {
                 const item = type === 'chat' ? state.chats[id] : state.projects[id];
                 if(!item) return;
-                const newName = await showModal({ title: `Renombrar ${type === 'chat' ? 'Conversación' : 'Proyecto'}`, useInput: true, placeholder: item.title, initialValue: item.title });
-                if (newName && newName.trim()) {
-                    item.title = newName.trim();
+                const result = await showModal({ title: `Renombrar ${type === 'chat' ? 'Conversación' : 'Proyecto'}`, useInput: true, placeholder: item.title, initialValue: item.title });
+                if (result && result.value.trim()) {
+                    item.title = result.value.trim();
                     if (type === 'chat' && currentChatId === id) {
                         dom.chatTitle.textContent = item.title;
                         if (dom.mobileChatTitle) dom.mobileChatTitle.textContent = item.title;
@@ -2026,7 +2042,7 @@
             }
             async function generateImage() {
                 const prompt = await showModal({ title: 'Crear Imagen', message: 'Describe la imagen que quieres crear:', useInput: true, placeholder: 'Ej: Un astronauta en un caballo cósmico', confirmText: 'Generar' });
-                if (!prompt) { hideModal(); return; }
+                if (!prompt || !prompt.value) { hideModal(); return; }
                 hideModal();
                 let count = getCreditCount();
                 if (count < COSTS.IMAGE) {
@@ -2036,14 +2052,14 @@
                 setCreditCount(count - COSTS.IMAGE);
                 let chatIdToUpdate = currentChatId || createNewChat({});
                 const currentChat = state.chats[chatIdToUpdate];
-                currentChat.messages.push({ role: 'user', content: `Generar imagen: "${prompt}"` });
-                addMessageToUI('user', `Generar imagen: "${prompt}"`, null, currentChat.messages.length - 1, dom.chatMessages);
+                currentChat.messages.push({ role: 'user', content: `Generar imagen: "${prompt.value}"` });
+                addMessageToUI('user', `Generar imagen: "${prompt.value}"`, null, currentChat.messages.length - 1, dom.chatMessages);
                 const thinkingBubble = addMessageToUI('assistant', 'Creando tu visión con DALL·E 2...', null, null, dom.chatMessages);
                 try {
                     const response = await fetch('/.netlify/functions/generate-image', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ prompt, model: 'dall-e-2' })
+                        body: JSON.stringify({ prompt: prompt.value, model: 'dall-e-2' })
                     });
                      if (!response.ok) {
                         let errorText;
@@ -2106,7 +2122,7 @@
 
                 dom.newChatBtn?.addEventListener('click', () => createNewChat());
                 dom.newChatIconBtn?.addEventListener('click', () => createNewChat());
-                dom.newProjectBtn?.addEventListener('click', async () => { const name = await showModal({ title: 'Crear Proyecto', useInput: true, placeholder: 'Nombre del Proyecto...' }); if (name && name.trim()) { const id = 'project-' + crypto.randomUUID(); state.projects[id] = { id, title: name.trim(), chatIds: [] }; state.structure.unshift(id); saveState(); renderSidebar(); } });
+                dom.newProjectBtn?.addEventListener('click', async () => { const result = await showModal({ title: 'Crear Proyecto', useInput: true, placeholder: 'Nombre del Proyecto...' }); if (result && result.value.trim()) { const id = 'project-' + crypto.randomUUID(); state.projects[id] = { id, title: result.value.trim(), chatIds: [] }; state.structure.unshift(id); saveState(); renderSidebar(); } });
                 dom.upgradePlanBtn?.addEventListener('click', showPricingModal);
                 dom.closePricingModalBtn?.addEventListener('click', hidePricingModal);
                 dom.themeToggle?.addEventListener('click', () => setTheme(!document.body.classList.contains('dark-theme')));
@@ -2241,6 +2257,7 @@
                 dom.freePlanButton?.addEventListener('click', showPricingModal);
 
                 dom.calendarBtn?.addEventListener('click', showCalendarModal);
+                dom.projectCalendarBtn?.addEventListener('click', showCalendarModal);
                 dom.closeCalendarModal?.addEventListener('click', hideCalendarModal);
                 
                 dom.prevMonthBtn?.addEventListener('click', () => { selectedCalendarDate = selectedCalendarDate.subtract(1, 'month'); renderCalendarView(); });
@@ -2311,10 +2328,17 @@
             }
             
             function renderProjectBoard(chatId) {
-                const { projectData } = state.chats[chatId];
+                const chat = state.chats[chatId];
+                if(!chat || !chat.projectData) return;
+                const { projectData } = chat;
+
                 if (projectData.currentView === 'list') {
+                    dom.kanbanView.classList.add('hidden');
+                    dom.listView.classList.remove('hidden');
                     renderListView(chatId);
                 } else {
+                    dom.kanbanView.classList.remove('hidden');
+                    dom.listView.classList.add('hidden');
                     renderKanbanView(chatId);
                 }
             }
@@ -2373,11 +2397,12 @@
                     taskList.className = 'space-y-2';
                     (column.tasks || []).forEach(task => {
                         const taskEl = document.createElement('div');
-                        taskEl.className = 'list-view-task flex justify-between items-center';
+                        taskEl.className = 'list-view-task flex justify-between items-center cursor-pointer';
                         taskEl.innerHTML = `
                             <span>${task.content}</span>
                             <span>${task.dueDate ? `<i class="fas fa-calendar-alt mr-1"></i> ${dayjs(task.dueDate).format('D MMM')}` : ''}</span>
                         `;
+                        taskEl.addEventListener('click', () => editProjectTask(chatId, task.id));
                         taskList.appendChild(taskEl);
                     });
                     columnSection.appendChild(taskList);
@@ -2390,17 +2415,36 @@
                 const task = chat.projectData.columns.flatMap(c => c.tasks || []).find(t => t.id === taskId);
                 if (!task) return;
 
-                const newContent = await showModal({
-                    title: 'Editar Tarea',
-                    useTextarea: true,
-                    initialValue: task.content,
+                const modalMessage = `
+                    <div class="space-y-4">
+                        <div>
+                            <label for="task-content-edit" class="block text-sm font-medium text-text-light mb-1">Contenido de la Tarea:</label>
+                            <textarea id="task-content-edit" class="w-full p-2 rounded bg-input border border-themed h-24">${task.content}</textarea>
+                        </div>
+                        <div>
+                            <label for="task-due-date" class="block text-sm font-medium text-text-light mb-1">Fecha de Vencimiento:</label>
+                            <input type="date" id="task-due-date" value="${task.dueDate || ''}" class="w-full p-2 rounded bg-input border border-themed">
+                        </div>
+                    </div>
+                `;
+
+                const result = await showModal({
+                    title: 'Editar Tarea del Proyecto',
+                    message: modalMessage,
                     confirmText: 'Guardar'
                 });
 
-                if (newContent && newContent.trim()) {
-                    task.content = newContent.trim();
-                    saveState();
-                    renderProjectBoard(chatId);
+                if (result) {
+                    const newContent = dom.genericModal.querySelector('#task-content-edit').value;
+                    const newDate = dom.genericModal.querySelector('#task-due-date').value;
+                    
+                    if (newContent.trim()) {
+                        task.content = newContent.trim();
+                        task.dueDate = newDate || null;
+                        saveState();
+                        renderProjectBoard(chatId);
+                        renderCalendarView(); // Update calendar in case date changed
+                    }
                 }
             }
 
