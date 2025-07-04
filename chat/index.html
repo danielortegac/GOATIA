@@ -112,7 +112,7 @@
             -webkit-appearance: none;
             -moz-appearance: none;
             appearance: none;
-            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%239ca3af' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e"); /* Dropdown arrow */
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23121212' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e"); /* Darker dropdown arrow for contrast */
             background-position: right 0.5rem center;
             background-repeat: no-repeat;
             background-size: 1.5em 1.5em;
@@ -125,7 +125,9 @@
             outline: none;
             cursor: pointer; /* Indicate it's clickable */
             min-width: 120px; /* Ensure it has some minimum width */
+            color: var(--current-text-light); /* Ensure text color */
         }
+        .model-selector-wrapper select::-ms-expand { display: none; }
 
         /* Ensure .pro-controls-bg adjusts its width to content */
         .pro-controls-bg {
@@ -146,6 +148,7 @@
             align-items: center;
             gap: 0.5rem;
         }
+
 
         .workflow-content { display: none; }
         .workflow-category.open .workflow-content { display: block; }
@@ -228,18 +231,16 @@
                 overflow-y: auto; /* Make it scrollable */
                 top: auto; /* Remove fixed top */
                 bottom: 10px; /* Position from bottom */
-                right: 10px;
-                left: 10px; /* Center it */
+                left: 10px; /* Adjust left for better centering */
+                right: 10px; /* Adjust right for better centering */
                 width: auto; /* Auto width */
-                transform: translate(0, 0); /* Remove transform affecting position */
+                transform: none; /* Remove any transform affecting position */
+                opacity: 0;
+                visibility: hidden;
+                transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out, bottom 0.3s ease-in-out;
             }
-            #services-menu.opacity-0 {
-                bottom: -100%; /* Animate out of view */
-                transform: translate(0, 0) scale(0.95);
-            }
-            #services-menu.show { /* A class to trigger show, not directly handled by opacity */
-                 bottom: 10px;
-                 transform: translate(0,0) scale(1);
+            #services-menu.show { /* A class to trigger show */
+                 bottom: 10px; /* Final position when shown */
                  opacity: 1;
                  visibility: visible;
             }
@@ -391,6 +392,47 @@
             opacity: 0.6;
             text-decoration: line-through;
         }
+
+        /* Day View Modal/Container */
+        #day-detail-modal {
+            position: fixed;
+            inset: 0;
+            background-color: rgba(0,0,0,0.7);
+            display: none; /* Hidden by default */
+            align-items: center;
+            justify-content: center;
+            z-index: 900;
+        }
+
+        #day-detail-modal .modal-content {
+            background-color: var(--current-bg-medium);
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            max-width: 400px;
+            width: 90%;
+            position: relative;
+        }
+        #day-detail-modal h4 {
+            font-size: 1.25rem;
+            font-weight: bold;
+            margin-bottom: 1rem;
+            color: var(--current-text-light);
+        }
+        #day-detail-tasks-list {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        #day-detail-tasks-list .task-item {
+            padding: 0.5rem 0;
+            border-bottom: 1px dashed var(--current-border-color);
+        }
+        #day-detail-tasks-list .task-item:last-child {
+            border-bottom: none;
+        }
+        #day-detail-tasks-list .task-item.task-item-completed {
+            text-decoration: line-through;
+            opacity: 0.6;
+        }
     </style>
 </head>
 <body class="w-screen overflow-x-hidden dark-theme">
@@ -486,6 +528,15 @@
                                     <button data-workflow="english-teacher-translate" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_eng_1">Traducir/Corregir Texto</button>
                                     <button data-workflow="english-teacher-vocabulary" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_eng_2">Aprender Vocabulario Nuevo</button>
                                     <button data-workflow="english-teacher-practice" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_eng_3">Practicar Conversación</button>
+                                </div>
+                            </div>
+                            <div class="workflow-category">
+                                <div class="workflow-header flex items-center p-2 rounded-md cursor-pointer hover:bg-light">
+                                    <i class="fas fa-chevron-right workflow-arrow mr-2 transition-transform text-xs"></i><i class="fas fa-project-diagram w-6 mr-2 text-purple-400"></i>
+                                    <span class="text-sm font-bold" data-translate-key="wf_project_management">Dirección de Proyectos</span>
+                                </div>
+                                <div class="workflow-content pl-4 pt-1 space-y-1">
+                                    <button data-workflow="project-task" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_project_task">Crear Tarea de Proyecto</button>
                                 </div>
                             </div>
                         </div>
@@ -676,9 +727,9 @@
         <div class="modal-content rounded-lg w-full max-w-2xl p-6 relative">
             <h3 class="text-lg font-bold mb-4" data-translate-key="calendar_my_calendar">Mi Calendario y Tareas</h3>
             <div class="calendar-view-toggle">
-                <button id="day-view-btn" class="active" data-translate-key="calendar_day_view">Vista de Día</button>
-                <button id="week-view-btn" data-translate-key="calendar_week_view">Vista de Semana</button>
+                <button id="month-view-btn" class="active" data-translate-key="calendar_day_view">Vista de Mes</button> <button id="week-view-btn" data-translate-key="calendar_week_view">Vista de Semana</button>
             </div>
+            
             <div id="month-view-container">
                 <div class="calendar-header">
                     <button id="prev-month" class="px-3 py-1 rounded-md bg-gray-600 hover:bg-gray-700"><i class="fas fa-chevron-left"></i></button>
@@ -723,6 +774,16 @@
         </div>
     </div>
 
+    <div id="day-detail-modal" class="hidden">
+        <div class="modal-content">
+            <h4 id="day-detail-date"></h4>
+            <div id="day-detail-tasks-list" class="space-y-2">
+                </div>
+            <button id="close-day-detail-modal" class="absolute top-2 right-2 text-gray-400 hover:text-text-light"><i class="fas fa-times"></i></button>
+        </div>
+    </div>
+
+
     <div id="in-app-notification" class="hidden">
         <i class="fas fa-bell"></i>
         <span id="notification-message"></span>
@@ -763,8 +824,11 @@
                     calendar_thu: "Jue", calendar_fri: "Vie", calendar_sat: "Sáb", calendar_sun: "Dom",
                     calendar_no_tasks: "No hay tareas para este día.", calendar_add_task_placeholder: "Añadir nueva tarea...",
                     calendar_add_task_btn: "Añadir Tarea", calendar_my_calendar: "Mi Calendario y Tareas",
-                    calendar_day_view: "Vista de Día", calendar_week_view: "Vista de Semana",
-                    notification_task_due: "Es hora de: "
+                    calendar_day_view: "Vista de Mes", calendar_week_view: "Vista de Semana",
+                    notification_task_due: "Es hora de: ",
+                    settings_schedule_meeting: "Agendar Reunión",
+                    wf_project_management: "Dirección de Proyectos", wf_project_task: "Crear Tarea de Proyecto",
+                    day_detail_title: "Tareas para "
                 },
                 en: {
                     initializing: "Initializing...", new_chat: "New Chat", new_project: "New Project",
@@ -795,24 +859,28 @@
                     calendar_thu: "Thu", calendar_fri: "Fri", calendar_sat: "Sat", calendar_sun: "Sun",
                     calendar_no_tasks: "No tasks for this day.", calendar_add_task_placeholder: "Add new task...",
                     calendar_add_task_btn: "Add Task", calendar_my_calendar: "My Calendar & Tasks",
-                    calendar_day_view: "Day View", calendar_week_view: "Week View",
-                    notification_task_due: "Time for: "
+                    calendar_day_view: "Month View", calendar_week_view: "Week View",
+                    notification_task_due: "Time for: ",
+                    settings_schedule_meeting: "Schedule Meeting",
+                    wf_project_management: "Project Management", wf_project_task: "Create Project Task",
+                    day_detail_title: "Tasks for "
                 }
             };
             
             const GUEST_CREDIT_LIMIT = 5;
             const FREE_PLAN_CREDIT_LIMIT = 15;
             const COSTS = { WEB_PAGE: 2, COPYWRITING: 2, SALES_RESPONSE: 2, NEBULA: 2, GENERAL: 1, SEARCH: 1, ENGLISH_TEACHER: 1, IMAGE: 5 };
-            let state = { chats: {}, projects: {}, structure: [], calendar: {} }; // Added calendar to state
+            // Ensure calendar is part of the state initialization
+            let state = { chats: {}, projects: {}, structure: [], calendar: {} }; 
             let currentChatId = null, currentUser = null, speechOn = false, availableVoices = [], selectedVoice = null, isRecognizing = false, selectedImageBase64 = null, selectedPdfText = null;
             let micWasOnBeforeSpeaking = false;
             let modalResolve = null;
             let isSelectModeActive = false;
             let chatsToDelete = new Set();
 
-            let currentMonth = dayjs(); // For month view navigation
-            let currentWeek = dayjs(); // For week view navigation
-            let selectedCalendarDate = dayjs(); // For task display (Day View)
+            let currentMonth = dayjs(); 
+            let currentWeek = dayjs(); 
+            let selectedCalendarDate = dayjs(); 
             let currentCalendarView = 'month'; // 'month' or 'week'
 
             const dom = {};
@@ -875,15 +943,20 @@
                 notificationMessage: document.getElementById('notification-message'),
                 monthViewContainer: document.getElementById('month-view-container'),
                 weekViewContainer: document.getElementById('week-view-container'),
-                dayViewBtn: document.getElementById('day-view-btn'),
+                monthViewBtn: document.getElementById('month-view-btn'), /* Changed from day-view-btn */
                 weekViewBtn: document.getElementById('week-view-btn'),
                 prevWeekBtn: document.getElementById('prev-week'),
                 nextWeekBtn: document.getElementById('next-week'),
                 currentWeekRange: document.getElementById('current-week-range'),
-                weekDaysContent: document.getElementById('week-days-content')
+                weekDaysContent: document.getElementById('week-days-content'),
+                dayDetailModal: document.getElementById('day-detail-modal'), /* New day detail modal */
+                closeDayDetailModal: document.getElementById('close-day-detail-modal'),
+                dayDetailDate: document.getElementById('day-detail-date'),
+                dayDetailTasksList: document.getElementById('day-detail-tasks-list')
             };
             Object.assign(dom, fullDom);
 
+            // Function to apply translations
             function setLanguage(lang) {
                 const translationData = translations[lang];
                 if (!translationData) return;
@@ -1010,7 +1083,7 @@
                 if (!currentCalendarView) currentCalendarView = 'month'; 
                 
                 renderCalendarView();
-                updateTasksDisplay(); // Ensure tasks list is updated based on current selection
+                // Task list updates inside renderCalendarView
             }
 
             function hideCalendarModal() {
@@ -1020,12 +1093,12 @@
 
             function renderMonthView() {
                 dom.calendarDaysGrid.innerHTML = '';
-                dom.currentMonthYear.textContent = currentMonth.format('MMMM YYYY'); // Display full year
+                dom.currentMonthYear.textContent = currentMonth.format('MMMM YYYY'); 
 
                 const startOfMonth = currentMonth.startOf('month');
                 
                 let firstDayIndex = startOfMonth.day(); // 0 (Sunday) - 6 (Saturday)
-                let daysToPrepend = (firstDayIndex === 0) ? 6 : firstDayIndex - 1; // Number of days from previous month to show (adjust for Monday start)
+                let daysToPrepend = (firstDayIndex === 0) ? 6 : firstDayIndex - 1; // Adjust for Monday start
 
                 const startDate = startOfMonth.subtract(daysToPrepend, 'day');
 
@@ -1052,8 +1125,7 @@
 
                     dayEl.addEventListener('click', () => {
                         selectedCalendarDate = day;
-                        renderMonthView(); // Re-render to update selection
-                        updateTasksDisplay();
+                        showDayDetailModal(day); /* Open day detail on click */
                     });
 
                     dom.calendarDaysGrid.appendChild(dayEl);
@@ -1072,7 +1144,7 @@
 
                 const endOfWeek = startOfWeek.add(6, 'day'); 
 
-                dom.currentWeekRange.textContent = `${startOfWeek.format('D MMM')} - ${endOfWeek.format('D MMM YYYY')}`; // Display full year for range
+                dom.currentWeekRange.textContent = `${startOfWeek.format('D MMM')} - ${endOfWeek.format('D MMM YYYY')}`; 
 
                 for (let i = 0; i < 7; i++) {
                     const day = startOfWeek.add(i, 'day');
@@ -1080,10 +1152,10 @@
                     const tasks = state.calendar[dayKey] || [];
                     const lang = localStorage.getItem('goatify-lang') || 'es';
                     const dayNames = [
-                        translations[lang].calendar_mon, translations[lang].calendar_tue, translations[lang].calendar_wed,
-                        translations[lang].calendar_thu, translations[lang].calendar_fri, translations[lang].calendar_sat, translations[lang].calendar_sun
+                        translations[lang].calendar_sun, translations[lang].calendar_mon, translations[lang].calendar_tue, translations[lang].calendar_wed,
+                        translations[lang].calendar_thu, translations[lang].calendar_fri, translations[lang].calendar_sat
                     ];
-                    const displayDayName = dayNames[(day.day() === 0) ? 6 : day.day() - 1]; // Adjust for Monday-start display
+                    const displayDayName = dayNames[day.day()]; 
                     const displayDate = day.format('D MMM');
 
                     const daySection = document.createElement('div');
@@ -1116,7 +1188,6 @@
                     });
                 });
             }
-
 
             function updateTasksDisplay() {
                 dom.selectedDateDisplay.textContent = selectedCalendarDate.format('DD/MM/YYYY');
@@ -1172,7 +1243,7 @@
 
             function addTask() {
                 const taskText = dom.newTaskInput.value.trim();
-                const taskTime = dom.newTaskTime.value.trim(); // Get time input value
+                const taskTime = dom.newTaskTime.value.trim(); 
                 if (taskText) {
                     const dayKey = selectedCalendarDate.format('YYYY-MM-DD');
                     if (!state.calendar[dayKey]) {
@@ -1180,7 +1251,7 @@
                     }
                     state.calendar[dayKey].push({ text: taskText, time: taskTime, completed: false, notifiedThisMinute: false }); // Add notifiedThisMinute
                     dom.newTaskInput.value = '';
-                    dom.newTaskTime.value = ''; // Clear time input
+                    dom.newTaskTime.value = ''; 
                     saveState();
                     renderCalendarView(); // Re-render calendar to update task indicators
                 }
@@ -1268,17 +1339,75 @@
                 if (currentCalendarView === 'month') {
                     dom.monthViewContainer.style.display = 'block';
                     dom.weekViewContainer.style.display = 'none';
-                    dom.dayViewBtn.classList.add('active');
+                    dom.monthViewBtn.classList.add('active');
                     dom.weekViewBtn.classList.remove('active');
                     renderMonthView();
                 } else {
                     dom.monthViewContainer.style.display = 'none';
                     dom.weekViewContainer.style.display = 'block';
-                    dom.dayViewBtn.classList.remove('active');
+                    dom.monthViewBtn.classList.remove('active');
                     dom.weekViewBtn.classList.add('active');
                     renderWeekView();
                 }
                 updateTasksDisplay(); // Always update tasks list for current selected date/week
+            }
+
+            // Day Detail Modal Functions
+            function showDayDetailModal(date) {
+                dom.dayDetailDate.textContent = `${translations[localStorage.getItem('goatify-lang') || 'es'].day_detail_title} ${date.format('DD/MM/YYYY')}`;
+                dom.dayDetailTasksList.innerHTML = '';
+                const dayKey = date.format('YYYY-MM-DD');
+                const tasks = state.calendar[dayKey] || [];
+
+                if (tasks.length === 0) {
+                    dom.dayDetailTasksList.innerHTML = `<p class="text-text-medium italic">${translations[localStorage.getItem('goatify-lang') || 'es'].calendar_no_tasks}</p>`;
+                } else {
+                    tasks.sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+                    tasks.forEach((task, index) => {
+                        const taskEl = document.createElement('div');
+                        taskEl.className = `flex items-center justify-between p-2 rounded-md ${task.completed ? 'task-item-completed' : ''}`;
+                        taskEl.innerHTML = `
+                            <div class="flex items-center">
+                                <input type="checkbox" class="task-checkbox-detail mr-2" data-date="${dayKey}" data-index="${index}" ${task.completed ? 'checked' : ''}>
+                                <span>${task.text} ${task.time ? `(${task.time})` : ''}</span>
+                            </div>
+                            <button class="text-red-500 hover:text-red-400 delete-task-btn-detail" data-date="${dayKey}" data-index="${index}">
+                                <i class="fas fa-trash-alt fa-sm"></i>
+                            </button>
+                        `;
+                        dom.dayDetailTasksList.appendChild(taskEl);
+                    });
+
+                    dom.dayDetailTasksList.querySelectorAll('.delete-task-btn-detail').forEach(button => {
+                        button.addEventListener('click', (e) => {
+                            const dateKey = e.currentTarget.dataset.date;
+                            const indexToDelete = parseInt(e.currentTarget.dataset.index);
+                            state.calendar[dateKey].splice(indexToDelete, 1);
+                            if (state.calendar[dateKey].length === 0) {
+                                delete state.calendar[dateKey];
+                            }
+                            saveState();
+                            renderCalendarView();
+                            showDayDetailModal(date); // Re-open detail view to reflect changes
+                        });
+                    });
+
+                    dom.dayDetailTasksList.querySelectorAll('.task-checkbox-detail').forEach(checkbox => {
+                        checkbox.addEventListener('change', (e) => {
+                            const dateKey = e.currentTarget.dataset.date;
+                            const indexToToggle = parseInt(e.currentTarget.dataset.index);
+                            state.calendar[dateKey][indexToToggle].completed = e.currentTarget.checked;
+                            saveState();
+                            renderCalendarView();
+                            showDayDetailModal(date); // Re-open detail view to reflect changes
+                        });
+                    });
+                }
+                dom.dayDetailModal.style.display = 'flex';
+            }
+
+            function hideDayDetailModal() {
+                dom.dayDetailModal.style.display = 'none';
             }
 
 
@@ -2009,6 +2138,7 @@
                     'english-teacher-vocabulary': { title: "Vocabulary Builder", workflow: 'english-teacher-vocabulary', initialMessages: [{ role: 'assistant', content: 'Excellent! Let\'s learn some new vocabulary. What topic are you interested in? (e.g., "business negotiations", "travel")' }] },
                     'english-teacher-practice': { title: "Conversation Practice", workflow: 'english-teacher-practice', initialMessages: [{ role: 'assistant', content: 'Great! Let\'s practice our conversation. So, tell me about your day.' }] },
                     'design-web': { title: "Diseñador Web", workflow: 'design-web', model: 'gpt-4o-mini', initialMessages: [{ role: 'assistant', content: 'Estoy listo para diseñar con código. Describe la página o componente que quieres crear, y lo programaré para ti.' }] },
+                    'project-task': { title: "Tarea de Proyecto", workflow: 'project-task', initialMessages: [{ role: 'assistant', content: 'Para crear una tarea de proyecto, ¿cuál es el nombre de la tarea, a qué proyecto se asocia (opcional), y para qué fecha y hora es?' }] } /* New workflow config */
                 };
 
                 document.querySelectorAll('[data-workflow]').forEach(button => {
@@ -2031,14 +2161,23 @@
                 dom.freeGuidesLink.addEventListener('click', (e) => { e.preventDefault(); const isPaidUser = currentUser && currentUser.app_metadata?.plan && currentUser.app_metadata.plan !== 'free'; if (isPaidUser) { window.open('https://goatify.app/guiasIA', '_blank'); } else { const title = 'Acceso Exclusivo para Suscriptores'; const message = 'Estas guías se actualizan semanalmente con estrategias de negocio que te ayudarán a crecer un montón. Son un beneficio exclusivo para nuestros suscriptores. ¡Únete a un plan para desbloquearlas!'; showModal({ title, message, confirmText: 'Ver Planes' }).then(confirmed => { if (confirmed) { showPricingModal(); } }); } });
                 dom.closeHtmlPreviewModalBtn?.addEventListener('click', () => { dom.htmlPreviewModal.classList.add('hidden'); dom.htmlPreviewModal.classList.remove('flex'); });
                 dom.voiceSelector?.addEventListener('change', (e) => { selectedVoice = availableVoices.find(voice => voice.name === e.target.value); });
-                dom.servicesMenuBtn?.addEventListener('click', (e) => { e.stopPropagation(); const menu = dom.servicesMenu; const isHidden = menu.classList.contains('opacity-0'); if (isHidden) { 
-                    menu.classList.remove('opacity-0', 'scale-95', '-translate-y-2', 'pointer-events-none'); 
-                    menu.classList.add('show'); /* Add 'show' class for mobile adjustment */
-                } else { 
-                    menu.classList.add('opacity-0', 'scale-95', '-translate-y-2', 'pointer-events-none'); 
+                dom.servicesMenuBtn?.addEventListener('click', (e) => { e.stopPropagation(); const menu = dom.servicesMenu; if (menu.classList.contains('show')) { 
                     menu.classList.remove('show');
+                } else { 
+                    menu.classList.add('show');
                 } });
-                document.addEventListener('click', (e) => { if (dom.userMenuBtn && dom.userMenuPopup && !dom.userMenuBtn.contains(e.target) && !dom.userMenuPopup.contains(e.target)) { dom.userMenuPopup.classList.add('hidden'); } if (dom.servicesMenu && dom.servicesMenu.classList.contains('show') && !dom.servicesMenuBtn.contains(e.target) && !dom.servicesMenu.contains(e.target)) { dom.servicesMenu.classList.add('opacity-0', 'scale-95', '-translate-y-2', 'pointer-events-none'); dom.servicesMenu.classList.remove('show'); } if (dom.sidebar && window.innerWidth < 768 && !dom.sidebar.contains(e.target) && dom.sidebar.classList.contains('is-open')) { toggleSidebar(false); } });
+                // Handle clicks outside modals
+                document.addEventListener('click', (e) => { 
+                    if (dom.userMenuBtn && dom.userMenuPopup && !dom.userMenuBtn.contains(e.target) && !dom.userMenuPopup.contains(e.target)) { dom.userMenuPopup.classList.add('hidden'); } 
+                    if (dom.servicesMenu && dom.servicesMenu.classList.contains('show') && !dom.servicesMenuBtn.contains(e.target) && !dom.servicesMenu.contains(e.target)) { dom.servicesMenu.classList.remove('show'); } 
+                    if (dom.sidebar && window.innerWidth < 768 && !dom.sidebar.contains(e.target) && dom.sidebar.classList.contains('is-open')) { toggleSidebar(false); } 
+                    // Close generic modals on outside click
+                    if (dom.genericModal && dom.genericModal.classList.contains('flex') && !dom.genericModal.querySelector('.modal-content').contains(e.target)) { hideModal(); }
+                    if (dom.pricingModal && dom.pricingModal.classList.contains('flex') && !dom.pricingModal.querySelector('.modal-content').contains(e.target)) { hidePricingModal(); }
+                    if (dom.settingsModal && dom.settingsModal.classList.contains('flex') && !dom.settingsModal.querySelector('.modal-content').contains(e.target)) { hideSettingsModal(); }
+                    if (dom.calendarModal && dom.calendarModal.classList.contains('flex') && !dom.calendarModal.querySelector('.modal-content').contains(e.target)) { hideCalendarModal(); }
+                    if (dom.dayDetailModal && dom.dayDetailModal.classList.contains('flex') && !dom.dayDetailModal.querySelector('.modal-content').contains(e.target)) { hideDayDetailModal(); }
+                });
                 const setAppHeight = () => { const app = document.getElementById('app-container'); if(app) app.style.height = `${window.innerHeight}px`; };
                 setAppHeight();
                 window.addEventListener('resize', setAppHeight);
@@ -2090,7 +2229,7 @@
                     renderCalendarView();
                 });
 
-                dom.dayViewBtn.addEventListener('click', () => {
+                dom.monthViewBtn.addEventListener('click', () => {
                     currentCalendarView = 'month';
                     renderCalendarView();
                 });
@@ -2106,6 +2245,8 @@
                         addTask();
                     }
                 });
+
+                dom.closeDayDetailModal?.addEventListener('click', hideDayDetailModal);
             }
             
             let initFired = false;
