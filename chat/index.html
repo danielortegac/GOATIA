@@ -75,7 +75,9 @@
             color: var(--light-text-dark);
         }
         
-        #sidebar { background-color: var(--current-bg-dark); border-right: 1px solid var(--current-border-color); height: 100vh; }
+        #sidebar { background-color: var(--current-bg-dark); border-right: 1px solid var(--current-border-color); height: 100vh; transition: width 0.3s ease, padding 0.3s ease; }
+        #sidebar.collapsed { width: 0; padding: 0; overflow: hidden; border-right: none;}
+
         #main-chat-area, .modal-content { background-color: var(--current-bg-medium); }
         .chat-bubble-bot, .bg-input, #pdf-preview-container, .chat-item, .project-header, #user-menu-popup, #services-menu, .pro-controls-bg { background-color: var(--current-bg-light); }
         .border-themed { border-color: var(--current-border-color); }
@@ -417,18 +419,20 @@
         }
         
         #project-board-container {
-            flex: 3; /* Takes up more space */
+            flex: 3; 
             display: flex;
             flex-direction: column;
             overflow: hidden;
+            min-height: 0; /* Fix for flexbox overflow */
         }
         #project-chat-container {
-            flex: 2; /* Takes up less space */
+            flex: 2;
             display: flex;
             flex-direction: column;
-            height: 100%;
             border-top: 1px solid var(--current-border-color);
             padding-top: 1rem;
+            flex-shrink: 0; /* Prevent shrinking on mobile */
+            height: 45%; /* Assign a portion of the height on mobile */
         }
         #project-chat-container h3 {
             padding-bottom: 0.5rem;
@@ -440,22 +444,23 @@
             overflow-y: auto;
             padding: 0.5rem;
         }
+        
         #kanban-view {
-            display: flex;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr); /* Force 3 columns */
             gap: 1rem;
-            overflow-x: auto; /* Horizontal scroll */
-            padding-bottom: 1rem; /* Space for scrollbar */
+            overflow-x: hidden; /* No horizontal scroll on desktop */
             flex-grow: 1;
         }
+
         .kanban-column {
             background-color: var(--current-bg-light);
             border-radius: 0.75rem;
             padding: 1rem;
             display: flex;
             flex-direction: column;
-            height: 100%; /* Full height of parent */
-            width: 280px; /* Fixed width for columns */
-            flex-shrink: 0; /* Prevent columns from shrinking */
+            height: 100%;
+            min-width: 0; /* Allow columns to shrink */
         }
         .kanban-column-title {
             font-weight: 700;
@@ -545,11 +550,25 @@
                 border-top: none;
                 padding-left: 1rem;
                 padding-top: 0;
+                height: auto; /* Reset height for desktop */
             }
         }
         
         /* Mobile specific adjustments */
-        @media (max-width: 640px) {
+        @media (max-width: 767px) {
+            #kanban-view {
+                display: flex; /* Revert to flex for horizontal scrolling */
+                overflow-x: auto;
+                grid-template-columns: none;
+            }
+            .kanban-column {
+                width: 250px; /* Fixed width for scrolling columns */
+                flex-shrink: 0;
+            }
+            #project-board-container {
+                flex-grow: 1;
+            }
+
             .pro-controls-bg {
                 padding: 0.125rem 0.25rem;
             }
@@ -725,6 +744,7 @@
         <main id="main-chat-area" class="flex-1 flex flex-col h-full overflow-hidden">
             <header class="flex items-center justify-between p-3 md:p-4 border-b border-themed flex-shrink-0 relative">
                 <button id="menu-toggle" class="md:hidden text-xl p-2"><i class="fas fa-bars"></i></button>
+                <button id="sidebar-toggle-desktop" class="hidden md:block text-xl p-2 mr-2"><i class="fas fa-angle-left"></i></button>
                 <div id="chat-title-wrapper" class="hidden sm:flex items-center group cursor-pointer mx-2 flex-1 min-w-0" title="Renombrar Chat">
                     <i class="fas fa-pencil-alt text-xs text-text-medium edit-icon"></i>
                     <h1 id="chat-title" class="text-lg font-semibold truncate">Goatify AI</h1>
@@ -1103,6 +1123,8 @@
                 connectWhatsappBtn: document.getElementById('connect-whatsapp-btn'), scheduleMeetingBtn: document.getElementById('schedule-meeting-btn'), freePlanButton: document.getElementById('free-plan-button'),
                 notificationsToggle: document.getElementById('notifications-toggle'),
                 projectWorkflowHeader: document.getElementById('project-workflow-header'),
+                sidebarToggleDesktop: document.getElementById('sidebar-toggle-desktop'),
+                mainChatArea: document.getElementById('main-chat-area'),
 
                 // Calendar elements
                 calendarBtn: document.getElementById('calendar-btn'),
@@ -2226,6 +2248,13 @@
                 dom.themeToggle?.addEventListener('click', () => setTheme(!document.body.classList.contains('dark-theme')));
                 dom.loginBtn?.addEventListener('click', () => netlifyIdentity.open('login'));
                 
+                dom.sidebarToggleDesktop?.addEventListener('click', () => {
+                    const icon = dom.sidebarToggleDesktop.querySelector('i');
+                    dom.sidebar.classList.toggle('collapsed');
+                    icon.classList.toggle('fa-angle-left');
+                    icon.classList.toggle('fa-angle-right');
+                });
+
                 dom.chatTitleWrapper?.addEventListener('click', () => { if(currentChatId) renameItem('chat', currentChatId); });
                 dom.mobileChatTitleWrapper?.addEventListener('click', () => { if(currentChatId) renameItem('chat', currentChatId); });
 
@@ -2304,6 +2333,12 @@
                         const workflowKey = button.dataset.workflow;
                         const config = workflowConfigs[workflowKey];
                         if (config) {
+                            // Ensure the main chat view is visible
+                            dom.projectManagementView.style.display = 'none';
+                            dom.chatMessagesView.style.display = 'block';
+                            dom.inputArea.style.display = 'block';
+                            dom.initialMessageContainer.style.display = 'none';
+                            
                             createNewChat({
                                 title: config.title,
                                 workflow: config.workflow,
@@ -2813,26 +2848,3 @@
     </script>
 </body>
 </html>
-```
-
-He implementado los siguientes cambios clave:
-
-* **Mejoras en la Vista Móvil:**
-    * Los botones de vista del calendario (`Día`, `Semana`, `Mes`) y del proyecto (`Kanban`, `Lista`) ahora se mantienen en una sola línea en pantallas pequeñas.
-    * El tablero Kanban ahora se desplaza horizontalmente en móviles, como pediste.
-    * El título "Asistente del Proyecto" ahora tiene su línea divisoria, igual que en la vista de escritorio.
-
-* **Funcionalidad del Calendario y Tareas:**
-    * **Tareas Editables:** ¡Ahora puedes hacer clic en cualquier tarea del calendario (en cualquier vista) o en una tarjeta del Kanban para abrir un editor! Podrás cambiar el contenido, la fecha, la hora y las etiquetas.
-    * **Notificaciones Mejoradas:** Cuando una tarea llegue a su hora, aparecerá un pop-up central en la aplicación para que no se te pase. También seguirás recibiendo la notificación del navegador si la tienes activada.
-    * **Agregar Tareas:** El proceso de añadir una tarea ahora es más limpio, abriendo un pop-up dedicado para que te centres en crearla.
-    * **Filtro por Etiquetas:** En la vista de proyectos, he añadido un botón para filtrar las tareas por las etiquetas que hayas creado.
-
-* **Asistente de Proyectos Inteligente:**
-    * He programado al "Asistente de Proyecto" para que sea más proactivo. Ahora te guiará con preguntas para definir el alcance y los objetivos, siguiendo una metodología de dirección de proyectos para ayudarte a desglosar tu trabajo en tareas accionables.
-
-* **Ajustes de Texto y Visuales:**
-    * He cambiado el texto del asistente a "Deja que Goatify organice tu proyecto...".
-    * Corregí el encabezado del calendario para que muestre el año correctamente.
-
-Espero que esta nueva versión mejorada sea exactamente lo que tenías en mente. ¡Pruébala y dime qué te pare
