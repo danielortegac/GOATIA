@@ -10,10 +10,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dayjs@1.10.7/dayjs.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/dayjs@1.10.7/plugin/isoWeek.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/dayjs@1.10.7/plugin/utc.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/dayjs@1.10.7/plugin/timezone.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/dayjs@1.10.7/locale/es.js"></script>
     
     <style>
         :root {
@@ -105,10 +101,51 @@
         #pricing-modal .modal-content-body { max-height: 80vh; overflow-y: auto; }
         .chat-item.selected-for-delete { background-color: var(--primary) !important; color: white; }
         
-        .model-selector-wrapper { position: relative; display: inline-flex; align-items: center; }
-        .model-selector-wrapper select { -webkit-appearance: none; -moz-appearance: none; appearance: none; background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='black' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 8l4 4 4-4'/%3e%3c/svg%3e"); background-position: right 0.5rem center; background-repeat: no-repeat; background-size: 1.2em 1.2em; padding-right: 2.5rem; height: 32px; font-size: 0.875rem; line-height: 1.25rem; border: none; outline: none; cursor: pointer; min-width: 120px; color: var(--current-text-light); background-color: transparent; }
-        .pro-controls-bg { display: flex; align-items: center; justify-content: space-between; padding: 0.375rem; border-radius: 0.5rem; overflow: hidden; width: fit-content; max-width: 100%; gap: 0.5rem; }
-        .pro-controls-bg > div:first-child { display: flex; align-items: center; gap: 0.5rem; }
+        /* Model/Voice Selectors - Adjust width to fit content and ensure dropdown arrow */
+        .model-selector-wrapper {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+        }
+
+        .model-selector-wrapper select {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='black' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M6 8l4 4 4-4'/%3e%3c/svg%3e"); /* Dropdown arrow is now black and thicker */
+            background-position: right 0.5rem center;
+            background-repeat: no-repeat;
+            background-size: 1.2em 1.2em; /* Slightly larger arrow */
+            padding-right: 2.5rem;
+            height: 32px;
+            font-size: 0.875rem;
+            line-height: 1.25rem;
+            border: none;
+            outline: none;
+            cursor: pointer;
+            min-width: 120px;
+            color: var(--current-text-light); /* Ensure text color matches theme */
+            background-color: transparent; /* Ensure select background is transparent */
+        }
+
+        /* Ensure .pro-controls-bg adjusts its width to content */
+        .pro-controls-bg {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.375rem;
+            border-radius: 0.5rem;
+            overflow: hidden; 
+            width: fit-content;
+            max-width: 100%;
+            gap: 0.5rem;
+        }
+        
+        .pro-controls-bg > div:first-child {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
 
         .workflow-content { display: none; }
         .workflow-category.open .workflow-content { display: block; }
@@ -116,72 +153,100 @@
         .plan-card { background-color: var(--current-bg-light); }
         #pdf-preview-container { padding: 0.5rem; }
         
-        @keyframes sweep { 0% { transform: translateX(-100%) skewX(-15deg); } 100% { transform: translateX(200%) skewX(-15deg); } }
+        @keyframes sweep {
+            0% { transform: translateX(-100%) skewX(-15deg); }
+            100% { transform: translateX(200%) skewX(-15deg); }
+        }
         .cool-light-effect { position: relative; overflow: hidden; }
-        .cool-light-effect::before { content: ''; position: absolute; top: 0; left: 0; width: 50%; height: 100%; background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(138, 79, 255, 0.25) 50%, rgba(255,255,255,0) 100%); transform: translateX(-150%) skewX(-15deg); transition: transform 0.8s ease; pointer-events: none; }
+        .cool-light-effect::before {
+            content: ''; position: absolute; top: 0; left: 0; width: 50%; height: 100%;
+            background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(138, 79, 255, 0.25) 50%, rgba(255,255,255,0) 100%);
+            transform: translateX(-150%) skewX(-15deg); transition: transform 0.8s ease; pointer-events: none;
+        }
         .cool-light-effect:hover::before { animation: sweep 2s infinite linear; }
+
         .input-wrapper { border: 2px solid transparent; transition: box-shadow 0.3s ease, border-color 0.3s ease; }
         .input-wrapper:focus-within { box-shadow: 0 0 10px 0px rgba(138, 79, 255, 0.5); border-color: var(--current-primary-hover); }
+
         #chat-title { color: var(--primary); font-weight: 700; transition: color 0.3s ease; }
         #chat-title-wrapper:hover #chat-title { color: var(--primary-hover); }
+        
         #chat-title-wrapper { position: relative; padding-left: 24px; }
-        #chat-title-wrapper .edit-icon, #mobile-chat-title-wrapper .edit-icon { position: absolute; left: 0; top: 50%; transform: translateY(-50%); opacity: 1; transition: transform 0.2s ease; }
+        #chat-title-wrapper .edit-icon, #mobile-chat-title-wrapper .edit-icon {
+            position: absolute; left: 0; top: 50%; transform: translateY(-50%);
+            opacity: 1; transition: transform 0.2s ease;
+        }
         #chat-title-wrapper:hover .edit-icon, #mobile-chat-title-wrapper:hover .edit-icon { transform: translateY(-50%) scale(1.1); }
         .btn-disabled { background-color: #3a3a3a !important; color: #888 !important; cursor: not-allowed !important; border-color: #3a3a3a !important;}
+
         .chat-item.selected-chat { background-color: var(--current-primary); color: white !important; }
         .chat-item.selected-chat .text-sm { color: white !important; }
         .light-theme .chat-item { color: var(--light-text-dark); }
 
         @media (max-width: 640px) {
             .pro-controls-bg { padding: 0.125rem 0.25rem; }
-            .pro-controls-bg label, .pro-controls-bg select { font-size: 0.75rem; padding-top: 0.125rem; padding-bottom: 0.125rem; }
-            #services-menu { width: 90vw; max-width: 350px; left: 50%; top: 60px; transform: translateX(-50%) scale(1); right: auto; bottom: auto; }
-            #services-menu.opacity-0 { transform: translateX(-50%) scale(0.95); pointer-events: none; }
+            .pro-controls-bg label, .pro-controls-bg select {
+                font-size: 0.75rem; padding-top: 0.125rem; padding-bottom: 0.125rem;
+            }
+            /* Solutions menu adjustment for mobile (corrected) */
+            #services-menu {
+                width: 90vw; max-width: 350px; left: 50%; top: 60px; /* Position below header */
+                transform: translateX(-50%) scale(1);
+                right: auto; bottom: auto;
+            }
+            #services-menu.opacity-0 {
+                transform: translateX(-50%) scale(0.95);
+                pointer-events: none;
+            }
         }
 
         /* Calendar styles */
         .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; text-align: center; }
-        .calendar-day, .week-day { padding: 8px; border-radius: 4px; background-color: var(--current-bg-medium); cursor: pointer; transition: background-color 0.2s ease; position: relative; }
-        .calendar-day:hover, .week-day:hover { background-color: var(--current-bg-light); }
+        .calendar-day { padding: 8px; border-radius: 4px; background-color: var(--current-bg-medium); cursor: pointer; transition: background-color 0.2s ease; position: relative; }
+        .calendar-day:hover { background-color: var(--current-bg-light); }
         .calendar-day.current-month { color: var(--current-text-light); }
         .calendar-day.other-month { color: var(--current-text-medium); opacity: 0.5; }
-        .calendar-day.selected, .week-day.selected { background-color: var(--current-primary); color: white; }
-        .calendar-day.has-tasks::after, .week-day.has-tasks::after { content: ''; position: absolute; bottom: 5px; left: 50%; transform: translateX(-50%); width: 6px; height: 6px; border-radius: 50%; background-color: var(--primary); }
+        .calendar-day.selected { background-color: var(--current-primary); color: white; }
+        .calendar-day.has-tasks { border: 1px solid var(--primary); box-shadow: 0 0 5px rgba(138, 79, 255, 0.3); }
         .calendar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
         .task-item-completed { text-decoration: line-through; opacity: 0.6; }
         .notification-bell-icon { position: relative; }
         .notification-badge { position: absolute; top: -5px; right: -5px; background-color: red; color: white; border-radius: 50%; padding: 2px 6px; font-size: 0.7em; line-height: 1; min-width: 18px; text-align: center; }
-        #in-app-notification { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background-color: var(--primary); color: white; padding: 10px 20px; border-radius: 8px; z-index: 1000; box-shadow: 0 4px 12px rgba(0,0,0,0.2); opacity: 0; visibility: hidden; transition: opacity 0.3s ease-in-out, top 0.3s ease-in-out; display: flex; align-items: center; gap: 10px; }
+        #in-app-notification {
+            position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+            background-color: var(--primary); color: white; padding: 10px 20px;
+            border-radius: 8px; z-index: 1000; box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            opacity: 0; visibility: hidden; transition: opacity 0.3s ease-in-out, top 0.3s ease-in-out;
+            display: flex; align-items: center; gap: 10px;
+        }
         #in-app-notification.show { opacity: 1; visibility: visible; top: 40px; }
+
         .calendar-view-toggle { display: flex; gap: 8px; margin-bottom: 10px; }
-        .calendar-view-toggle button { flex-grow: 1; padding: 8px 12px; border-radius: 6px; background-color: var(--current-bg-light); color: var(--current-text-light); font-weight: 600; transition: background-color 0.2s ease, box-shadow 0.2s ease; }
+        .calendar-view-toggle button {
+            flex-grow: 1; padding: 8px 12px; border-radius: 6px; background-color: var(--current-bg-light);
+            color: var(--current-text-light); font-weight: 600; transition: background-color 0.2s ease, box-shadow 0.2s ease;
+        }
         .calendar-view-toggle button.active { background-color: var(--current-primary); color: white; box-shadow: 0 0 8px rgba(138, 79, 255, 0.4); }
         .calendar-view-toggle button:hover:not(.active) { background-color: var(--current-bg-medium); }
+
+        /* Calendar Views */
         #month-view-container, #week-view-container, #day-view-container { display: none; }
         #day-view-tasks-list .task-item { display: flex; justify-content: space-between; align-items: center; padding: 8px; background-color: var(--current-bg-light); border-radius: 6px; }
-        .week-view-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
-        .week-day { display: flex; flex-direction: column; min-height: 120px; }
-        .week-day-header { font-weight: bold; margin-bottom: 5px; font-size: 0.9em; }
-        .week-tasks { flex-grow: 1; overflow-y: auto; font-size: 0.8em; }
-        .week-task-item { padding: 2px 4px; margin-bottom: 2px; background-color: var(--current-bg-light); border-radius: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
         /* Project Management Modal Styles */
-        #project-management-modal .modal-content { max-width: 90vw; width: 1200px; height: 90vh; display: flex; flex-direction: column; }
+        #project-management-modal .modal-content {
+             max-width: 90vw; width: 1200px; height: 90vh; display: flex; flex-direction: column;
+        }
         .pm-header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 1rem; border-bottom: 1px solid var(--current-border-color); flex-shrink: 0; }
         .pm-views button { background: none; border: none; padding: 0.5rem 1rem; cursor: pointer; font-weight: 600; color: var(--current-text-medium); border-bottom: 2px solid transparent; }
         .pm-views button.active { color: var(--current-primary); border-bottom-color: var(--current-primary); }
         .pm-ai-prompt { padding: 1rem 0; flex-shrink: 0; }
-        .pm-board, .pm-list-view, .pm-calendar-view { flex-grow: 1; overflow-y: auto; display: none; }
-        .pm-board.active-view, .pm-list-view.active-view, .pm-calendar-view.active-view { display: block; }
-        .pm-board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; overflow-x: auto; padding: 1rem 0; }
+        .pm-board { flex-grow: 1; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; overflow-x: auto; padding: 1rem 0; }
         .pm-column { background-color: var(--current-bg-light); border-radius: 8px; padding: 1rem; display: flex; flex-direction: column; }
         .pm-column-title { font-weight: bold; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--current-border-color); }
         .pm-cards { flex-grow: 1; min-height: 100px; }
         .pm-card { background-color: var(--current-bg-medium); padding: 1rem; border-radius: 6px; margin-bottom: 0.75rem; box-shadow: 0 1px 3px rgba(0,0,0,0.2); cursor: grab; }
         .pm-card:active { cursor: grabbing; }
-        .pm-list-item { display: flex; align-items: center; justify-content: space-between; padding: 0.75rem; border-bottom: 1px solid var(--current-border-color); cursor: pointer; }
-        .pm-list-item:hover { background-color: var(--current-bg-light); }
-        .pm-list-item .task-date { font-size: 0.8rem; color: var(--current-text-medium); }
         
         /* Settings notification toggle */
         .switch { position: relative; display: inline-block; width: 44px; height: 24px; }
@@ -236,7 +301,7 @@
                     <div class="border-t border-b border-themed my-3 py-3">
                         <h3 class="text-xs font-semibold uppercase text-text-medium mb-2 px-2" data-translate-key="workflows">Workflows</h3>
                         <div id="workflows-container" class="space-y-1">
-                             <div class="workflow-category">
+                            <div class="workflow-category">
                                 <div id="pm-workflow-btn" class="workflow-header flex items-center p-2 rounded-md cursor-pointer hover:bg-light">
                                     <i class="fas fa-tasks w-6 mr-2 text-purple-400"></i>
                                     <span class="text-sm font-bold" data-translate-key="wf_pm">Dirección de Proyectos</span>
@@ -301,7 +366,7 @@
                     <div id="sidebar-content" class="pr-1 space-y-1"></div>
                 </div>
             </div>
-            <div id="user-section" class="flex-shrink-0 border-t border-themed pt-3">
+             <div id="user-section" class="flex-shrink-0 border-t border-themed pt-3">
                 <div id="login-view" class="hidden">
                     <button id="login-btn" class="w-full flex items-center justify-center font-semibold p-3 rounded-lg btn-primary transition-colors"><i class="fas fa-sign-in-alt mr-2"></i><span data-translate-key="login">Iniciar Sesión</span></button>
                 </div>
@@ -439,7 +504,7 @@
                     <p id="settings-user-plan" class="text-text-medium"></p>
                     <button id="settings-upgrade-plan-btn" class="text-primary hover:underline mt-1 text-xs" data-translate-key="upgrade_plan">Mejorar Plan</button>
                 </div>
-                <div class="flex items-center justify-between">
+                 <div class="flex items-center justify-between">
                     <p class="font-semibold" data-translate-key="settings_notifications">Notificaciones de Tareas</p>
                     <label class="switch">
                         <input type="checkbox" id="notifications-toggle">
@@ -479,35 +544,39 @@
     </div>
 
     <div id="calendar-modal" class="fixed inset-0 bg-black bg-opacity-70 hidden items-center justify-center z-40 p-4">
-        <div class="modal-content rounded-lg w-full max-w-3xl p-6 relative">
+        <div class="modal-content rounded-lg w-full max-w-2xl p-6 relative">
             <div id="calendar-main-header">
                  <h3 class="text-lg font-bold mb-4" data-translate-key="calendar_my_calendar">Mi Calendario y Tareas</h3>
             </div>
-            <div class="calendar-view-toggle">
-                <button id="month-view-btn" class="active" data-translate-key="calendar_month_view">Mes</button>
-                <button id="week-view-btn" data-translate-key="calendar_week_view">Semana</button>
-            </div>
-            <div id="month-view-container">
-                <div class="calendar-header">
-                    <button id="prev-month" class="px-3 py-1 rounded-md bg-gray-600 hover:bg-gray-700"><i class="fas fa-chevron-left"></i></button>
-                    <h4 id="current-month-year" class="text-xl font-semibold"></h4>
-                    <button id="next-month" class="px-3 py-1 rounded-md bg-gray-600 hover:bg-gray-700"><i class="fas fa-chevron-right"></i></button>
+            
+            <div id="month-week-view">
+                <div class="calendar-view-toggle">
+                    <button id="month-view-btn" class="active" data-translate-key="calendar_month_view">Vista de Mes</button>
                 </div>
-                <div class="calendar-grid mb-4 font-bold text-primary">
-                    <div data-translate-key="calendar_mon">Lun</div><div data-translate-key="calendar_tue">Mar</div><div data-translate-key="calendar_wed">Mié</div>
-                    <div data-translate-key="calendar_thu">Jue</div><div data-translate-key="calendar_fri">Vie</div><div data-translate-key="calendar_sat">Sáb</div>
-                    <div data-translate-key="calendar_sun">Dom</div>
+                <div id="month-view-container">
+                    <div class="calendar-header">
+                        <button id="prev-month" class="px-3 py-1 rounded-md bg-gray-600 hover:bg-gray-700"><i class="fas fa-chevron-left"></i></button>
+                        <h4 id="current-month-year" class="text-xl font-semibold"></h4>
+                        <button id="next-month" class="px-3 py-1 rounded-md bg-gray-600 hover:bg-gray-700"><i class="fas fa-chevron-right"></i></button>
+                    </div>
+                    <div class="calendar-grid mb-4 font-bold text-primary">
+                        <div data-translate-key="calendar_mon">Lun</div><div data-translate-key="calendar_tue">Mar</div><div data-translate-key="calendar_wed">Mié</div>
+                        <div data-translate-key="calendar_thu">Jue</div><div data-translate-key="calendar_fri">Vie</div><div data-translate-key="calendar_sat">Sáb</div>
+                        <div data-translate-key="calendar_sun">Dom</div>
+                    </div>
+                    <div id="calendar-days-grid" class="calendar-grid"></div>
                 </div>
-                <div id="calendar-days-grid" class="calendar-grid"></div>
             </div>
-            <div id="week-view-container">
-                <div class="calendar-header">
-                    <button id="prev-week" class="px-3 py-1 rounded-md bg-gray-600 hover:bg-gray-700"><i class="fas fa-chevron-left"></i></button>
-                    <h4 id="current-week-range" class="text-xl font-semibold"></h4>
-                    <button id="next-week" class="px-3 py-1 rounded-md bg-gray-600 hover:bg-gray-700"><i class="fas fa-chevron-right"></i></button>
+
+            <div id="day-view-container">
+                <div class="flex items-center mb-4">
+                    <button id="back-to-month-view-btn" class="p-2 rounded-md hover:bg-light mr-4"><i class="fas fa-arrow-left"></i></button>
+                    <h4 id="day-view-date" class="text-xl font-semibold"></h4>
                 </div>
-                <div id="week-view-grid" class="week-view-grid"></div>
+                <div id="day-view-tasks-list" class="space-y-2 max-h-60 overflow-y-auto">
+                    </div>
             </div>
+
             <div class="mt-6 border-t border-themed pt-4">
                 <h4 class="font-semibold mb-2" data-translate-key="calendar_tasks_for">Tareas para <span id="selected-date-display"></span>:</h4>
                 <div id="tasks-list" class="space-y-2 mb-4 max-h-40 overflow-y-auto">
@@ -526,63 +595,37 @@
     <div id="project-management-modal" class="fixed inset-0 bg-black bg-opacity-80 hidden items-center justify-center z-50 p-4">
         <div class="modal-content rounded-lg p-6 relative">
             <div class="pm-header">
-                <h3 id="pm-title" class="text-2xl font-bold">Dirección de Proyectos</h3>
+                <h3 class="text-2xl font-bold">Dirección de Proyectos</h3>
                 <div class="pm-views">
-                    <button class="active" data-view="board"><i class="fas fa-columns mr-2"></i><span data-translate-key="pm_view_board">Tablero</span></button>
-                    <button data-view="list"><i class="fas fa-list-ul mr-2"></i><span data-translate-key="pm_view_list">Lista</span></button>
-                    <button data-view="calendar"><i class="fas fa-calendar-alt mr-2"></i><span data-translate-key="pm_view_calendar">Calendario</span></button>
+                    <button class="active" data-view="board"><i class="fas fa-columns mr-2"></i>Tablero</button>
+                    <button data-view="list"><i class="fas fa-list-ul mr-2"></i>Lista</button>
+                    <button data-view="calendar"><i class="fas fa-calendar-alt mr-2"></i>Calendario</button>
                 </div>
                 <button id="close-pm-modal" class="absolute top-4 right-4 text-gray-400 hover:text-text-light"><i class="fas fa-times fa-lg"></i></button>
             </div>
             <div class="pm-ai-prompt">
-                <label for="pm-ai-input" class="text-sm font-semibold text-primary" data-translate-key="pm_ai_assistant">Asistente de Proyectos IA</label>
-                <div class="relative">
-                    <input type="text" id="pm-ai-input" class="w-full p-2 mt-1 rounded bg-input border border-themed" placeholder="Describe tu proyecto y crearé las primeras tareas por ti..." data-translate-key="pm_ai_placeholder">
-                    <i id="pm-ai-spinner" class="fas fa-spinner fa-spin absolute right-3 top-1/2 -translate-y-1/2 hidden"></i>
-                </div>
+                <label for="pm-ai-input" class="text-sm font-semibold text-primary">Asistente de Proyectos IA</label>
+                <input type="text" id="pm-ai-input" class="w-full p-2 mt-1 rounded bg-input border border-themed" placeholder="¿Para qué quieres el proyecto? Descríbelo y crearé las primeras tareas por ti...">
             </div>
-            <div id="pm-board-view" class="pm-board active-view">
+            <div class="pm-board">
                 <div class="pm-column">
-                    <h4 class="pm-column-title" data-translate-key="pm_col_todo">Por Hacer</h4>
-                    <div class="pm-cards" data-column="todo"></div>
+                    <h4 class="pm-column-title">Por Hacer</h4>
+                    <div class="pm-cards" data-column="todo">
+                        <div class="pm-card" draggable="true">Definir objetivos del proyecto</div>
+                        <div class="pm-card" draggable="true">Investigación de mercado</div>
+                    </div>
                 </div>
                 <div class="pm-column">
-                    <h4 class="pm-column-title" data-translate-key="pm_col_inprogress">En Progreso</h4>
-                    <div class="pm-cards" data-column="inprogress"></div>
+                    <h4 class="pm-column-title">En Progreso</h4>
+                    <div class="pm-cards" data-column="inprogress">
+                        <div class="pm-card" draggable="true">Diseñar borrador inicial</div>
+                    </div>
                 </div>
                 <div class="pm-column">
-                    <h4 class="pm-column-title" data-translate-key="pm_col_done">Hecho</h4>
+                    <h4 class="pm-column-title">Hecho</h4>
                     <div class="pm-cards" data-column="done"></div>
                 </div>
             </div>
-            <div id="pm-list-view" class="pm-list-view"></div>
-            <div id="pm-calendar-view" class="pm-calendar-view p-4"></div>
-        </div>
-    </div>
-    
-    <div id="edit-task-modal" class="fixed inset-0 bg-black bg-opacity-70 hidden items-center justify-center z-50 p-4">
-        <div class="modal-content rounded-lg w-full max-w-md p-6 relative">
-            <h3 class="text-lg font-bold mb-4" data-translate-key="edit_task_title">Editar Tarea</h3>
-            <input type="hidden" id="edit-task-id">
-            <div class="space-y-4">
-                <div>
-                    <label for="edit-task-text" class="font-semibold text-sm" data-translate-key="edit_task_desc">Descripción</label>
-                    <input type="text" id="edit-task-text" class="w-full p-2 mt-1 rounded bg-input border border-themed">
-                </div>
-                <div>
-                    <label for="edit-task-date" class="font-semibold text-sm" data-translate-key="edit_task_date">Fecha</label>
-                    <input type="date" id="edit-task-date" class="w-full p-2 mt-1 rounded bg-input border border-themed">
-                </div>
-                <div>
-                    <label for="edit-task-time" class="font-semibold text-sm" data-translate-key="edit_task_time">Hora</label>
-                    <input type="time" id="edit-task-time" class="w-full p-2 mt-1 rounded bg-input border border-themed">
-                </div>
-            </div>
-            <div class="flex justify-end space-x-2 mt-6">
-                <button id="delete-task-btn" class="px-4 py-2 bg-red-600 text-white rounded" data-translate-key="delete">Borrar</button>
-                <button id="save-task-btn" class="px-4 py-2 rounded text-white btn-primary" data-translate-key="save">Guardar</button>
-            </div>
-            <button id="close-edit-task-modal" class="absolute top-4 right-4 text-gray-400 hover:text-text-light"><i class="fas fa-times fa-lg"></i></button>
         </div>
     </div>
 
@@ -593,11 +636,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script type="module">
-        dayjs.extend(window.dayjs_plugin_isoWeek);
-        dayjs.extend(window.dayjs_plugin_utc);
-        dayjs.extend(window.dayjs_plugin_timezone);
-        dayjs.locale('es');
-
         window.addEventListener('DOMContentLoaded', () => {
             console.log("DOMContentLoaded fired.");
             
@@ -619,19 +657,20 @@
                     welcome_guest: "¿Cómo puedo ayudarte hoy?", model: "Modelo:", model_general: "Chat General (Turbo)",
                     model_web: "Búsqueda Web", voice: "Voz:", placeholder_main: "Escribe tu mensaje...", cancel: "Cancelar",
                     confirm: "Confirmar", plans_title: "Planes Goatify", plan_free_sub: "Para Siempre", plan_free_cta: "Empezar Gratis",
-                    plan_boost_cta: "Obtener Boost", plan_pro_cta: "Quiero mi Plan Pro + Web",
-                    preview: "Vista Previa", settings_email: "Correo Electrónico:", settings_plan: "Plan de Suscripción:",
+                    plan_feat_ltd_chat: "Acceso limitado al chat", plan_feat_ltd_hist: "Historial limitado", plan_feat_ltd_proj: "Organización por proyectos (Limitado)",
+                    plan_boost_cta: "Obtener Boost", plan_feat_fast: "Respuestas ultrarrápidas ⚡️", plan_feat_unl_hist: "Historial ilimitado",
+                    plan_feat_proj: "Organización por Proyectos", plan_feat_ltd_wf: "Workflows Limitados", plan_pro_cta: "Quiero mi Plan Pro + Web",
+                    plan_feat_all_boost: "Todo lo de Boost y más", plan_feat_all_models: "Acceso a todos los modelos de IA",
+                    plan_feat_all_wf: "Acceso a todos los Workflows", plan_feat_community: "Comunidad privada y webinars", plan_feat_support: "Asistencia prioritaria 1-a-1",
+                    plan_feat_free_web: "Página Web Gratis", preview: "Vista Previa", settings_email: "Correo Electrónico:", settings_plan: "Plan de Suscripción:",
                     settings_fontsize: "Tamaño de Letra:", settings_theme: "Personalización:", settings_dark_mode: "Modo Oscuro",
                     settings_lang: "Idioma:", settings_whatsapp: "Conectarse a WhatsApp", settings_schedule_meeting: "Agendar Reunión", current_plan: "Tu Plan Actual",
                     settings_notifications: "Notificaciones de Tareas",
-                    calendar_my_calendar: "Mi Calendario y Tareas", calendar_month_view: "Mes", calendar_week_view: "Semana",
+                    calendar_my_calendar: "Mi Calendario y Tareas", calendar_month_view: "Vista de Mes", calendar_week_view: "Vista de Semana",
                     calendar_tasks_for: "Tareas para", calendar_no_tasks: "No hay tareas para este día.", calendar_add_task_placeholder: "Añadir nueva tarea...",
                     calendar_add_task_btn: "Añadir Tarea", calendar_mon: "Lun", calendar_tue: "Mar", calendar_wed: "Mié",
                     calendar_thu: "Jue", calendar_fri: "Vie", calendar_sat: "Sáb", calendar_sun: "Dom",
-                    notification_task_due: "Es hora de: ",
-                    pm_view_board: "Tablero", pm_view_list: "Lista", pm_view_calendar: "Calendario", pm_ai_assistant: "Asistente de Proyectos IA",
-                    pm_ai_placeholder: "Describe tu proyecto y crearé las primeras tareas por ti...", pm_col_todo: "Por Hacer", pm_col_inprogress: "En Progreso", pm_col_done: "Hecho",
-                    edit_task_title: "Editar Tarea", edit_task_desc: "Descripción", edit_task_date: "Fecha", edit_task_time: "Hora", save: "Guardar",
+                    notification_task_due: "Es hora de: "
                 },
                 en: {
                     initializing: "Initializing...", new_chat: "New Chat", new_project: "New Project",
@@ -650,34 +689,35 @@
                     welcome_guest: "How can I help you today?", model: "Model:", model_general: "General Chat (Turbo)",
                     model_web: "Web Search", voice: "Voice:", placeholder_main: "Type your message...", cancel: "Cancel",
                     confirm: "Confirm", plans_title: "Goatify Plans", plan_free_sub: "Forever", plan_free_cta: "Get Started for Free",
-                    plan_boost_cta: "Get Boost", plan_pro_cta: "Get Pro Plan + Web",
-                    preview: "Preview", settings_email: "Email Address:", settings_plan: "Subscription Plan:",
+                    plan_feat_ltd_chat: "Limited chat access", plan_feat_ltd_hist: "Limited history", plan_feat_ltd_proj: "Project organization (Limited)",
+                    plan_boost_cta: "Get Boost", plan_feat_fast: "Ultrafast responses ⚡️", plan_feat_unl_hist: "Unlimited history",
+                    plan_feat_proj: "Project Organization", plan_feat_ltd_wf: "Limited Workflows", plan_pro_cta: "Get Pro Plan + Web",
+                    plan_feat_all_boost: "Everything in Boost and more", plan_feat_all_models: "Access to all AI models",
+                    plan_feat_all_wf: "Access to all Workflows", plan_feat_community: "Private community & webinars", plan_feat_support: "1-on-1 priority support",
+                    plan_feat_free_web: "Free Website", preview: "Preview", settings_email: "Email Address:", settings_plan: "Subscription Plan:",
                     settings_fontsize: "Font Size:", settings_theme: "Personalization:", settings_dark_mode: "Dark Mode",
                     settings_lang: "Language:", settings_whatsapp: "Connect to WhatsApp", settings_schedule_meeting: "Schedule Meeting", current_plan: "Current Plan",
                     settings_notifications: "Task Notifications",
-                    calendar_my_calendar: "My Calendar & Tasks", calendar_month_view: "Month", calendar_week_view: "Week",
+                    calendar_my_calendar: "My Calendar & Tasks", calendar_month_view: "Month View", calendar_week_view: "Week View",
                     calendar_tasks_for: "Tasks for", calendar_no_tasks: "No tasks for this day.", calendar_add_task_placeholder: "Add new task...",
                     calendar_add_task_btn: "Add Task", calendar_mon: "Mon", calendar_tue: "Tue", calendar_wed: "Wed",
                     calendar_thu: "Thu", calendar_fri: "Fri", calendar_sat: "Sat", calendar_sun: "Sun",
-                    notification_task_due: "Time for: ",
-                    pm_view_board: "Board", pm_view_list: "List", pm_view_calendar: "Calendar", pm_ai_assistant: "AI Project Assistant",
-                    pm_ai_placeholder: "Describe your project and I'll create the first tasks for you...", pm_col_todo: "To Do", pm_col_inprogress: "In Progress", pm_col_done: "Done",
-                    edit_task_title: "Edit Task", edit_task_desc: "Description", edit_task_date: "Date", edit_task_time: "Time", save: "Save",
+                    notification_task_due: "Time for: "
                 }
             };
             
             const GUEST_CREDIT_LIMIT = 5;
             const FREE_PLAN_CREDIT_LIMIT = 15;
             const COSTS = { WEB_PAGE: 2, COPYWRITING: 2, SALES_RESPONSE: 2, NEBULA: 2, GENERAL: 1, SEARCH: 1, ENGLISH_TEACHER: 1, IMAGE: 5 };
-            let state = { chats: {}, projects: {}, structure: [], tasks: {} };
-            let currentChatId = null, currentProjectId = null, currentUser = null, speechOn = false, availableVoices = [], selectedVoice = null, isRecognizing = false, selectedImageBase64 = null, selectedPdfText = null;
+            let state = { chats: {}, projects: {}, structure: [], calendar: {} };
+            let currentChatId = null, currentUser = null, speechOn = false, availableVoices = [], selectedVoice = null, isRecognizing = false, selectedImageBase64 = null, selectedPdfText = null;
             let micWasOnBeforeSpeaking = false;
             let modalResolve = null;
             let isSelectModeActive = false;
             let chatsToDelete = new Set();
 
-            let calendarDate = dayjs();
-            let selectedDate = dayjs();
+            let currentMonth = dayjs();
+            let selectedCalendarDate = dayjs();
             let notificationsEnabled = localStorage.getItem('goatify-notifications-enabled') === 'true';
 
             const dom = {};
@@ -741,45 +781,26 @@
                 notificationMessage: document.getElementById('notification-message'),
                 monthViewContainer: document.getElementById('month-view-container'),
                 monthViewBtn: document.getElementById('month-view-btn'),
-                weekViewContainer: document.getElementById('week-view-container'),
-                weekViewBtn: document.getElementById('week-view-btn'),
-                prevWeekBtn: document.getElementById('prev-week'),
-                nextWeekBtn: document.getElementById('next-week'),
-                currentWeekRange: document.getElementById('current-week-range'),
-                weekViewGrid: document.getElementById('week-view-grid'),
-                
-                // Edit Task Modal
-                editTaskModal: document.getElementById('edit-task-modal'),
-                closeEditTaskModal: document.getElementById('close-edit-task-modal'),
-                editTaskId: document.getElementById('edit-task-id'),
-                editTaskText: document.getElementById('edit-task-text'),
-                editTaskDate: document.getElementById('edit-task-date'),
-                editTaskTime: document.getElementById('edit-task-time'),
-                saveTaskBtn: document.getElementById('save-task-btn'),
-                deleteTaskBtn: document.getElementById('delete-task-btn'),
+                dayViewContainer: document.getElementById('day-view-container'),
+                dayViewDate: document.getElementById('day-view-date'),
+                dayViewTasksList: document.getElementById('day-view-tasks-list'),
+                backToMonthViewBtn: document.getElementById('back-to-month-view-btn'),
+                monthWeekView: document.getElementById('month-week-view'),
 
                 // Project Management Elements
                 pmWorkflowBtn: document.getElementById('pm-workflow-btn'),
                 pmModal: document.getElementById('project-management-modal'),
                 closePmModal: document.getElementById('close-pm-modal'),
-                pmTitle: document.getElementById('pm-title'),
-                pmAiInput: document.getElementById('pm-ai-input'),
-                pmAiSpinner: document.getElementById('pm-ai-spinner'),
-                pmViews: document.querySelector('.pm-views'),
-                pmBoardView: document.getElementById('pm-board-view'),
-                pmListView: document.getElementById('pm-list-view'),
-                pmCalendarView: document.getElementById('pm-calendar-view'),
             };
             Object.assign(dom, fullDom);
 
             function setLanguage(lang) {
                 const translationData = translations[lang];
                 if (!translationData) return;
-                dayjs.locale(lang);
                 document.querySelectorAll('[data-translate-key]').forEach(el => {
                     const key = el.dataset.translateKey;
                     if (translationData[key]) {
-                        if (el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && (el.type === 'text' || el.type === 'time' || el.type === 'date'))) {
+                        if (el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && (el.type === 'text' || el.type === 'time'))) {
                             el.placeholder = translationData[key];
                         } else {
                             el.innerHTML = translationData[key];
@@ -887,37 +908,71 @@
                 dom.notificationsToggle.checked = notificationsEnabled;
             }
 
-            function hideSettingsModal() { dom.settingsModal.classList.add('hidden'); dom.settingsModal.classList.remove('flex'); }
-            
-            // --- TASK & CALENDAR FUNCTIONS ---
-            function showCalendarModal() { dom.calendarModal.classList.remove('hidden'); dom.calendarModal.classList.add('flex'); renderCalendar(); }
-            function hideCalendarModal() { dom.calendarModal.classList.add('hidden'); dom.calendarModal.classList.remove('flex'); }
-            function showEditTaskModal(taskId) {
-                const task = state.tasks[taskId];
-                if (!task) return;
-                dom.editTaskId.value = taskId;
-                dom.editTaskText.value = task.text;
-                dom.editTaskDate.value = task.date;
-                dom.editTaskTime.value = task.time || '';
-                dom.editTaskModal.classList.remove('hidden');
-                dom.editTaskModal.classList.add('flex');
+            function hideSettingsModal() {
+                dom.settingsModal.classList.add('hidden');
+                dom.settingsModal.classList.remove('flex');
             }
-            function hideEditTaskModal() { dom.editTaskModal.classList.add('hidden'); dom.editTaskModal.classList.remove('flex'); }
             
-            function renderCalendar(targetContainer = document, date = calendarDate, forProjectId = null) {
-                const monthContainer = targetContainer.querySelector('#month-view-container');
-                const weekContainer = targetContainer.querySelector('#week-view-container');
-                if (monthContainer && monthContainer.style.display !== 'none') renderMonthView(targetContainer, date, forProjectId);
-                if (weekContainer && weekContainer.style.display !== 'none') renderWeekView(targetContainer, date, forProjectId);
-                if (forProjectId === null) updateTasksDisplayForDay();
+            // --- CALENDAR FUNCTIONS ---
+            function showCalendarModal() {
+                dom.calendarModal.classList.remove('hidden');
+                dom.calendarModal.classList.add('flex');
+                showMonthWeekView();
+                renderCalendar();
             }
 
-            function renderMonthView(container, date, projectId) {
-                const daysGrid = container.querySelector('#calendar-days-grid');
-                if (!daysGrid) return;
-                daysGrid.innerHTML = '';
-                container.querySelector('#current-month-year').textContent = date.format('MMMM YYYY');
-                const startOfMonth = date.startOf('month');
+            function hideCalendarModal() {
+                dom.calendarModal.classList.add('hidden');
+                dom.calendarModal.classList.remove('flex');
+            }
+            
+            function showDayDetailView(day) {
+                selectedCalendarDate = day;
+                dom.monthWeekView.style.display = 'none';
+                dom.dayViewContainer.style.display = 'block';
+                dom.dayViewDate.textContent = day.format('dddd, D [de] MMMM');
+                renderDayViewTasks();
+            }
+
+            function showMonthWeekView() {
+                dom.monthWeekView.style.display = 'block';
+                dom.dayViewContainer.style.display = 'none';
+                dom.monthViewContainer.style.display = 'block'; // Ensure month view is visible
+                updateTasksDisplay();
+            }
+
+            function renderDayViewTasks() {
+                dom.dayViewTasksList.innerHTML = '';
+                const dayKey = selectedCalendarDate.format('YYYY-MM-DD');
+                const tasks = state.calendar[dayKey] || [];
+                tasks.sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+
+                if (tasks.length === 0) {
+                     dom.dayViewTasksList.innerHTML = `<p class="text-text-medium italic p-2">${translations[localStorage.getItem('goatify-lang') || 'es'].calendar_no_tasks}</p>`;
+                     return;
+                }
+                
+                tasks.forEach((task, index) => {
+                     const taskEl = document.createElement('div');
+                     taskEl.className = 'task-item';
+                     taskEl.classList.toggle('task-item-completed', task.completed);
+                     taskEl.innerHTML = `
+                        <div class="flex items-center">
+                            <input type="checkbox" class="task-checkbox-day mr-3" data-index="${index}" ${task.completed ? 'checked' : ''}>
+                            <span>${task.text} ${task.time ? `<span class="text-xs text-text-medium ml-1">(${task.time})</span>` : ''}</span>
+                        </div>
+                        <button class="text-red-500 hover:text-red-400 delete-task-btn" data-index="${index}"><i class="fas fa-trash-alt fa-sm"></i></button>`;
+                     dom.dayViewTasksList.appendChild(taskEl);
+                });
+                
+                dom.dayViewTasksList.querySelectorAll('.delete-task-btn').forEach(btn => btn.addEventListener('click', handleDeleteTask));
+                dom.dayViewTasksList.querySelectorAll('.task-checkbox-day').forEach(cb => cb.addEventListener('change', handleToggleTask));
+            }
+
+            function renderCalendar() {
+                dom.calendarDaysGrid.innerHTML = '';
+                dom.currentMonthYear.textContent = currentMonth.format('MMMM YYYY');
+                const startOfMonth = currentMonth.startOf('month');
                 const firstDayIndex = startOfMonth.day();
                 const daysToPrepend = (firstDayIndex === 0) ? 6 : firstDayIndex - 1;
                 const startDate = startOfMonth.subtract(daysToPrepend, 'day');
@@ -927,159 +982,92 @@
                     const dayEl = document.createElement('div');
                     dayEl.className = 'calendar-day';
                     dayEl.textContent = day.date();
-                    dayEl.dataset.date = day.format('YYYY-MM-DD');
 
-                    if (day.month() === date.month()) dayEl.classList.add('current-month'); else dayEl.classList.add('other-month');
-                    if (day.isSame(selectedDate, 'day')) dayEl.classList.add('selected');
+                    if (day.month() === currentMonth.month()) dayEl.classList.add('current-month');
+                    else dayEl.classList.add('other-month');
 
-                    const tasksForDay = getTasksForDate(day.format('YYYY-MM-DD'), projectId);
-                    if (tasksForDay.length > 0) dayEl.classList.add('has-tasks');
+                    if (day.isSame(selectedCalendarDate, 'day')) dayEl.classList.add('selected');
 
-                    dayEl.addEventListener('click', () => {
-                         selectedDate = day;
-                         container.querySelectorAll('.calendar-day').forEach(d => d.classList.remove('selected'));
-                         dayEl.classList.add('selected');
-                         if (projectId === null) updateTasksDisplayForDay();
-                    });
-                    daysGrid.appendChild(dayEl);
-                }
-            }
-
-            function renderWeekView(container, date, projectId) {
-                const weekGrid = container.querySelector('#week-view-grid');
-                if (!weekGrid) return;
-                weekGrid.innerHTML = '';
-                const startOfWeek = date.startOf('isoWeek');
-                const endOfWeek = date.endOf('isoWeek');
-                container.querySelector('#current-week-range').textContent = `${startOfWeek.format('D MMM')} - ${endOfWeek.format('D MMM, YYYY')}`;
-
-                for (let i = 0; i < 7; i++) {
-                    const day = startOfWeek.add(i, 'day');
                     const dayKey = day.format('YYYY-MM-DD');
-                    const dayEl = document.createElement('div');
-                    dayEl.className = 'week-day';
-                    dayEl.dataset.date = dayKey;
-                    if (day.isSame(selectedDate, 'day')) dayEl.classList.add('selected');
+                    if (state.calendar[dayKey] && state.calendar[dayKey].length > 0) dayEl.classList.add('has-tasks');
 
-                    const tasksForDay = getTasksForDate(dayKey, projectId);
-                    if (tasksForDay.length > 0) dayEl.classList.add('has-tasks');
-                    
-                    dayEl.innerHTML = `<div class="week-day-header">${day.format('ddd D')}</div><div class="week-tasks"></div>`;
-                    const tasksContainer = dayEl.querySelector('.week-tasks');
-                    
-                    tasksForDay.sort((a, b) => (a.time || '').localeCompare(b.time || '')).forEach(task => {
-                        const taskEl = document.createElement('div');
-                        taskEl.className = 'week-task-item';
-                        taskEl.textContent = task.text;
-                        taskEl.title = task.text;
-                        taskEl.dataset.taskId = task.id;
-                        taskEl.addEventListener('click', (e) => { e.stopPropagation(); showEditTaskModal(task.id); });
-                        tasksContainer.appendChild(taskEl);
-                    });
-                    
                     dayEl.addEventListener('click', () => {
-                        selectedDate = day;
-                        container.querySelectorAll('.week-day').forEach(d => d.classList.remove('selected'));
-                        dayEl.classList.add('selected');
-                        if (projectId === null) updateTasksDisplayForDay();
+                         selectedCalendarDate = day;
+                         showDayDetailView(day);
                     });
-                    weekGrid.appendChild(dayEl);
+                    dom.calendarDaysGrid.appendChild(dayEl);
                 }
+                updateTasksDisplay();
             }
 
-            function updateTasksDisplayForDay() {
-                dom.selectedDateDisplay.textContent = selectedDate.format('DD/MM/YYYY');
+            function updateTasksDisplay() {
+                dom.selectedDateDisplay.textContent = selectedCalendarDate.format('DD/MM/YYYY');
                 dom.tasksList.innerHTML = '';
-                const tasks = getTasksForDate(selectedDate.format('YYYY-MM-DD'));
-                
+                const dayKey = selectedCalendarDate.format('YYYY-MM-DD');
+                const tasks = state.calendar[dayKey] || [];
+
                 dom.noTasksMessage.style.display = tasks.length === 0 ? 'block' : 'none';
                 
-                tasks.sort((a,b) => (a.time || '23:59').localeCompare(b.time || '23:59')).forEach(task => {
+                tasks.sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+                tasks.forEach((task, index) => {
                     const taskEl = document.createElement('div');
-                    taskEl.className = 'flex items-center justify-between p-2 rounded-md bg-current-bg-light cursor-pointer';
+                    taskEl.className = 'flex items-center justify-between p-2 rounded-md bg-current-bg-light';
                     taskEl.classList.toggle('task-item-completed', task.completed);
-                    taskEl.dataset.taskId = task.id;
                     taskEl.innerHTML = `
                         <div class="flex items-center">
-                            <input type="checkbox" class="task-checkbox mr-2" data-task-id="${task.id}" ${task.completed ? 'checked' : ''}>
+                            <input type="checkbox" class="task-checkbox mr-2" data-index="${index}" ${task.completed ? 'checked' : ''}>
                             <span>${task.text} ${task.time ? `<span class="text-xs text-text-medium ml-1">(${task.time})</span>` : ''}</span>
                         </div>
-                        <i class="fas fa-pencil-alt text-xs text-text-medium"></i>`;
-                    taskEl.addEventListener('click', () => showEditTaskModal(task.id));
-                    taskEl.querySelector('.task-checkbox').addEventListener('change', (e) => {
-                        e.stopPropagation();
-                        toggleTaskCompletion(task.id);
-                    });
+                        <button class="text-red-500 hover:text-red-400 delete-task-btn" data-index="${index}"><i class="fas fa-trash-alt fa-sm"></i></button>`;
                     dom.tasksList.appendChild(taskEl);
                 });
+
+                dom.tasksList.querySelectorAll('.delete-task-btn').forEach(button => button.addEventListener('click', handleDeleteTask));
+                dom.tasksList.querySelectorAll('.task-checkbox').forEach(checkbox => checkbox.addEventListener('change', handleToggleTask));
                 updateNotificationBadge();
             }
+            
+            function handleToggleTask(e) {
+                const dayKey = selectedCalendarDate.format('YYYY-MM-DD');
+                const index = parseInt(e.currentTarget.dataset.index);
+                state.calendar[dayKey][index].completed = e.currentTarget.checked;
+                saveState();
+                updateTasksDisplay();
+                if (dom.dayViewContainer.style.display === 'block') renderDayViewTasks();
+            }
 
+            function handleDeleteTask(e) {
+                const dayKey = selectedCalendarDate.format('YYYY-MM-DD');
+                const index = parseInt(e.currentTarget.dataset.index);
+                state.calendar[dayKey].splice(index, 1);
+                if (state.calendar[dayKey].length === 0) delete state.calendar[dayKey];
+                saveState();
+                renderCalendar(); // Re-render month view to update 'has-tasks'
+                updateTasksDisplay();
+                if (dom.dayViewContainer.style.display === 'block') renderDayViewTasks();
+            }
+            
             function addTask() {
                 const taskText = dom.newTaskInput.value.trim();
-                if (!taskText) return;
-                
-                const newTask = {
-                    id: 'task-' + crypto.randomUUID(),
-                    text: taskText,
-                    date: selectedDate.format('YYYY-MM-DD'),
-                    time: dom.newTaskTime.value || null,
-                    completed: false,
-                    notified: false,
-                    projectId: null,
-                    columnId: 'todo'
-                };
-                state.tasks[newTask.id] = newTask;
-                
-                dom.newTaskInput.value = ''; dom.newTaskTime.value = '';
-                saveState();
-                renderCalendar();
-                updateTasksDisplayForDay();
-            }
-
-            function saveTask(taskId) {
-                const task = state.tasks[taskId];
-                if (!task) return;
-                task.text = dom.editTaskText.value.trim();
-                task.date = dom.editTaskDate.value;
-                task.time = dom.editTaskTime.value || null;
-                saveState();
-                hideEditTaskModal();
-                renderAllViews();
-            }
-
-            function deleteTask(taskId) {
-                delete state.tasks[taskId];
-                saveState();
-                hideEditTaskModal();
-                renderAllViews();
-            }
-
-            function toggleTaskCompletion(taskId) {
-                const task = state.tasks[taskId];
-                if (!task) return;
-                task.completed = !task.completed;
-                saveState();
-                renderAllViews();
-            }
-
-            function getTasksForDate(dateKey, projectId = null) {
-                return Object.values(state.tasks).filter(task => {
-                    const matchProject = projectId ? task.projectId === projectId : true;
-                    return task.date === dateKey && matchProject;
-                });
-            }
-
-            function renderAllViews() {
-                renderCalendar(); // Main calendar
-                updateTasksDisplayForDay();
-                if (currentProjectId) {
-                    renderProjectManagementViews();
+                const taskTime = dom.newTaskTime.value.trim();
+                if (taskText) {
+                    const dayKey = selectedCalendarDate.format('YYYY-MM-DD');
+                    if (!state.calendar[dayKey]) state.calendar[dayKey] = [];
+                    state.calendar[dayKey].push({ text: taskText, time: taskTime, completed: false, notified: false });
+                    dom.newTaskInput.value = '';
+                    dom.newTaskTime.value = '';
+                    saveState();
+                    renderCalendar();
+                    updateTasksDisplay();
+                    if (dom.dayViewContainer.style.display === 'block') renderDayViewTasks();
                 }
             }
             
             function updateNotificationBadge() {
-                 const dueTasksCount = Object.values(state.tasks).filter(task => !task.completed).length;
+                 let dueTasksCount = 0;
+                 Object.values(state.calendar).flat().forEach(task => {
+                     if (!task.completed) dueTasksCount++;
+                 });
                  if (dueTasksCount > 0) {
                      dom.notificationBadge.textContent = dueTasksCount;
                      dom.notificationBadge.classList.remove('hidden');
@@ -1100,132 +1088,30 @@
                 const todayKey = now.format('YYYY-MM-DD');
                 const currentMinute = now.format('HH:mm');
 
-                const tasksToday = getTasksForDate(todayKey);
-                tasksToday.forEach(task => {
-                    if (!task.completed && !task.notified && task.time === currentMinute) {
-                        const notificationMessage = `${translations[localStorage.getItem('goatify-lang') || 'es'].notification_task_due} ${task.text}`;
-                        showInAppNotification(notificationMessage);
-                        if (Notification.permission === "granted") {
-                            new Notification("Goatify AI - Tarea Pendiente", { body: notificationMessage, icon: './Logos HD.png' });
+                if (state.calendar[todayKey]) {
+                    state.calendar[todayKey].forEach(task => {
+                        if (!task.completed && !task.notified && task.time === currentMinute) {
+                            const notificationMessage = `${translations[localStorage.getItem('goatify-lang') || 'es'].notification_task_due} ${task.text}`;
+                            showInAppNotification(notificationMessage);
+                            if (Notification.permission === "granted") {
+                                new Notification("Goatify AI - Tarea Pendiente", { body: notificationMessage, icon: './Logos HD.png' });
+                            }
+                            task.notified = true;
                         }
-                        task.notified = true;
-                    }
-                });
-                saveState();
+                    });
+                    saveState();
+                }
             }
 
             // --- PROJECT MANAGEMENT FUNCTIONS ---
-            function showPmModal(projectId) {
-                currentProjectId = projectId;
-                const project = state.projects[projectId];
-                if (!project) return;
-                dom.pmTitle.textContent = project.title;
+            function showPmModal() {
                 dom.pmModal.classList.remove('hidden');
                 dom.pmModal.classList.add('flex');
-                renderProjectManagementViews();
             }
-
             function hidePmModal() {
                  dom.pmModal.classList.add('hidden');
                  dom.pmModal.classList.remove('flex');
-                 currentProjectId = null;
             }
-
-            function renderProjectManagementViews() {
-                if (!currentProjectId) return;
-                renderPmBoardView();
-                renderPmListView();
-                renderCalendar(dom.pmCalendarView, dayjs(), currentProjectId);
-            }
-
-            function renderPmBoardView() {
-                const columns = { todo: [], inprogress: [], done: [] };
-                Object.values(state.tasks).filter(t => t.projectId === currentProjectId).forEach(task => {
-                    if (columns[task.columnId]) columns[task.columnId].push(task);
-                });
-                
-                dom.pmBoardView.querySelectorAll('.pm-cards').forEach(container => container.innerHTML = '');
-
-                for (const columnId in columns) {
-                    const container = dom.pmBoardView.querySelector(`.pm-cards[data-column="${columnId}"]`);
-                    columns[columnId].forEach(task => {
-                        const card = document.createElement('div');
-                        card.className = 'pm-card';
-                        card.draggable = true;
-                        card.dataset.taskId = task.id;
-                        card.textContent = task.text;
-                        card.addEventListener('click', () => showEditTaskModal(task.id));
-                        container.appendChild(card);
-                    });
-                }
-            }
-
-            function renderPmListView() {
-                dom.pmListView.innerHTML = '';
-                const projectTasks = Object.values(state.tasks).filter(t => t.projectId === currentProjectId);
-                projectTasks.sort((a,b) => (a.date || '9999-12-31').localeCompare(b.date || '9999-12-31'));
-
-                if (projectTasks.length === 0) {
-                    dom.pmListView.innerHTML = `<p class="p-4 text-text-medium italic">${translations[localStorage.getItem('goatify-lang') || 'es'].calendar_no_tasks}</p>`;
-                    return;
-                }
-
-                projectTasks.forEach(task => {
-                    const item = document.createElement('div');
-                    item.className = 'pm-list-item';
-                    item.dataset.taskId = task.id;
-                    item.innerHTML = `
-                        <div class="flex items-center">
-                            <input type="checkbox" class="task-checkbox mr-3" data-task-id="${task.id}" ${task.completed ? 'checked' : ''}>
-                            <span>${task.text}</span>
-                        </div>
-                        <span class="task-date">${task.date ? dayjs(task.date).format('D MMM') : 'Sin fecha'}</span>
-                    `;
-                    item.addEventListener('click', (e) => {
-                        if (!e.target.classList.contains('task-checkbox')) showEditTaskModal(task.id);
-                    });
-                    item.querySelector('.task-checkbox').addEventListener('change', () => toggleTaskCompletion(task.id));
-                    dom.pmListView.appendChild(item);
-                });
-            }
-
-            async function handlePmAiPrompt() {
-                const prompt = dom.pmAiInput.value.trim();
-                if (!prompt || !currentProjectId) return;
-
-                dom.pmAiSpinner.classList.remove('hidden');
-                dom.pmAiInput.disabled = true;
-
-                const systemPrompt = `Eres un asistente de gestión de proyectos experto. Un usuario ha descrito su proyecto como: "${prompt}". Genera una lista concisa de 5 a 7 tareas iniciales para este proyecto. Responde únicamente con la lista de tareas, cada una en una nueva línea, sin numeración ni viñetas.`;
-                
-                try {
-                    const response = await getAIResponse(systemPrompt, [], null, null, 'gpt-3.5-turbo-1106', null, 'PM Assistant');
-                    const tasks = response.reply.split('\n').filter(t => t.trim() !== '');
-                    
-                    tasks.forEach(taskText => {
-                        const newTask = {
-                            id: 'task-' + crypto.randomUUID(),
-                            text: taskText.trim(),
-                            date: null, time: null, completed: false, notified: false,
-                            projectId: currentProjectId,
-                            columnId: 'todo'
-                        };
-                        state.tasks[newTask.id] = newTask;
-                    });
-
-                    saveState();
-                    renderProjectManagementViews();
-                    dom.pmAiInput.value = '';
-
-                } catch (error) {
-                    console.error("Error generating project tasks:", error);
-                    showModal({title: "Error de IA", message: "No se pudieron generar las tareas. Por favor, inténtalo de nuevo."});
-                } finally {
-                    dom.pmAiSpinner.classList.add('hidden');
-                    dom.pmAiInput.disabled = false;
-                }
-            }
-            
             // --- END PM FUNCTIONS ---
 
             function speak(text) { 
@@ -1289,6 +1175,8 @@
                 setTimeout(setVoices, 200);
             }
 
+            function updateModelSelectorState() { /* No direct action needed here for now, kept for structure */ }
+
             function getModelForRequest(workflow, hasFile) {
                 if (workflow === "design-web" || hasFile) return "gpt-4o-mini";
                 return dom.modelSelector.value;
@@ -1341,15 +1229,14 @@
 
             async function loadStateForUser() {
                 console.log("loadStateForUser called. Current user:", currentUser ? currentUser.id : "guest");
-                const defaultState = { chats: {}, projects: {}, structure: [], tasks: {} };
                 if (!currentUser) {
                     const saved = localStorage.getItem('guestState');
                     if (saved) {
                         const parsed = JSON.parse(saved);
-                        state = { ...defaultState, ...(parsed.state || {}) };
+                        state = parsed.state || { chats: {}, projects: {}, structure: [], calendar: {} };
                         currentChatId = parsed.currentChatId;
                     } else {
-                        state = defaultState;
+                        state = { chats: {}, projects: {}, structure: [], calendar: {} };
                         currentChatId = null;
                     }
                 } else {
@@ -1361,19 +1248,20 @@
                         });
                         if (!response.ok) { throw new Error(`Server error: ${response.status}`); }
                         const dbState = await response.json();
-                        state = { ...defaultState, ...(dbState.state || {}) };
+                        state = dbState.state || { chats: {}, projects: {}, structure: [], calendar: {} };
+                        if (!state.calendar) state.calendar = {};
                         currentChatId = dbState.currentChatId;
                     } catch (error) {
                         console.error("Could not load from DB, falling back to localStorage:", error);
                         const saved = localStorage.getItem(`goatbotState_${currentUser.id}`);
-                        state = saved ? { ...defaultState, ...(JSON.parse(saved).state || {}) } : defaultState;
+                        state = saved ? (JSON.parse(saved).state || { chats: {}, projects: {}, structure: [], calendar: {} }) : { chats: {}, projects: {}, structure: {}, calendar: {} };
+                        if (!state.calendar) state.calendar = {};
                         currentChatId = saved ? JSON.parse(saved).currentChatId : null;
                     }
                 }
-                if (!state.tasks) state.tasks = {};
                 renderSidebar();
                 selectChat(currentChatId);
-                updateTasksDisplayForDay();
+                updateTasksDisplay();
             }
 
             async function saveState() {
@@ -1874,51 +1762,31 @@
                 // Calendar event listeners
                 dom.calendarBtn?.addEventListener('click', showCalendarModal);
                 dom.closeCalendarModal?.addEventListener('click', hideCalendarModal);
-                dom.prevMonthBtn?.addEventListener('click', () => { calendarDate = calendarDate.subtract(1, 'month'); renderCalendar(); });
-                dom.nextMonthBtn?.addEventListener('click', () => { calendarDate = calendarDate.add(1, 'month'); renderCalendar(); });
-                dom.prevWeekBtn?.addEventListener('click', () => { calendarDate = calendarDate.subtract(1, 'week'); renderCalendar(); });
-                dom.nextWeekBtn?.addEventListener('click', () => { calendarDate = calendarDate.add(1, 'week'); renderCalendar(); });
+                dom.prevMonthBtn?.addEventListener('click', () => { currentMonth = currentMonth.subtract(1, 'month'); renderCalendar(); });
+                dom.nextMonthBtn?.addEventListener('click', () => { currentMonth = currentMonth.add(1, 'month'); renderCalendar(); });
                 dom.addTaskBtn?.addEventListener('click', addTask);
                 dom.newTaskInput?.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addTask(); } });
-                dom.monthViewBtn.addEventListener('click', () => { dom.monthViewContainer.style.display = 'block'; dom.weekViewContainer.style.display = 'none'; dom.monthViewBtn.classList.add('active'); dom.weekViewBtn.classList.remove('active'); renderCalendar(); });
-                dom.weekViewBtn.addEventListener('click', () => { dom.monthViewContainer.style.display = 'none'; dom.weekViewContainer.style.display = 'block'; dom.monthViewBtn.classList.remove('active'); dom.weekViewBtn.classList.add('active'); renderCalendar(); });
-                
-                // Edit Task Modal Listeners
-                dom.closeEditTaskModal.addEventListener('click', hideEditTaskModal);
-                dom.saveTaskBtn.addEventListener('click', () => saveTask(dom.editTaskId.value));
-                dom.deleteTaskBtn.addEventListener('click', () => deleteTask(dom.editTaskId.value));
+                dom.backToMonthViewBtn?.addEventListener('click', showMonthWeekView);
+                dom.monthViewBtn.addEventListener('click', () => {
+                    dom.monthViewContainer.style.display = 'block';
+                    dom.weekViewContainer.style.display = 'none'; // Future-proofing
+                    dom.monthViewBtn.classList.add('active');
+                    dom.weekViewBtn.classList.remove('active');
+                });
 
                 // Project Management Listeners
-                dom.pmWorkflowBtn?.addEventListener('click', () => {
-                    const firstProject = Object.keys(state.projects)[0];
-                    if (firstProject) showPmModal(firstProject);
-                    else showModal({ title: 'Sin Proyectos', message: 'Crea tu primer proyecto desde el menú lateral para empezar a gestionar tareas.' });
-                });
+                dom.pmWorkflowBtn?.addEventListener('click', showPmModal);
                 dom.closePmModal?.addEventListener('click', hidePmModal);
-                dom.pmAiInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') handlePmAiPrompt(); });
-                dom.pmViews.addEventListener('click', (e) => {
-                    const button = e.target.closest('button');
-                    if (!button) return;
-                    const view = button.dataset.view;
-                    dom.pmViews.querySelectorAll('button').forEach(b => b.classList.remove('active'));
-                    button.classList.add('active');
-                    dom.pmModal.querySelectorAll('.pm-board, .pm-list-view, .pm-calendar-view').forEach(v => v.classList.remove('active-view'));
-                    dom.pmModal.querySelector(`#pm-${view}-view`).classList.add('active-view');
+                const pmCards = document.querySelectorAll('.pm-card');
+                const pmColumns = document.querySelectorAll('.pm-cards');
+                let draggedCard = null;
+                pmCards.forEach(card => {
+                    card.addEventListener('dragstart', () => { draggedCard = card; setTimeout(() => card.style.display = 'none', 0); });
+                    card.addEventListener('dragend', () => { setTimeout(() => { draggedCard.style.display = 'block'; draggedCard = null; }, 0); });
                 });
-                let draggedCardEl = null;
-                dom.pmBoardView.addEventListener('dragstart', e => { if (e.target.classList.contains('pm-card')) { draggedCardEl = e.target; setTimeout(() => e.target.style.opacity = '0.5', 0); } });
-                dom.pmBoardView.addEventListener('dragend', e => { if (draggedCardEl) { draggedCardEl.style.opacity = '1'; draggedCardEl = null; } });
-                dom.pmBoardView.addEventListener('dragover', e => e.preventDefault());
-                dom.pmBoardView.addEventListener('drop', e => {
-                    e.preventDefault();
-                    const column = e.target.closest('.pm-column');
-                    if (column && draggedCardEl) {
-                        const taskId = draggedCardEl.dataset.taskId;
-                        const columnId = column.querySelector('.pm-cards').dataset.column;
-                        state.tasks[taskId].columnId = columnId;
-                        saveState();
-                        renderPmBoardView();
-                    }
+                pmColumns.forEach(column => {
+                    column.addEventListener('dragover', e => e.preventDefault());
+                    column.addEventListener('drop', e => { e.preventDefault(); if (draggedCard) column.appendChild(draggedCard); });
                 });
 
                  // Universal Click Outside to Close
@@ -1926,7 +1794,7 @@
                     const checkAndClose = (modal, button, contentSelector = '.modal-content') => {
                         if (modal && !modal.classList.contains('hidden')) {
                             const content = modal.querySelector(contentSelector);
-                            if (content && !content.contains(e.target) && (button ? !button.contains(e.target) : true) && !e.target.closest('.pm-card, .pm-list-item, .week-task-item')) {
+                            if (content && !content.contains(e.target) && (button ? !button.contains(e.target) : true)) {
                                 modal.classList.add('hidden');
                                 modal.classList.remove('flex');
                             }
@@ -1938,7 +1806,6 @@
                     checkAndClose(dom.calendarModal, dom.calendarBtn);
                     checkAndClose(dom.pmModal, dom.pmWorkflowBtn);
                     checkAndClose(dom.htmlPreviewModal, null);
-                    checkAndClose(dom.editTaskModal, null);
                     
                     if (dom.userMenuPopup && !dom.userMenuPopup.classList.contains('hidden') && !dom.userMenuBtn.contains(e.target)) dom.userMenuPopup.classList.add('hidden');
                     if (dom.servicesMenu && !dom.servicesMenu.classList.contains('opacity-0') && !dom.servicesMenuBtn.contains(e.target)) {
@@ -1957,7 +1824,7 @@
                 
                 dom.notificationsToggle.checked = notificationsEnabled;
                 if(notificationsEnabled && Notification.permission !== "granted" && Notification.permission !== "denied") Notification.requestPermission();
-                setInterval(checkAndNotifyTasks, 20000);
+                setInterval(checkAndNotifyTasks, 20000); // Check every 20 seconds
 
                 updateUserUI();
                 loadStateForUser();
