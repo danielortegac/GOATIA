@@ -207,6 +207,11 @@
             color: var(--light-text-dark);
         }
 
+        @media (max-width: 768px) {
+            #project-management-view { flex-direction: column; }
+            #project-chat-container { border-left: none; border-top: 1px solid var(--current-border-color); padding-left: 0; padding-top: 1rem; }
+        }
+
         @media (max-width: 640px) {
             .pro-controls-bg {
                 padding: 0.125rem 0.25rem;
@@ -233,6 +238,14 @@
                  transform: scale(1) translateY(0);
                  opacity: 1;
                  visibility: visible;
+            }
+            .calendar-view-toggle {
+                flex-wrap: nowrap;
+            }
+            .calendar-view-toggle button {
+                padding: 6px 4px;
+                font-size: 0.75rem;
+                white-space: nowrap;
             }
         }
 
@@ -380,6 +393,9 @@
             font-weight: 700;
             color: var(--current-primary);
             margin-bottom: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
         .week-day-section .task-item {
             display: flex;
@@ -411,12 +427,29 @@
             border-left: 1px solid var(--current-border-color);
             padding: 5px;
             min-height: 40px;
+            position: relative;
+        }
+        .add-task-to-time-btn {
+            position: absolute;
+            right: 5px;
+            top: 5px;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+        .day-view-hour-content:hover .add-task-to-time-btn {
+            opacity: 1;
         }
 
         /* Project Management View Styles */
         #project-management-view {
             display: flex;
+            flex-direction: column; /* Mobile-first: stacked */
             gap: 1rem;
+        }
+        @media (min-width: 768px) {
+            #project-management-view {
+                flex-direction: row; /* Side-by-side on desktop */
+            }
         }
         #project-board-container {
             flex: 3; /* Takes up more space */
@@ -426,11 +459,21 @@
         }
         #project-chat-container {
             flex: 2; /* Takes up less space */
-            border-left: 1px solid var(--current-border-color);
-            padding-left: 1rem;
             display: flex;
             flex-direction: column;
             height: 100%;
+        }
+        @media (min-width: 768px) {
+            #project-chat-container {
+                border-left: 1px solid var(--current-border-color);
+                padding-left: 1rem;
+            }
+        }
+        @media (max-width: 767px) {
+            #project-chat-container {
+                border-top: 1px solid var(--current-border-color);
+                padding-top: 1rem;
+            }
         }
         #project-chat-messages {
             flex-grow: 1;
@@ -564,7 +607,7 @@
                         <div id="workflows-container" class="space-y-1">
                             <div class="workflow-category">
                                 <div id="project-workflow-header" class="workflow-header flex items-center p-2 rounded-md cursor-pointer hover:bg-light">
-                                    <i class="fas fa-chevron-right workflow-arrow mr-2 transition-transform text-xs"></i><i class="fas fa-tasks w-6 mr-2 text-purple-400"></i>
+                                    <i class="fas fa-tasks w-6 mr-2 text-purple-400"></i>
                                     <span class="text-sm font-bold" data-translate-key="wf_pm">Dirección de Proyectos</span>
                                 </div>
                             </div>
@@ -1206,7 +1249,7 @@
 
             function renderMonthView() {
                 dom.calendarDaysGrid.innerHTML = '';
-                dom.currentMonthYear.textContent = selectedCalendarDate.format('MMMM YYYY');
+                dom.currentMonthYear.textContent = selectedCalendarDate.format('MMMM<x_bin_42>');
 
                 const startOfMonth = selectedCalendarDate.startOf('month');
                 let firstDayIndex = startOfMonth.day();
@@ -1278,7 +1321,10 @@
                     const daySection = document.createElement('div');
                     daySection.className = 'week-day-section';
                     daySection.innerHTML = `
-                        <h5>${displayDate}</h5>
+                        <h5>
+                            <span>${displayDate}</span>
+                            <button class="add-task-to-day-btn text-lg hover:text-primary" data-date="${dayKey}">+</button>
+                        </h5>
                         <div class="space-y-1">
                             ${tasks.length === 0 ? `<p class="text-xs text-text-medium italic">${translations[lang].calendar_no_tasks}</p>` : ''}
                             ${tasks.map((task, idx) => `
@@ -1301,6 +1347,13 @@
                         updateNotificationBadge();
                     });
                 });
+
+                dom.weekDaysContent.querySelectorAll('.add-task-to-day-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const date = e.currentTarget.dataset.date;
+                        addTask(date);
+                    });
+                });
             }
 
             function renderDayView() {
@@ -1316,16 +1369,24 @@
                     
                     hourEl.innerHTML = `
                         <div class="day-view-hour-label">${hourLabel}</div>
-                        <div class="day-view-hour-content space-y-1">
+                        <div class="day-view-hour-content">
                             ${tasksInHour.map(task => `
                                 <div class="p-2 rounded-md ${task.completed ? 'bg-green-900 text-gray-400 line-through' : 'bg-input'} text-sm">
                                     <strong>${task.time}:</strong> ${task.text} <span class="text-xs text-primary">(${task.source})</span>
                                 </div>
                             `).join('')}
+                             <button class="add-task-to-time-btn text-lg hover:text-primary" data-date="${selectedCalendarDate.format('YYYY-MM-DD')}" data-time="${hourLabel}">+</button>
                         </div>
                     `;
                     dom.dayViewTimeline.appendChild(hourEl);
                 }
+                dom.dayViewTimeline.querySelectorAll('.add-task-to-time-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const date = e.currentTarget.dataset.date;
+                        const time = e.currentTarget.dataset.time;
+                        addTask(date, time);
+                    });
+                });
             }
 
             function getTasksForDay(dayKey) {
@@ -1370,11 +1431,12 @@
                 }
             }
 
-            function addTask() {
-                const taskText = dom.newTaskInput.value.trim();
-                const taskTime = dom.newTaskTime.value.trim();
+            async function addTask(preselectedDate, preselectedTime) {
+                const taskText = preselectedDate ? await showModal({title: `Nueva Tarea para ${dayjs(preselectedDate).format('D MMM')}`, useInput: true, placeholder: 'Descripción de la tarea...'}).then(r => r?.value) : dom.newTaskInput.value.trim();
+                const taskTime = preselectedTime || dom.newTaskTime.value.trim();
+                
                 if (taskText) {
-                    const dayKey = selectedCalendarDate.format('YYYY-MM-DD');
+                    const dayKey = preselectedDate || selectedCalendarDate.format('YYYY-MM-DD');
                     
                     const firstProjectChatId = state.structure.find(id => id.startsWith('chat-') && state.chats[id].workflow === 'project-management');
                     if (firstProjectChatId) {
@@ -1391,8 +1453,10 @@
                         state.calendar[dayKey].push({ id: crypto.randomUUID(), text: taskText, time: taskTime, completed: false, notifiedThisMinute: false, labels: [] });
                     }
 
-                    dom.newTaskInput.value = '';
-                    dom.newTaskTime.value = '';
+                    if(!preselectedDate) {
+                        dom.newTaskInput.value = '';
+                        dom.newTaskTime.value = '';
+                    }
                     saveState();
                     renderCalendarView();
                 }
@@ -2319,7 +2383,7 @@
                 dom.weekViewBtn.addEventListener('click', () => { currentCalendarView = 'week'; renderCalendarView(); });
                 dom.dayViewBtn.addEventListener('click', () => { currentCalendarView = 'day'; renderCalendarView(); });
 
-                dom.addTaskBtn?.addEventListener('click', addTask);
+                dom.addTaskBtn?.addEventListener('click', () => addTask());
                 dom.newTaskInput?.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addTask(); } });
 
                 dom.viewToggleKanban.addEventListener('click', () => {
