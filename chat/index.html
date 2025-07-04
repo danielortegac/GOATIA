@@ -326,12 +326,7 @@
             visibility: visible;
         }
 
-        .calendar-view-toggle {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 10px;
-        }
-        .calendar-view-toggle button {
+        .calendar-view-toggle button, .project-view-controls button {
             flex-grow: 1;
             padding: 8px 12px;
             border-radius: 6px;
@@ -340,12 +335,12 @@
             font-weight: 600;
             transition: background-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease;
         }
-        .calendar-view-toggle button.active {
+        .calendar-view-toggle button.active, .project-view-controls button.active {
             background-color: var(--current-primary);
             color: white;
             box-shadow: 0 0 8px rgba(138, 79, 255, 0.4);
         }
-        .calendar-view-toggle button:hover:not(.active) {
+        .calendar-view-toggle button:hover:not(.active), .project-view-controls button:hover:not(.active) {
             background-color: var(--current-bg-medium);
         }
         .dark-theme .project-view-controls button:not(.active) {
@@ -692,8 +687,8 @@
                         <div class="flex items-center space-x-2 project-view-controls">
                             <button id="project-calendar-btn" title="Calendario del Proyecto" class="text-sky-400 hover:text-sky-300 p-2 transition-colors"><i class="fas fa-calendar-alt text-xl"></i></button>
                             <span class="text-sm text-text-medium">Vistas:</span>
-                            <button id="view-toggle-kanban" class="px-3 py-1 text-sm rounded-md bg-primary text-white">Kanban</button>
-                            <button id="view-toggle-list" class="px-3 py-1 text-sm rounded-md bg-input">Lista</button>
+                            <button id="view-toggle-kanban" class="px-3 py-1 text-sm rounded-md">Kanban</button>
+                            <button id="view-toggle-list" class="px-3 py-1 text-sm rounded-md">Lista</button>
                         </div>
                     </div>
                     <div id="kanban-view" class="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 overflow-x-auto pb-4">
@@ -1755,22 +1750,22 @@
                 currentChatId = chatId; 
                 const chat = state.chats[chatId]; 
                 
+                // Hide all main views first
+                dom.chatMessagesView.classList.add('hidden');
+                dom.projectManagementView.classList.add('hidden');
+                dom.initialMessageContainer.style.display = 'none';
+
                 if (chat.workflow === 'project-management') {
-                    dom.chatMessagesView.classList.add('hidden');
                     dom.inputArea.classList.add('hidden');
                     dom.projectManagementView.classList.remove('hidden');
-                    dom.projectManagementView.classList.add('flex');
                     renderProjectView(chatId);
                 } else {
-                    dom.chatMessagesView.classList.remove('hidden');
                     dom.inputArea.classList.remove('hidden');
-                    dom.projectManagementView.classList.add('hidden');
-                    dom.projectManagementView.classList.remove('flex');
+                    dom.chatMessagesView.classList.remove('hidden');
                     dom.chatMessages.innerHTML = ''; 
                     chat.messages.forEach((msg, index) => addMessageToUI(msg.role, msg.content, msg.image, index, dom.chatMessages)); 
                 }
 
-                dom.initialMessageContainer.style.display = 'none'; 
                 dom.chatTitle.textContent = chat.title;
                 dom.mobileChatTitle.textContent = chat.title;
                 dom.modelSelector.value = chat.model || 'gpt-3.5-turbo-1106';
@@ -1789,7 +1784,6 @@
                 dom.chatMessagesView.classList.remove('hidden');
                 dom.inputArea.classList.remove('hidden');
                 dom.projectManagementView.classList.add('hidden');
-                dom.projectManagementView.classList.remove('flex');
 
                 dom.chatMessages.innerHTML = ''; 
                 dom.initialMessageContainer.style.display = 'flex'; 
@@ -1851,14 +1845,14 @@
                 const chat = state.chats[currentChatId];
                 if (!chat || !chat.messages[index]) return;
                 const originalContent = chat.messages[index].content;
-                const newContent = await showModal({
+                const result = await showModal({
                     title: 'Editar Mensaje',
                     useTextarea: true,
                     initialValue: originalContent,
                     confirmText: 'Guardar Cambios'
                 });
-                if (newContent && newContent.value.trim() !== originalContent.trim()) {
-                    chat.messages[index].content = newContent.value.trim();
+                if (result && result.value && result.value.trim() !== originalContent.trim()) {
+                    chat.messages[index].content = result.value.trim();
                     await saveState();
                     selectChat(currentChatId);
                 }
@@ -2276,20 +2270,18 @@
 
                 dom.viewToggleKanban.addEventListener('click', () => {
                     const chat = state.chats[currentChatId];
-                    if(chat) chat.projectData.currentView = 'kanban';
-                    dom.kanbanView.classList.remove('hidden');
-                    dom.listView.classList.add('hidden');
-                    dom.viewToggleKanban.classList.add('bg-primary', 'text-white');
-                    dom.viewToggleList.classList.remove('bg-primary', 'text-white');
+                    if (!chat) return;
+                    chat.projectData.currentView = 'kanban';
+                    dom.viewToggleKanban.classList.add('active');
+                    dom.viewToggleList.classList.remove('active');
                     renderProjectBoard(currentChatId);
                 });
                 dom.viewToggleList.addEventListener('click', () => {
                     const chat = state.chats[currentChatId];
-                    if(chat) chat.projectData.currentView = 'list';
-                    dom.kanbanView.classList.add('hidden');
-                    dom.listView.classList.remove('hidden');
-                    dom.viewToggleList.classList.add('bg-primary', 'text-white');
-                    dom.viewToggleKanban.classList.remove('bg-primary', 'text-white');
+                    if (!chat) return;
+                    chat.projectData.currentView = 'list';
+                    dom.viewToggleList.classList.add('active');
+                    dom.viewToggleKanban.classList.remove('active');
                     renderProjectBoard(currentChatId);
                 });
 
