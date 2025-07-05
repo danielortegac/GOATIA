@@ -827,6 +827,18 @@
         
         /* Mobile specific adjustments */
         @media (max-width: 767px) {
+            #calendar-modal {
+                padding: 1rem;
+                max-width: 95vw;
+                max-height: 90vh;
+                overflow: hidden;
+                display: flex;
+                flex-direction: column;
+            }
+            #calendar-modal > div:not(:first-child) {
+                overflow-y: auto;
+            }
+
             .header-right-icons {
                 flex-shrink: 0;
                 display: flex;
@@ -844,7 +856,7 @@
                 width: 100%;
             }
 
-            #project-chat-container {
+            #project-chat-container, #financial-chat-container {
                 position: absolute;
                 bottom: 0;
                 left: 0;
@@ -855,10 +867,12 @@
                 z-index: 10;
                 transition: height 0.3s ease;
             }
-            #project-chat-container:not(.collapsed) {
+            #project-chat-container:not(.collapsed),
+            #financial-chat-container:not(.collapsed) {
                  height: 100%; /* Expanded height */
             }
-            #project-chat-container .project-chat-body {
+            #project-chat-container .project-chat-body,
+            #financial-chat-container .financial-chat-body {
                 height: calc(100% - 50px); /* Adjust based on header height */
                 display: flex;
                 flex-direction: column;
@@ -1009,6 +1023,7 @@
                                      <div class="workflow-content pl-4 pt-1 space-y-1">
                                         <button data-workflow="decision-lab" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center">Laboratorio de Decisiones</button>
                                         <button data-workflow="financial-assistant" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center">Asistente Financiero</button>
+                                        <button data-workflow="conflict-resolution" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center">Resolución de Conflictos</button>
                                      </div>
                                 </div>
                                 <div class="workflow-category">
@@ -1040,7 +1055,6 @@
                                         <span class="text-sm font-bold" data-translate-key="wf_sales">Comunicación y Ventas</span>
                                      </div>
                                     <div class="workflow-content pl-4 pt-1 space-y-1">
-                                        <button data-workflow="conflict-resolution" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center">Resolución de Conflictos</button>
                                         <button data-workflow="sales-assistant" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_sales_1">Asistente de Ventas 24/7</button>
                                         <button data-workflow="email-writing" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_sales_2">Redacción de Email</button>
                                         <button data-workflow="design-web" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_sales_3">Diseño Web</button>
@@ -1671,9 +1685,9 @@
                  mainChatArea: document.getElementById('main-chat-area'),
 
                 // Calendar elements
-                calendarBtn: document.getElementById('calendar-btn'),
                 calendarModalOverlay: document.getElementById('calendar-modal-overlay'),
                 calendarModal: document.getElementById('calendar-modal'),
+                calendarBtn: document.getElementById('calendar-btn'),
                 closeCalendarModal: document.getElementById('close-calendar-modal'),
                  prevMonthBtn: document.getElementById('prev-month'), nextMonthBtn: document.getElementById('next-month'),
                 currentMonthYear: document.getElementById('current-month-year'), calendarDaysGrid: document.getElementById('calendar-days-grid'),
@@ -1905,7 +1919,7 @@
                 dom.calendarModalOverlay.classList.remove('flex');
             }function renderMonthView() {
                 dom.calendarDaysGrid.innerHTML = '';
-                dom.currentMonthYear.textContent = selectedCalendarDate.format('MMMM YYYY');
+                dom.currentMonthYear.textContent = selectedCalendarDate.format('MMMMYYYY');
                 const startDay = selectedCalendarDate.startOf('month').startOf('isoWeek');
 
                 for (let i = 0; i < 42; i++) {
@@ -2718,12 +2732,9 @@
 
                 if (chat.workflow === 'project-management') {
                     dom.projectManagementView.style.display = 'flex';
-                    dom.inputArea.style.display = 'none'; // No main input for projects
                     renderProjectView(chatId);
                 } else if (chat.workflow === 'financial-assistant') {
                     dom.financialAssistantView.style.display = 'flex';
-                    dom.chatMessagesView.style.display = 'none';
-                    dom.inputArea.style.display = 'none'; 
                     renderFinancialAssistant(chatId);
                 }
                 else {
@@ -2992,7 +3003,7 @@
                     return;
                 }
 
-                if(currentChat.title === 'Conversación Cósmica' && userMessage.length > 5 && !isProjectChat && currentChat.workflow !== 'financial-assistant') {
+                if(currentChat.title === 'Conversación Cósmica' && userMessage.length > 5 && !isProjectChat && !isFinancialChat) {
                     currentChat.title = userMessage.split(' ').slice(0, 4).join(' ');
                     renderSidebar();
                 }
@@ -3090,7 +3101,7 @@
             }
 
             function setupEventListeners() {
-                dom.sendBtn?.addEventListener('click', () => sendMessage(false, null));
+                dom.sendBtn?.addEventListener('click', () => sendMessage(false, null, {}));
                 dom.projectSendBtn?.addEventListener('click', () => sendMessage(false, null, {isProjectChat: true}));
 
                 const setupInput = (input, options = {}) => {
@@ -3141,7 +3152,10 @@
                         if(currentChat?.workflow === 'financial-assistant') options.isFinancialChat = true;
 
                         if(transcript) {
-                            const activeInput = document.activeElement.tagName === 'TEXTAREA' ? document.activeElement : dom.msgInput;
+                            let activeInput = dom.msgInput;
+                            if (options.isProjectChat) activeInput = document.getElementById('project-msg');
+                            else if (options.isFinancialChat) activeInput = document.getElementById('financial-msg');
+
                             activeInput.value = transcript; 
                             sendMessage(false, null, options);
                         }
@@ -3333,7 +3347,11 @@
                 });
                 
                 dom.projectChatToggle.addEventListener('click', () => {
+                    const isMobile = window.innerWidth < 768;
                     dom.projectChatContainer.classList.toggle('collapsed');
+                    if (isMobile) {
+                        dom.projectBoardContainer.style.display = dom.projectChatContainer.classList.contains('collapsed') ? 'flex' : 'none';
+                    }
                 });
 
                 document.querySelectorAll('.plan-details-toggle').forEach(button => {
@@ -3917,7 +3935,7 @@
                         <button id="add-finance-row" class="btn-primary py-2 rounded-lg">Añadir Fila</button>
                     </div>
                     <div id="financial-chat-container" class="collapsed">
-                        <div id="financial-chat-header" class="flex justify-between items-center cursor-pointer p-2 border-b border-themed">
+                        <div id="financial-chat-header" class="flex justify-between items-center cursor-pointer p-2 border-t md:border-t-0 md:border-b border-themed">
                             <h3 class="text-lg font-semibold text-primary">Asistente Financiero</h3>
                             <button id="financial-chat-toggle" class="text-xl p-2"><i class="fas fa-angle-up"></i></button>
                         </div>
@@ -3948,8 +3966,9 @@
                     saveState();
                 });
                 
+                const chatContainer = dom.financialAssistantView.querySelector('#financial-chat-container');
                 dom.financialAssistantView.querySelector('#financial-chat-toggle').addEventListener('click', () => {
-                    dom.financialAssistantView.querySelector('#financial-chat-container').classList.toggle('collapsed');
+                    chatContainer.classList.toggle('collapsed');
                 });
 
                 const financialInput = dom.financialAssistantView.querySelector('#financial-msg');
@@ -3964,8 +3983,8 @@
                 });
 
 
-                const chatContainer = dom.financialAssistantView.querySelector('#financial-chat-messages');
-                chat.messages.forEach((msg, index) => addMessageToUI(msg.role, msg.content, msg.image, index, chatContainer));
+                const chatMessagesContainer = dom.financialAssistantView.querySelector('#financial-chat-messages');
+                chat.messages.forEach((msg, index) => addMessageToUI(msg.role, msg.content, msg.image, index, chatMessagesContainer));
             }
             function createFinanceRow(tx, chatId) {
                 const row = document.createElement('tr');
