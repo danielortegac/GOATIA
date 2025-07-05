@@ -3467,5 +3467,208 @@
                 } else if (streak === 7) {
                     addXp(100);
                     openGoatChest();
-                    gamificationState.dailyStreak = 0; // Reset after day 7
+                    gamificationState.dailyStreak = 0; // Reset after day 7 saveGamificationState();
+            }
+
+            function openGoatChest() {
+                const rewards = [
+                    { type: 'credits', value: 100, text: '¡100 créditos extra!' },
+                    { type: 'credits', value: 75, text: '¡75 créditos para ti!' },
+                    { type: 'xp', value: 200, text: '¡+200 XP de bonificación!' },
+                    { type: 'consultancy', text: '¡Una consultoría de IA de 15 minutos GRATIS!' }
+                ];
+                const reward = rewards[Math.floor(Math.random() * rewards.length)];
+
+                if(reward.type === 'credits') addCredits(reward.value);
+                if(reward.type === 'xp') addXp(reward.value);
+                
+                showModal({
+                    title: '<i class="fas fa-gift text-gold fa-2x"></i> ¡Cofre GOAT Desbloqueado!',
+                    body: `<p class="text-center text-lg">¡Tu consistencia de 7 días ha sido recompensada!</p><p class="text-2xl font-bold text-center text-primary mt-2">${reward.text}</p>${reward.type === 'consultancy' ? '<p class="text-sm text-center mt-2">Nos pondremos en contacto contigo por email para coordinar.</p>' : ''}`,
+                    confirmText: '¡Asombroso!',
+                    showCancel: false
+                });
+            }
+
+            function completeMission(missionId, contextId = null) {
+                const mission = MISSIONS[missionId];
+                if (!mission || gamificationState.completedMissions.includes(mission.id)) {
+                    return;
+                }
+
+                let canComplete = false;
+                if (mission.condition) {
+                    canComplete = mission.condition(contextId);
+                } else {
+                    // For missions without a specific condition, completing the action is enough.
+                    canComplete = true;
+                }
+
+                if(canComplete) {
+                    gamificationState.completedMissions.push(mission.id);
+                    addXp(mission.xp);
+                    addCredits(mission.credits);
+
+                    // In-app notification for mission completion
+                    const notification = dom.inAppNotification;
+                    if (notification) {
+                        notification.innerHTML = `<i class="fas fa-check-circle"></i> Misión Cumplida: ${mission.text} (+${mission.xp} XP)`;
+                        notification.classList.add('show');
+                        setTimeout(() => notification.classList.remove('show'), 4000);
+                    }
+                    saveGamificationState();
+                }
+            }
+            
+            function checkWeekOrganized() {
+                const startOfWeek = dayjs().startOf('week').add(1, 'day'); // Monday
+                for (let i=0; i < 7; i++) {
+                    const dayKey = startOfWeek.add(i, 'day').format('YYYY-MM-DD');
+                    const tasksForDay = getTasksForDay(dayKey);
+                    if(tasksForDay.length === 0) return false;
+                }
+                return true;
+            }
+            
+            function checkProjectCreated(chatId) {
+                if (!chatId || !state.chats[chatId] || !state.chats[chatId].projectData) return false;
+                const tasksCount = state.chats[chatId].projectData.columns.reduce((acc, col) => acc + (col.tasks ? col.tasks.length : 0), 0);
+                return tasksCount >= 5;
+            }
+
+            function renderGamificationModal() {
+                if(!dom.gamificationModal.classList.contains('flex')) return; // Don't render if hidden
+
+                const levelIndex = gamificationState.level - 1;
+                const xpForNextLevel = XP_FOR_LEVEL[levelIndex + 1];
+                const xpForCurrentLevel = XP_FOR_LEVEL[levelIndex];
+                const xpInCurrentLevel = gamificationState.xp - xpForCurrentLevel;
+                const xpNeededForLevel = xpForNextLevel - xpForCurrentLevel;
+                const xpPercentage = Math.min(100, (xpInCurrentLevel / xpNeededForLevel) * 100);
+
+                dom.gamificationLevelName.textContent = `Nivel ${gamificationState.level}: ${LEVEL_NAMES[levelIndex]}`;
+                dom.gamificationXp.textContent = `${gamificationState.xp} / ${xpForNextLevel} XP`;
+                dom.gamificationCredits.innerHTML = `<i class="fas fa-coins mr-1"></i>${gamificationState.credits} Créditos`;
+                dom.gamificationXpBar.style.width = `${xpPercentage}%`;
+
+                // Render Daily Streak
+                dom.dailyStreakContainer.innerHTML = '';
+                const startOfWeek = dayjs().startOf('week').add(1, 'day'); // Monday
+                for (let i = 0; i < 7; i++) {
+                    const dayEl = document.createElement('div');
+                    dayEl.className = 'streak-day flex flex-col items-center justify-center p-2 rounded-lg';
+                    const dayName = startOfWeek.add(i, 'day').format('ddd');
+                    const dayIndex = i + 1;
+                    
+                    if (dayIndex < gamificationState.dailyStreak) {
+                        dayEl.classList.add('completed');
+                    } else if (dayIndex === gamificationState.dailyStreak) {
+                        dayEl.classList.add('active');
+                    }
+                    
+                    let content = `<span>${dayName}</span><span class="text-2xl font-bold my-1">${dayIndex}</span>`;
+                    if(dayIndex === 7) content += `<i class="fas fa-gift text-xl"></i>`;
+                    else content += `<span class="text-xs">+${dayIndex <=3 ? '10' : '20'}XP</span>`;
+                    
+                    dayEl.innerHTML = content;
+                    dom.dailyStreakContainer.appendChild(dayEl);
+                }
+
+                // Render Missions
+                dom.missionsContainer.innerHTML = '';
+                Object.values(MISSIONS).forEach(mission => {
+                    const isCompleted = gamificationState.completedMissions.includes(mission.id);
+                    const missionEl = document.createElement('div');
+                    missionEl.className = `mission-item flex items-center justify-between p-3 rounded-lg bg-current-bg-light ${isCompleted ? 'completed' : ''}`;
+                    missionEl.innerHTML = `
+                        <div>
+                            <p class="font-semibold">${mission.text}</p>
+                            <p class="text-sm text-primary">+${mission.xp} XP & +${mission.credits} créditos</p>
+                        </div>
+                        <button class="btn-primary px-3 py-1 text-sm rounded-md" ${isCompleted ? 'disabled' : ''}>${isCompleted ? 'Completado' : 'Ir'}</button>
+                    `;
+                    if (!isCompleted && mission.workflow) {
+                        missionEl.querySelector('button').addEventListener('click', () => {
+                             const config = workflowConfigs[mission.workflow];
+                             if(config) {
+                                createNewChat({
+                                    title: config.title,
+                                    workflow: config.workflow,
+                                    initialMessages: config.initialMessages
+                                });
+                                hideGamificationModal();
+                             }
+                        });
+                    }
+                    dom.missionsContainer.appendChild(missionEl);
+                });
+
+                // Render Achievements
+                dom.achievementsContainer.innerHTML = '';
+                Object.values(ACHIEVEMENTS).forEach(ach => {
+                    const isUnlocked = gamificationState.unlockedAchievements.includes(ach.id);
+                    const achEl = document.createElement('div');
+                    achEl.className = `achievement-badge flex flex-col items-center justify-center p-4 rounded-lg text-center ${isUnlocked ? 'unlocked' : ''}`;
+                    achEl.innerHTML = `
+                        <i class="fas ${ach.icon} fa-3x mb-2"></i>
+                        <h4 class="font-bold text-sm">${ach.title}</h4>
+                        <p class="text-xs text-text-medium mt-1">${ach.description}</p>
+                        ${isUnlocked ? `<span class="text-xs text-gold font-bold mt-2">¡Desbloqueado!</span>` : ''}
+                    `;
+                    dom.achievementsContainer.appendChild(achEl);
+                });
+
+            }
+            
+            function hideGamificationModal() {
+                dom.gamificationModal.querySelector('.modal-content').classList.add('scale-95');
+                setTimeout(() => { dom.gamificationModal.classList.add('hidden'); dom.gamificationModal.classList.remove('flex'); }, 300);
+            }
+            // --- END GAMIFICATION LOGIC ---
+
+
+            async function init() {
+                setTheme(localStorage.getItem('theme') !== 'light');
+                const savedLang = localStorage.getItem('goatify-lang') || 'es';
+                setLanguage(savedLang);
+                if (dom.languageSelector) dom.languageSelector.value = savedLang;
+
+                if (window.netlifyIdentity) {
+                    netlifyIdentity.on('init', user => {
+                        currentUser = user;
+                        updateUserUI();
+                        loadStateForUser();
+                    });
+                    netlifyIdentity.on('login', user => {
+                        currentUser = user;
+                        netlifyIdentity.close();
+                        updateUserUI();
+                        loadStateForUser();
+                    });
+                    netlifyIdentity.on('logout', () => {
+                        currentUser = null;
+                        updateUserUI();
+                        loadStateForUser();
+                    });
+                } else {
+                    console.error("Netlify Identity widget not found.");
+                    loadStateForUser();
+                    updateUserUI();
+                }
+
+                setupEventListeners();
+                populateVoiceList();
+                updateCreditCounter();
+                
+                dom.loadingOverlay.classList.add('opacity-0');
+                dom.loadingOverlay.addEventListener('transitionend', () => dom.loadingOverlay.style.display = 'none', { once: true });
+                dom.appContainer.classList.remove('opacity-0');
+            }
+
+            init();
+
+        });
+    </script>
+</body>
+</html>
               
