@@ -3277,628 +3277,782 @@
 
                 dom.kanbanView.querySelectorAll('.add-task-to-column-btn').forEach(btn => {
                     btn.addEventListener('click', (e) => {
-                        const columnId = e.currentTarget.dataset.columnId;
-                        editProjectTask(chatId, null, columnId);
-                    });
+                    e.stopPropagation();
+                    const columnId = e.currentTarget.dataset.columnId;
+                    editProjectTask(chatId, null, columnId);
                 });
+            });
+    }
+    
+    function renderListView(chatId) {
+        const { projectData } = state.chats[chatId];
+        dom.listView.innerHTML = `
+            <div class="list-view-header">
+                <div class="w-10"></div>
+                <div>Tarea</div>
+                <div class="text-center">Etiquetas</div>
+                <div class="text-center">Fecha</div>
+                <div class="text-center">Acciones</div>
+            </div>
+            <div id="list-view-body" class="flex-grow overflow-y-auto"></div>
+            <div class="flex-shrink-0 p-2 border-t border-themed">
+                 <button id="add-task-btn-list" class="w-full btn-primary p-2 rounded-lg flex items-center justify-center text-sm">
+                    <i class="fas fa-plus mr-2"></i>Añadir Tarea a "Por Hacer"
+                </button>
+            </div>
+        `;
+        const body = dom.listView.querySelector('#list-view-body');
+        const allTasks = projectData.columns.flatMap(col => col.tasks.map(t => ({...t, status: col.title})));
+        
+        const tasksToRender = allTasks.filter(task => !activeTagFilter || (task.labels && task.labels.includes(activeTagFilter)));
+
+        tasksToRender.forEach(task => {
+            const taskEl = document.createElement('div');
+            taskEl.className = 'list-view-task';
+            if (task.completed) taskEl.classList.add('task-item-completed');
+            
+            const labelsHtml = (task.labels || []).map(label => `<span class="task-label" style="background-color: ${getLabelColor(label)}; color: white;">${label}</span>`).join('');
+
+            taskEl.innerHTML = `
+                <div><input type="checkbox" class="task-checkbox-list" data-task-id="${task.id}" ${task.completed ? 'checked' : ''}></div>
+                <div class="task-content-list ${task.urgent ? 'urgent' : ''}">${task.content}</div>
+                <div class="task-labels justify-center">${labelsHtml}</div>
+                <div class="text-center text-sm">${task.dueDate ? dayjs(task.dueDate).format('D MMM') : 'N/A'}</div>
+                <div class="flex items-center justify-center space-x-2">
+                    <button class="edit-task-btn p-1 text-text-medium hover:text-primary" data-task-id="${task.id}" title="Editar"><i class="fas fa-pencil-alt fa-xs"></i></button>
+                    <button class="delete-task-btn p-1 text-text-medium hover:text-red-500" data-task-id="${task.id}" title="Eliminar"><i class="fas fa-trash-alt fa-xs"></i></button>
+                </div>
+            `;
+            body.appendChild(taskEl);
+        });
+
+        dom.listView.querySelector('#add-task-btn-list').addEventListener('click', () => editProjectTask(chatId, null, 'todo'));
+    }
+
+    function renderListViewMobile(chatId) {
+        const { projectData } = state.chats[chatId];
+        dom.listViewMobile.innerHTML = ''; // Clear previous content
+        
+        const allTasks = projectData.columns.flatMap(col => col.tasks.map(t => ({...t, status: col.title})));
+        const tasksToRender = allTasks.filter(task => !activeTagFilter || (task.labels && task.labels.includes(activeTagFilter)));
+
+        tasksToRender.forEach(task => {
+            const taskEl = document.createElement('div');
+            taskEl.className = 'list-view-task-mobile';
+             if (task.completed) taskEl.classList.add('task-item-completed');
+
+            const labelsHtml = (task.labels || []).map(label => `<span class="task-label" style="background-color: ${getLabelColor(label)}; color: white;">${label}</span>`).join('');
+            
+            taskEl.innerHTML = `
+                <div class="list-view-task-mobile-header">
+                    <input type="checkbox" class="task-checkbox-list flex-shrink-0 mt-1" data-task-id="${task.id}" ${task.completed ? 'checked' : ''}>
+                    <div class="flex-grow">
+                        <p class="task-content-list ${task.urgent ? 'urgent' : ''}">${task.content}</p>
+                        <div class="task-labels mt-1">${labelsHtml}</div>
+                    </div>
+                </div>
+                <div class="list-view-task-mobile-footer">
+                    <div>
+                        <span class="px-2 py-1 text-xs rounded-full bg-input">${task.status}</span>
+                         <span class="ml-2">${task.dueDate ? `<i class="fas fa-calendar-alt mr-1"></i> ${dayjs(task.dueDate).format('D MMM')}` : ''}</span>
+                    </div>
+                    <div class="flex items-center justify-center space-x-2">
+                         <button class="edit-task-btn p-1 text-text-medium hover:text-primary" data-task-id="${task.id}" title="Editar"><i class="fas fa-pencil-alt fa-xs"></i></button>
+                         <button class="delete-task-btn p-1 text-text-medium hover:text-red-500" data-task-id="${task.id}" title="Eliminar"><i class="fas fa-trash-alt fa-xs"></i></button>
+                    </div>
+                </div>
+            `;
+            dom.listViewMobile.appendChild(taskEl);
+        });
+        
+         // Add the "Add Task" button at the end
+        const addTaskBtnContainer = document.createElement('div');
+        addTaskBtnContainer.className = "p-2";
+        addTaskBtnContainer.innerHTML = `
+            <button id="add-task-btn-list-mobile" class="w-full btn-primary p-2 rounded-lg flex items-center justify-center text-sm">
+                <i class="fas fa-plus mr-2"></i>Añadir Tarea
+            </button>
+        `;
+        dom.listViewMobile.appendChild(addTaskBtnContainer);
+        dom.listViewMobile.querySelector('#add-task-btn-list-mobile').addEventListener('click', () => editProjectTask(chatId, null, 'todo'));
+    }
+
+    function setupProjectViewListeners(chatId) {
+        const viewContainer = dom.projectManagementView;
+        viewContainer.addEventListener('click', e => {
+            const editBtn = e.target.closest('.edit-task-btn');
+            if (editBtn) {
+                editProjectTask(chatId, editBtn.dataset.taskId);
+                return;
             }
 
-            function renderListView(chatId) {
-                const { projectData } = state.chats[chatId];
-                dom.listView.innerHTML = ''; 
-
-                const header = document.createElement('div');
-                header.className = 'list-view-header flex-shrink-0';
-                header.innerHTML = `
-                    <span></span> <span class="truncate">Nombre</span>
-                    <span class="truncate">Fecha Límite</span>
-                    <span class="truncate">Prioridad</span>
-                    <span class="truncate">Etiquetas</span>
-                `;
-                dom.listView.appendChild(header);
-
-                const listContent = document.createElement('div');
-                listContent.className = 'flex-grow overflow-y-auto';
-
-                projectData.columns.forEach(column => {
-                    const columnTitle = document.createElement('h4');
-                    columnTitle.className = 'font-bold text-text-medium p-2 bg-current-bg-light mt-2 rounded';
-                    columnTitle.textContent = column.title;
-                    listContent.appendChild(columnTitle);
-                    
-                    const tasksToRender = (column.tasks || []).filter(task => !activeTagFilter || (task.labels && task.labels.includes(activeTagFilter)));
-
-                    tasksToRender.forEach(task => {
-                        const taskEl = document.createElement('div');
-                        taskEl.className = 'list-view-task';
-                        taskEl.draggable = true;
-                        taskEl.dataset.taskId = task.id;
-                        
-                        const labelsHtml = (task.labels || []).map(label => `<span class="task-label" style="background-color: ${getLabelColor(label)}; color: white;">${label}</span>`).join('');
-                        
-                        taskEl.innerHTML = `
-                            <div class="flex items-center justify-center">
-                                <input type="checkbox" class="task-checkbox" data-task-id="${task.id}" ${task.completed ? 'checked' : ''}>
-                            </div>
-                            <span class="truncate task-content-list ${task.urgent ? 'urgent' : ''}">${task.content}</span>
-                            <span class="text-sm truncate">${task.dueDate ? `${dayjs(task.dueDate).format('D MMM, YY')} ${task.time || ''}` : '–'}</span>
-                            <div class="priority-cell" data-task-id="${task.id}">
-                                ${task.urgent ? '<i class="fas fa-flag text-red-500" title="Urgente"></i>' : '<i class="far fa-flag text-text-medium" title="No urgente"></i>'}
-                            </div>
-                            <div class="task-labels truncate">${labelsHtml || '–'}</div>
-                        `;
-                        
-                        taskEl.addEventListener('dragstart', (e) => { e.dataTransfer.setData('text/plain', task.id); });
-                        taskEl.addEventListener('click', (e) => { if (e.target.closest('.priority-cell') || e.target.type === 'checkbox') return; editProjectTask(chatId, task.id); });
-                        listContent.appendChild(taskEl);
-                    });
-                });
-                
-                dom.listView.appendChild(listContent);
-                
-                dom.listView.querySelectorAll('.task-checkbox').forEach(checkbox => {
-                     checkbox.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        updateTaskStatus(e.currentTarget.dataset.taskId, { completed: e.currentTarget.checked });
-                    });
-                });
-                dom.listView.querySelectorAll('.priority-cell').forEach(cell => {
-                     cell.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        const taskId = e.currentTarget.dataset.taskId;
-                        const task = findTask(taskId)?.task;
-                        if(task) updateTaskStatus(taskId, { urgent: !task.urgent });
-                    });
-                });
-            }
-
-            function renderListViewMobile(chatId) {
-                const { projectData } = state.chats[chatId];
-                dom.listViewMobile.innerHTML = ''; 
-                const allTasks = projectData.columns.flatMap(col => col.tasks);
-                const tasksToRender = allTasks.filter(task => !activeTagFilter || (task.labels && task.labels.includes(activeTagFilter)));
-
-                tasksToRender.forEach(task => {
-                    const taskEl = document.createElement('div');
-                    taskEl.className = 'list-view-task-mobile';
-                     if (task.completed) taskEl.classList.add('task-item-completed');
-                    
-                    const labelsHtml = (task.labels || []).map(label => `<span class="task-label" style="background-color: ${getLabelColor(label)}; color: white;">${label}</span>`).join('');
-
-                    taskEl.innerHTML = `
-                        <div class="list-view-task-mobile-header">
-                            <input type="checkbox" class="task-checkbox mt-1 flex-shrink-0" data-task-id="${task.id}" ${task.completed ? 'checked' : ''}>
-                            <p class="flex-grow ${task.urgent ? 'urgent' : ''}">${task.content}</p>
-                        </div>
-                        <div class="list-view-task-mobile-footer">
-                            <div class="task-labels truncate">${labelsHtml || '–'}</div>
-                            <span class="text-xs text-text-medium">${task.dueDate ? dayjs(task.dueDate).format('D MMM') : ''}</span>
-                        </div>
-                    `;
-                    taskEl.addEventListener('click', (e) => {
-                        if(e.target.type === 'checkbox') return;
-                        editProjectTask(chatId, task.id);
-                    })
-                    dom.listViewMobile.appendChild(taskEl);
-                });
-
-                dom.listViewMobile.querySelectorAll('.task-checkbox').forEach(checkbox => {
-                     checkbox.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        updateTaskStatus(e.currentTarget.dataset.taskId, { completed: e.currentTarget.checked });
-                    });
-                });
+            const deleteBtn = e.target.closest('.delete-task-btn');
+            if(deleteBtn) {
+                deleteProjectTask(chatId, deleteBtn.dataset.taskId);
+                return;
             }
             
-            async function editProjectTask(chatId, taskId, columnIdForNew) {
-                const task = taskId ? findTask(taskId)?.task : null;
-                const isNew = !task;
+            const checkbox = e.target.closest('.task-checkbox-list');
+            if(checkbox) {
+                 const task = findTask(checkbox.dataset.taskId)?.task;
+                 if(task) {
+                    updateTaskStatus(checkbox.dataset.taskId, { completed: checkbox.checked });
+                 }
+            }
+        });
+    }
+
+    function moveTask(chatId, taskId, targetColumnId) {
+        const chat = state.chats[chatId];
+        if (!chat || !chat.projectData) return;
+
+        let sourceColumn = null;
+        let taskToMove = null;
+        let taskIndex = -1;
+
+        for (const col of chat.projectData.columns) {
+            const idx = (col.tasks || []).findIndex(t => t.id === taskId);
+            if (idx !== -1) {
+                sourceColumn = col;
+                taskIndex = idx;
+                break;
+            }
+        }
+
+        if (sourceColumn && taskIndex > -1) {
+            [taskToMove] = sourceColumn.tasks.splice(taskIndex, 1);
+            
+            const targetColumn = chat.projectData.columns.find(c => c.id === targetColumnId);
+            if (targetColumn) {
+                if(!targetColumn.tasks) targetColumn.tasks = [];
+                targetColumn.tasks.push(taskToMove);
                 
-                const handleCreateProject = (e, modalBody) => {
-                    const content = modalBody.querySelector('#task-content-edit').value;
-                    if (!content.trim()) return;
-                    hideModal(); // Close the current modal
-                    
-                    setTimeout(async () => {
-                        const projResult = await showModal({
-                            title: 'Crear Nuevo Proyecto',
-                            body: `<p>Ingresa un nombre para el nuevo proyecto basado en la tarea "${content.substring(0,20)}...".</p>
-                                   <input type="text" id="new-proj-name" class="w-full p-2 rounded bg-input border border-themed mt-2" value="${content.split(' ').slice(0,4).join(' ')}">`,
-                            confirmText: 'Crear Proyecto'
-                        });
-                        if(projResult.confirmed && projResult.data['new-proj-name']) {
-                            const newProjectId = 'project-' + crypto.randomUUID();
-                            state.projects[newProjectId] = { id: newProjectId, title: projResult.data['new-proj-name'], chatIds: [] };
-                            state.structure.unshift(newProjectId);
-                            
-                            const newTaskChatId = createNewChat({title: 'Tablero de Proyecto', workflow: 'project-management', initialMessages: []});
-                            state.projects[newProjectId].chatIds.push(newTaskChatId);
-                            
-                            const newTaskData = {
-                                id: `proj-${crypto.randomUUID()}`,
-                                content: content,
-                                dueDate: modalBody.querySelector('#task-due-date').value || null,
-                                time: modalBody.querySelector('#task-due-time').value || null,
-                                labels: modalBody.querySelector('#task-labels-input').value.split(',').map(l => l.trim()).filter(Boolean),
-                                urgent: modalBody.querySelector('#task-urgent-checkbox').checked,
-                                completed: false
-                            };
-                            const todoColumn = state.chats[newTaskChatId].projectData.columns.find(c => c.id === 'todo');
-                            todoColumn.tasks.push(newTaskData);
-
-                            saveState();
-                            renderSidebar();
-                            selectChat(newTaskChatId);
-                        }
-                    }, 300);
-                };
-
-                const result = await showModal({
-                    title: isNew ? 'Nueva Tarea de Proyecto' : 'Editar Tarea',
-                    body: `
-                        <div class="space-y-4">
-                            <div><label for="task-content-edit" class="block text-sm font-medium text-text-light mb-1">Contenido:</label><textarea id="task-content-edit" class="w-full p-2 rounded bg-input border border-themed h-24">${isNew ? '' : task.content}</textarea></div>
-                            <div class="flex gap-4"><div class="flex-1"><label for="task-due-date" class="block text-sm font-medium text-text-light mb-1">Fecha:</label><input type="date" id="task-due-date" value="${isNew ? '' : task.dueDate || ''}" class="w-full p-2 rounded bg-input border border-themed"></div><div class="flex-1"><label for="task-due-time" class="block text-sm font-medium text-text-light mb-1">Hora:</label><input type="time" id="task-due-time" value="${isNew ? '' : task.time || ''}" class="w-full p-2 rounded bg-input border border-themed"></div></div>
-                            <div><label for="task-labels-input" class="block text-sm font-medium text-text-light mb-1">Etiquetas (separadas por coma):</label><input type="text" id="task-labels-input" value="${isNew ? '' : (task.labels || []).join(', ')}" class="w-full p-2 rounded bg-input border border-themed"></div>
-                            <div><label class="flex items-center cursor-pointer"><input type="checkbox" id="task-urgent-checkbox" class="rounded bg-input border-themed" ${isNew ? '' : (task.urgent ? 'checked' : '')}><span class="ml-2 text-sm text-text-light">Marcar como Urgente</span><i class="fas fa-flag text-red-500 ml-2"></i></label></div>
-                        </div>`,
-                    confirmText: 'Guardar',
-                    extraButtons: [{ id: 'create-project-from-task', text: 'Crear Proyecto con esta Tarea', classes: 'px-4 py-2 rounded bg-blue-600 text-white', action: handleCreateProject }]
-                });
-
-                if (result.confirmed) {
-                    const newContent = result.data['task-content-edit'];
-                    if (newContent.trim()) {
-                        const updatedTaskData = {
-                            content: newContent.trim(),
-                            dueDate: result.data['task-due-date'] || null,
-                            time: result.data['task-due-time'] || null,
-                            labels: result.data['task-labels-input'].split(',').map(l => l.trim()).filter(Boolean),
-                            urgent: result.data['task-urgent-checkbox']
-                        };
-                        if (isNew) {
-                            const column = state.chats[chatId].projectData.columns.find(c => c.id === columnIdForNew);
-                            if (column) {
-                                if (!column.tasks) column.tasks = [];
-                                column.tasks.push({ id: `proj-${crypto.randomUUID()}`, ...updatedTaskData, completed: false });
-                                saveState();
-                                renderProjectBoard(chatId);
-                            }
-                        } else {
-                            updateTaskStatus(taskId, updatedTaskData);
-                        }
-                    }
-                }
+                // Update task status based on column
+                taskToMove.completed = targetColumnId === 'done';
             }
             
-            async function editCalendarTask(taskId, preselectedDate = null, preselectedTime = null) {
-                const task = taskId ? findTask(taskId)?.task : null;
-                const taskDayKey = taskId ? findTask(taskId)?.dayKey : null;
-                
-                const isNew = !task;
-                const modalTitle = isNew ? 'Nueva Tarea Personal' : 'Editar Tarea Personal';
+            saveState();
+            renderProjectBoard(chatId);
+        }
+    }
 
-                const result = await showModal({
-                    title: modalTitle,
-                    body: `
-                    <div class="space-y-4">
-                        <div><label for="cal-task-content-edit" class="block text-sm font-medium text-text-light mb-1">Contenido:</label><textarea id="cal-task-content-edit" class="w-full p-2 rounded bg-input border border-themed h-24">${isNew ? '' : task.content}</textarea></div>
-                        <div class="flex gap-4"><div class="flex-1"><label for="cal-task-date" class="block text-sm font-medium text-text-light mb-1">Fecha:</label><input type="date" id="cal-task-date" value="${isNew ? preselectedDate || '' : taskDayKey}" class="w-full p-2 rounded bg-input border border-themed"></div><div class="flex-1"><label for="cal-task-time" class="block text-sm font-medium text-text-light mb-1">Hora:</label><input type="time" id="cal-task-time" value="${isNew ? preselectedTime || '' : task.time || ''}" class="w-full p-2 rounded bg-input border border-themed"></div></div>
-                    </div>`,
-                    confirmText: 'Guardar'
-                });
+    async function editProjectTask(chatId, taskId, targetColumnId = null) {
+        const chat = state.chats[chatId];
+        if (!chat) return;
 
-                if (result.confirmed) {
-                    const newContent = result.data['cal-task-content-edit'];
-                    const newDate = result.data['cal-task-date'];
+        const isNew = !taskId;
+        const task = isNew ? {} : findTask(taskId)?.task;
 
-                    if (newContent.trim() && newDate) {
-                        const updatedTaskData = {
-                            content: newContent.trim(),
-                            time: result.data['cal-task-time'] || null,
-                            date: newDate
-                        };
-                        
-                        if (isNew) {
-                            const newId = `cal-${crypto.randomUUID()}`;
-                            const newTask = { id: newId, completed: false, ...updatedTaskData };
-                            if (!state.calendar[newDate]) state.calendar[newDate] = [];
-                            state.calendar[newDate].push(newTask);
-                            saveState();
-                            renderCalendarView();
-                        } else {
-                            updateTaskStatus(taskId, updatedTaskData);
-                        }
-                    }
-                }
-            }
+        if (!task) return;
 
-            function moveTask(chatId, taskId, targetColumnId) {
-                const found = findTask(taskId);
-                if (!found || found.type !== 'project' || found.column.id === targetColumnId) return;
+        const allLabels = getAllProjectLabels(chatId);
+        const labelsHtml = allLabels.map(label => `
+            <option value="${label}" ${task.labels && task.labels.includes(label) ? 'selected' : ''}>${label}</option>
+        `).join('');
 
-                const isCompleted = targetColumnId === 'done';
-                updateTaskStatus(taskId, { completed: isCompleted });
-            }
-
-            function getLabelColor(label) {
-                if (label === 'Personal') return 'var(--primary)';
-                if (label === 'default') return 'var(--text-medium)';
-                let hash = 0;
-                for (let i = 0; i < label.length; i++) {
-                    hash = label.charCodeAt(i) + ((hash << 5) - hash);
-                }
-                let color = '#';
-                for (let i = 0; i < 3; i++) {
-                    let value = (hash >> (i * 8)) & 0xCF; // Use CF to avoid very dark colors
-                    color += ('00' + value.toString(16)).substr(-2);
-                }
-                return color;
-            }
-
-            function renderTagFilter(chatId) {
-                const { projectData } = state.chats[chatId];
-                const allTasks = projectData.columns.flatMap(c => c.tasks || []);
-                const allTags = [...new Set(allTasks.flatMap(t => t.labels || []))];
-                
-                dom.tagFilterDropdown.innerHTML = '';
-                const allBtn = document.createElement('button');
-                allBtn.className = 'block w-full text-left p-2 hover:bg-medium rounded-md text-sm';
-                allBtn.textContent = 'Todas las Etiquetas';
-                allBtn.onclick = () => {
-                    activeTagFilter = null;
-                    dom.tagFilterBtn.innerHTML = '<i class="fas fa-tag mr-1"></i> Filtrar';
-                    dom.tagFilterDropdown.classList.add('hidden');
-                    renderProjectBoard(chatId);
-                };
-                dom.tagFilterDropdown.appendChild(allBtn);
-                allTags.forEach(tag => {
-                    const btn = document.createElement('button');
-                    btn.className = 'block w-full text-left p-2 hover:bg-medium rounded-md text-sm';
-                    btn.innerHTML = `<span class="task-label inline-block mr-2" style="background-color: ${getLabelColor(tag)}; color: white;">${tag}</span>`;
-                     btn.onclick = () => {
-                        activeTagFilter = tag;
-                        dom.tagFilterBtn.innerHTML = `<span class="task-label inline-block mr-2" style="background-color: ${getLabelColor(tag)}; color: white;">${tag}</span>`;
-                        dom.tagFilterDropdown.classList.add('hidden');
-                         renderProjectBoard(chatId);
-                    };
-                    dom.tagFilterDropdown.appendChild(btn);
-                });
-                dom.tagFilterBtn.onclick = () => {
-                    dom.tagFilterDropdown.classList.toggle('hidden');
-                };
-            }
+        const modalBody = `
+            <div class="space-y-4">
+                <div>
+                    <label for="task-content" class="block text-sm font-medium mb-1">Descripción de la Tarea</label>
+                    <textarea id="task-content" class="w-full p-2 rounded bg-input border border-themed h-24" placeholder="Describe la tarea...">${task.content || ''}</textarea>
+                </div>
+                 <div>
+                    <label for="task-labels" class="block text-sm font-medium mb-1">Etiquetas (tags)</label>
+                    <select multiple id="task-labels" class="w-full p-2 rounded bg-input border border-themed">${labelsHtml}</select>
+                    <input type="text" id="new-label-input" class="w-full p-2 mt-2 rounded bg-input border border-themed" placeholder="O crea una nueva etiqueta...">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label for="task-due-date" class="block text-sm font-medium mb-1">Fecha de Entrega</label>
+                        <input type="date" id="task-due-date" value="${task.dueDate || ''}" class="w-full p-2 rounded bg-input border border-themed">
+                    </div>
+                     <div>
+                        <label for="task-time" class="block text-sm font-medium mb-1">Hora</label>
+                        <input type="time" id="task-time" value="${task.time || ''}" class="w-full p-2 rounded bg-input border border-themed">
+                    </div>
+                </div>
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center">
+                        <input type="checkbox" id="task-urgent" class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary" ${task.urgent ? 'checked' : ''}>
+                        <label for="task-urgent" class="ml-2 block text-sm">Marcar como Urgente</label>
+                    </div>
+                     ${isNew ? '' : `
+                    <div class="flex items-center">
+                        <input type="checkbox" id="task-completed-edit" class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary" ${task.completed ? 'checked' : ''}>
+                        <label for="task-completed-edit" class="ml-2 block text-sm">Completada</label>
+                    </div>`}
+                </div>
+                <div class="border-t border-themed pt-4 mt-4">
+                     <div class="flex items-center">
+                        <input type="checkbox" id="create-new-project-from-task" class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary">
+                        <label for="create-new-project-from-task" class="ml-2 block text-sm">Convertir en un nuevo Proyecto/Tablero</label>
+                    </div>
+                </div>
+            </div>`;
             
-            // --- GAMIFICATION LOGIC ---
+        const result = await showModal({
+            title: isNew ? 'Crear Nueva Tarea' : 'Editar Tarea',
+            body: modalBody,
+            confirmText: isNew ? 'Crear Tarea' : 'Guardar Cambios'
+        });
 
-            function checkWeekOrganized() {
-                const startOfWeek = dayjs().startOf('isoWeek');
-                for (let i = 0; i < 7; i++) {
-                    const dayKey = startOfWeek.add(i, 'day').format('YYYY-MM-DD');
-                    if (getTasksForDay(dayKey).length === 0) return false;
-                }
-                return true;
-            }
-            function checkProjectCreated(chatId, taskCount) {
-                const chat = state.chats[chatId];
-                if (!chat || !chat.projectData) return false;
-                const totalTasks = chat.projectData.columns.reduce((sum, col) => sum + (col.tasks?.length || 0), 0);
-                return totalTasks >= taskCount;
-            }
+        if (result.confirmed) {
+            const data = result.data;
+            const content = document.getElementById('task-content').value.trim();
+            if (!content) return;
 
-            function getDefaultGamificationState() {
-                return {
-                    xp: 0,
-                     credits: 0,
-                    level: 1,
-                    dailyStreak: 0,
-                    lastLogin: null,
-                    completedMissions: [],
-                     unlockedAchievements: []
-                };
+            const selectedLabels = Array.from(document.getElementById('task-labels').selectedOptions).map(opt => opt.value);
+            const newLabel = document.getElementById('new-label-input').value.trim();
+            if (newLabel && !selectedLabels.includes(newLabel)) {
+                selectedLabels.push(newLabel);
             }
 
-            function loadGamificationState() {
-                const key = currentUser ? `gamificationState_${currentUser.id}` : 'gamificationState_guest';
-                const savedState = localStorage.getItem(key);
-                gamificationState = savedState ? JSON.parse(savedState) : getDefaultGamificationState();
-                checkDailyStreak();
-            }
+            const updates = {
+                content,
+                labels: selectedLabels,
+                dueDate: document.getElementById('task-due-date').value || null,
+                time: document.getElementById('task-time').value || null,
+                urgent: document.getElementById('task-urgent').checked,
+                completed: isNew ? false : document.getElementById('task-completed-edit').checked,
+            };
 
-            function saveGamificationState() {
-                const key = currentUser ? `gamificationState_${currentUser.id}` : 'gamificationState_guest';
-                localStorage.setItem(key, JSON.stringify(gamificationState));
-                renderGamificationModal();
-                updateCreditCounter();
-            }
-
-            function addXp(amount) {
-                gamificationState.xp += amount;
-                const currentLevel = gamificationState.level;
-                if (currentLevel >= LEVEL_NAMES.length) return; 
-
-                const nextLevelXp = XP_FOR_LEVEL[currentLevel];
-                if (gamificationState.xp >= nextLevelXp) {
-                    gamificationState.level++;
-                    const newLevelName = LEVEL_NAMES[gamificationState.level - 1];
-                    showModal({
-                        title: `<i class="fas fa-sparkles fa-lg text-gold animate-pulse mr-2"></i> ¡Nivel Subido! <i class="fas fa-sparkles fa-lg text-gold animate-pulse ml-2"></i>`,
-                        body: `<div class="text-center">
-                                <p class="text-lg">¡Felicidades! Has ascendido al</p>
-                                <p class="text-3xl font-bold text-primary my-2">Nivel ${gamificationState.level}</p>
-                                <p class="text-2xl font-semibold">${newLevelName}</p>
-                                <p class="mt-4 text-text-medium">¡Sigue así en tu camino para ser un G.O.A.T.!</p>
-                               </div>`,
-                        confirmText: '¡Genial!',
-                        showCancel: false
-                    });
-                }
-                saveGamificationState();
-            }
-
-            function addCredits(amount) {
-                gamificationState.credits += amount;
-                saveGamificationState();
-            }
-
-            function checkDailyStreak() {
-                const today = dayjs().format('YYYY-MM-DD');
-                const lastLogin = gamificationState.lastLogin;
-
-                if (lastLogin === today) return;
+            // Lógica para "Convertir en Proyecto"
+            const createNewProject = document.getElementById('create-new-project-from-task').checked;
+            if (createNewProject) {
+                // 1. Crear el nuevo chat de proyecto
+                const newProjectChatId = createNewChat(workflowConfigs['project-management']);
+                const newProjectChat = state.chats[newProjectChatId];
                 
-                const yesterday = dayjs().subtract(1, 'day').format('YYYY-MM-DD');
-                if (lastLogin === yesterday) {
-                    gamificationState.dailyStreak++;
-                } else {
-                    gamificationState.dailyStreak = 1;
-                }
-                
-                gamificationState.lastLogin = today;
-                const streak = gamificationState.dailyStreak;
-                let xpReward = 10, creditReward = 5;
-                if (streak > 3 && streak <=6) { xpReward = 20; creditReward = 10; }
-                
-                if (streak === 7) {
-                    addXp(100);
-                    openGoatChest();
-                    gamificationState.dailyStreak = 0; // Reset after day 7
-                } else {
-                    addXp(xpReward);
-                    addCredits(creditReward);
-                }
-                
-                if (gamificationState.dailyStreak >= 30) {
-                    unlockAchievement('streak-30');
-                }
+                // 2. Nombrar el nuevo proyecto basado en la tarea
+                newProjectChat.title = content; 
+                newProjectChat.projectData.title = content;
 
-                saveGamificationState();
-            }
-            
-            function openGoatChest() {
-                const rand = Math.random();
-                let rewardTitle, rewardBody;
-
-                if (rand < 0.01) { // 1% Legendary
-                    rewardTitle = ' recompensa ¡LEGENDARIA!';
-                    rewardBody = '¡Increíble! Has ganado una <strong>Asesoría Estratégica de 30 minutos GRATIS</strong> con un experto de Goatify. ¡Nos pondremos en contacto contigo!';
-                } else if (rand < 0.1) { // 9% Epic
-                    rewardTitle = ' recompensa ¡ÉPICA!';
-                    rewardBody = '¡Genial! Has ganado un <strong>cupón del 25% de descuento</strong> en cualquiera de nuestros servicios.';
-                } else if (rand < 0.4) { // 30% Rare
-                    addCredits(150);
-                    rewardTitle = ' recompensa RARA!';
-                    rewardBody = `Has ganado <strong>150 Créditos de Recompensa</strong> extra. ¡Sigue así!`;
-                } else { // 60% Common
-                    addCredits(50);
-                    rewardTitle = ' recompensa COMÚN!';
-                    rewardBody = `Has ganado <strong>50 Créditos de Recompensa</strong>. ¡Buen trabajo!`;
-                }
-
-                showModal({
-                    title: `<i class="fas fa-gift text-gold mr-2"></i>¡Cofre GOAT Abierto!`,
-                    body: `<p class="text-lg text-center">¡Completaste la racha de 7 días y obtuviste una${rewardTitle}</p><p class="mt-4 text-center">${rewardBody}</p>`,
-                    confirmText: '¡Fantástico!',
-                     showCancel: false
-                });
-            }
-
-            function completeMission(missionId, contextId = null) {
-                if (gamificationState.completedMissions.includes(missionId)) return;
-                const mission = MISSIONS[missionId];
-                if (!mission) return;
-
-                let isCompleted = false;
-                if (mission.condition) {
-                    isCompleted = mission.condition(contextId);
-                } else {
-                    // For workflows, complete after first response
-                    const chat = state.chats[contextId];
-                    if (chat && chat.messages.length > 1) { // Initial message + user message
-                        isCompleted = true;
+                // 3. (Opcional) Si era una tarea existente, eliminarla de su tablero original
+                if (!isNew) {
+                    const found = findTask(taskId);
+                    if (found) {
+                        found.column.tasks.splice(found.taskIndex, 1);
                     }
                 }
                 
-                if (isCompleted) {
-                    gamificationState.completedMissions.push(missionId);
-                    addXp(mission.xp);
-                    addCredits(mission.credits);
-                    showModal({
-                        title: `<i class="fas fa-check-circle text-green-400 mr-2"></i> Misión Completada`,
-                        body: `<p class="text-lg text-center">¡Completaste "${mission.text}"!</p><p class="text-center font-bold mt-2">+${mission.xp} XP | +${mission.credits} Créditos de Recompensa</p>`,
-                        confirmText: '¡Vamos!',
-                         showCancel: false
+                // 4. (Opcional) Añadir la tarea al nuevo tablero
+                const todoColumn = newProjectChat.projectData.columns.find(c => c.id === 'todo');
+                if (todoColumn) {
+                    todoColumn.tasks.push({
+                         id: `proj-${crypto.randomUUID()}`,
+                         ...updates
                     });
-                    saveGamificationState();
                 }
+                
+                saveState();
+                renderSidebar();
+                selectChat(newProjectChatId); // Abrir el nuevo tablero
+                return; // Salir para no procesar como una tarea normal
             }
+
+            // Lógica normal de creación/edición de tarea
+            if (isNew) {
+                const newId = `proj-${crypto.randomUUID()}`;
+                const column = chat.projectData.columns.find(c => c.id === targetColumnId) || chat.projectData.columns[0];
+                if (!column.tasks) column.tasks = [];
+                column.tasks.push({ id: newId, ...updates });
+            } else {
+                updateTaskStatus(taskId, updates);
+            }
+
+            saveState();
+            renderProjectBoard(chatId);
+        }
+    }
+
+    async function deleteProjectTask(chatId, taskId) {
+        const task = findTask(taskId)?.task;
+        if (!task) return;
+
+        const result = await showModal({
+            title: 'Confirmar Eliminación',
+            body: `¿Estás seguro de que quieres eliminar la tarea "${task.content}"?`,
+            confirmText: 'Eliminar',
+            cancelText: 'Cancelar'
+        });
+
+        if (result.confirmed) {
+            const chat = state.chats[chatId];
+            if (chat && chat.projectData) {
+                for (const column of chat.projectData.columns) {
+                    const taskIndex = (column.tasks || []).findIndex(t => t.id === taskId);
+                    if (taskIndex > -1) {
+                        column.tasks.splice(taskIndex, 1);
+                        break;
+                    }
+                }
+                saveState();
+                renderProjectBoard(chatId);
+            }
+        }
+    }
+
+    function getAllProjectLabels(chatId) {
+        const chat = state.chats[chatId];
+        if (!chat || !chat.projectData) return [];
+        const labels = new Set();
+        chat.projectData.columns.forEach(col => {
+            (col.tasks || []).forEach(task => {
+                (task.labels || []).forEach(label => labels.add(label));
+            });
+        });
+        return Array.from(labels).sort();
+    }
+    
+    function getLabelColor(label) {
+        // Simple hash function to get a color from a string
+        let hash = 0;
+        for (let i = 0; i < label.length; i++) {
+            hash = label.charCodeAt(i) + ((hash << 5) - hash);
+        }
+        let color = '#';
+        for (let i = 0; i < 3; i++) {
+            let value = (hash >> (i * 8)) & 0xFF;
+            color += ('00' + value.toString(16)).substr(-2);
+        }
+        return color;
+    }
+
+    function renderTagFilter(chatId) {
+        const allLabels = getAllProjectLabels(chatId);
+        dom.tagFilterDropdown.innerHTML = '';
+        if (allLabels.length === 0) {
+            dom.tagFilterBtn.style.display = 'none';
+            return;
+        }
+        dom.tagFilterBtn.style.display = 'inline-flex';
+
+        const allBtn = document.createElement('button');
+        allBtn.className = 'w-full text-left p-2 text-sm rounded hover:bg-medium';
+        allBtn.textContent = 'Todas las etiquetas';
+        allBtn.onclick = () => {
+            activeTagFilter = null;
+            dom.tagFilterDropdown.classList.add('hidden');
+            renderProjectBoard(chatId);
+        };
+        dom.tagFilterDropdown.appendChild(allBtn);
+
+        allLabels.forEach(label => {
+            const btn = document.createElement('button');
+            btn.className = 'w-full text-left p-2 text-sm rounded hover:bg-medium flex items-center';
+            btn.innerHTML = `<span class="w-3 h-3 rounded-full mr-2" style="background-color: ${getLabelColor(label)}"></span> ${label}`;
+            btn.onclick = () => {
+                activeTagFilter = label;
+                dom.tagFilterDropdown.classList.add('hidden');
+                renderProjectBoard(chatId);
+            };
+            dom.tagFilterDropdown.appendChild(btn);
+        });
+    }
+
+    dom.tagFilterBtn?.addEventListener('click', () => {
+        dom.tagFilterDropdown.classList.toggle('hidden');
+    });
+
+    // Cierre de los listeners
+        } // Fin de setupEventListeners
+        // ^^^ ESTA ES LA LLAVE DE CIERRE QUE FALTABA
+
+        // INICIO DE LA LÓGICA DE LA INTERFAZ
+        function inicializarUI() {
+            setAppHeight(); // Ajusta la altura al inicio
+            window.addEventListener('resize', () => {
+                setAppHeight();
+                // Re-evaluar la vista de lista en resize para cambiar entre desktop/mobile
+                if (currentChatId && state.chats[currentChatId]?.projectData?.currentView === 'list') {
+                    renderProjectBoard(currentChatId);
+                }
+            });
+            // Corrige el problema del menú de usuario en móvil (z-index)
+            dom.sidebar.style.zIndex = '40';
+            dom.userMenuPopup.style.zIndex = '50';
             
-            function unlockAchievement(achievementId) {
-                if (gamificationState.unlockedAchievements.includes(achievementId)) return;
-                const achievement = ACHIEVEMENTS[achievementId];
-                if (!achievement) return;
-
-                gamificationState.unlockedAchievements.push(achievementId);
-                addXp(achievement.xp);
-                if (achievement.credits) addCredits(achievement.credits);
-                showModal({
-                    title: `<i class="fas fa-medal text-gold mr-2"></i> ¡Logro Desbloqueado!`,
-                    body: `<p class="text-xl text-center font-bold">${achievement.title}</p><p class="text-center mt-2">${achievement.description}</p><p class="text-center font-bold mt-4">+${achievement.xp} XP ${achievement.reward ? `| ${achievement.reward}` : ''}</p>`,
-                    confirmText: '¡Impresionante!',
-                     showCancel: false
-                });
-                saveGamificationState();
-            }
-
-            function renderGamificationModal() {
-                const level = gamificationState.level;
-                const currentXp = gamificationState.xp;
-                const xpForCurrentLevel = XP_FOR_LEVEL[level - 1];
-                const xpForNextLevel = XP_FOR_LEVEL[level];
-                dom.gamificationLevelName.textContent = `Nivel ${level}: ${LEVEL_NAMES[level - 1]}`;
-                dom.gamificationCredits.innerHTML = `<i class="fas fa-coins mr-1"></i>${gamificationState.credits} Créditos`;
-                if (level < LEVEL_NAMES.length) {
-                    const progress = ((currentXp - xpForCurrentLevel) / (xpForNextLevel - xpForCurrentLevel)) * 100;
-                    dom.gamificationXp.textContent = `${currentXp} / ${xpForNextLevel} XP`;
-                    dom.gamificationXpBar.style.width = `${Math.min(100, progress)}%`;
+            // Corrige el problema del menú de servicios que no se despliega
+            dom.servicesMenuBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const menu = dom.servicesMenu;
+                const isVisible = menu.classList.contains('show');
+                if (isVisible) {
+                    menu.classList.add('opacity-0', 'scale-95', '-translate-y-2', 'pointer-events-none');
+                    menu.classList.remove('show');
                 } else {
-                    dom.gamificationXp.textContent = `¡Nivel Máximo!`;
-                    dom.gamificationXpBar.style.width = `100%`;
+                    menu.classList.remove('opacity-0', 'scale-95', '-translate-y-2', 'pointer-events-none');
+                    menu.classList.add('show');
                 }
+            });
 
-                // Render Daily Streak
-                dom.dailyStreakContainer.innerHTML = '';
-                for (let i = 1; i <= 7; i++) {
-                    const dayEl = document.createElement('div');
-                    dayEl.className = 'streak-day p-4 rounded-lg flex flex-col items-center justify-center';
-                    const isCompleted = i <= gamificationState.dailyStreak;
-                    const isActive = i === gamificationState.dailyStreak + 1 && dayjs().format('YYYY-MM-DD') !== gamificationState.lastLogin;
-                    
-                    if (isCompleted) dayEl.classList.add('completed');
-                    if (isActive) dayEl.classList.add('active');
+            // Arreglo para la vista horizontal del celular
+            // La clase 'is-open' y las transformaciones de #sidebar ya deberían funcionar
+            // con la estructura CSS provista. Nos aseguramos de que el overlay funcione.
+            dom.sidebarOverlay.addEventListener('click', () => toggleSidebar(false));
 
-                    let rewardText;
-                    if (i <= 3) rewardText = '+10 XP';
-                    else if (i <= 6) rewardText = '+20 XP';
-                    else rewardText = '<i class="fas fa-gift fa-2x"></i>';
-
-                    dayEl.innerHTML = `
-                        <p class="font-bold text-lg">${i === 7 ? '' : `Día ${i}`}</p>
-                        <div class="text-2xl my-2">${rewardText}</div>
-                        <p class="text-xs">${i <= 3 ? '+5 Créditos' : (i <= 6 ? '+10 Créditos' : 'Cofre GOAT')}</p>
-                    `;
-                    dom.dailyStreakContainer.appendChild(dayEl);
+            // Aseguramos que el contenido del menú de usuario sea visible
+            dom.userMenuBtn?.addEventListener('click', (e) => {
+                e.stopPropagation();
+                dom.userMenuPopup.classList.toggle('hidden');
+                // Forzamos al sidebar a tener un z-index que permita ver el popup
+                if(!dom.userMenuPopup.classList.contains('hidden')) {
+                    dom.sidebar.style.zIndex = '45'; // Asegura que el popup se vea sobre el contenido principal
+                } else {
+                    dom.sidebar.style.zIndex = '40';
                 }
+            });
 
-                // Render Missions
-                dom.missionsContainer.innerHTML = '';
-                Object.values(MISSIONS).forEach(mission => {
-                    const isCompleted = gamificationState.completedMissions.includes(mission.id);
-                    const missionEl = document.createElement('div');
-                    missionEl.className = `mission-item p-4 rounded-lg flex items-center justify-between bg-input ${isCompleted ? 'completed' : ''}`;
-                     missionEl.innerHTML = `
+        }// Función de edición/creación de TAREAS DEL CALENDARIO
+        async function editCalendarTask(taskId, defaultDate = null, defaultTime = null) {
+            const isNew = !taskId;
+            const task = isNew ? {} : findTask(taskId)?.task;
+
+            if (!task) return;
+
+            const modalBody = `
+                <div class="space-y-4">
+                    <div>
+                        <label for="cal-task-content" class="block text-sm font-medium mb-1">Descripción</label>
+                        <textarea id="cal-task-content" class="w-full p-2 rounded bg-input border border-themed h-20" placeholder="Ej: Llamar al contador">${task.content || ''}</textarea>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <p class="font-semibold">${mission.text}</p>
-                            <p class="text-sm text-text-medium">+${mission.xp} XP | +${mission.credits} Créditos</p>
-                         </div>
-                        <button class="btn-primary px-4 py-2 rounded-lg text-sm font-bold" data-mission-id="${mission.id}" ${isCompleted ? 'disabled' : ''}>
-                            ${isCompleted ? 'Hecho' : 'Empezar'}
-                         </button>
-                    `;
-                    dom.missionsContainer.appendChild(missionEl);
-                });
-
-                // Render Achievements
-                dom.achievementsContainer.innerHTML = '';
-                Object.values(ACHIEVEMENTS).forEach(ach => {
-                    const isUnlocked = gamificationState.unlockedAchievements.includes(ach.id);
-                    const achEl = document.createElement('div');
-                    achEl.className = `achievement-badge p-4 rounded-lg text-center flex flex-col items-center justify-center ${isUnlocked ? 'unlocked' : ''}`;
-                     achEl.innerHTML = `
-                        <i class="fas ${ach.icon} fa-3x mb-2"></i>
-                        <p class="font-bold">${ach.title}</p>
-                        <p class="text-xs text-text-medium mt-1">${ach.description}</p>
-                     `;
-                    dom.achievementsContainer.appendChild(achEl);
+                            <label for="cal-task-date" class="block text-sm font-medium mb-1">Fecha</label>
+                            <input type="date" id="cal-task-date" value="${task.date || defaultDate}" class="w-full p-2 rounded bg-input border border-themed">
+                        </div>
+                        <div>
+                            <label for="cal-task-time" class="block text-sm font-medium mb-1">Hora</label>
+                            <input type="time" id="cal-task-time" value="${task.time || defaultTime || ''}" class="w-full p-2 rounded bg-input border border-themed">
+                        </div>
+                    </div>
+                    ${isNew ? `
+                    <div class="border-t border-themed pt-4">
+                        <div class="flex items-center">
+                            <input type="checkbox" id="cal-create-project-board" class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary">
+                            <label for="cal-create-project-board" class="ml-2 block text-sm">Crear nuevo tablero de proyecto con esta tarea</label>
+                        </div>
+                    </div>
+                    ` : ''}
+                </div>
+            `;
+            
+            const extraButtons = [];
+            if (!isNew) {
+                extraButtons.push({
+                    id: 'modal-delete-cal-task',
+                    text: 'Eliminar Tarea',
+                    classes: 'px-4 py-2 rounded bg-red-600 text-white mr-auto',
+                    action: async () => {
+                        const { dayKey, taskIndex } = findTask(taskId);
+                        state.calendar[dayKey].splice(taskIndex, 1);
+                        if (state.calendar[dayKey].length === 0) delete state.calendar[dayKey];
+                        await saveState();
+                        renderCalendarView();
+                        hideModal({ confirmed: false }); // Cierra el modal principal
+                    }
                 });
             }
 
-            // --- END GAMIFICATION LOGIC ---
+            const result = await showModal({
+                title: isNew ? `Añadir Tarea para ${dayjs(defaultDate).format('D MMM')}` : 'Editar Tarea Personal',
+                body: modalBody,
+                confirmText: isNew ? 'Crear' : 'Guardar',
+                showCancel: true,
+                extraButtons
+            });
 
-            let initFired = false;
-            const finishInitialization = (user) => {
-                if (initFired) return;
-                initFired = true;
-                currentUser = user;
+            if (result.confirmed) {
+                const content = document.getElementById('cal-task-content').value.trim();
+                if (!content) return;
                 
+                const createProject = document.getElementById('cal-create-project-board')?.checked;
+
+                if (createProject) {
+                     // Lógica para crear un proyecto desde la tarea del calendario
+                    const newProjectChatId = createNewChat(workflowConfigs['project-management']);
+                    const newProjectChat = state.chats[newProjectChatId];
+                    newProjectChat.title = content; 
+                    newProjectChat.projectData.title = content;
+
+                    const todoColumn = newProjectChat.projectData.columns.find(c => c.id === 'todo');
+                    if (todoColumn) {
+                        todoColumn.tasks.push({
+                            id: `proj-${crypto.randomUUID()}`,
+                            content: content,
+                            labels: ['Calendario'],
+                            dueDate: document.getElementById('cal-task-date').value,
+                            time: document.getElementById('cal-task-time').value || null,
+                            urgent: false,
+                            completed: false,
+                        });
+                    }
+                    
+                    await saveState();
+                    renderSidebar();
+                    selectChat(newProjectChatId);
+                    hideCalendarModal(); // Cerrar calendario y abrir el nuevo proyecto
+                    return;
+                }
+
+                const updates = {
+                    content: content,
+                    date: document.getElementById('cal-task-date').value,
+                    time: document.getElementById('cal-task-time').value || null,
+                };
+                
+                if(isNew) {
+                    if (!state.calendar[updates.date]) state.calendar[updates.date] = [];
+                    state.calendar[updates.date].push({
+                        id: 'cal-' + crypto.randomUUID(),
+                        ...updates,
+                        completed: false,
+                        source: 'Personal'
+                    });
+                } else {
+                     const { task, dayKey } = findTask(taskId);
+                     const oldDate = task.date;
+                     Object.assign(task, updates);
+                     if (oldDate !== task.date) {
+                         const oldDateKey = dayjs(oldDate).format('YYYY-MM-DD');
+                         const newDateKey = dayjs(task.date).format('YYYY-MM-DD');
+                         const taskIndex = state.calendar[oldDateKey].findIndex(t => t.id === taskId);
+                         state.calendar[oldDateKey].splice(taskIndex, 1);
+                         if(state.calendar[oldDateKey].length === 0) delete state.calendar[oldDateKey];
+                         if(!state.calendar[newDateKey]) state.calendar[newDateKey] = [];
+                         state.calendar[newDateKey].push(task);
+                     }
+                }
+                
+                await saveState();
+                renderCalendarView();
+                updateNotificationBadge();
+                // Check missions after saving
+                completeMission('week-organized');
+            }
+        }
+
+        // Sobrescribir las funciones de drag and drop para que funcionen correctamente
+        function handleCalendarDragStart(e) {
+            // Permitir arrastrar tanto tareas de calendario como de proyecto (si se muestran)
+            const taskId = e.target.dataset.taskId;
+            if (!taskId) {
+                e.preventDefault();
+                return;
+            }
+            draggedCalendarTaskId = taskId;
+            e.dataTransfer.setData('text/plain', taskId);
+            e.dataTransfer.effectAllowed = 'move';
+            e.target.style.opacity = '0.5';
+        }
+
+        function handleCalendarDragEnd(e) {
+            e.target.style.opacity = '1';
+        }
+
+        function handleCalendarDrop(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.currentTarget.style.backgroundColor = '';
+            e.currentTarget.classList.remove('drag-over');
+
+            const taskId = e.dataTransfer.getData('text/plain');
+            const foundTask = findTask(taskId);
+            if (!foundTask) return;
+            
+            const dropZone = e.currentTarget;
+            const newDate = dropZone.dataset.date || selectedCalendarDate.format('YYYY-MM-DD');
+            const newTime = dropZone.dataset.time || foundTask.task.time || null;
+
+            const updates = { date: newDate, dueDate: newDate, time: newTime };
+            updateTaskStatus(taskId, updates);
+        }// Mejora para Asistente Financiero, Laboratorio de Decisiones y Asistente de Proyecto
+        function enhanceWorkflows() {
+            // 1. Restaurar mensaje de Asistente de Proyectos
+            workflowConfigs['project-management'].initialMessages = [{ 
+                role: 'assistant', 
+                content: `¡Excelente! Vamos a estructurar este proyecto como un profesional.\n\nPara empezar, **¿cuál es el objetivo final y medible que quieres alcanzar con este proyecto?** Descríbelo y luego definiremos los entregables clave.` 
+            }];
+
+            // 2. Añadir mensaje a Laboratorio de Decisiones
+            workflowConfigs['decision-lab'].initialMessages = [{ 
+                role: 'assistant', 
+                content: 'Bienvenido al Laboratorio de Decisiones. Para ayudarte a analizar tu situación, por favor, dime: **¿Cuál es la decisión que necesitas tomar y qué opciones estás considerando?**\n\n*Recuerda que una decisión puede cambiar el rumbo de tu vida.*' 
+            }];
+
+            // 3. Mejorar Asistente Financiero para generar tabla interactiva
+            workflowConfigs['financial-assistant'].initialMessages = [{
+                role: 'assistant',
+                content: `Claro, vamos a organizar tus finanzas. Aquí tienes una tabla para que empieces a registrar tus movimientos. Puedes editarla directamente o pedírmelo en el chat.\n\n<div id="financial-assistant-container" class="bg-current-bg-dark p-3 rounded-lg text-sm">
+                    <table id="financial-table" class="w-full">
+                        <thead>
+                            <tr class="border-b border-themed">
+                                <th class="p-2 text-left">Descripción</th>
+                                <th class="p-2 text-right">Monto</th>
+                                <th class="p-2 w-10"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="financial-table-body">
+                            </tbody>
+                        <tfoot>
+                             <tr class="border-t-2 border-themed font-bold">
+                                <td class="p-2 text-left text-green-400">Total Ingresos</td>
+                                <td id="total-income" class="p-2 text-right text-green-400">$0.00</td>
+                                <td></td>
+                            </tr>
+                             <tr class="font-bold">
+                                <td class="p-2 text-left text-red-400">Total Gastos</td>
+                                <td id="total-expense" class="p-2 text-right text-red-400">$0.00</td>
+                                <td></td>
+                            </tr>
+                             <tr class="border-t border-dashed border-themed font-bold text-lg">
+                                <td class="p-2 text-left">Balance Final</td>
+                                <td id="final-balance" class="p-2 text-right">$0.00</td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                     <button id="add-finance-row" class="mt-4 w-full p-2 text-xs rounded bg-input hover:bg-light transition-colors">
+                        <i class="fas fa-plus mr-2"></i>Añadir Fila
+                    </button>
+                </div>`
+            }];
+        }
+        
+        // Función para hacer la tabla financiera interactiva
+        function activateFinancialTable() {
+            const container = document.getElementById('financial-assistant-container');
+            if (!container) return;
+
+            const tableBody = container.querySelector('#financial-table-body');
+            const addRowBtn = container.querySelector('#add-finance-row');
+
+            const createRow = (desc = '', amount = '') => {
+                const row = document.createElement('tr');
+                row.className = 'financial-row';
+                row.innerHTML = `
+                    <td class="p-1"><input type="text" class="w-full bg-transparent p-1 rounded outline-none focus:bg-medium" placeholder="Descripción..." value="${desc}"></td>
+                    <td class="p-1"><input type="number" class="w-full bg-transparent p-1 rounded outline-none focus:bg-medium text-right" placeholder="0.00" value="${amount}"></td>
+                    <td class="p-1 text-center"><button class="delete-finance-row text-red-500 opacity-50 hover:opacity-100">&times;</button></td>
+                `;
+                tableBody.appendChild(row);
+                // Añadir listeners a la nueva fila
+                row.querySelector('input').addEventListener('input', updateFinancialTotals);
+                row.querySelector('.delete-finance-row').addEventListener('click', () => {
+                    row.remove();
+                    updateFinancialTotals();
+                });
+            };
+
+            const updateFinancialTotals = () => {
+                let totalIncome = 0;
+                let totalExpense = 0;
+                container.querySelectorAll('.financial-row').forEach(row => {
+                    const amountInput = row.querySelector('input[type="number"]');
+                    const amount = parseFloat(amountInput.value) || 0;
+                    if (amount > 0) {
+                        totalIncome += amount;
+                        amountInput.style.color = 'var(--text-light)';
+                    } else {
+                        totalExpense += amount;
+                         amountInput.style.color = 'var(--urgent-color)';
+                    }
+                });
+
+                const finalBalance = totalIncome + totalExpense;
+
+                container.querySelector('#total-income').textContent = `$${totalIncome.toFixed(2)}`;
+                container.querySelector('#total-expense').textContent = `$${totalExpense.toFixed(2)}`;
+                const balanceEl = container.querySelector('#final-balance');
+                balanceEl.textContent = `$${finalBalance.toFixed(2)}`;
+                balanceEl.style.color = finalBalance >= 0 ? 'var(--primary)' : 'var(--urgent-color)';
+            };
+
+            addRowBtn.addEventListener('click', () => createRow());
+            
+            // Crear una fila inicial
+            if (tableBody.children.length === 0) {
+                 createRow('Sueldo', '2000');
+                 createRow('Alquiler', '-800');
+                 createRow('Supermercado', '-150');
+            }
+           
+            updateFinancialTotals();
+        }
+
+        // Modificar addMessageToUI para activar la tabla financiera
+        const originalAddMessageToUI = addMessageToUI;
+        addMessageToUI = (role, content, imageSrc, messageIndex, container) => {
+            const bubble = originalAddMessageToUI(role, content, imageSrc, messageIndex, container);
+            if (content.includes('id="financial-table"')) {
+                // Esperar un momento para que el DOM se actualice completamente
+                setTimeout(activateFinancialTable, 100);
+            }
+            return bubble;
+        };// ... (al final de toda la lógica de funciones, antes de la inicialización)
+
+        function initApp() {
+            // Mostrar overlay de carga
+            dom.loadingOverlay.classList.remove('hidden');
+            dom.appContainer.classList.add('opacity-0');
+
+            // Setear el tema al iniciar
+            const savedTheme = localStorage.getItem('theme');
+            setTheme(savedTheme === 'light' ? false : true);
+
+            // Setear el idioma al iniciar
+            const savedLang = localStorage.getItem('goatify-lang') || 'es';
+            dom.languageSelector.value = savedLang;
+            setLanguage(savedLang);
+
+            // Cargar voces para TTS
+            populateVoiceList();
+
+            // Configurar los listeners principales
+            setupEventListeners();
+            
+            // Mejorar los workflows con los nuevos mensajes y lógicas
+            enhanceWorkflows();
+            
+            // Configurar la UI general y arreglos
+            inicializarUI();
+
+            // Manejar la autenticación con Netlify Identity
+            netlifyIdentity.on('init', user => {
+                currentUser = user;
+                updateUserUI();
+                loadStateForUser().then(() => {
+                     // Una vez cargado el estado, esconder el overlay
+                    setTimeout(() => {
+                        dom.loadingOverlay.classList.add('opacity-0', 'pointer-events-none');
+                        dom.appContainer.classList.remove('opacity-0');
+                    }, 500); // Pequeño delay para una transición suave
+                });
+            });
+
+            netlifyIdentity.on('login', user => {
+                currentUser = user;
+                netlifyIdentity.close();
                 updateUserUI();
                 loadStateForUser();
-                populateVoiceList();
-                setupEventListeners();
-                updateContextualFooter(null);
+            });
 
-                dom.appContainer.classList.remove('opacity-0');
-                dom.loadingOverlay.style.display = 'none';
+            netlifyIdentity.on('logout', () => {
+                currentUser = null;
+                updateUserUI();
+                loadStateForUser();
+            });
 
-                if (currentChatId && state.chats[currentChatId]) {
-                    selectChat(currentChatId);
-                } else {
-                    resetChatView();
-                }
-                updateNotificationBadge();
-                if (!localStorage.getItem('goatify-gamification-rules-seen')) {
-                    setTimeout(() => {
-                        dom.gamificationRulesModal.classList.remove('hidden');
-                        dom.gamificationRulesModal.classList.add('flex');
-                        localStorage.setItem('goatify-gamification-rules-seen', 'true');
-                     }, 2000);
-                }
-            };
+            // Llamada inicial para renderizar el calendario en caso de que se abra
+            renderCalendarView();
+            updateNotificationBadge();
+        }
 
-            const savedLang = localStorage.getItem('goatify-lang') || 'es';
-            setLanguage(savedLang);
-            setTheme(localStorage.getItem('theme') === 'dark' || (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches));
+        // Iniciar la aplicación
+        initApp();
 
-            const unlockAudio = () => {
-                const silence = new SpeechSynthesisUtterance('');
-                silence.volume = 0;
-                window.speechSynthesis.speak(silence);
-                document.body.removeEventListener('touchstart', unlockAudio);
-                document.body.removeEventListener('click', unlockAudio);
-            };
-            document.body.addEventListener('touchstart', unlockAudio, { once: true });
-            document.body.addEventListener('click', unlockAudio, { once: true });
-            
-            if (window.netlifyIdentity) {
-                netlifyIdentity.on('init', (user) => finishInitialization(user));
-                netlifyIdentity.on('login', (user) => {
-                    netlifyIdentity.close(); 
-                    currentUser = user;
-                    updateUserUI(); 
-                    loadStateForUser();
-                });
-                netlifyIdentity.on('logout', () => {
-                    currentUser = null;
-                    updateUserUI(); 
-                    loadStateForUser(); 
-                    resetChatView();
-                });
-                netlifyIdentity.on('error', (err) => {
-                    console.error("Netlify Identity Error:", err);
-                    if (!initFired) finishInitialization(null); 
-                });
-            } else {
-                 console.warn("Netlify Identity widget not found. Proceeding as guest.");
-                 finishInitialization(null);
-            }
+    }); // Fin del DOMContentLoaded
+</script>
 
-            setTimeout(() => {
-                if (!initFired) {
-                    console.warn("Netlify Identity 'init' event did not fire within timeout. Forcing app initialization.");
-                    finishInitialization(window.netlifyIdentity ? netlifyIdentity.currentUser() : null);
-                 }
-            }, 1500);
-        });
-    </script>
 </body>
 </html>
