@@ -3282,69 +3282,70 @@
                         editProjectTask(chatId, null, columnId);
                     });
                 });
+
+                // Initialize drag and drop for touch devices for project tasks
+                dom.kanbanView.querySelectorAll('.kanban-card').forEach(card => {
+                    card.addEventListener('touchstart', handleProjectTouchStart, { passive: false });
+                });
             }
 
             function renderListView(chatId) {
                 const { projectData } = state.chats[chatId];
-                dom.listView.innerHTML = ''; // Clear previous content
+                dom.listView.innerHTML = '';
 
                 const header = document.createElement('div');
                 header.className = 'list-view-header';
                 header.innerHTML = `
-                    <span></span> <span>Tarea</span>
-                    <span>Etiquetas</span>
-                    <span>Urgente</span>
-                    <span>Fecha Límite</span>
+                    <div></div>
+                    <div>Tarea</div>
+                    <div>Etiquetas</div>
+                    <div>Fecha</div>
+                    <div>Prioridad</div>
                 `;
                 dom.listView.appendChild(header);
 
-                const tasksContainer = document.createElement('div');
-                tasksContainer.className = 'flex-grow overflow-y-auto';
+                const tasksToRender = projectData.columns.flatMap(column => column.tasks || []).filter(task => !activeTagFilter || (task.labels && task.labels.includes(activeTagFilter)));
 
-                const allTasks = projectData.columns.flatMap(col => col.tasks.map(t => ({...t, status: col.title})));
-                const tasksToRender = allTasks.filter(task => !activeTagFilter || (task.labels && task.labels.includes(activeTagFilter)));
+                if (tasksToRender.length === 0) {
+                    const noTasksMessage = document.createElement('p');
+                    noTasksMessage.className = 'text-center text-text-medium mt-4';
+                    noTasksMessage.textContent = translations[localStorage.getItem('goatify-lang') || 'es'].calendar_no_tasks;
+                    dom.listView.appendChild(noTasksMessage);
+                    return;
+                }
 
                 tasksToRender.forEach(task => {
                     const taskEl = document.createElement('div');
-                    taskEl.className = 'list-view-task';
-                    if (task.completed) taskEl.classList.add('task-item-completed');
-                    
+                    taskEl.className = `list-view-task ${task.completed ? 'task-item-completed' : ''}`;
+                    taskEl.dataset.taskId = task.id;
+                    taskEl.dataset.taskColumnId = projectData.columns.find(col => col.tasks.includes(task)).id;
+
                     const labelsHtml = (task.labels || []).map(label => `<span class="task-label" style="background-color: ${getLabelColor(label)}; color: white;">${label}</span>`).join('');
 
                     taskEl.innerHTML = `
-                        <input type="checkbox" class="task-checkbox-list" data-task-id="${task.id}" ${task.completed ? 'checked' : ''}>
-                        <span class="task-content-list ${task.urgent ? 'urgent' : ''}">${task.content}</span>
+                        <div><input type="checkbox" class="task-checkbox" data-task-id="${task.id}" ${task.completed ? 'checked' : ''}></div>
+                        <div class="task-content-list ${task.urgent ? 'urgent' : ''}">${task.content}</div>
                         <div class="task-labels">${labelsHtml}</div>
-                        <div class="priority-cell" data-task-id="${task.id}">
-                            <i class="fas fa-flag ${task.urgent ? 'text-red-500' : 'text-gray-500'}"></i>
+                        <div>${task.dueDate ? dayjs(task.dueDate).format('D MMM') : ''}</div>
+                        <div class="priority-cell" data-task-id="${task.id}" data-urgent="${task.urgent}">
+                            ${task.urgent ? '<i class="fas fa-flag text-urgent-color"></i>' : '<i class="far fa-flag text-text-medium"></i>'}
                         </div>
-                        <span>${task.dueDate ? dayjs(task.dueDate).format('D MMM YYYY') : 'Sin fecha'}</span>
                     `;
                     taskEl.addEventListener('click', (e) => {
-                        if (e.target.type !== 'checkbox' && !e.target.closest('.priority-cell')) {
-                           editProjectTask(chatId, task.id);
+                        if (!e.target.closest('.task-checkbox') && !e.target.closest('.priority-cell')) {
+                            editProjectTask(chatId, task.id);
                         }
                     });
-                    tasksContainer.appendChild(taskEl);
-                });
-                dom.listView.appendChild(tasksContainer);
+                    taskEl.querySelector('.task-checkbox').addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        updateTaskStatus(task.id, { completed: e.currentTarget.checked });
+                    });
+                    taskEl.querySelector('.priority-cell').addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        toggleTaskUrgency(chatId, task.id);
+                    });
 
-                // Add event listeners after appending
-                dom.listView.querySelectorAll('.task-checkbox-list').forEach(checkbox => {
-                    checkbox.addEventListener('click', e => {
-                        e.stopPropagation();
-                        updateTaskStatus(e.target.dataset.taskId, { completed: e.target.checked });
-                    });
-                });
-                 dom.listView.querySelectorAll('.priority-cell').forEach(cell => {
-                    cell.addEventListener('click', e => {
-                        e.stopPropagation();
-                        const taskId = e.currentTarget.dataset.taskId;
-                        const taskToUpdate = findTask(taskId)?.task;
-                        if(taskToUpdate) {
-                            updateTaskStatus(taskId, { urgent: !taskToUpdate.urgent });
-                        }
-                    });
+                    dom.listView.appendChild(taskEl);
                 });
             }
 
@@ -3352,527 +3353,618 @@
                 const { projectData } = state.chats[chatId];
                 dom.listViewMobile.innerHTML = '';
 
-                const allTasks = projectData.columns.flatMap(col => col.tasks.map(t => ({...t, status: col.title})));
-                const tasksToRender = allTasks.filter(task => !activeTagFilter || (task.labels && task.labels.includes(activeTagFilter)));
+                const tasksToRender = projectData.columns.flatMap(column => column.tasks || []).filter(task => !activeTagFilter || (task.labels && task.labels.includes(activeTagFilter)));
+
+                if (tasksToRender.length === 0) {
+                    const noTasksMessage = document.createElement('p');
+                    noTasksMessage.className = 'text-center text-text-medium mt-4';
+                    noTasksMessage.textContent = translations[localStorage.getItem('goatify-lang') || 'es'].calendar_no_tasks;
+                    dom.listViewMobile.appendChild(noTasksMessage);
+                    return;
+                }
 
                 tasksToRender.forEach(task => {
                     const taskEl = document.createElement('div');
-                    taskEl.className = 'list-view-task-mobile';
-                    
+                    taskEl.className = `list-view-task-mobile ${task.completed ? 'task-item-completed' : ''}`;
+                    taskEl.dataset.taskId = task.id;
+
                     const labelsHtml = (task.labels || []).map(label => `<span class="task-label" style="background-color: ${getLabelColor(label)}; color: white;">${label}</span>`).join('');
 
                     taskEl.innerHTML = `
                         <div class="list-view-task-mobile-header">
-                            <input type="checkbox" class="task-checkbox-mobile mt-1 flex-shrink-0" data-task-id="${task.id}" ${task.completed ? 'checked' : ''}>
+                            <input type="checkbox" class="task-checkbox" data-task-id="${task.id}" ${task.completed ? 'checked' : ''}>
                             <div class="flex-grow">
-                                <p class="font-semibold ${task.completed ? 'line-through opacity-60' : ''} ${task.urgent ? 'text-red-400' : ''}">${task.content}</p>
+                                <p class="font-semibold ${task.urgent ? 'text-urgent-color' : 'text-text-light'}">${task.content}</p>
                                 <div class="task-labels mt-1">${labelsHtml}</div>
+                            </div>
+                            <div class="priority-cell" data-task-id="${task.id}" data-urgent="${task.urgent}">
+                                ${task.urgent ? '<i class="fas fa-flag text-urgent-color"></i>' : '<i class="far fa-flag text-text-medium"></i>'}
                             </div>
                         </div>
                         <div class="list-view-task-mobile-footer">
-                            <span>${task.status}</span>
-                            <span>${task.dueDate ? `<i class="fas fa-calendar-alt mr-1"></i> ${dayjs(task.dueDate).format('D MMM')}` : ''}</span>
+                            <span>Estado: ${projectData.columns.find(col => col.tasks.includes(task)).title}</span>
+                            <span>${task.dueDate ? dayjs(task.dueDate).format('D MMM') : ''} ${task.time || ''}</span>
                         </div>
                     `;
-                    taskEl.addEventListener('click', e => {
-                        if (e.target.type !== 'checkbox') {
+                    taskEl.addEventListener('click', (e) => {
+                        if (!e.target.closest('.task-checkbox') && !e.target.closest('.priority-cell')) {
                             editProjectTask(chatId, task.id);
                         }
                     });
+                    taskEl.querySelector('.task-checkbox').addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        updateTaskStatus(task.id, { completed: e.currentTarget.checked });
+                    });
+                    taskEl.querySelector('.priority-cell').addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        toggleTaskUrgency(chatId, task.id);
+                    });
                     dom.listViewMobile.appendChild(taskEl);
                 });
+            }
 
-                dom.listViewMobile.querySelectorAll('.task-checkbox-mobile').forEach(checkbox => {
-                    checkbox.addEventListener('click', e => {
-                        e.stopPropagation();
-                        updateTaskStatus(e.target.dataset.taskId, { completed: e.target.checked });
+            // Project Touch Drag Simulation
+            let touchDragProjectElement = null;
+            let ghostProjectElement = null;
+            function handleProjectTouchStart(e) {
+                if (e.touches.length !== 1) return;
+                e.preventDefault();
+                touchDragProjectElement = e.currentTarget;
+
+                ghostProjectElement = touchDragProjectElement.cloneNode(true);
+                ghostProjectElement.style.position = 'absolute';
+                ghostProjectElement.style.zIndex = '1000';
+                ghostProjectElement.style.opacity = '0.7';
+                ghostProjectElement.style.pointerEvents = 'none';
+                ghostProjectElement.style.width = `${touchDragProjectElement.offsetWidth}px`;
+                document.body.appendChild(ghostProjectElement);
+
+                const touch = e.touches[0];
+                ghostProjectElement.style.left = `${touch.pageX - ghostProjectElement.offsetWidth / 2}px`;
+                ghostProjectElement.style.top = `${touch.pageY - ghostProjectElement.offsetHeight / 2}px`;
+
+                document.addEventListener('touchmove', handleProjectTouchMove, { passive: false });
+                document.addEventListener('touchend', handleProjectTouchEnd);
+            }
+
+            function handleProjectTouchMove(e) {
+                if (e.touches.length !== 1 || !ghostProjectElement) return;
+                e.preventDefault();
+                const touch = e.touches[0];
+                ghostProjectElement.style.left = `${touch.pageX - ghostProjectElement.offsetWidth / 2}px`;
+                ghostProjectElement.style.top = `${touch.pageY - ghostProjectElement.offsetHeight / 2}px`;
+            }
+
+            function handleProjectTouchEnd(e) {
+                if (!ghostProjectElement) return;
+                ghostProjectElement.style.display = 'none';
+                const dropTarget = document.elementFromPoint(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+                ghostProjectElement.remove();
+
+                if (dropTarget) {
+                    const dropZone = dropTarget.closest('.kanban-cards');
+                    if (dropZone) {
+                        const taskId = touchDragProjectElement.dataset.taskId;
+                        const columnId = dropZone.dataset.columnId;
+                        moveTask(currentChatId, taskId, columnId);
+                    }
+                }
+
+                touchDragProjectElement = null;
+                ghostProjectElement = null;
+                document.removeEventListener('touchmove', handleProjectTouchMove);
+                document.removeEventListener('touchend', handleProjectTouchEnd);
+            }
+            // End Project Touch Drag Simulation
+
+            function moveTask(chatId, taskId, targetColumnId) {
+                const chat = state.chats[chatId];
+                if (!chat || !chat.projectData) return;
+
+                let taskToMove = null;
+                let sourceColumn = null;
+
+                for (const column of chat.projectData.columns) {
+                    const taskIndex = (column.tasks || []).findIndex(t => t.id === taskId);
+                    if (taskIndex > -1) {
+                        [taskToMove] = column.tasks.splice(taskIndex, 1);
+                        sourceColumn = column;
+                        break;
+                    }
+                }
+
+                if (taskToMove && sourceColumn.id !== targetColumnId) {
+                    const targetColumn = chat.projectData.columns.find(c => c.id === targetColumnId);
+                    if (targetColumn) {
+                        if (!targetColumn.tasks) targetColumn.tasks = [];
+                        targetColumn.tasks.push(taskToMove);
+                        // Mark as completed if moved to 'done' column, and uncompleted otherwise
+                        taskToMove.completed = (targetColumnId === 'done');
+                        saveState();
+                        renderProjectBoard(chatId);
+                    }
+                }
+            }
+
+            async function editProjectTask(chatId, taskId = null, columnId = 'todo') {
+                const chat = state.chats[chatId];
+                if (!chat || !chat.projectData) return;
+
+                let task = null;
+                let currentColumnId = columnId;
+
+                if (taskId) {
+                    const found = findTask(taskId);
+                    if (found && found.type === 'project') {
+                        task = found.task;
+                        currentColumnId = found.column.id;
+                    }
+                }
+
+                const initialContent = task ? task.content : '';
+                const initialDueDate = task && task.dueDate ? task.dueDate : dayjs().format('YYYY-MM-DD');
+                const initialTime = task && task.time ? task.time : '09:00';
+                const initialUrgent = task ? task.urgent : false;
+                const initialLabels = task && task.labels ? task.labels.join(', ') : '';
+                const allTags = getAllProjectTags(chatId).map(t => `<span class="inline-block bg-gray-200 text-gray-800 text-xs px-2 py-1 rounded-full mr-1 mb-1 cursor-pointer" data-tag="${t}">${t}</span>`).join('');
+
+                const result = await showModal({
+                    title: task ? 'Editar Tarea del Proyecto' : 'Añadir Tarea al Proyecto',
+                    body: `
+                        <label for="task-content" class="block text-sm font-medium mb-1">Descripción de la Tarea</label>
+                        <textarea id="task-content" class="w-full p-2 rounded bg-input border border-themed h-24 mb-3" placeholder="Describe la tarea detalladamente">${initialContent}</textarea>
+                        
+                        <label for="task-due-date" class="block text-sm font-medium mb-1">Fecha Límite</label>
+                        <input type="date" id="task-due-date" class="w-full p-2 rounded bg-input border border-themed mb-3" value="${initialDueDate}">
+                        
+                        <label for="task-time" class="block text-sm font-medium mb-1">Hora (Opcional)</label>
+                        <input type="time" id="task-time" class="w-full p-2 rounded bg-input border border-themed mb-3" value="${initialTime}">
+                        
+                        <div class="flex items-center mb-3">
+                            <input type="checkbox" id="task-urgent" class="mr-2" ${initialUrgent ? 'checked' : ''}>
+                            <label for="task-urgent" class="text-sm font-medium">Marcar como Urgente</label>
+                        </div>
+
+                        <label for="task-column" class="block text-sm font-medium mb-1">Estado</label>
+                        <select id="task-column" class="w-full p-2 rounded bg-input border border-themed mb-3">
+                            ${chat.projectData.columns.map(col => `<option value="${col.id}" ${col.id === currentColumnId ? 'selected' : ''}>${col.title}</option>`).join('')}
+                        </select>
+
+                        <label for="task-labels" class="block text-sm font-medium mb-1">Etiquetas (separadas por comas)</label>
+                        <input type="text" id="task-labels" class="w-full p-2 rounded bg-input border border-themed mb-2" value="${initialLabels}" placeholder="Ej: diseño, marketing, urgente">
+                        <div class="text-xs text-text-medium mb-3">Etiquetas sugeridas: ${allTags}</div>
+                    `,
+                    confirmText: task ? 'Actualizar Tarea' : 'Añadir Tarea'
+                });
+
+                if (result.confirmed) {
+                    const newContent = result.data['task-content'].trim();
+                    const newDueDate = result.data['task-due-date'];
+                    const newTime = result.data['task-time'] || null;
+                    const newUrgent = result.data['task-urgent'];
+                    const newColumnId = result.data['task-column'];
+                    const newLabels = result.data['task-labels'].split(',').map(tag => tag.trim()).filter(tag => tag !== '');
+
+                    if (!newContent) return;
+
+                    if (task) {
+                        // Update existing task
+                        const oldColumn = chat.projectData.columns.find(col => col.tasks.includes(task));
+                        if (oldColumn.id !== newColumnId) {
+                            // Move task to new column
+                            oldColumn.tasks = oldColumn.tasks.filter(t => t.id !== task.id);
+                            const targetColumn = chat.projectData.columns.find(col => col.id === newColumnId);
+                            if (!targetColumn.tasks) targetColumn.tasks = [];
+                            targetColumn.tasks.push(task);
+                        }
+                        task.content = newContent;
+                        task.dueDate = newDueDate;
+                        task.time = newTime;
+                        task.urgent = newUrgent;
+                        task.labels = newLabels;
+                        task.completed = (newColumnId === 'done'); // Update completed status based on column
+                    } else {
+                        // Add new task
+                        const newTask = {
+                            id: `proj-${crypto.randomUUID()}`,
+                            content: newContent,
+                            dueDate: newDueDate,
+                            time: newTime,
+                            urgent: newUrgent,
+                            labels: newLabels,
+                            completed: (newColumnId === 'done')
+                        };
+                        const targetColumn = chat.projectData.columns.find(col => col.id === newColumnId);
+                        if (!targetColumn.tasks) targetColumn.tasks = [];
+                        targetColumn.tasks.push(newTask);
+                    }
+                    saveState();
+                    renderProjectBoard(chatId);
+                    updateNotificationBadge();
+                }
+            }
+
+            function toggleTaskUrgency(chatId, taskId) {
+                const chat = state.chats[chatId];
+                if (!chat || !chat.projectData) return;
+
+                const found = findTask(taskId);
+                if (found && found.type === 'project') {
+                    found.task.urgent = !found.task.urgent;
+                    saveState();
+                    renderProjectBoard(chatId);
+                }
+            }
+
+            function getAllProjectTags(chatId) {
+                const chat = state.chats[chatId];
+                if (!chat || !chat.projectData) return [];
+                const allLabels = new Set();
+                chat.projectData.columns.forEach(column => {
+                    (column.tasks || []).forEach(task => {
+                        (task.labels || []).forEach(label => allLabels.add(label));
                     });
                 });
+                return Array.from(allLabels);
             }
 
             function renderTagFilter(chatId) {
-                const { projectData } = state.chats[chatId];
-                const allTasks = projectData.columns.flatMap(col => col.tasks);
-                const allLabels = [...new Set(allTasks.flatMap(task => task.labels || []))];
-                
-                const dropdown = dom.tagFilterDropdown;
-                dropdown.innerHTML = '';
-                
-                const clearFilterBtn = document.createElement('button');
-                clearFilterBtn.className = 'block w-full text-left p-1 text-xs rounded hover:bg-medium';
-                clearFilterBtn.textContent = 'Limpiar Filtro';
-                clearFilterBtn.onclick = () => {
-                    activeTagFilter = null;
-                    dropdown.classList.add('hidden');
-                    renderProjectBoard(chatId);
-                };
-                dropdown.appendChild(clearFilterBtn);
+                const allTags = getAllProjectTags(chatId);
+                dom.tagFilterDropdown.innerHTML = '';
+                if (allTags.length === 0) {
+                    dom.tagFilterBtn.classList.add('hidden');
+                    return;
+                }
+                dom.tagFilterBtn.classList.remove('hidden');
 
-                allLabels.forEach(label => {
-                    const labelBtn = document.createElement('button');
-                    labelBtn.className = 'block w-full text-left p-1 text-xs rounded hover:bg-medium';
-                    labelBtn.innerHTML = `<span class="inline-block w-3 h-3 rounded-full mr-2" style="background-color: ${getLabelColor(label)}"></span> ${label}`;
-                    labelBtn.onclick = () => {
-                        activeTagFilter = label;
-                        dropdown.classList.add('hidden');
+                const allOption = document.createElement('button');
+                allOption.className = 'w-full text-left p-2 rounded hover:bg-medium text-sm';
+                allOption.textContent = 'Todas';
+                allOption.addEventListener('click', () => {
+                    activeTagFilter = null;
+                    dom.tagFilterDropdown.classList.add('hidden');
+                    renderProjectBoard(chatId);
+                });
+                dom.tagFilterDropdown.appendChild(allOption);
+
+                allTags.forEach(tag => {
+                    const tagBtn = document.createElement('button');
+                    tagBtn.className = 'w-full text-left p-2 rounded hover:bg-medium text-sm';
+                    tagBtn.textContent = tag;
+                    tagBtn.addEventListener('click', () => {
+                        activeTagFilter = tag;
+                        dom.tagFilterDropdown.classList.add('hidden');
                         renderProjectBoard(chatId);
-                    };
-                    dropdown.appendChild(labelBtn);
+                    });
+                    dom.tagFilterDropdown.appendChild(tagBtn);
                 });
 
-                dom.tagFilterBtn.onclick = () => dropdown.classList.toggle('hidden');
+                dom.tagFilterBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    dom.tagFilterDropdown.classList.toggle('hidden');
+                };
             }
-
 
             function getLabelColor(label) {
-                const colors = ['#4F46E5', '#DB2777', '#16A34A', '#D97706', '#0E7490', '#6D28D9'];
-                let hash = 0;
-                for (let i = 0; i < (label||'').length; i++) {
-                    hash = label.charCodeAt(i) + ((hash << 5) - hash);
-                }
-                return colors[Math.abs(hash) % colors.length];
+                const colors = {
+                    'marketing': '#FF5733', 'diseño': '#33FF57', 'desarrollo': '#3357FF',
+                    'urgente': '#EF4444', 'personal': '#8A4FFF', 'investigación': '#FFC300',
+                    'ventas': '#FF33A1', 'contenido': '#33FFF6', 'reunión': '#A133FF',
+                    'default': '#6B7280'
+                };
+                return colors[label.toLowerCase()] || colors['default'];
             }
 
-
-            function moveTask(chatId, taskId, targetColumnId) {
-                const { projectData } = state.chats[chatId];
-                let sourceColumn, taskIndex;
-
-                for (const col of projectData.columns) {
-                    const idx = col.tasks.findIndex(t => t.id === taskId);
-                    if (idx > -1) {
-                        sourceColumn = col;
-                        taskIndex = idx;
-                        break;
+            async function editCalendarTask(taskId = null, date = null, time = null) {
+                let task = null;
+                if (taskId) {
+                    const found = findTask(taskId);
+                    if (found && found.type === 'personal') {
+                        task = found.task;
+                        date = found.dayKey;
                     }
                 }
+                date = date || dayjs().format('YYYY-MM-DD');
+                time = time || (task ? task.time : null);
 
-                if (sourceColumn && sourceColumn.id !== targetColumnId) {
-                    const [task] = sourceColumn.tasks.splice(taskIndex, 1);
-                    const targetColumn = projectData.columns.find(c => c.id === targetColumnId);
-                    task.completed = targetColumnId === 'done';
-                    targetColumn.tasks.push(task);
-                    saveState();
-                    renderProjectBoard(chatId);
-                }
-            }
-
-            async function editProjectTask(chatId, taskId, columnIdForNewTask = null) {
-                const task = taskId ? findTask(taskId)?.task : null;
-                const title = task ? 'Editar Tarea' : 'Nueva Tarea';
-                const content = task ? task.content : '';
-                const labels = task ? (task.labels || []).join(', ') : '';
-                const dueDate = task ? task.dueDate : '';
-                const time = task ? task.time : '';
-                const urgent = task ? task.urgent : false;
-
-                const body = `
-                    <div class="space-y-3">
-                        <div>
-                            <label for="task-content" class="block text-sm font-medium text-text-medium">Contenido</label>
-                            <textarea id="task-content" class="w-full p-2 rounded bg-input border border-themed mt-1" rows="3">${content}</textarea>
-                        </div>
-                        <div>
-                            <label for="task-labels" class="block text-sm font-medium text-text-medium">Etiquetas (separadas por comas)</label>
-                            <input type="text" id="task-labels" value="${labels}" class="w-full p-2 rounded bg-input border border-themed mt-1">
-                        </div>
-                        <div class="grid grid-cols-2 gap-2">
-                            <div>
-                                <label for="task-duedate" class="block text-sm font-medium text-text-medium">Fecha Límite</p>
-                                <input type="date" id="task-duedate" value="${dueDate}" class="w-full p-2 rounded bg-input border border-themed mt-1">
-                            </div>
-                            <div>
-                                <label for="task-time" class="block text-sm font-medium text-text-medium">Hora</p>
-                                <input type="time" id="task-time" value="${time}" class="w-full p-2 rounded bg-input border border-themed mt-1">
-                            </div>
-                        </div>
-                         <div>
-                            <label class="flex items-center gap-2 cursor-pointer">
-                                <input type="checkbox" id="task-urgent" class="rounded" ${urgent ? 'checked' : ''}>
-                                <span class="text-sm font-medium">Marcar como Urgente</span>
-                            </label>
-                        </div>
-                    </div>`;
+                const initialContent = task ? task.content : '';
+                const initialCompleted = task ? task.completed : false;
 
                 const result = await showModal({
-                    title,
-                    body,
-                    confirmText: task ? 'Guardar Cambios' : 'Crear Tarea',
-                    extraButtons: task ? [{ id: 'delete-task-btn', text: 'Eliminar Tarea', classes: 'px-4 py-2 rounded bg-red-600 text-white', action: () => deleteTask(chatId, taskId) }] : []
+                    title: task ? 'Editar Tarea' : `${translations[localStorage.getItem('goatify-lang') || 'es'].add_task_for} ${dayjs(date).format('D MMMM')}`,
+                    body: `
+                        <label for="task-content" class="block text-sm font-medium mb-1">Descripción de la Tarea</label>
+                        <textarea id="task-content" class="w-full p-2 rounded bg-input border border-themed h-24 mb-3" placeholder="${translations[localStorage.getItem('goatify-lang') || 'es'].calendar_add_task_placeholder}">${initialContent}</textarea>
+                        
+                        <label for="task-time" class="block text-sm font-medium mb-1">Hora (Opcional)</label>
+                        <input type="time" id="task-time" class="w-full p-2 rounded bg-input border border-themed mb-3" value="${time || ''}">
+                        
+                        <div class="flex items-center">
+                            <input type="checkbox" id="task-completed" class="mr-2" ${initialCompleted ? 'checked' : ''}>
+                            <label for="task-completed" class="text-sm font-medium">Marcar como Completada</label>
+                        </div>
+                    `,
+                    confirmText: task ? 'Guardar Cambios' : 'Añadir Tarea'
                 });
 
                 if (result.confirmed) {
-                    const newContent = result.data['task-content'];
+                    const newContent = result.data['task-content'].trim();
+                    const newTime = result.data['task-time'] || null;
+                    const newCompleted = result.data['task-completed'];
                     if (!newContent) return;
 
-                    const newLabels = result.data['task-labels'].split(',').map(l => l.trim()).filter(Boolean);
-                    const newDueDate = result.data['task-duedate'];
-                    const newTime = result.data['task-time'];
-                    const newUrgent = result.data['task-urgent'];
-
                     if (task) {
-                        Object.assign(task, { content: newContent, labels: newLabels, dueDate: newDueDate, time: newTime, urgent: newUrgent });
-                    } else {
-                        const column = state.chats[chatId].projectData.columns.find(c => c.id === (columnIdForNewTask || 'todo'));
-                        if (column) {
-                           if(!column.tasks) column.tasks = [];
-                           column.tasks.push({ id: `proj-${crypto.randomUUID()}`, content: newContent, completed: false, labels: newLabels, dueDate: newDueDate, time: newTime, urgent: newUrgent });
-                        }
-                    }
-                    saveState();
-                    renderProjectBoard(chatId);
-                }
-            }
-            
-            async function deleteTask(chatId, taskId) {
-                 const chat = state.chats[chatId];
-                 if (!chat || !chat.projectData) return;
-
-                 for(const column of chat.projectData.columns) {
-                    const taskIndex = column.tasks.findIndex(t => t.id === taskId);
-                    if(taskIndex > -1) {
-                        column.tasks.splice(taskIndex, 1);
-                        break;
-                    }
-                 }
-                 await saveState();
-                 renderProjectBoard(chatId);
-                 hideModal();
-            }
-
-
-            async function editCalendarTask(taskId, dateForNewTask = null, timeForNewTask = null) {
-                 const found = taskId ? findTask(taskId) : null;
-                 const task = found ? found.task : null;
-
-                const title = task ? 'Editar Tarea Personal' : 'Nueva Tarea Personal';
-                const content = task ? task.content : '';
-                const date = task ? task.date : (dateForNewTask || selectedCalendarDate.format('YYYY-MM-DD'));
-                const time = task ? task.time : (timeForNewTask || '');
-
-                const body = `
-                    <div class="space-y-3">
-                        <div>
-                            <label for="cal-task-content" class="block text-sm font-medium text-text-medium">Contenido</label>
-                            <textarea id="cal-task-content" class="w-full p-2 rounded bg-input border border-themed mt-1" rows="3">${content}</textarea>
-                        </div>
-                        <div class="grid grid-cols-2 gap-2">
-                             <div>
-                                <label for="cal-task-date" class="block text-sm font-medium text-text-medium">Fecha</p>
-                                <input type="date" id="cal-task-date" value="${date}" class="w-full p-2 rounded bg-input border border-themed mt-1">
-                            </div>
-                            <div>
-                                <label for="cal-task-time" class="block text-sm font-medium text-text-medium">Hora</p>
-                                <input type="time" id="cal-task-time" value="${time}" class="w-full p-2 rounded bg-input border border-themed mt-1">
-                            </div>
-                        </div>
-                    </div>`;
-
-                 const extraButtons = task ? [{ id: 'delete-cal-task-btn', text: 'Eliminar Tarea', classes: 'px-4 py-2 rounded bg-red-600 text-white', action: () => {
-                     deleteCalendarTask(taskId);
-                     hideModal();
-                 }}] : [];
-
-                const result = await showModal({ title, body, confirmText: task ? 'Guardar' : 'Crear', extraButtons });
-                if (result.confirmed) {
-                    const newContent = result.data['cal-task-content'];
-                    if (!newContent) return;
-                    
-                    const newDate = result.data['cal-task-date'];
-                    const newTime = result.data['cal-task-time'];
-
-                    if (task) {
-                        const oldDate = found.dayKey;
                         task.content = newContent;
                         task.time = newTime;
-                        
-                        if(oldDate !== newDate) {
-                            state.calendar[oldDate].splice(found.taskIndex, 1);
-                             if(state.calendar[oldDate].length === 0) delete state.calendar[oldDate];
-                            if(!state.calendar[newDate]) state.calendar[newDate] = [];
-                            state.calendar[newDate].push(task);
-                        }
-
+                        task.completed = newCompleted;
                     } else {
-                         if (!state.calendar[newDate]) state.calendar[newDate] = [];
-                         state.calendar[newDate].push({
-                             id: `cal-${crypto.randomUUID()}`,
-                             content: newContent,
-                             completed: false,
-                             date: newDate,
-                             time: newTime
-                         });
+                        const newTaskId = `cal-${crypto.randomUUID()}`;
+                        if (!state.calendar[date]) state.calendar[date] = [];
+                        state.calendar[date].push({
+                            id: newTaskId,
+                            content: newContent,
+                            time: newTime,
+                            completed: newCompleted,
+                            source: 'Personal'
+                        });
                     }
                     saveState();
                     renderCalendarView();
+                    updateNotificationBadge();
                 }
             }
 
-            function deleteCalendarTask(taskId) {
-                const found = findTask(taskId);
-                if (found && found.type === 'personal') {
-                    state.calendar[found.dayKey].splice(found.taskIndex, 1);
-                    if(state.calendar[found.dayKey].length === 0) delete state.calendar[found.dayKey];
-                    saveState();
-                    renderCalendarView();
-                }
-            }
 
-            // --- GAMIFICATION LOGIC ---
+            // --- GAMIFICATION FUNCTIONS ---
             function loadGamificationState() {
-                const defaultState = {
-                    level: 1, xp: 0, credits: 0,
-                    lastLogin: null, streak: 0,
-                    completedMissions: [], completedAchievements: [],
-                    streakChestClaimed: false
-                };
-                const key = `gamification_${currentUser?.id || 'guest'}`;
-                const saved = localStorage.getItem(key);
-                gamificationState = saved ? JSON.parse(saved) : defaultState;
-                checkStreak();
+                const userKey = currentUser ? currentUser.id : 'guest';
+                const savedState = localStorage.getItem(`gamificationState_${userKey}`);
+                if (savedState) {
+                    gamificationState = JSON.parse(savedState);
+                } else {
+                    gamificationState = {
+                        xp: 0,
+                        level: 1,
+                        credits: 0,
+                        streak: 0,
+                        lastLoginDate: null,
+                        completedMissions: {},
+                        unlockedAchievements: {}
+                    };
+                }
+                checkDailyStreak();
+                renderGamificationModal();
+                updateCreditCounter();
             }
 
             function saveGamificationState() {
-                const key = `gamification_${currentUser?.id || 'guest'}`;
-                localStorage.setItem(key, JSON.stringify(gamificationState));
+                const userKey = currentUser ? currentUser.id : 'guest';
+                localStorage.setItem(`gamificationState_${userKey}`, JSON.stringify(gamificationState));
                 updateGamificationUI();
                 updateCreditCounter();
             }
-            
-            function updateGamificationUI() {
-                dom.gamificationLevelName.textContent = `Nivel ${gamificationState.level}: ${LEVEL_NAMES[gamificationState.level - 1]}`;
-                const xpForNextLevel = XP_FOR_LEVEL[gamificationState.level];
-                const xpForCurrentLevel = XP_FOR_LEVEL[gamificationState.level - 1];
-                const progressInLevel = gamificationState.xp - xpForCurrentLevel;
-                const totalXpForLevel = xpForNextLevel - xpForCurrentLevel;
-                const percentage = (progressInLevel / totalXpForLevel) * 100;
 
-                dom.gamificationXp.textContent = `${gamificationState.xp} / ${xpForNextLevel} XP`;
-                dom.gamificationXpBar.style.width = `${Math.min(100, percentage)}%`;
-                dom.gamificationCredits.innerHTML = `<i class="fas fa-coins mr-1"></i>${gamificationState.credits} Créditos`;
+            function addXP(amount) {
+                gamificationState.xp += amount;
+                while (gamificationState.xp >= XP_FOR_LEVEL[gamificationState.level]) {
+                    gamificationState.xp -= XP_FOR_LEVEL[gamificationState.level]; // Subtract previous level's XP, keep remainder
+                    gamificationState.level++;
+                    showModal({
+                        title: `¡Felicidades, Nivel ${gamificationState.level}!`,
+                        body: `<p class="text-center text-lg">Has alcanzado el nivel <strong>${LEVEL_NAMES[gamificationState.level - 1]}</strong>. ¡Sigue así!</p>`,
+                        confirmText: 'Genial'
+                    });
+                }
+                saveGamificationState();
+            }
+
+            function addCredits(amount) {
+                gamificationState.credits += amount;
+                saveGamificationState();
+            }
+
+            function checkDailyStreak() {
+                const today = dayjs().format('YYYY-MM-DD');
+                const lastLogin = gamificationState.lastLoginDate;
+
+                if (lastLogin !== today) {
+                    const yesterday = dayjs().subtract(1, 'day').format('YYYY-MM-DD');
+                    if (lastLogin === yesterday) {
+                        gamificationState.streak++;
+                    } else {
+                        gamificationState.streak = 1; // Reset if not consecutive
+                    }
+                    addXP(10); // Daily login XP
+                    addCredits(5); // Daily login credits
+                    gamificationState.lastLoginDate = today;
+                    saveGamificationState();
+                }
+            }
+
+            function completeMission(missionId, triggerChatId = null) {
+                const mission = MISSIONS[missionId];
+                if (!mission || gamificationState.completedMissions[missionId]) return;
+
+                let missionCompleted = false;
+                if (mission.workflow && state.chats[triggerChatId]?.workflow === mission.workflow) {
+                    missionCompleted = true;
+                } else if (mission.action === 'generateImage' && missionId === 'image-generated') {
+                    missionCompleted = true;
+                } else if (mission.condition) {
+                    missionCompleted = mission.condition(triggerChatId);
+                }
+
+                if (missionCompleted) {
+                    gamificationState.completedMissions[missionId] = true;
+                    addXP(mission.xp);
+                    addCredits(mission.credits);
+                    showModal({
+                        title: `¡Misión Cumplida: ${mission.text}!`,
+                        body: `<p class="text-center text-lg">Has ganado ${mission.xp} XP y ${mission.credits} créditos.</p>`,
+                        confirmText: 'Entendido'
+                    });
+                    saveGamificationState();
+                }
+            }
+
+            function unlockAchievement(achievementId) {
+                const achievement = ACHIEVEMENTS[achievementId];
+                if (!achievement || gamificationState.unlockedAchievements[achievementId]) return;
+
+                gamificationState.unlockedAchievements[achievementId] = true;
+                addXP(achievement.xp);
+                addCredits(achievement.credits);
+                showModal({
+                    title: `¡Logro Desbloqueado: ${achievement.title}!`,
+                    body: `<p class="text-center text-lg">${achievement.description}</p>${achievement.reward ? `<p class="text-center text-gold font-bold mt-2">Recompensa: ${achievement.reward}</p>` : ''}`,
+                    confirmText: 'Increíble'
+                });
+                saveGamificationState();
+            }
+
+            function checkWeekOrganized(chatId) {
+                const today = dayjs();
+                let tasksCount = 0;
+                for (let i = 0; i < 7; i++) {
+                    const day = today.startOf('isoWeek').add(i, 'day').format('YYYY-MM-DD');
+                    const tasks = getTasksForDay(day);
+                    if (tasks.length > 0) tasksCount++;
+                }
+                return tasksCount === 7;
+            }
+
+            function checkProjectCreated(chatId, minTasks) {
+                const chat = state.chats[chatId];
+                if (!chat || !chat.projectData) return false;
+                const totalTasks = chat.projectData.columns.reduce((sum, col) => sum + (col.tasks || []).length, 0);
+                return totalTasks >= minTasks;
             }
 
             function renderGamificationModal() {
-                 updateGamificationUI();
-                 renderStreakView();
-                 renderMissionsView();
-                 renderAchievementsView();
-            }
+                updateGamificationUI();
 
-            function checkStreak() {
-                const today = dayjs().format('YYYY-MM-DD');
-                if (!gamificationState.lastLogin) { // First login
-                    gamificationState.lastLogin = today;
-                    gamificationState.streak = 1;
-                    addReward(10, 5, 'Primera visita del día');
-                } else {
-                    const lastLoginDate = dayjs(gamificationState.lastLogin);
-                    const diff = dayjs(today).diff(lastLoginDate, 'day');
-                    if (diff === 1) { // Consecutive day
-                        gamificationState.streak++;
-                        gamificationState.lastLogin = today;
-                        gamificationState.streakChestClaimed = false; // Reset chest claim
-                        const xpReward = 10 + Math.min(gamificationState.streak * 2, 40); // Cap XP reward
-                        const creditReward = 5 + Math.min(gamificationState.streak, 20); // Cap credit reward
-                        addReward(xpReward, creditReward, `Racha de ${gamificationState.streak} días`);
-                    } else if (diff > 1) { // Streak broken
-                        gamificationState.streak = 1;
-                        gamificationState.lastLogin = today;
-                         addReward(10, 5, 'Racha reiniciada, ¡vamos de nuevo!');
-                    }
-                }
-                saveGamificationState();
-            }
-            
-            function addReward(xp, credits, reason) {
-                gamificationState.xp += xp;
-                gamificationState.credits += credits;
-                checkLevelUp();
-                // TODO: Maybe add a small visual notification for the reward
-                console.log(`Reward: +${xp}XP, +${credits}🪙. Reason: ${reason}`);
-            }
-
-            function checkLevelUp() {
-                while (gamificationState.xp >= XP_FOR_LEVEL[gamificationState.level]) {
-                    gamificationState.level++;
-                    const levelUpTitle = `¡Subiste de Nivel!`;
-                    const levelUpBody = `¡Felicidades! Has alcanzado el Nivel ${gamificationState.level}: **${LEVEL_NAMES[gamificationState.level-1]}**. ¡Sigue así, futuro G.O.A.T.!`;
-                    showModal({ title: levelUpTitle, body: levelUpBody, showCancel: false, confirmText: '¡Genial!' });
-                }
-            }
-            
-            function renderStreakView() {
-                const container = dom.dailyStreakContainer;
-                container.innerHTML = '';
+                // Render Daily Streak
+                dom.dailyStreakContainer.innerHTML = '';
+                const today = dayjs();
                 for (let i = 1; i <= 7; i++) {
                     const dayEl = document.createElement('div');
-                    dayEl.className = 'streak-day flex flex-col items-center justify-center p-4 rounded-lg';
-                    const isCompleted = i <= gamificationState.streak;
-                    const isToday = i === gamificationState.streak;
-                    
-                    if (isCompleted) dayEl.classList.add('completed');
-                    if (isToday) dayEl.classList.add('active');
+                    dayEl.className = `streak-day flex flex-col items-center justify-center p-2 rounded-lg`;
+                    const dayNumber = today.startOf('isoWeek').add(i - 1, 'day').date();
+                    const dayName = today.startOf('isoWeek').add(i - 1, 'day').format('ddd');
 
-                    let icon = i < 7 ? `<i class="fas fa-check text-2xl"></i>` : `<i class="fas fa-gift text-2xl"></i>`;
-                    if(i === 7 && isCompleted && gamificationState.streakChestClaimed) {
-                        icon = `<i class="fas fa-lock-open text-2xl"></i>`;
+                    let icon = '';
+                    let extraClass = '';
+                    if (i <= gamificationState.streak) {
+                        extraClass = 'completed';
+                        if (i === gamificationState.streak) {
+                            if (gamificationState.lastLoginDate === today.format('YYYY-MM-DD')) {
+                                extraClass = 'active'; // Today's completed streak
+                            }
+                        }
                     }
-                    
-                    dayEl.innerHTML = `
-                        <p class="font-bold text-sm">Día ${i}</p>
-                        <div class="my-2">${icon}</div>
-                    `;
-                    
-                    if(isCompleted && i === 7 && !gamificationState.streakChestClaimed) {
-                         dayEl.classList.add('cursor-pointer', 'hover:opacity-80');
-                         dayEl.title = '¡Haz clic para reclamar tu cofre semanal!';
-                         dayEl.addEventListener('click', claimWeeklyChest);
+
+                    if (i === 7) {
+                        icon = '<i class="fas fa-gift text-2xl mb-1"></i>';
+                    } else {
+                        icon = `<span class="text-2xl font-bold mb-1">${dayNumber}</span>`;
                     }
-                    container.appendChild(dayEl);
+
+                    dayEl.innerHTML = `${icon}<span class="text-xs text-text-medium">${dayName}</span>`;
+                    dayEl.classList.add(extraClass);
+                    dom.dailyStreakContainer.appendChild(dayEl);
                 }
-            }
 
-            function claimWeeklyChest() {
-                const rewards = [
-                    { type: 'credits', value: 100, text: '¡100 créditos de recompensa!' },
-                    { type: 'credits', value: 150, text: '¡Un bono masivo de 150 créditos!' },
-                    { type: 'discount', value: 25, text: '¡Un cupón de 25% de descuento en tu primer mes de GOAT PRO!' },
-                    { type: 'consulting', value: 1, text: '¡Una asesoría estratégica de IA de 30 minutos, GRATIS!' }
-                ];
-                const reward = rewards[Math.floor(Math.random() * rewards.length)];
-
-                showModal({
-                    title: '<i class="fas fa-gift text-gold mr-2"></i>¡Cofre GOAT Reclamado!',
-                    body: `<p class="text-lg text-center">¡Felicidades por tu racha de 7 días! Has ganado:</p><p class="text-2xl font-bold text-center text-primary my-4">${reward.text}</p>`,
-                    showCancel: false,
-                    confirmText: '¡Increíble!'
-                });
-
-                if (reward.type === 'credits') {
-                    addReward(100, reward.value, 'Cofre GOAT semanal');
-                } else {
-                    addReward(250, 0, 'Cofre GOAT semanal (premio especial)');
-                    // TODO: Handle special rewards like discounts or consulting
-                }
-                
-                gamificationState.streakChestClaimed = true;
-                saveGamificationState();
-                renderStreakView();
-            }
-
-            function renderMissionsView() {
-                const container = dom.missionsContainer;
-                container.innerHTML = '';
+                // Render Missions
+                dom.missionsContainer.innerHTML = '';
                 Object.values(MISSIONS).forEach(mission => {
-                    const isCompleted = gamificationState.completedMissions.includes(mission.id);
                     const missionEl = document.createElement('div');
+                    const isCompleted = gamificationState.completedMissions[mission.id];
                     missionEl.className = `mission-item flex items-center justify-between p-3 bg-current-bg-light rounded-lg ${isCompleted ? 'completed' : ''}`;
                     missionEl.innerHTML = `
-                        <div>
-                            <p class="font-semibold">${mission.text}</p>
-                            <p class="text-sm text-primary font-bold">+${mission.xp} XP <span class="text-gold ml-2">+${mission.credits} 🪙</span></p>
-                        </div>
-                        <button data-mission-id="${mission.id}" class="btn-primary px-3 py-1 text-sm rounded-md" ${isCompleted ? 'disabled' : ''}>${isCompleted ? 'Completada' : 'Hacer'}</button>
+                        <span class="text-sm font-semibold">${mission.text}</span>
+                        <button class="btn-primary text-xs px-3 py-1 rounded ${isCompleted ? 'opacity-50 cursor-default' : ''}" data-mission-id="${mission.id}" ${isCompleted ? 'disabled' : ''}>
+                            ${isCompleted ? 'Completada' : `+${mission.xp} XP`}
+                        </button>
                     `;
-                    container.appendChild(missionEl);
+                    dom.missionsContainer.appendChild(missionEl);
                 });
-            }
 
-            function renderAchievementsView() {
-                 const container = dom.achievementsContainer;
-                 container.innerHTML = '';
-                 Object.values(ACHIEVEMENTS).forEach(ach => {
-                    const isUnlocked = gamificationState.completedAchievements.includes(ach.id);
-                    const achEl = document.createElement('div');
-                    achEl.className = `achievement-badge flex flex-col items-center justify-center p-4 rounded-lg text-center ${isUnlocked ? 'unlocked' : ''}`;
-                    achEl.innerHTML = `
-                        <i class="fas ${ach.icon} fa-3x mb-2"></i>
-                        <h4 class="font-bold">${ach.title}</h4>
-                        <p class="text-xs text-text-medium mt-1">${ach.description}</p>
-                        ${isUnlocked ? `<p class="text-xs text-gold font-bold mt-2">+${ach.xp} XP</p>` : ''}
+                // Render Achievements
+                dom.achievementsContainer.innerHTML = '';
+                Object.values(ACHIEVEMENTS).forEach(achievement => {
+                    const achievementEl = document.createElement('div');
+                    const isUnlocked = gamificationState.unlockedAchievements[achievement.id];
+                    achievementEl.className = `achievement-badge flex flex-col items-center justify-center p-3 rounded-lg text-center ${isUnlocked ? 'unlocked' : ''}`;
+                    achievementEl.innerHTML = `
+                        <i class="fas ${achievement.icon} fa-3x mb-2 ${isUnlocked ? 'text-gold' : 'text-text-medium'}"></i>
+                        <p class="font-bold text-sm mb-1">${achievement.title}</p>
+                        <p class="text-xxs text-text-medium">${achievement.description}</p>
+                        ${isUnlocked && achievement.reward ? `<p class="text-xxs text-gold mt-1 font-semibold">${achievement.reward}</p>` : ''}
                     `;
-                     container.appendChild(achEl);
-                 });
+                    dom.achievementsContainer.appendChild(achievementEl);
+                });
             }
 
-            function completeMission(missionId, chatId = null) {
-                const mission = MISSIONS[missionId];
-                if (!mission || gamificationState.completedMissions.includes(missionId)) {
-                    return;
+            function updateGamificationUI() {
+                const currentLevelXP = gamificationState.xp;
+                const nextLevelXPNeeded = XP_FOR_LEVEL[gamificationState.level] - XP_FOR_LEVEL[gamificationState.level - 1]; // XP needed for current level
+                const xpProgress = currentLevelXP / nextLevelXPNeeded;
+
+                dom.gamificationLevelName.textContent = `Nivel ${gamificationState.level}: ${LEVEL_NAMES[gamificationState.level - 1]}`;
+                dom.gamificationXp.textContent = `${currentLevelXP} / ${nextLevelXPNeeded} XP`;
+                dom.gamificationCredits.textContent = `🪙 ${gamificationState.credits} Créditos`;
+                dom.gamificationXpBar.style.width = `${Math.min(100, xpProgress * 100)}%`;
+            }
+
+            // End of Gamification Functions
+
+
+            // Netlify Identity setup
+            netlifyIdentity.on('init', user => {
+                dom.loadingOverlay.classList.add('opacity-0');
+                dom.appContainer.classList.add('opacity-100');
+                setTimeout(() => dom.loadingOverlay.remove(), 300);
+
+                currentUser = user;
+                if (user) {
+                    console.log('Logged in as %s', user.user_metadata.full_name || user.email);
+                } else {
+                    console.log('User is not logged in');
                 }
-                // Check custom condition if it exists
-                if (mission.condition && !mission.condition(chatId)) {
-                     return;
-                }
-
-                gamificationState.completedMissions.push(missionId);
-                addReward(mission.xp, mission.credits, `Misión completada: ${mission.text}`);
-                saveGamificationState();
-
-                showModal({
-                    title: '<i class="fas fa-star text-yellow-400 mr-2"></i>¡Misión Cumplida!',
-                    body: `<p class="text-lg text-center">¡Completaste "${mission.text}"!</p><p class="text-xl font-bold text-center mt-2">+${mission.xp} XP & +${mission.credits} 🪙</p>`,
-                    showCancel: false, confirmText: '¡A seguir!'
-                });
-            }
-
-            function checkWeekOrganized() {
-                 const startOfWeek = dayjs().startOf('isoWeek');
-                 for(let i = 0; i < 7; i++) {
-                    const dayKey = startOfWeek.add(i, 'day').format('YYYY-MM-DD');
-                    if(getTasksForDay(dayKey).length === 0) {
-                        return false;
-                    }
-                 }
-                 return true;
-            }
-
-            function checkProjectCreated(chatId, taskCount) {
-                const chat = state.chats[chatId];
-                if (chat && chat.projectData) {
-                    const totalTasks = chat.projectData.columns.reduce((sum, col) => sum + (col.tasks ? col.tasks.length : 0), 0);
-                    return totalTasks >= taskCount;
-                }
-                return false;
-            }
-
-            // --- END GAMIFICATION LOGIC ---
-
-
-            async function init() {
-                netlifyIdentity.on('init', user => {
-                    currentUser = user;
-                    updateUserUI();
-                    loadStateForUser();
-                });
-                netlifyIdentity.on('login', user => {
-                    currentUser = user;
-                    updateUserUI();
-                    loadStateForUser();
-                    dom.userMenuPopup.classList.add('hidden');
-                });
-                netlifyIdentity.on('logout', () => {
-                    currentUser = null;
-                    updateUserUI();
-                    loadStateForUser();
-                });
-
-                setTheme(localStorage.getItem('theme') === 'light' ? false : true);
-                const savedLang = localStorage.getItem('goatify-lang') || 'es';
-                setLanguage(savedLang);
-                dom.languageSelector.value = savedLang;
-                
+                loadStateForUser();
+                updateUserUI();
                 populateVoiceList();
-                setupEventListeners();
-                
-                // Allow UI to render before hiding loader
-                setTimeout(() => {
-                    dom.loadingOverlay.classList.add('opacity-0');
-                    dom.appContainer.classList.remove('opacity-0');
-                    setTimeout(() => dom.loadingOverlay.style.display = 'none', 300);
-                }, 500);
-            }
-            init();
+            });
+
+            netlifyIdentity.on('login', user => {
+                console.log('Logged in as %s', user.user_metadata.full_name || user.email);
+                currentUser = user;
+                loadStateForUser();
+                updateUserUI();
+                netlifyIdentity.close();
+            });
+
+            netlifyIdentity.on('logout', () => {
+                console.log('Logged out');
+                currentUser = null;
+                localStorage.removeItem('guestState'); // Clear guest state on logout
+                localStorage.removeItem(`usage_${currentUser?.id || 'guest'}`); // Clear usage data
+                localStorage.removeItem(`gamificationState_${currentUser?.id || 'guest'}`); // Clear gamification state
+                loadStateForUser();
+                updateUserUI();
+                netlifyIdentity.close();
+            });
+
+            netlifyIdentity.on('error', err => console.error('Error', err));
+            // End Netlify Identity setup
+
+            // Initial load functions
+            const savedTheme = localStorage.getItem('theme');
+            setTheme(savedTheme === 'dark');
+            const savedLang = localStorage.getItem('goatify-lang');
+            setLanguage(savedLang || 'es');
+            setupEventListeners();
+            updateNotificationBadge();
         });
     </script>
 </body>
