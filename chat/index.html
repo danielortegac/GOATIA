@@ -12,6 +12,7 @@
     <script src="https://cdn.jsdelivr.net/npm/dayjs@1.10.7/dayjs.min.js"></script>
     <script src="https://npmcdn.com/dayjs@1.10.7/locale/es.js"></script>
     <script src="https://npmcdn.com/dayjs@1.10.7/plugin/localizedFormat.js"></script>
+    <script src="https://npmcdn.com/dayjs@1.10.7/plugin/isoWeek.js"></script>
     
     <style>
         :root {
@@ -150,16 +151,19 @@
             border-radius: 0.5rem;
             overflow: hidden; 
             width: 100%;
-            max-width: 100%;
             gap: 0.5rem;
         }
-        
-        .pro-controls-bg > div:first-child {
+
+        #pro-controls-left, #pro-controls-right {
             display: flex;
             align-items: center;
             gap: 0.5rem;
-            flex-wrap: wrap; /* Allow wrapping on small screens */
         }
+        
+        #pro-controls-right {
+            flex-shrink: 0;
+        }
+        
 
         .workflow-content { display: none; }
         .workflow-category.open .workflow-content { display: block; }
@@ -239,6 +243,7 @@
             transition: background-color 0.2s ease, border 0.2s ease;
             position: relative;
             border: 2px solid transparent;
+            min-height: 80px;
         }
         .calendar-day:hover {
             background-color: var(--current-bg-light);
@@ -265,7 +270,6 @@
             width: 5px;
             height: 5px;
             border-radius: 50%;
-            background-color: var(--current-primary);
         }
         .calendar-header {
             display: flex;
@@ -388,10 +392,7 @@
             gap: 5px;
             padding: 5px 0;
         }
-        .week-day-section .task-item.task-item-completed {
-            opacity: 0.6;
-            text-decoration: line-through;
-        }
+        
         .day-view-timeline {
             position: relative;
         }
@@ -540,18 +541,52 @@
             border: 2px dashed var(--current-primary);
             background-color: rgba(138, 79, 255, 0.1);
         }
+        
+        /* List View Styles */
+        #list-view {
+            overflow-y: auto;
+            flex-grow: 1;
+        }
+        .list-view-header {
+            display: grid;
+            grid-template-columns: 40px 1fr 100px 100px 120px;
+            gap: 1rem;
+            padding: 0.5rem 1rem;
+            border-bottom: 2px solid var(--current-border-color);
+            font-weight: 700;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            color: var(--current-text-medium);
+        }
         .list-view-column {
             margin-bottom: 1rem;
         }
         .list-view-task {
-            background-color: var(--current-bg-light);
-            padding: 0.5rem 1rem;
-            border-radius: 0.5rem;
-            border-left: 4px solid var(--current-primary);
+            display: grid;
+            grid-template-columns: 40px 1fr 100px 100px 120px;
+            gap: 1rem;
+            align-items: center;
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--current-border-color);
+            cursor: grab;
         }
-        .list-view-task.urgent {
-            border-left-color: var(--urgent-color);
+        .list-view-task:active {
+            cursor: grabbing;
+            background-color: var(--primary);
         }
+        .list-view-task.task-item-completed {
+            background-color: rgba(0,0,0,0.1);
+        }
+        .list-view-task.task-item-completed span,
+        .list-view-task.task-item-completed .task-labels {
+            text-decoration: line-through;
+            opacity: 0.6;
+        }
+        .list-view-task.urgent .task-content-list {
+            border-left: 3px solid var(--urgent-color);
+            padding-left: 10px;
+        }
+        
         .task-labels {
             display: flex;
             gap: 4px;
@@ -672,8 +707,10 @@
             }
             #kanban-view {
                 display: grid;
-                grid-template-columns: repeat(3, 1fr);
+                grid-template-columns: 1fr;
                 overflow-x: hidden;
+                overflow-y: auto;
+                gap: 0.5rem;
             }
             .kanban-column {
                 min-width: 0;
@@ -686,27 +723,7 @@
             .kanban-card {
                 padding: 0.5rem 0.75rem;
             }
-
-            .pro-controls-bg {
-                padding: 0.25rem;
-                flex-wrap: wrap;
-            }
             
-            #main-action-buttons {
-                display: flex;
-                align-items: center;
-                justify-content: space-evenly;
-                width: 100%;
-                gap: 4px;
-            }
-
-            .pro-controls-bg label,
-            .pro-controls-bg select {
-                font-size: 0.75rem;
-                padding-top: 0.125rem;
-                padding-bottom: 0.125rem;
-            }
-
             #services-menu {
                 width: 90vw;
                 max-width: 320px;
@@ -772,6 +789,31 @@
             }
             .achievement-badge .fa-3x {
                 font-size: 1.75em;
+            }
+        }
+        
+        /* Mobile Landscape */
+        @media (max-height: 500px) and (orientation: landscape) {
+            #kanban-view {
+                grid-template-columns: repeat(3, minmax(250px, 1fr));
+                overflow-x: auto;
+            }
+            .modal-content {
+                max-height: 95vh;
+                overflow-y: auto;
+            }
+            #chat-messages {
+                padding: 0.5rem;
+            }
+            #input-area {
+                padding: 0.5rem;
+            }
+            .pro-controls-bg {
+                padding: 0.25rem;
+            }
+            #msg {
+                height: 3rem !important;
+                max-height: 3rem;
             }
         }
     </style>
@@ -985,7 +1027,7 @@
                     </div>
                      <div id="kanban-view" class="hidden flex-1">
                         </div>
-                    <div id="list-view" class="hidden flex-1 space-y-2 overflow-y-auto">
+                    <div id="list-view" class="hidden flex-1 flex flex-col">
                          </div>
                 </div>
                 <div id="project-chat-container">
@@ -1034,53 +1076,29 @@
                     </div>
                 </div>
                 <div class="pro-controls-bg rounded-lg p-1.5 mb-2 cool-light-effect">
-                    <div class="w-full flex flex-col sm:flex-row items-center gap-2">
-                        <div class="hidden sm:flex flex-grow items-center space-x-2">
-                             <div class="flex items-center space-x-2">
-                                <label for="model-selector" class="font-medium text-xs text-text-medium pl-2 pr-1" data-translate-key="model">Modelo:</label>
-                                <div class="model-selector-wrapper">
-                                    <select id="model-selector" class="rounded-md py-1 pl-1.5 focus:outline-none focus:ring-2 focus:ring-primary text-sm bg-transparent text-text-light">
-                                        <option value="gpt-3.5-turbo-1106" data-translate-key="model_general">Chat General (Turbo)</option>
-                                        <option value="sonar" data-translate-key="model_web">Búsqueda Web</option>
-                                    </select>
-                                </div>
-                             </div>
-                            <div id="voice-selector-container" class="hidden items-center space-x-2">
-                                <label for="voice-selector" class="font-medium text-xs text-text-medium" data-translate-key="voice">Voz:</label>
-                                <div class="model-selector-wrapper">
-                                    <select id="voice-selector" class="rounded-md py-1 pl-1.5 focus:outline-none focus:ring-2 focus:ring-primary text-sm bg-transparent text-text-light w-24"></select>
-                                </div>
-                             </div>
-                        </div>
-
-                        <div class="flex sm:hidden flex-col w-full gap-2">
-                            <div class="flex items-center justify-between w-full">
-                                <div class="flex items-center space-x-2">
-                                    <label for="model-selector-mobile" class="font-medium text-xs text-text-medium pl-1" data-translate-key="model">Modelo:</label>
-                                    <div class="model-selector-wrapper">
-                                        <select id="model-selector-mobile" class="rounded-md py-1 pl-1 focus:outline-none text-sm bg-transparent text-text-light"></select>
-                                    </div>
-                                </div>
-                                <div id="voice-selector-container-mobile" class="hidden items-center space-x-1">
-                                    <label for="voice-selector-mobile" class="font-medium text-xs text-text-medium" data-translate-key="voice">Voz:</label>
-                                    <div class="model-selector-wrapper">
-                                        <select id="voice-selector-mobile" class="rounded-md py-1 pl-1 focus:outline-none text-sm bg-transparent text-text-light w-20"></select>
-                                    </div>
-                                 </div>
-                            </div>
-                            <div id="main-action-buttons" class="flex items-center justify-around w-full border-t border-themed pt-2 mt-1">
-                                <button id="image-gen-btn-mobile" title="Crear Imagen" class="p-2 hover:text-primary transition-colors text-text-medium"><i class="fas fa-paint-brush text-lg"></i></button>
-                                <button id="pdf-upload-btn-mobile" title="Subir PDF" class="p-2 hover:text-primary transition-colors text-text-medium"><i class="fa fa-file-pdf text-lg"></i></button>
-                                <button id="image-upload-btn-mobile" title="Subir Imagen" class="p-2 hover:text-primary transition-colors text-text-medium"><i class="fa fa-image text-lg"></i></button>
-                            </div>
+                    <div id="pro-controls-left">
+                        <label for="model-selector" class="font-medium text-xs text-text-medium pl-2 pr-1" data-translate-key="model">Modelo:</label>
+                        <div class="model-selector-wrapper">
+                            <select id="model-selector" class="rounded-md py-1 pl-1.5 focus:outline-none focus:ring-2 focus:ring-primary text-sm bg-transparent text-text-light">
+                                <option value="gpt-3.5-turbo-1106" data-translate-key="model_general">Chat General (Turbo)</option>
+                                <option value="sonar" data-translate-key="model_web">Búsqueda Web</option>
+                            </select>
                         </div>
                     </div>
-                </div>
+                    <div id="pro-controls-right">
+                        <div id="voice-selector-container" class="hidden items-center space-x-2">
+                            <label for="voice-selector" class="font-medium text-xs text-text-medium" data-translate-key="voice">Voz:</label>
+                            <div class="model-selector-wrapper">
+                                <select id="voice-selector" class="rounded-md py-1 pl-1.5 focus:outline-none focus:ring-2 focus:ring-primary text-sm bg-transparent text-text-light w-24"></select>
+                            </div>
+                        </div>
+                        <button id="image-gen-btn" title="Crear Imagen" class="p-2 hover:text-primary transition-colors rounded-full text-text-medium"><i class="fas fa-paint-brush text-lg"></i></button>
+                        <button id="pdf-upload-btn" title="Subir PDF" class="p-2 hover:text-primary transition-colors rounded-full text-text-medium"><i class="fa fa-file-pdf text-lg"></i></button>
+                        <button id="image-upload-btn" title="Subir Imagen" class="p-2 hover:text-primary transition-colors rounded-full text-text-medium"><i class="fa fa-image text-lg"></i></button>
+                    </div>
+                 </div>
                 <div class="relative rounded-xl flex items-center bg-input p-1 sm:p-2 input-wrapper">
                     <input type="file" id="pdf-upload" accept=".pdf,application/pdf" class="hidden"><input type="file" id="image-upload" accept="image/*" class="hidden">
-                    <button id="image-gen-btn" title="Crear Imagen" class="hidden sm:block p-2 sm:p-3 hover:text-primary transition-colors rounded-full text-text-medium"><i class="fas fa-paint-brush text-xl"></i></button>
-                     <button id="pdf-upload-btn" title="Subir PDF" class="hidden sm:block p-2 sm:p-3 hover:text-primary transition-colors rounded-full text-text-medium"><i class="fa fa-file-pdf text-xl"></i></button>
-                    <button id="image-upload-btn" title="Subir Imagen" class="hidden sm:block p-2 sm:p-3 hover:text-primary transition-colors rounded-full text-text-medium"><i class="fa fa-image text-xl"></i></button>
                     <button id="mic-btn" title="Activar Micrófono" class="p-2 sm:p-3 hover:text-primary transition-colors rounded-full text-text-medium"><i class="fa fa-microphone text-xl"></i></button>
                      <button id="tts-toggle" title="Activar/Desactivar Voz" class="p-2 sm:p-3 hover:text-primary transition-colors rounded-full text-text-medium"><i class="fa fa-volume-mute text-xl"></i></button>
                     <textarea id="msg" placeholder="Escribe tu mensaje..." class="flex-1 bg-transparent p-2 h-12 max-h-32 resize-none outline-none placeholder-themed" rows="1" data-translate-key="placeholder_main"></textarea>
@@ -1359,8 +1377,10 @@
 
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script type="module">
+        // Start of Part 1 - Continues in next response
         window.addEventListener('DOMContentLoaded', () => {
             dayjs.extend(window.dayjs_plugin_localizedFormat);
+            dayjs.extend(window.dayjs_plugin_isoWeek);
              
             const translations = {
                 es: {
@@ -1432,7 +1452,9 @@
             };
             const GUEST_CREDIT_LIMIT = 5;
             const FREE_PLAN_CREDIT_LIMIT = 15;
-            const COSTS = { WEB_PAGE: 2, COPYWRITING: 2, SALES_RESPONSE: 2, NEBULA: 2, GENERAL: 1, SEARCH: 1, ENGLISH_TEACHER: 1, IMAGE: 5 };
+            const BOOST_PLAN_CREDIT_LIMIT = 100;
+
+            const COSTS = { GENERAL: 1, SEARCH: 1, NEBULA: 2, COPYWRITING: 2, IMAGE: 5 };
             let state = { chats: {}, projects: {}, structure: [], calendar: {} };
             let gamificationState = {};
             let currentChatId = null, currentUser = null, speechOn = false, availableVoices = [], selectedVoice = null, isRecognizing = false, selectedImageBase64 = null, selectedPdfText = null;
@@ -1462,7 +1484,6 @@
                 initialMessageContainer: document.getElementById('initial-message-container'), themeToggle: document.getElementById('theme-toggle'), themeIcon: document.getElementById('theme-icon'),
                 micBtn: document.getElementById('mic-btn'), ttsToggle: document.getElementById('tts-toggle'), 
                 modelSelector: document.getElementById('model-selector'),
-                modelSelectorMobile: document.getElementById('model-selector-mobile'),
                 imageUploadBtn: document.getElementById('image-upload-btn'), imageUploadInput: document.getElementById('image-upload'),
                 imagePreviewContainer: document.getElementById('image-preview-container'), imagePreview: document.getElementById('image-preview'),
                  clearImageBtn: document.getElementById('clear-image-btn'), pdfUploadBtn: document.getElementById('pdf-upload-btn'), pdfUploadInput: document.getElementById('pdf-upload'),
@@ -1477,13 +1498,10 @@
                 closeHtmlPreviewModalBtn: document.getElementById('close-html-preview-modal'), htmlPreviewIframe: document.getElementById('html-preview-iframe'),
                  voiceSelector: document.getElementById('voice-selector'), 
                  voiceSelectorContainer: document.getElementById('voice-selector-container'),
-                 voiceSelectorMobile: document.getElementById('voice-selector-mobile'),
-                 voiceSelectorContainerMobile: document.getElementById('voice-selector-container-mobile'),
                 selectChatsBtn: document.getElementById('select-chats-btn'), deleteModeControls: document.getElementById('delete-mode-controls'),
                 deleteSelectedBtn: document.getElementById('delete-selected-btn'), cancelSelectModeBtn: document.getElementById('cancel-select-mode-btn'),
                 imageGenBtn: document.getElementById('image-gen-btn'), servicesMenuBtn: document.getElementById('services-menu-btn'), servicesMenu: document.getElementById('services-menu'),
-                contextualFooter: document.getElementById('contextual-footer'), imageGenBtnMobile: document.getElementById('image-gen-btn-mobile'),
-                 pdfUploadBtnMobile: document.getElementById('pdf-upload-btn-mobile'), imageUploadBtnMobile: document.getElementById('image-upload-btn-mobile'),
+                contextualFooter: document.getElementById('contextual-footer'),
                 newChatIconBtn: document.getElementById('new-chat-icon-btn'), settingsBtn: document.getElementById('settings-btn'),
                 settingsModal: document.getElementById('settings-modal'), closeSettingsModal: document.getElementById('close-settings-modal'),
                 settingsUserEmail: document.getElementById('settings-user-email'), settingsUserPlan: document.getElementById('settings-user-plan'),
@@ -1557,7 +1575,7 @@
                 'brand-strategy': { id: 'brand-strategy', text: 'Define tu primera estrategia de marca', xp: 50, credits: 15, workflow: 'brand-strategy' },
                 'competitor-analysis': { id: 'competitor-analysis', text: 'Espía a la competencia por primera vez', xp: 50, credits: 15, workflow: 'competitor-analysis' },
                 'week-organized': { id: 'week-organized', text: 'Crea una tarea para cada día de la semana', xp: 75, credits: 25, condition: () => checkWeekOrganized() },
-                'project-created': { id: 'project-created', text: 'Crea tu primer tablero de proyecto y añade 5 tareas', xp: 100, credits: 30, condition: (chatId) => checkProjectCreated(chatId) },
+                'project-created': { id: 'project-created', text: 'Crea tu primer tablero de proyecto y añade 3 tareas', xp: 100, credits: 30, condition: (chatId) => checkProjectCreated(chatId) },
                 'image-generated': { id: 'image-generated', text: 'Genera tu primera imagen con IA', xp: 40, credits: 10, action: 'generateImage' },
                 'english-practice': { id: 'english-practice', text: 'Practica tu conversación en inglés', xp: 30, credits: 10, workflow: 'english-teacher-practice' },
                 'social-skills': { id: 'social-skills', text: 'Mejora tus habilidades sociales con un consejo de IA', xp: 30, credits: 10, workflow: 'social-skills' },
@@ -1711,25 +1729,23 @@
             function hideCalendarModal() {
                 dom.calendarModalOverlay.classList.add('hidden');
                 dom.calendarModalOverlay.classList.remove('flex');
-            }
-
-            function renderMonthView() {
+            }function renderMonthView() {
                 dom.calendarDaysGrid.innerHTML = '';
                 dom.currentMonthYear.textContent = selectedCalendarDate.format('MMMM YYYY');
 
                 const startOfMonth = selectedCalendarDate.startOf('month');
-                let firstDayIndex = startOfMonth.day();
-                let daysToPrepend = (firstDayIndex === 0) ? 6 : firstDayIndex - 1;
+                const startDay = startOfMonth.startOf('isoWeek');
 
-                const startDate = startOfMonth.subtract(daysToPrepend, 'day');
                 for (let i = 0; i < 42; i++) {
-                    const day = startDate.add(i, 'day');
+                    const day = startDay.add(i, 'day');
                     const dayEl = document.createElement('div');
-                    dayEl.classList.add('calendar-day');
-                    
+                    dayEl.className = 'calendar-day';
+                    dayEl.dataset.date = day.format('YYYY-MM-DD');
+
                     const dayNumber = document.createElement('span');
                     dayNumber.textContent = day.date();
                     dayEl.appendChild(dayNumber);
+
                     if (day.month() === selectedCalendarDate.month()) {
                         dayEl.classList.add('current-month');
                     } else {
@@ -1745,11 +1761,13 @@
                     if (tasksForDay.length > 0) {
                         const dotsContainer = document.createElement('div');
                         dotsContainer.className = 'task-dots-container';
-                        tasksForDay.slice(0, 3).forEach(() => {
+                        tasksForDay.slice(0, 4).forEach(task => {
                             const dot = document.createElement('div');
                             dot.className = 'task-dot';
+                            const labelColor = getLabelColor(task.source === 'Personal' ? 'Personal' : (task.labels && task.labels[0] ? task.labels[0] : 'default'));
+                            dot.style.backgroundColor = labelColor;
                             dotsContainer.appendChild(dot);
-                         });
+                        });
                         dayEl.appendChild(dotsContainer);
                     }
 
@@ -1758,19 +1776,17 @@
                         currentCalendarView = 'day';
                         renderCalendarView();
                     });
+                     dayEl.addEventListener('dragover', e => { e.preventDefault(); e.currentTarget.style.backgroundColor = 'var(--current-bg-light)'; });
+                    dayEl.addEventListener('dragleave', e => { e.currentTarget.style.backgroundColor = ''; });
+                    dayEl.addEventListener('drop', handleCalendarDrop);
+
                     dom.calendarDaysGrid.appendChild(dayEl);
                 }
             }
             
             function renderWeekView() {
                 dom.weekDaysContent.innerHTML = '';
-                let startOfWeek = selectedCalendarDate.startOf('week'); 
-                 // Adjust to make Monday the start of the week
-                if (startOfWeek.day() === 0) { // If it's Sunday
-                    startOfWeek = selectedCalendarDate.subtract(6, 'day').startOf('day');
-                } else {
-                    startOfWeek = selectedCalendarDate.startOf('isoWeek');
-                }
+                let startOfWeek = selectedCalendarDate.startOf('isoWeek');
 
                 const endOfWeek = startOfWeek.add(6, 'day');
                 dom.currentWeekRange.textContent = `${startOfWeek.format('D MMM')} - ${endOfWeek.format('D MMM, YYYY')}`;
@@ -1783,47 +1799,46 @@
                     const displayDate = day.format('dddd, D MMM');
                     const daySection = document.createElement('div');
                     daySection.className = 'week-day-section';
+                    daySection.dataset.date = dayKey;
+
                     daySection.innerHTML = `
                         <h5>
                             <span>${displayDate}</span>
                             <button class="add-task-to-day-btn text-lg hover:text-primary" data-date="${dayKey}">+</button>
-                         </h5>
+                        </h5>
                         <div class="space-y-1">
                             ${tasks.length === 0 ? `<p class="text-xs text-text-medium italic">${translations[lang].calendar_no_tasks}</p>` : ''}
-                            ${tasks.map((task) => `
-                                <div class="task-item flex items-center gap-2 cursor-pointer ${task.completed ? 'task-item-completed' : ''}" data-task-id="${task.id}" data-task-source="${task.source}">
-                                     <input type="checkbox" class="task-checkbox-week" data-task-id="${task.id}" ${task.completed ? 'checked' : ''}>
+                            ${tasks.map((task) => {
+                                const isPersonal = task.source === 'Personal';
+                                return `
+                                <div class="task-item flex items-center gap-2 cursor-pointer ${task.completed ? 'task-item-completed' : ''}" 
+                                     ${isPersonal ? 'draggable="true"' : ''} data-task-id="${task.id}" data-task-source="${task.source}">
+                                     <input type="checkbox" class="task-checkbox" data-task-id="${task.id}" ${task.completed ? 'checked' : ''}>
                                     <span class="flex-grow">${task.text} ${task.time ? `(${task.time})` : ''} <span class="text-xs text-primary">(${task.source})</span></span>
                                 </div>
-                            `).join('')}
+                            `}).join('')}
                         </div>
                      `;
                     dom.weekDaysContent.appendChild(daySection);
+                    if (i < 6) daySection.addEventListener('dragover', e => { e.preventDefault(); e.currentTarget.style.backgroundColor = 'var(--current-bg-light)'; });
+                    daySection.addEventListener('dragleave', e => { e.currentTarget.style.backgroundColor = ''; });
+                    daySection.addEventListener('drop', handleCalendarDrop);
                 }
 
-                dom.weekDaysContent.querySelectorAll('.task-checkbox-week').forEach(checkbox => {
+                dom.weekDaysContent.querySelectorAll('.task-checkbox').forEach(checkbox => {
                     checkbox.addEventListener('click', (e) => {
                         e.stopPropagation();
-                        const taskId = e.currentTarget.dataset.taskId;
-                         toggleTaskCompletion(taskId, e.currentTarget.checked);
-                        renderWeekView();
-                        updateNotificationBadge();
+                        updateTaskStatus(e.currentTarget.dataset.taskId, { completed: e.currentTarget.checked });
                     });
                  });
 
                 dom.weekDaysContent.querySelectorAll('.task-item').forEach(item => {
+                    if(item.draggable) {
+                        item.addEventListener('dragstart', handleCalendarDragStart);
+                    }
                     item.addEventListener('click', (e) => {
                         if (e.target.type === 'checkbox') return;
-                        const taskId = e.currentTarget.dataset.taskId;
-                        const taskSource = e.currentTarget.dataset.taskSource;
-                        if (taskSource === 'Personal') {
-                             editCalendarTask(taskId);
-                        } else {
-                            const projectChat = Object.values(state.chats).find(c => c.projectData && c.projectData.title === taskSource);
-                            if (projectChat) {
-                                editProjectTask(projectChat.id, taskId);
-                            }
-                        }
+                        handleTaskClick(e.currentTarget.dataset.taskId, e.currentTarget.dataset.taskSource);
                      });
                 });
                 dom.weekDaysContent.querySelectorAll('.add-task-to-day-btn').forEach(btn => {
@@ -1844,20 +1859,30 @@
                     const hourEl = document.createElement('div');
                     hourEl.className = 'day-view-hour';
                     const hourLabel = (hour < 10 ? '0' : '') + hour + ':00';
+                    hourEl.dataset.time = hourLabel.substring(0,2); // "09"
                     const tasksInHour = tasksForDay.filter(t => t.time && t.time.startsWith((hour < 10 ? '0' : '') + hour));
                     hourEl.innerHTML = `
                         <div class="day-view-hour-label">${hourLabel}</div>
-                        <div class="day-view-hour-content">
-                            ${tasksInHour.map(task => `
-                                 <div class="task-item flex items-center gap-2 p-1 rounded-md ${task.completed ? 'bg-green-900 text-gray-400 line-through' : 'bg-input'} text-sm" data-task-id="${task.id}" data-task-source="${task.source}">
-                                    <input type="checkbox" class="task-checkbox-day" data-task-id="${task.id}" ${task.completed ? 'checked' : ''}>
+                        <div class="day-view-hour-content" data-time="${hourLabel}">
+                            ${tasksInHour.map(task => {
+                                const isPersonal = task.source === 'Personal';
+                                return `
+                                 <div class="task-item flex items-center gap-2 p-1 rounded-md ${task.completed ? 'bg-green-900/50 text-gray-400 line-through' : 'bg-input'} text-sm" 
+                                    ${isPersonal ? 'draggable="true"' : ''} data-task-id="${task.id}" data-task-source="${task.source}">
+                                    <input type="checkbox" class="task-checkbox" data-task-id="${task.id}" ${task.completed ? 'checked' : ''}>
                                      <span class="flex-grow cursor-pointer"><strong>${task.time}:</strong> ${task.text} <span class="text-xs text-primary">(${task.source})</span></span>
                                 </div>
-                            `).join('')}
+                                `
+                            }).join('')}
                              <button class="add-task-to-time-btn text-lg hover:text-primary" data-date="${selectedCalendarDate.format('YYYY-MM-DD')}" data-time="${hourLabel}">+</button>
                         </div>
                     `;
                     dom.dayViewTimeline.appendChild(hourEl);
+
+                    const hourContent = hourEl.querySelector('.day-view-hour-content');
+                    hourContent.addEventListener('dragover', e => { e.preventDefault(); e.currentTarget.style.backgroundColor = 'var(--current-bg-light)'; });
+                    hourContent.addEventListener('dragleave', e => { e.currentTarget.style.backgroundColor = ''; });
+                    hourContent.addEventListener('drop', handleCalendarDrop);
                 }
                 dom.dayViewTimeline.querySelectorAll('.add-task-to-time-btn').forEach(btn => {
                     btn.addEventListener('click', (e) => {
@@ -1867,31 +1892,141 @@
                         editCalendarTask(null, date, time);
                     });
                 });
-                dom.dayViewTimeline.querySelectorAll('.task-checkbox-day').forEach(checkbox => {
+                dom.dayViewTimeline.querySelectorAll('.task-checkbox').forEach(checkbox => {
                     checkbox.addEventListener('click', (e) => {
                         e.stopPropagation();
-                        const taskId = e.currentTarget.dataset.taskId;
-                        toggleTaskCompletion(taskId, e.currentTarget.checked);
-                        renderDayView();
-                        updateNotificationBadge();
+                        updateTaskStatus(e.currentTarget.dataset.taskId, { completed: e.currentTarget.checked });
                     });
                 });
                 dom.dayViewTimeline.querySelectorAll('.task-item').forEach(item => {
+                    if (item.draggable) {
+                        item.addEventListener('dragstart', handleCalendarDragStart);
+                    }
                     item.addEventListener('click', (e) => {
                         if (e.target.type === 'checkbox') return;
-                        const taskId = e.currentTarget.dataset.taskId;
-                        const taskSource = e.currentTarget.dataset.taskSource;
-                        if (taskSource === 'Personal') {
-                             editCalendarTask(taskId);
-                        } else {
-                            const projectChat = Object.values(state.chats).find(c => c.projectData && c.projectData.title === taskSource);
-                            if (projectChat) {
-                                editProjectTask(projectChat.id, taskId);
-                            }
-                        }
+                        handleTaskClick(e.currentTarget.dataset.taskId, e.currentTarget.dataset.taskSource);
                     });
                  });
             }
+
+            function handleTaskClick(taskId, taskSource) {
+                 if (taskSource === 'Personal') {
+                    editCalendarTask(taskId);
+                } else {
+                    const projectChat = Object.values(state.chats).find(c => c.projectData && c.projectData.title === taskSource);
+                    if (projectChat) {
+                        editProjectTask(projectChat.id, taskId);
+                    }
+                }
+            }
+            
+            let draggedCalendarTaskId = null;
+            function handleCalendarDragStart(e) {
+                draggedCalendarTaskId = e.target.dataset.taskId;
+                e.dataTransfer.setData('text/plain', draggedCalendarTaskId);
+                e.dataTransfer.effectAllowed = 'move';
+            }
+            
+            function handleCalendarDrop(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                e.currentTarget.style.backgroundColor = '';
+                const taskId = e.dataTransfer.getData('text/plain');
+                if (!taskId.startsWith('cal-')) return;
+
+                const dropZone = e.currentTarget;
+                const newDate = dropZone.dataset.date || selectedCalendarDate.format('YYYY-MM-DD');
+                const newTime = dropZone.dataset.time || null;
+
+                const updates = { date: newDate };
+                if (newTime) {
+                    updates.time = newTime;
+                }
+                updateTaskStatus(taskId, updates);
+            }
+
+
+            function findTask(taskId) {
+                // Find in personal calendar
+                for (const dayKey in state.calendar) {
+                    const taskIndex = (state.calendar[dayKey] || []).findIndex(t => t.id === taskId);
+                    if (taskIndex > -1) {
+                        return { type: 'personal', task: state.calendar[dayKey][taskIndex], dayKey, taskIndex };
+                    }
+                }
+                // Find in projects
+                for (const chat of Object.values(state.chats)) {
+                    if (chat.projectData && chat.projectData.columns) {
+                        for (const column of chat.projectData.columns) {
+                             const taskIndex = (column.tasks || []).findIndex(t => t.id === taskId);
+                             if (taskIndex > -1) {
+                                 return { type: 'project', task: column.tasks[taskIndex], chat, column, taskIndex };
+                             }
+                        }
+                    }
+                }
+                return null;
+            }
+
+            function updateTaskStatus(taskId, updates) {
+                const found = findTask(taskId);
+                if (!found) return;
+
+                if (found.type === 'personal') {
+                    const { task, dayKey } = found;
+                    const oldDate = dayKey;
+                    const newDate = updates.date || oldDate;
+                    
+                    // Remove from old date
+                    const taskIndex = state.calendar[oldDate].findIndex(t => t.id === taskId);
+                    state.calendar[oldDate].splice(taskIndex, 1);
+                    if(state.calendar[oldDate].length === 0) delete state.calendar[oldDate];
+
+                    // Update properties
+                    Object.assign(task, updates);
+                    
+                    // Add to new date
+                    if (!state.calendar[newDate]) state.calendar[newDate] = [];
+                    state.calendar[newDate].push(task);
+                } 
+                else if (found.type === 'project') {
+                    const { task, chat } = found;
+                    Object.assign(task, updates);
+
+                    // If completion status changed, move column
+                    if (updates.completed !== undefined) {
+                        let sourceColumn, taskIndex;
+                        for(const col of chat.projectData.columns){
+                            const idx = (col.tasks || []).findIndex(t => t.id === taskId);
+                            if(idx > -1){
+                                sourceColumn = col;
+                                taskIndex = idx;
+                                break;
+                            }
+                        }
+
+                        if (sourceColumn) {
+                            const [taskToMove] = sourceColumn.tasks.splice(taskIndex, 1);
+                            if (task.completed) {
+                                const doneColumn = chat.projectData.columns.find(c => c.id === 'done');
+                                if (doneColumn) doneColumn.tasks.push(taskToMove);
+                            } else {
+                                const todoColumn = chat.projectData.columns.find(c => c.id === 'todo');
+                                if (todoColumn) todoColumn.tasks.push(taskToMove);
+                            }
+                        }
+                    }
+                }
+
+                saveState();
+                if (dom.calendarModalOverlay.classList.contains('flex')) {
+                    renderCalendarView();
+                }
+                if (dom.projectManagementView.style.display === 'flex') {
+                    renderProjectBoard(currentChatId);
+                }
+            }
+
 
             function getTasksForDay(dayKey) {
                 const calendarTasks = (state.calendar[dayKey] || []).map(t => ({...t, text: t.content, source: 'Personal'}));
@@ -1907,32 +2042,7 @@
                         });
                     }
                 });
-                return [...calendarTasks, ...projectTasks].sort((a, b) => (a.time || '00:00').localeCompare(b.time || '00:00'));
-            }
-
-            function toggleTaskCompletion(taskId, isCompleted) {
-                // Check personal calendar tasks
-                for (const dayKey in state.calendar) {
-                    const taskIndex = (state.calendar[dayKey] || []).findIndex(t => t.id === taskId);
-                    if (taskIndex > -1) {
-                        state.calendar[dayKey][taskIndex].completed = isCompleted;
-                        saveState();
-                        return;
-                    }
-                }
-                // Check project tasks
-                for (const chat of Object.values(state.chats)) {
-                    if (chat.projectData && chat.projectData.columns) {
-                         for (const column of chat.projectData.columns) {
-                             const taskIndex = (column.tasks || []).findIndex(t => t.id === taskId);
-                             if (taskIndex > -1) {
-                                 column.tasks[taskIndex].completed = isCompleted;
-                                 saveState();
-                                 return;
-                             }
-                        }
-                    }
-                }
+                return [...calendarTasks, ...projectTasks].sort((a, b) => (a.time || '23:59').localeCompare(b.time || '23:59'));
             }
 
             function updateNotificationBadge() {
@@ -1942,12 +2052,12 @@
                     const tasksForDay = getTasksForDay(dayKey);
                     tasksForDay.forEach(task => {
                          if (!task.completed) {
-                            if (task.time && task.source === "Personal") {
+                            if (task.time) {
                                 const taskDateTime = dayjs(`${dayKey}T${task.time}`);
                                 if (taskDateTime.isBefore(now)) {
                                      pendingNotifications++;
                                 }
-                            } else if (!task.time && task.source === "Personal") { // Personal tasks without time due today or past
+                            } else {
                                 const taskDate = dayjs(dayKey);
                                 if (taskDate.isBefore(now, 'day') || taskDate.isSame(now, 'day')) {
                                     pendingNotifications++;
@@ -2004,23 +2114,9 @@
             }
 
             function updateTaskNotifiedFlag(taskId, isNotified) {
-                 for (const dayKey in state.calendar) {
-                    const task = (state.calendar[dayKey] || []).find(t => t.id === taskId);
-                    if (task) {
-                        task.notifiedThisMinute = isNotified;
-                        return;
-                    }
-                }
-                for (const chat of Object.values(state.chats)) {
-                    if (chat.projectData && chat.projectData.columns) {
-                        for (const column of chat.projectData.columns) {
-                             const task = (column.tasks || []).find(t => t.id === taskId);
-                             if (task) {
-                                 task.notifiedThisMinute = isNotified;
-                                 return;
-                             }
-                        }
-                    }
+                const found = findTask(taskId);
+                if (found) {
+                    found.task.notifiedThisMinute = isNotified;
                 }
             }
 
@@ -2092,24 +2188,17 @@
                         return a.name.localeCompare(b.name);
                     });
                     
-                    [dom.voiceSelector, dom.voiceSelectorMobile].forEach(selector => {
-                        if(!selector) return;
-                        selector.innerHTML = '';
-                        if (availableVoices.length > 0) {
-                            availableVoices.forEach(voice => {
-                                const option = document.createElement('option');
-                                const displayName = voice.name.replace('Microsoft', '').replace('Online (Natural) -', '').replace('Google', '').replace('Spanish (Mexico)','Mex').trim();
-                                option.textContent = `${displayName || voice.lang} (${voice.lang})`;
-                                option.value = voice.name;
-                                selector.appendChild(option);
-                            });
-                        }
-                    });
-
-                    selectedVoice = availableVoices[0];
-                    if (selectedVoice) {
-                        dom.voiceSelector.value = selectedVoice.name;
-                        dom.voiceSelectorMobile.value = selectedVoice.name;
+                    if (availableVoices.length > 0) {
+                        dom.voiceSelector.innerHTML = '';
+                        availableVoices.forEach(voice => {
+                            const option = document.createElement('option');
+                            const displayName = voice.name.replace('Microsoft', '').replace('Online (Natural) -', '').replace('Google', '').replace('Spanish (Mexico)','Mex').trim();
+                            option.textContent = `${displayName || voice.lang} (${voice.lang})`;
+                            option.value = voice.name;
+                            dom.voiceSelector.appendChild(option);
+                        });
+                        selectedVoice = availableVoices[0];
+                        if (selectedVoice) dom.voiceSelector.value = selectedVoice.name;
                     }
                 }
                 if (speechSynthesis.onvoiceschanged !== undefined) {
@@ -2118,24 +2207,13 @@
                 setVoices();
             }
 
-            function syncModelSelectors() {
-                const desktopOptions = Array.from(dom.modelSelector.options).map(opt => `<option value="${opt.value}" data-translate-key="${opt.dataset.translateKey || ''}">${opt.text}</option>`).join('');
-                dom.modelSelectorMobile.innerHTML = desktopOptions;
-                dom.modelSelectorMobile.value = dom.modelSelector.value;
-            }
-
-            function updateModelSelectorState() { 
-                syncModelSelectors();
-             }
-
             function getModelForRequest(workflow, hasFile, isProjectChat) {
                 if (isProjectChat) {
                     return document.getElementById('project-model-selector').value;
                 }
                 if (workflow === "design-web") return "gpt-4o-mini";
                 if (hasFile) return "gpt-4o-mini";
-                const modelValue = window.innerWidth < 768 ? dom.modelSelectorMobile.value : dom.modelSelector.value;
-                return modelValue;
+                return dom.modelSelector.value;
             }
 
             async function getAIResponse(prompt, history, image, pdf, model, workflow, userName) {
@@ -2168,23 +2246,54 @@
             }
             
             function getCreditCount() {
-                if (currentUser) {
-                    const credits = localStorage.getItem(`userCredits_${currentUser.id}`);
-                    return credits === null ? FREE_PLAN_CREDIT_LIMIT : parseInt(credits, 10);
-                } else {
-                    const credits = localStorage.getItem('guestCreditCount');
-                    return credits === null ? GUEST_CREDIT_LIMIT : parseInt(credits, 10);
+                const plan = currentUser?.app_metadata?.plan || 'free';
+                let limit = GUEST_CREDIT_LIMIT;
+                if (plan === 'free') limit = FREE_PLAN_CREDIT_LIMIT;
+                if (plan === 'boost') limit = BOOST_PLAN_CREDIT_LIMIT;
+                if (plan === 'pro') limit = Infinity;
+
+                const usageData = JSON.parse(localStorage.getItem(`usage_${currentUser?.id || 'guest'}`)) || { count: 0, date: '' };
+                const today = dayjs().format('YYYY-MM-DD');
+
+                if (usageData.date !== today) {
+                    return { remaining: limit, limit: limit }; // Full credits for the new day
                 }
+                
+                return { remaining: Math.max(0, limit - usageData.count), limit: limit };
             }
             
-            function setCreditCount(newCount) {
-                const count = Math.max(0, newCount);
-                if (currentUser) {
-                    localStorage.setItem(`userCredits_${currentUser.id}`, count);
-                } else {
-                    localStorage.setItem('guestCreditCount', count);
+            function spendCredits(cost) {
+                const plan = currentUser?.app_metadata?.plan || 'free';
+                if (plan === 'pro') return true; // Unlimited
+
+                const usageKey = `usage_${currentUser?.id || 'guest'}`;
+                const today = dayjs().format('YYYY-MM-DD');
+                let usageData = JSON.parse(localStorage.getItem(usageKey)) || { count: 0, date: '' };
+
+                // Reset daily count if it's a new day
+                if (usageData.date !== today) {
+                    usageData = { count: 0, date: today };
                 }
-                updateCreditCounter();
+
+                const { remaining } = getCreditCount();
+
+                if (remaining >= cost) {
+                    usageData.count += cost;
+                    localStorage.setItem(usageKey, JSON.stringify(usageData));
+                    updateCreditCounter();
+                    return true;
+                }
+
+                // If daily credits are not enough, try to use gamification credits
+                if (gamificationState.credits >= cost) {
+                    gamificationState.credits -= cost;
+                    saveGamificationState();
+                    updateCreditCounter(); // To show gamification credits have been used
+                    return true;
+                }
+
+                // Not enough credits from any source
+                return false;
             }
 
             async function loadStateForUser() {
@@ -2257,9 +2366,10 @@
             }
 
             function updateCreditCounter() {
-                const count = getCreditCount();
-                const limit = currentUser ? FREE_PLAN_CREDIT_LIMIT : GUEST_CREDIT_LIMIT;
-                dom.messageCounterEl.innerHTML = `${count}/${limit} <span class="hidden sm:inline">créditos</span>`;
+                const { remaining, limit } = getCreditCount();
+                const gamCredits = gamificationState.credits || 0;
+                let displayLimit = limit === Infinity ? '∞' : limit;
+                dom.messageCounterEl.innerHTML = `${remaining}/${displayLimit} <i class="fas fa-coins text-gold ml-2 mr-1"></i> ${gamCredits}`;
             }
 
             function setTheme(isDark) { 
@@ -2307,11 +2417,7 @@
                 saveState();
                 renderSidebar(); 
                 dom.modelSelector.value = options.model || 'gpt-3.5-turbo-1106';
-                updateModelSelectorState();
                 if (window.innerWidth < 768) toggleSidebar(false);
-                if (options.workflow) {
-                    completeMission(options.workflow, id);
-                }
                 return id;
             }
 
@@ -2341,7 +2447,6 @@
                 dom.modelSelector.value = chat.model || 'gpt-3.5-turbo-1106';
                 updateActiveChatHighlight(); 
                 saveState();
-                updateModelSelectorState();
                 updateContextualFooter(chat.workflow);
                 if (window.innerWidth < 768) toggleSidebar(false);
             }
@@ -2360,7 +2465,6 @@
                 updateUserUI(); 
                 updateActiveChatHighlight(); 
                 dom.modelSelector.value = 'gpt-3.5-turbo-1106';
-                updateModelSelectorState();
                 updateContextualFooter(null);
             }
 
@@ -2546,8 +2650,8 @@
                 });
             }
 
-            function clearImageData() { dom.imageUploadInput.value = ''; dom.imagePreviewContainer.classList.add('hidden'); selectedImageBase64 = null; updateModelSelectorState(); }
-            function clearPdfData() { dom.pdfUploadInput.value = ''; dom.pdfPreviewContainer.classList.add('hidden'); selectedPdfText = null; updateModelSelectorState(); }
+            function clearImageData() { dom.imageUploadInput.value = ''; dom.imagePreviewContainer.classList.add('hidden'); selectedImageBase64 = null; }
+            function clearPdfData() { dom.pdfUploadInput.value = ''; dom.pdfPreviewContainer.classList.add('hidden'); selectedPdfText = null; }
             function hasFile() { return selectedImageBase64 || selectedPdfText; }
             async function sendMessage(forceSend = false, spokenMessage = null, isProjectChat = false) {
                 const inputEl = isProjectChat ? dom.projectMsgInput : dom.msgInput;
@@ -2564,24 +2668,21 @@
                 const requiresWebSearch = webSearchTriggers.some(trigger => userMessage.toLowerCase().startsWith(trigger));
                 if (requiresWebSearch && !hasFile() && !currentChat.workflow) { modelToUse = 'sonar';
                 }
+                
                 let cost = COSTS.GENERAL;
-                if (currentChat.workflow) { cost = COSTS.COPYWRITING; }
-                if (modelToUse === 'sonar') { cost = COSTS.SEARCH;
-                }
-                else if (modelToUse.includes('gpt-4') && hasFile()) { cost = COSTS.NEBULA;
-                }
-                let count = getCreditCount();
-                if (count < cost && !forceSend) {
-                    if (currentUser) { showPricingModal();
-                    } 
-                    else { showModal({ title: 'Créditos Agotados', body: `Por favor, inicia sesión para obtener más créditos.`, confirmText: 'Iniciar Sesión' }).then(res => { if (res.confirmed) netlifyIdentity.open('login'); });}
+                if(currentChat.workflow) cost = COSTS.COPYWRITING;
+                if(modelToUse === 'sonar') cost = COSTS.SEARCH;
+                if(hasFile()) cost = COSTS.NEBULA;
+
+                if (!spendCredits(cost)) {
+                    showModal({ title: 'Créditos Insuficientes', body: 'No tienes suficientes créditos de tu plan ni créditos de recompensa. Mejora tu plan para continuar.', confirmText: 'Ver Planes' }).then(res => { if (res.confirmed) showPricingModal(); });
                     return;
                 }
+
                 if(currentChat.title === 'Conversación Cósmica' && userMessage.length > 5 && !isProjectChat) {
                     currentChat.title = userMessage.split(' ').slice(0, 4).join(' ');
                     renderSidebar();
                 }
-                setCreditCount(count - cost);
                 const [image, pdf] = [selectedImageBase64, selectedPdfText];
                 currentChat.messages.push({ role: 'user', content: userMessage, image, pdfText: pdf });
                 addMessageToUI('user', userMessage, image, currentChat.messages.length - 1, messageContainer);
@@ -2591,47 +2692,42 @@
                 try {
                     const userNameForCall = currentUser ? (currentUser.user_metadata.full_name || currentUser.email) : 'viajero';
                     const responseData = await getAIResponse(userMessage, currentChat.messages.slice(0, -1), image, pdf, modelToUse, currentChat.workflow, userNameForCall);
-                    if (responseData.error === 'LIMIT_REACHED') {
-                        updateMessageInUI(thinkingBubble, `Has alcanzado el límite de créditos de tu plan. ¡Actualiza para continuar!`, null, messageContainer);
-                        setCreditCount(0); showPricingModal(); return;
+                    
+                    updateCreditCounter();
+                    currentChat.messages.push({ role: 'assistant', content: responseData.reply });
+                    updateMessageInUI(thinkingBubble, responseData.reply, null, messageContainer);
+                    speak(responseData.reply);
+
+                    // Mission Completion Check
+                    if (currentChat.workflow) {
+                        completeMission(currentChat.workflow, chatIdToUpdate);
                     }
-                    if (responseData.reply) {
-                        updateCreditCounter();
-                        currentChat.messages.push({ role: 'assistant', content: responseData.reply });
-                        updateMessageInUI(thinkingBubble, responseData.reply, null, messageContainer);
-                        speak(responseData.reply);
-                        if (currentChat.workflow === 'project-management' && responseData.projectUpdate && responseData.projectUpdate.tasks) {
-                            const todoColumn = currentChat.projectData.columns.find(c => c.id === 'todo');
-                            if (todoColumn) {
-                                responseData.projectUpdate.tasks.forEach(task => {
-                                    if (!todoColumn.tasks) todoColumn.tasks = [];
-                                     todoColumn.tasks.push({ id: crypto.randomUUID(), content: task.content, completed: false, labels: task.labels || [], urgent: false });
-                                });
-                            }
-                            renderProjectBoard(chatIdToUpdate);
-                            completeMission('project-created', chatIdToUpdate); // Check mission completion
+
+                    if (currentChat.workflow === 'project-management' && responseData.projectUpdate && responseData.projectUpdate.tasks) {
+                        const todoColumn = currentChat.projectData.columns.find(c => c.id === 'todo');
+                        if (todoColumn) {
+                            responseData.projectUpdate.tasks.forEach(task => {
+                                if (!todoColumn.tasks) todoColumn.tasks = [];
+                                 todoColumn.tasks.push({ id: crypto.randomUUID(), content: task.content, completed: false, labels: task.labels || [], urgent: false });
+                            });
                         }
-                        
-                        saveState();
-                    } else if (responseData.error) {
-                        updateMessageInUI(thinkingBubble, `❌ **Error**<br><small>${responseData.details || 'Error del servidor.'}</small>`, null, messageContainer);
-                        setCreditCount(count);
+                        renderProjectBoard(chatIdToUpdate);
                     }
+                    
+                    saveState();
                 } catch (error) {
                     updateMessageInUI(thinkingBubble, `❌ **Error de Conexión**<br><small>${error.message || 'No se pudo conectar al servidor.'}</small>`, null, messageContainer);
-                    setCreditCount(count);
                 }
             }
             async function generateImage() {
                 const result = await showModal({ title: 'Crear Imagen', body: 'Describe la imagen que quieres crear:<br><input type="text" id="img-prompt" class="w-full p-2 rounded bg-input border border-themed mt-2" placeholder="Ej: Un astronauta en un caballo cósmico">', confirmText: 'Generar' });
                 if (!result.confirmed || !result.data['img-prompt']) return;
                 
-                let count = getCreditCount();
-                if (count < COSTS.IMAGE) {
-                    showModal({ title: 'Créditos Insuficientes', body: `Necesitas ${COSTS.IMAGE} créditos para generar una imagen.` });
+                if (!spendCredits(COSTS.IMAGE)) {
+                    showModal({ title: 'Créditos Insuficientes', body: `Necesitas ${COSTS.IMAGE} créditos para generar una imagen.`, confirmText: 'Ver Planes' }).then(res => { if (res.confirmed) showPricingModal(); });
                     return;
                 }
-                setCreditCount(count - COSTS.IMAGE);
+                
                 let chatIdToUpdate = currentChatId || createNewChat({});
                 const currentChat = state.chats[chatIdToUpdate];
                 currentChat.messages.push({ role: 'user', content: `Generar imagen: "${result.data['img-prompt']}"` });
@@ -2643,16 +2739,7 @@
                         headers: { 'Content-Type': 'application/json' },
                          body: JSON.stringify({ prompt: result.data['img-prompt'], model: 'dall-e-3' })
                     });
-                    if (!response.ok) {
-                        let errorText;
-                        try {
-                            const errorData = await response.json();
-                            errorText = errorData.error || 'No se pudo generar la imagen.';
-                        } catch (e) {
-                            errorText = `Error del servidor (${response.status}). Inténtalo de nuevo.`;
-                        }
-                        throw new Error(errorText);
-                    }
+                    if (!response.ok) { throw new Error((await response.json()).error || 'Error del servidor'); }
                     const { imageData } = await response.json();
                     const imageContent = `¡Aquí está tu creación, Jefe/a!`;
                     currentChat.messages.push({ role: 'assistant', content: imageContent, image: imageData });
@@ -2661,7 +2748,6 @@
                     saveState();
                 } catch (error) {
                     updateMessageInUI(thinkingBubble, `❌ **Error al crear la imagen:**<br><small>${error.message}</small>`, null, dom.chatMessages);
-                    setCreditCount(count);
                 }
             }
             function toggleSelectMode(active) {
@@ -2685,9 +2771,8 @@
             }
 
             function toggleVoiceSelectorVisibility(show) {
-                const display = show ? 'flex' : 'none';
-                dom.voiceSelectorContainer.style.display = display;
-                dom.voiceSelectorContainerMobile.style.display = display;
+                dom.voiceSelectorContainer.classList.toggle('hidden', !show);
+                [dom.imageGenBtn, dom.pdfUploadBtn, dom.imageUploadBtn].forEach(btn => btn.classList.toggle('hidden', show));
             }
 
             function setupEventListeners() {
@@ -2726,18 +2811,14 @@
                 dom.chatTitleWrapper?.addEventListener('click', () => { if(currentChatId) renameItem('chat', currentChatId); });
                 dom.mobileChatTitleWrapper?.addEventListener('click', () => { if(currentChatId) renameItem('chat', currentChatId); });
                 dom.imageGenBtn?.addEventListener('click', generateImage);
-                dom.imageGenBtnMobile?.addEventListener('click', generateImage);
                 dom.pdfUploadBtn?.addEventListener('click', () => dom.pdfUploadInput.click());
-                dom.pdfUploadBtnMobile?.addEventListener('click', () => dom.pdfUploadInput.click());
                 dom.imageUploadBtn?.addEventListener('click', () => dom.imageUploadInput.click());
-                dom.imageUploadBtnMobile?.addEventListener('click', () => dom.imageUploadInput.click());
                 if (SR && dom.micBtn) {
                     recognition = new SR();
                     recognition.continuous = false; recognition.interimResults = false; recognition.lang = 'es-ES';
                     recognition.onstart = () => { isRecognizing = true; dom.micBtn.classList.add('glowing-mic'); toggleVoiceSelectorVisibility(true);};
                     recognition.onend = () => { isRecognizing = false; dom.micBtn.classList.remove('glowing-mic'); if (!speechSynthesis.speaking) toggleVoiceSelectorVisibility(false); };
-                    recognition.onerror = (e) => { console.error("Speech recognition error", e);
-                    isRecognizing = false; dom.micBtn.classList.remove('glowing-mic'); toggleVoiceSelectorVisibility(false); };
+                    recognition.onerror = (e) => { console.error("Speech recognition error", e); isRecognizing = false; dom.micBtn.classList.remove('glowing-mic'); toggleVoiceSelectorVisibility(false); };
                     recognition.onresult = (event) => {
                         const transcript = event.results[0][0].transcript;
                         const activeInput = dom.projectManagementView.style.display === 'flex' ? dom.projectMsgInput : dom.msgInput;
@@ -2760,13 +2841,12 @@
                     }
                  });
 
-                dom.modelSelector?.addEventListener('change', (e) => { dom.modelSelectorMobile.value = e.target.value; updateModelSelectorState(); });
-                dom.modelSelectorMobile?.addEventListener('change', (e) => { dom.modelSelector.value = e.target.value; updateModelSelectorState(); });
-
+                dom.modelSelector?.addEventListener('change', () => {});
+                
                 dom.clearImageBtn?.addEventListener('click', clearImageData);
                 dom.clearPdfBtn?.addEventListener('click', clearPdfData);
-                dom.imageUploadInput?.addEventListener('change', (e) => { if (e.target.files && e.target.files[0]) { clearPdfData(); const reader = new FileReader(); reader.onload = (ev) => { selectedImageBase64 = ev.target.result; dom.imagePreview.src = selectedImageBase64; dom.imagePreviewContainer.classList.remove('hidden'); updateModelSelectorState(); }; reader.readAsDataURL(e.target.files[0]); } });
-                dom.pdfUploadInput?.addEventListener('change', (e) => { const file = e.target.files[0]; if (!file || file.type !== 'application/pdf') return; clearImageData(); dom.pdfNameEl.textContent = file.name; dom.pdfStatusEl.textContent = 'Leyendo...'; dom.pdfPreviewContainer.classList.remove('hidden'); const reader = new FileReader(); reader.onload = async (ev) => { dom.pdfStatusEl.textContent = 'Procesando...'; try { const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(ev.target.result) }).promise; let text = ''; for (let i = 1; i <= pdf.numPages; i++) { const page = await pdf.getPage(i); const content = await page.getTextContent(); text += content.items.map(item => item.str).join(' ') + '\n'; } selectedPdfText = text; dom.pdfStatusEl.textContent = `✅ Listo (${pdf.numPages} pág.)`; updateModelSelectorState(); } catch (err) { console.error("Error al procesar el PDF:", err); dom.pdfStatusEl.textContent = '❌ Error al leer PDF.'; selectedPdfText = null; setTimeout(clearPdfData, 2000); } }; reader.readAsArrayBuffer(file); });
+                dom.imageUploadInput?.addEventListener('change', (e) => { if (e.target.files && e.target.files[0]) { clearPdfData(); const reader = new FileReader(); reader.onload = (ev) => { selectedImageBase64 = ev.target.result; dom.imagePreview.src = selectedImageBase64; dom.imagePreviewContainer.classList.remove('hidden'); }; reader.readAsDataURL(e.target.files[0]); } });
+                dom.pdfUploadInput?.addEventListener('change', (e) => { const file = e.target.files[0]; if (!file || file.type !== 'application/pdf') return; clearImageData(); dom.pdfNameEl.textContent = file.name; dom.pdfStatusEl.textContent = 'Leyendo...'; dom.pdfPreviewContainer.classList.remove('hidden'); const reader = new FileReader(); reader.onload = async (ev) => { dom.pdfStatusEl.textContent = 'Procesando...'; try { const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(ev.target.result) }).promise; let text = ''; for (let i = 1; i <= pdf.numPages; i++) { const page = await pdf.getPage(i); const content = await page.getTextContent(); text += content.items.map(item => item.str).join(' ') + '\n'; } selectedPdfText = text; dom.pdfStatusEl.textContent = `✅ Listo (${pdf.numPages} pág.)`; } catch (err) { console.error("Error al procesar el PDF:", err); dom.pdfStatusEl.textContent = '❌ Error al leer PDF.'; selectedPdfText = null; setTimeout(clearPdfData, 2000); } }; reader.readAsArrayBuffer(file); });
                 dom.menuToggle?.addEventListener('click', (e) => { e.stopPropagation(); toggleSidebar(true); });
                 dom.sidebarOverlay?.addEventListener('click', () => toggleSidebar(false));
                 dom.userMenuBtn?.addEventListener('click', (e) => { e.stopPropagation(); dom.userMenuPopup.classList.toggle('hidden'); });
@@ -2824,13 +2904,7 @@
                 dom.freeGuidesLink.addEventListener('click', (e) => { e.preventDefault(); const isPaidUser = currentUser && currentUser.app_metadata?.plan && currentUser.app_metadata.plan !== 'free'; if (isPaidUser) { window.open('https://goatify.app/guiasIA', '_blank'); } else { const title = 'Acceso Exclusivo para Suscriptores'; const message = 'Estas guías se actualizan semanalmente con estrategias de negocio que te ayudarán a crecer un montón. Son un beneficio exclusivo para nuestros suscriptores. ¡Únete a un plan para desbloquearlas!'; showModal({ title, body: message, confirmText: 'Ver Planes' }).then(res => { if (res.confirmed) { showPricingModal(); } }); } });
                 dom.closeHtmlPreviewModalBtn?.addEventListener('click', () => { dom.htmlPreviewModal.classList.add('hidden'); dom.htmlPreviewModal.classList.remove('flex'); });
                 
-                [dom.voiceSelector, dom.voiceSelectorMobile].forEach(selector => {
-                    selector?.addEventListener('change', (e) => { 
-                        selectedVoice = availableVoices.find(voice => voice.name === e.target.value); 
-                        dom.voiceSelector.value = e.target.value;
-                        dom.voiceSelectorMobile.value = e.target.value;
-                    });
-                });
+                dom.voiceSelector?.addEventListener('change', (e) => { selectedVoice = availableVoices.find(voice => voice.name === e.target.value); });
 
                 document.addEventListener('click', (e) => { 
                     if (dom.userMenuBtn && dom.userMenuPopup && !dom.userMenuBtn.contains(e.target) && !dom.userMenuPopup.contains(e.target)) { dom.userMenuPopup.classList.add('hidden'); } 
@@ -3004,7 +3078,7 @@
                 dom.viewToggleKanban.classList.toggle('active', isKanban);
                 dom.viewToggleList.classList.toggle('active', !isKanban);
                 dom.kanbanView.style.display = isKanban ? 'grid' : 'none';
-                dom.listView.style.display = isKanban ? 'none' : 'block';
+                dom.listView.style.display = isKanban ? 'none' : 'flex';
                 if (isKanban) {
                     renderKanbanView(chatId);
                 } else {
@@ -3037,7 +3111,7 @@
                         cardEl.draggable = true;
                         cardEl.dataset.taskId = task.id;
                         
-                        const labelsHtml = (task.labels || []).map(label => `<span class="task-label" style="background-color: ${getLabelColor(label)}; color: #fff;">${label}</span>`).join('');
+                        const labelsHtml = (task.labels || []).map(label => `<span class="task-label" style="background-color: ${getLabelColor(label)}; color: white;">${label}</span>`).join('');
                         cardEl.innerHTML = `
                         <div class="flex justify-between items-start">
                             <p>${task.content}</p>
@@ -3071,50 +3145,79 @@
                 dom.kanbanView.querySelectorAll('.add-task-to-column-btn').forEach(btn => {
                     btn.addEventListener('click', (e) => {
                         const columnId = e.currentTarget.dataset.columnId;
-                        editProjectTask(chatId, null, columnId); // Call editor for a new task
-                     });
+                        editProjectTask(chatId, null, columnId);
+                    });
                 });
             }
 
             function renderListView(chatId) {
                 const { projectData } = state.chats[chatId];
-                dom.listView.innerHTML = '';
-                 projectData.columns.forEach(column => {
-                    const columnSection = document.createElement('div');
-                    columnSection.className = 'list-view-column';
-                    columnSection.innerHTML = `<h3 class="text-lg font-semibold mb-2 border-b border-themed pb-1">${column.title}</h3>`;
-                    const taskList = document.createElement('div');
-                    taskList.className = 'space-y-2';
+                dom.listView.innerHTML = ''; 
 
-                    const tasksToRender = (column.tasks || []).filter(task => !activeTagFilter || (task.labels && task.labels.includes(activeTagFilter)));
+                const header = document.createElement('div');
+                header.className = 'list-view-header flex-shrink-0';
+                header.innerHTML = `
+                    <span></span> <span class="truncate">Nombre</span>
+                    <span class="truncate hidden sm:block">Fecha Límite</span>
+                    <span class="truncate hidden sm:block">Prioridad</span>
+                    <span class="truncate">Etiquetas</span>
+                `;
+                dom.listView.appendChild(header);
 
-                    tasksToRender.forEach(task => {
-                        const taskEl = document.createElement('div');
-                        taskEl.className = 'list-view-task flex justify-between items-center cursor-pointer';
-                        if (task.urgent) taskEl.classList.add('urgent');
-                        if (task.completed) taskEl.classList.add('task-item-completed');
-                        const labelsHtml = (task.labels || []).map(label => `<span class="task-label" style="background-color: ${getLabelColor(label)}; color: #fff;">${label}</span>`).join('');
-                        taskEl.innerHTML = `
-                            <div class="flex items-center">
-                                ${task.urgent ? '<i class="fas fa-flag text-red-500 mr-3" title="Urgente"></i>' : ''}
-                                 <div>
-                                    <span>${task.content}</span>
-                                     <div class="task-labels mt-1">${labelsHtml}</div>
-                                </div>
-                            </div>
-                            <span class="text-sm text-text-medium">${task.dueDate ? `${dayjs(task.dueDate).format('D MMM')} ${task.time || ''}` : ''}</span>
-                        `;
-                        taskEl.addEventListener('click', () => editProjectTask(chatId, task.id));
-                        taskList.appendChild(taskEl);
+                const listContent = document.createElement('div');
+                listContent.className = 'flex-grow overflow-y-auto';
+
+                const allTasks = projectData.columns.flatMap(col => col.tasks.map(task => ({...task, columnId: col.id})));
+                const tasksToRender = allTasks.filter(task => !activeTagFilter || (task.labels && task.labels.includes(activeTagFilter)));
+
+                tasksToRender.forEach(task => {
+                    const taskEl = document.createElement('div');
+                    taskEl.className = 'list-view-task';
+                    taskEl.draggable = true;
+                    taskEl.dataset.taskId = task.id;
+                    taskEl.dataset.columnId = task.columnId;
+
+                    if (task.completed) taskEl.classList.add('task-item-completed');
+                    if (task.urgent) taskEl.classList.add('urgent');
+                    
+                    const labelsHtml = (task.labels || []).map(label => `<span class="task-label" style="background-color: ${getLabelColor(label)}; color: white;">${label}</span>`).join('');
+                    
+                    taskEl.innerHTML = `
+                        <div class="flex items-center justify-center">
+                            <input type="checkbox" class="task-checkbox" data-task-id="${task.id}" ${task.completed ? 'checked' : ''}>
+                        </div>
+                        <span class="truncate task-content-list">${task.content}</span>
+                        <span class="text-sm truncate hidden sm:block">${task.dueDate ? dayjs(task.dueDate).format('D MMM, YY') : '–'}</span>
+                        <div class="flex items-center justify-center hidden sm:block">
+                            ${task.urgent ? '<i class="fas fa-flag text-red-500" title="Urgente"></i>' : '–'}
+                        </div>
+                        <div class="task-labels truncate">${labelsHtml || '–'}</div>
+                    `;
+                    
+                    taskEl.addEventListener('dragstart', (e) => {
+                         e.dataTransfer.setData('text/plain', task.id);
+                         e.dataTransfer.effectAllowed = 'move';
                     });
-                     columnSection.appendChild(taskList);
-                    dom.listView.appendChild(columnSection);
+                     taskEl.addEventListener('click', (e) => {
+                        if (e.target.type === 'checkbox') return;
+                        editProjectTask(chatId, task.id);
+                    });
+                    listContent.appendChild(taskEl);
+                });
+                
+                dom.listView.appendChild(listContent);
+                
+                dom.listView.querySelectorAll('.task-checkbox').forEach(checkbox => {
+                     checkbox.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        updateTaskStatus(e.currentTarget.dataset.taskId, { completed: e.currentTarget.checked });
+                    });
                 });
             }
             
             async function editProjectTask(chatId, taskId, columnIdForNew) {
                 const chat = state.chats[chatId];
-                const task = taskId ? chat.projectData.columns.flatMap(c => c.tasks || []).find(t => t.id === taskId) : null;
+                const task = taskId ? findTask(taskId)?.task : null;
                 
                 const isNew = !task;
                 const modalTitle = isNew ? 'Nueva Tarea de Proyecto' : 'Editar Tarea';
@@ -3171,31 +3274,19 @@
                             const column = chat.projectData.columns.find(c => c.id === columnIdForNew);
                             if (column) {
                                 if (!column.tasks) column.tasks = [];
-                                column.tasks.push({ id: crypto.randomUUID(), ...updatedTaskData, completed: false });
+                                column.tasks.push({ id: `proj-${crypto.randomUUID()}`, ...updatedTaskData, completed: false });
                             }
                         } else {
-                            Object.assign(task, updatedTaskData);
+                            updateTaskStatus(taskId, updatedTaskData);
                         }
-                        saveState();
-                        renderProjectBoard(chatId);
+                        // No need to call saveState or renderProjectBoard, as updateTaskStatus handles it
                     }
                 }
             }
             
             async function editCalendarTask(taskId, preselectedDate = null, preselectedTime = null) {
-                let task = null;
-                let taskDayKey = null;
-
-                if (taskId) {
-                    for (const dayKey in state.calendar) {
-                        const foundTask = (state.calendar[dayKey] || []).find(t => t.id === taskId);
-                        if (foundTask) {
-                            task = foundTask;
-                            taskDayKey = dayKey;
-                            break;
-                        }
-                    }
-                }
+                const task = taskId ? findTask(taskId)?.task : null;
+                const taskDayKey = taskId ? findTask(taskId)?.dayKey : null;
                 
                 const isNew = !task;
                 const modalTitle = isNew ? 'Nueva Tarea Personal' : 'Editar Tarea Personal';
@@ -3234,50 +3325,42 @@
 
                     if (newContent.trim() && newDate) {
                         const updatedTaskData = {
-                            id: isNew ? `cal-${crypto.randomUUID()}` : taskId,
                             content: newContent.trim(),
                             time: result.data['cal-task-time'] || null,
-                            completed: isNew ? false : task.completed,
+                            date: newDate
                         };
-
-                        if (!isNew) {
-                           const taskIndex = state.calendar[taskDayKey].findIndex(t => t.id === taskId);
-                           state.calendar[taskDayKey].splice(taskIndex, 1);
-                           if (state.calendar[taskDayKey].length === 0) {
-                                delete state.calendar[taskDayKey];
-                           }
-                        }
                         
-                        if (!state.calendar[newDate]) {
-                            state.calendar[newDate] = [];
+                        if (isNew) {
+                            const newId = `cal-${crypto.randomUUID()}`;
+                            const newTask = { id: newId, completed: false, ...updatedTaskData };
+                            if (!state.calendar[newDate]) state.calendar[newDate] = [];
+                            state.calendar[newDate].push(newTask);
+                            saveState();
+                            renderCalendarView();
+                        } else {
+                            updateTaskStatus(taskId, updatedTaskData);
                         }
-                        state.calendar[newDate].push(updatedTaskData);
-
-                        saveState();
-                        renderCalendarView();
                     }
                 }
             }
 
             function moveTask(chatId, taskId, targetColumnId) {
-                const project = state.chats[chatId].projectData;
-                let taskToMove;
-                let sourceColumnId;
+                const chat = state.chats[chatId];
+                const found = findTask(taskId);
+                if (!found || found.type !== 'project') return;
+                
+                const { task, column: sourceColumn, taskIndex } = found;
+                if (sourceColumn.id === targetColumnId) return;
 
-                for (const column of project.columns) {
-                    const taskIndex = (column.tasks || []).findIndex(t => t.id === taskId);
-                    if (taskIndex > -1) {
-                        taskToMove = column.tasks.splice(taskIndex, 1)[0];
-                        sourceColumnId = column.id;
-                        break;
-                    }
-                }
-
-                if (taskToMove && sourceColumnId !== targetColumnId) {
-                    const targetColumn = project.columns.find(c => c.id === targetColumnId);
-                    if (targetColumn) {
-                        if(!targetColumn.tasks) targetColumn.tasks = [];
-                        targetColumn.tasks.push(taskToMove);
+                const [taskToMove] = sourceColumn.tasks.splice(taskIndex, 1);
+                const targetColumn = chat.projectData.columns.find(c => c.id === targetColumnId);
+                if (targetColumn) {
+                    targetColumn.tasks.push(taskToMove);
+                    
+                    const isCompleted = targetColumn.id === 'done';
+                    if (task.completed !== isCompleted) {
+                         updateTaskStatus(taskId, { completed: isCompleted });
+                    } else {
                         saveState();
                         renderProjectBoard(chatId);
                     }
@@ -3285,13 +3368,15 @@
             }
 
             function getLabelColor(label) {
+                if (label === 'Personal') return 'var(--primary)';
+                if (label === 'default') return 'var(--text-medium)';
                 let hash = 0;
                 for (let i = 0; i < label.length; i++) {
                     hash = label.charCodeAt(i) + ((hash << 5) - hash);
                 }
                 let color = '#';
                 for (let i = 0; i < 3; i++) {
-                    let value = (hash >> (i * 8)) & 0xFF;
+                    let value = (hash >> (i * 8)) & 0xCF; // Use CF to avoid very dark colors
                     color += ('00' + value.toString(16)).substr(-2);
                 }
                 return color;
@@ -3316,10 +3401,10 @@
                 allTags.forEach(tag => {
                     const btn = document.createElement('button');
                     btn.className = 'block w-full text-left p-2 hover:bg-medium rounded-md text-sm';
-                    btn.innerHTML = `<span class="task-label inline-block mr-2" style="background-color: ${getLabelColor(tag)}; color: #fff;">${tag}</span>`;
+                    btn.innerHTML = `<span class="task-label inline-block mr-2" style="background-color: ${getLabelColor(tag)}; color: white;">${tag}</span>`;
                      btn.onclick = () => {
                         activeTagFilter = tag;
-                        dom.tagFilterBtn.innerHTML = `<span class="task-label inline-block mr-2" style="background-color: ${getLabelColor(tag)}; color: #fff;">${tag}</span>`;
+                        dom.tagFilterBtn.innerHTML = `<span class="task-label inline-block mr-2" style="background-color: ${getLabelColor(tag)}; color: white;">${tag}</span>`;
                         dom.tagFilterDropdown.classList.add('hidden');
                          renderProjectBoard(chatId);
                     };
@@ -3355,12 +3440,13 @@
                 const key = currentUser ? `gamificationState_${currentUser.id}` : 'gamificationState_guest';
                 localStorage.setItem(key, JSON.stringify(gamificationState));
                 renderGamificationModal();
+                updateCreditCounter();
             }
 
             function addXp(amount) {
                 gamificationState.xp += amount;
                 const currentLevel = gamificationState.level;
-                if (currentLevel >= LEVEL_NAMES.length) return; // Max level reached
+                if (currentLevel >= LEVEL_NAMES.length) return; 
 
                 const nextLevelXp = XP_FOR_LEVEL[currentLevel];
                 if (gamificationState.xp >= nextLevelXp) {
@@ -3433,11 +3519,11 @@
                 } else if (rand < 0.4) { // 30% Rare
                     addCredits(150);
                     rewardTitle = ' recompensa RARA!';
-                    rewardBody = `Has ganado <strong>150 Créditos</strong> extra. ¡Sigue así!`;
+                    rewardBody = `Has ganado <strong>150 Créditos de Recompensa</strong> extra. ¡Sigue así!`;
                 } else { // 60% Common
                     addCredits(50);
                     rewardTitle = ' recompensa COMÚN!';
-                    rewardBody = `Has ganado <strong>50 Créditos</strong>. ¡Buen trabajo!`;
+                    rewardBody = `Has ganado <strong>50 Créditos de Recompensa</strong>. ¡Buen trabajo!`;
                 }
 
                 showModal({
@@ -3466,7 +3552,7 @@
                     addCredits(mission.credits);
                     showModal({
                         title: `<i class="fas fa-check-circle text-green-400 mr-2"></i> Misión Completada`,
-                        body: `<p class="text-lg text-center">¡Completaste "${mission.text}"!</p><p class="text-center font-bold mt-2">+${mission.xp} XP | +${mission.credits} Créditos</p>`,
+                        body: `<p class="text-lg text-center">¡Completaste "${mission.text}"!</p><p class="text-center font-bold mt-2">+${mission.xp} XP | +${mission.credits} Créditos de Recompensa</p>`,
                         confirmText: '¡Vamos!',
                          showCancel: false
                     });
@@ -3513,7 +3599,7 @@
                     const dayEl = document.createElement('div');
                     dayEl.className = 'streak-day p-4 rounded-lg flex flex-col items-center justify-center';
                     const isCompleted = i <= gamificationState.dailyStreak;
-                    const isActive = i === gamificationState.dailyStreak + 1;
+                    const isActive = i === gamificationState.dailyStreak + 1 && dayjs().format('YYYY-MM-DD') !== gamificationState.lastLogin;
                     
                     if (isCompleted) dayEl.classList.add('completed');
                     if (isActive) dayEl.classList.add('active');
@@ -3576,7 +3662,6 @@
                 loadStateForUser();
                 populateVoiceList();
                 setupEventListeners();
-                updateModelSelectorState();
                 updateContextualFooter(null);
 
                 dom.appContainer.classList.remove('opacity-0');
