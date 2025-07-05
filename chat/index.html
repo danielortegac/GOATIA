@@ -3276,783 +3276,1993 @@
                 });
 
                 dom.kanbanView.querySelectorAll('.add-task-to-column-btn').forEach(btn => {
-                    btn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    const columnId = e.currentTarget.dataset.columnId;
-                    editProjectTask(chatId, null, columnId);
-                });
-            });
-    }
-    
-    function renderListView(chatId) {
-        const { projectData } = state.chats[chatId];
-        dom.listView.innerHTML = `
-            <div class="list-view-header">
-                <div class="w-10"></div>
-                <div>Tarea</div>
-                <div class="text-center">Etiquetas</div>
-                <div class="text-center">Fecha</div>
-                <div class="text-center">Acciones</div>
-            </div>
-            <div id="list-view-body" class="flex-grow overflow-y-auto"></div>
-            <div class="flex-shrink-0 p-2 border-t border-themed">
-                 <button id="add-task-btn-list" class="w-full btn-primary p-2 rounded-lg flex items-center justify-center text-sm">
-                    <i class="fas fa-plus mr-2"></i>Añadir Tarea a "Por Hacer"
-                </button>
+                    btn.addEventListener('click', () => editProjectTask(chatId, null, btn.dataset.columnId)); }); }
+
+function renderListView(chatId) {
+    const { projectData } = state.chats[chatId];
+    dom.listView.innerHTML = '';
+
+    const headerHtml = `
+        <div class="list-view-header">
+            <span></span>
+            <span>Tarea</span>
+            <span>Etiquetas</span>
+            <span>Fecha</span>
+            <span>Prioridad</span>
+            <span>Acciones</span>
+        </div>
+    `;
+    dom.listView.insertAdjacentHTML('afterbegin', headerHtml);
+
+    const tasks = projectData.columns.flatMap(column => 
+        (column.tasks || []).map(task => ({ ...task, columnId: column.id }))
+    ).filter(task => !activeTagFilter || (task.labels && task.labels.includes(activeTagFilter)));
+
+    tasks.forEach(task => {
+        const taskEl = document.createElement('div');
+        taskEl.className = 'list-view-task';
+        if (task.completed) taskEl.classList.add('task-item-completed');
+        taskEl.dataset.taskId = task.id;
+
+        const labelsHtml = (task.labels || []).map(label => `<span class="task-label" style="background-color: ${getLabelColor(label)}; color: white;">${label}</span>`).join('');
+        const priorityIcon = task.urgent ? '<i class="fas fa-flag text-red-500"></i>' : '<i class="far fa-flag text-text-medium"></i>';
+
+        taskEl.innerHTML = `
+            <div><input type="checkbox" class="task-checkbox" data-task-id="${task.id}" ${task.completed ? 'checked' : ''}></div>
+            <div class="task-content-list">${task.content}</div>
+            <div class="task-labels">${labelsHtml}</div>
+            <div>${task.dueDate ? dayjs(task.dueDate).format('D MMM YYYY') : ''}</div>
+            <div class="priority-cell" data-task-id="${task.id}">${priorityIcon}</div>
+            <div class="flex items-center space-x-2">
+                <button class="edit-task-btn text-blue-500 hover:text-blue-400" data-task-id="${task.id}"><i class="fas fa-edit"></i></button>
+                <button class="delete-task-btn text-red-500 hover:text-red-400" data-task-id="${task.id}"><i class="fas fa-trash-alt"></i></button>
             </div>
         `;
-        const body = dom.listView.querySelector('#list-view-body');
-        const allTasks = projectData.columns.flatMap(col => col.tasks.map(t => ({...t, status: col.title})));
-        
-        const tasksToRender = allTasks.filter(task => !activeTagFilter || (task.labels && task.labels.includes(activeTagFilter)));
+        dom.listView.appendChild(taskEl);
+    });
 
-        tasksToRender.forEach(task => {
-            const taskEl = document.createElement('div');
-            taskEl.className = 'list-view-task';
-            if (task.completed) taskEl.classList.add('task-item-completed');
-            
-            const labelsHtml = (task.labels || []).map(label => `<span class="task-label" style="background-color: ${getLabelColor(label)}; color: white;">${label}</span>`).join('');
+    const addTaskBtn = document.createElement('button');
+    addTaskBtn.id = 'add-project-task-btn';
+    addTaskBtn.className = 'w-full btn-primary p-2 rounded-lg flex items-center justify-center mt-4';
+    addTaskBtn.innerHTML = '<i class="fas fa-plus mr-2"></i>Crear Nueva Tarea';
+    dom.listView.appendChild(addTaskBtn);
 
-            taskEl.innerHTML = `
-                <div><input type="checkbox" class="task-checkbox-list" data-task-id="${task.id}" ${task.completed ? 'checked' : ''}></div>
-                <div class="task-content-list ${task.urgent ? 'urgent' : ''}">${task.content}</div>
-                <div class="task-labels justify-center">${labelsHtml}</div>
-                <div class="text-center text-sm">${task.dueDate ? dayjs(task.dueDate).format('D MMM') : 'N/A'}</div>
-                <div class="flex items-center justify-center space-x-2">
-                    <button class="edit-task-btn p-1 text-text-medium hover:text-primary" data-task-id="${task.id}" title="Editar"><i class="fas fa-pencil-alt fa-xs"></i></button>
-                    <button class="delete-task-btn p-1 text-text-medium hover:text-red-500" data-task-id="${task.id}" title="Eliminar"><i class="fas fa-trash-alt fa-xs"></i></button>
-                </div>
-            `;
-            body.appendChild(taskEl);
+    addTaskBtn.addEventListener('click', () => editProjectTask(chatId, null, 'todo'));
+
+    dom.listView.querySelectorAll('.task-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', (e) => {
+            updateTaskStatusProject(chatId, e.currentTarget.dataset.taskId, { completed: e.currentTarget.checked });
         });
-
-        dom.listView.querySelector('#add-task-btn-list').addEventListener('click', () => editProjectTask(chatId, null, 'todo'));
-    }
-
-    function renderListViewMobile(chatId) {
-        const { projectData } = state.chats[chatId];
-        dom.listViewMobile.innerHTML = ''; // Clear previous content
-        
-        const allTasks = projectData.columns.flatMap(col => col.tasks.map(t => ({...t, status: col.title})));
-        const tasksToRender = allTasks.filter(task => !activeTagFilter || (task.labels && task.labels.includes(activeTagFilter)));
-
-        tasksToRender.forEach(task => {
-            const taskEl = document.createElement('div');
-            taskEl.className = 'list-view-task-mobile';
-             if (task.completed) taskEl.classList.add('task-item-completed');
-
-            const labelsHtml = (task.labels || []).map(label => `<span class="task-label" style="background-color: ${getLabelColor(label)}; color: white;">${label}</span>`).join('');
-            
-            taskEl.innerHTML = `
-                <div class="list-view-task-mobile-header">
-                    <input type="checkbox" class="task-checkbox-list flex-shrink-0 mt-1" data-task-id="${task.id}" ${task.completed ? 'checked' : ''}>
-                    <div class="flex-grow">
-                        <p class="task-content-list ${task.urgent ? 'urgent' : ''}">${task.content}</p>
-                        <div class="task-labels mt-1">${labelsHtml}</div>
-                    </div>
-                </div>
-                <div class="list-view-task-mobile-footer">
-                    <div>
-                        <span class="px-2 py-1 text-xs rounded-full bg-input">${task.status}</span>
-                         <span class="ml-2">${task.dueDate ? `<i class="fas fa-calendar-alt mr-1"></i> ${dayjs(task.dueDate).format('D MMM')}` : ''}</span>
-                    </div>
-                    <div class="flex items-center justify-center space-x-2">
-                         <button class="edit-task-btn p-1 text-text-medium hover:text-primary" data-task-id="${task.id}" title="Editar"><i class="fas fa-pencil-alt fa-xs"></i></button>
-                         <button class="delete-task-btn p-1 text-text-medium hover:text-red-500" data-task-id="${task.id}" title="Eliminar"><i class="fas fa-trash-alt fa-xs"></i></button>
-                    </div>
-                </div>
-            `;
-            dom.listViewMobile.appendChild(taskEl);
+    });
+    dom.listView.querySelectorAll('.edit-task-btn').forEach(btn => {
+        btn.addEventListener('click', () => editProjectTask(chatId, btn.dataset.taskId));
+    });
+    dom.listView.querySelectorAll('.delete-task-btn').forEach(btn => {
+        btn.addEventListener('click', () => deleteProjectTask(chatId, btn.dataset.taskId));
+    });
+    dom.listView.querySelectorAll('.priority-cell').forEach(cell => {
+        cell.addEventListener('click', (e) => {
+            toggleTaskUrgent(chatId, e.currentTarget.dataset.taskId);
         });
-        
-         // Add the "Add Task" button at the end
-        const addTaskBtnContainer = document.createElement('div');
-        addTaskBtnContainer.className = "p-2";
-        addTaskBtnContainer.innerHTML = `
-            <button id="add-task-btn-list-mobile" class="w-full btn-primary p-2 rounded-lg flex items-center justify-center text-sm">
-                <i class="fas fa-plus mr-2"></i>Añadir Tarea
-            </button>
+    });
+}
+
+function renderListViewMobile(chatId) {
+    const { projectData } = state.chats[chatId];
+    dom.listViewMobile.innerHTML = '';
+
+    const tasks = projectData.columns.flatMap(column => 
+        (column.tasks || []).map(task => ({ ...task, columnId: column.id }))
+    ).filter(task => !activeTagFilter || (task.labels && task.labels.includes(activeTagFilter)));
+
+    tasks.forEach(task => {
+        const taskEl = document.createElement('div');
+        taskEl.className = 'list-view-task-mobile bg-current-bg-light p-3 rounded-lg shadow';
+        if (task.completed) taskEl.classList.add('task-item-completed');
+        taskEl.dataset.taskId = task.id;
+
+        const labelsHtml = (task.labels || []).map(label => `<span class="task-label" style="background-color: ${getLabelColor(label)}; color: white;">${label}</span>`).join('');
+        const priorityIcon = task.urgent ? '<i class="fas fa-flag text-red-500"></i>' : '<i class="far fa-flag text-text-medium"></i>';
+
+        taskEl.innerHTML = `
+            <div class="list-view-task-mobile-header">
+                <div><input type="checkbox" class="task-checkbox" data-task-id="${task.id}" ${task.completed ? 'checked' : ''}></div>
+                <div class="flex-grow">
+                    <p class="font-semibold text-text-light">${task.content}</p>
+                    <div class="task-labels mt-1">${labelsHtml}</div>
+                </div>
+                <div class="priority-cell" data-task-id="${task.id}">${priorityIcon}</div>
+            </div>
+            <div class="list-view-task-mobile-footer">
+                <span class="text-xs text-text-medium">${task.dueDate ? dayjs(task.dueDate).format('D MMM YYYY') : ''} ${task.time || ''}</span>
+                <div class="flex items-center space-x-2">
+                    <button class="edit-task-btn text-blue-500 hover:text-blue-400" data-task-id="${task.id}"><i class="fas fa-edit"></i></button>
+                    <button class="delete-task-btn text-red-500 hover:text-red-400" data-task-id="${task.id}"><i class="fas fa-trash-alt"></i></button>
+                </div>
+            </div>
         `;
-        dom.listViewMobile.appendChild(addTaskBtnContainer);
-        dom.listViewMobile.querySelector('#add-task-btn-list-mobile').addEventListener('click', () => editProjectTask(chatId, null, 'todo'));
-    }
+        dom.listViewMobile.appendChild(taskEl);
+    });
 
-    function setupProjectViewListeners(chatId) {
-        const viewContainer = dom.projectManagementView;
-        viewContainer.addEventListener('click', e => {
-            const editBtn = e.target.closest('.edit-task-btn');
-            if (editBtn) {
-                editProjectTask(chatId, editBtn.dataset.taskId);
-                return;
-            }
+    const addTaskBtn = document.createElement('button');
+    addTaskBtn.id = 'add-project-task-btn-mobile';
+    addTaskBtn.className = 'w-full btn-primary p-2 rounded-lg flex items-center justify-center mt-4';
+    addTaskBtn.innerHTML = '<i class="fas fa-plus mr-2"></i>Crear Nueva Tarea';
+    dom.listViewMobile.appendChild(addTaskBtn);
 
-            const deleteBtn = e.target.closest('.delete-task-btn');
-            if(deleteBtn) {
-                deleteProjectTask(chatId, deleteBtn.dataset.taskId);
-                return;
-            }
-            
-            const checkbox = e.target.closest('.task-checkbox-list');
-            if(checkbox) {
-                 const task = findTask(checkbox.dataset.taskId)?.task;
-                 if(task) {
-                    updateTaskStatus(checkbox.dataset.taskId, { completed: checkbox.checked });
-                 }
-            }
+    addTaskBtn.addEventListener('click', () => editProjectTask(chatId, null, 'todo'));
+
+    dom.listViewMobile.querySelectorAll('.task-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', (e) => {
+            updateTaskStatusProject(chatId, e.currentTarget.dataset.taskId, { completed: e.currentTarget.checked });
         });
+    });
+    dom.listViewMobile.querySelectorAll('.edit-task-btn').forEach(btn => {
+        btn.addEventListener('click', () => editProjectTask(chatId, btn.dataset.taskId));
+    });
+    dom.listViewMobile.querySelectorAll('.delete-task-btn').forEach(btn => {
+        btn.addEventListener('click', () => deleteProjectTask(chatId, btn.dataset.taskId));
+    });
+    dom.listViewMobile.querySelectorAll('.priority-cell').forEach(cell => {
+        cell.addEventListener('click', (e) => {
+            toggleTaskUrgent(chatId, e.currentTarget.dataset.taskId);
+        });
+    });
+}
+
+function updateTaskStatusProject(chatId, taskId, updates) {
+    const chat = state.chats[chatId];
+    if (!chat || !chat.projectData) return;
+
+    let taskToUpdate = null;
+    let oldColumn = null;
+    let taskIndex = -1;
+
+    for (const column of chat.projectData.columns) {
+        taskIndex = (column.tasks || []).findIndex(t => t.id === taskId);
+        if (taskIndex > -1) {
+            taskToUpdate = column.tasks[taskIndex];
+            oldColumn = column;
+            break;
+        }
     }
 
-    function moveTask(chatId, taskId, targetColumnId) {
-        const chat = state.chats[chatId];
-        if (!chat || !chat.projectData) return;
+    if (taskToUpdate) {
+        const originalCompleted = taskToUpdate.completed;
+        Object.assign(taskToUpdate, updates);
 
-        let sourceColumn = null;
-        let taskToMove = null;
-        let taskIndex = -1;
+        if (updates.completed !== undefined && updates.completed !== originalCompleted) {
+            if (oldColumn) {
+                // Remove task from old column
+                oldColumn.tasks.splice(taskIndex, 1);
+                
+                // Add task to new column based on completed status
+                if (taskToUpdate.completed) {
+                    const doneColumn = chat.projectData.columns.find(c => c.id === 'done');
+                    if (doneColumn) doneColumn.tasks.push(taskToUpdate);
+                } else {
+                    const todoColumn = chat.projectData.columns.find(c => c.id === 'todo');
+                    if (todoColumn) todoColumn.tasks.push(taskToUpdate);
+                }
+            }
+        }
+    }
 
+    saveState();
+    renderProjectBoard(chatId);
+}
+
+function moveTask(chatId, taskId, newColumnId) {
+    const chat = state.chats[chatId];
+    if (!chat || !chat.projectData) return;
+
+    let taskToMove = null;
+    let oldColumn = null;
+    let taskIndex = -1;
+
+    // Find the task and its original column
+    for (const column of chat.projectData.columns) {
+        taskIndex = (column.tasks || []).findIndex(t => t.id === taskId);
+        if (taskIndex > -1) {
+            taskToMove = column.tasks[taskIndex];
+            oldColumn = column;
+            break;
+        }
+    }
+
+    if (taskToMove && oldColumn && oldColumn.id !== newColumnId) {
+        // Remove task from the old column
+        oldColumn.tasks.splice(taskIndex, 1);
+
+        // Add task to the new column
+        const newColumn = chat.projectData.columns.find(c => c.id === newColumnId);
+        if (newColumn) {
+            // Update completed status based on column
+            taskToMove.completed = newColumnId === 'done';
+            newColumn.tasks.push(taskToMove);
+        }
+        saveState();
+        renderProjectBoard(chatId);
+    }
+}
+
+async function editProjectTask(chatId, taskId = null, columnId = 'todo') {
+    const chat = state.chats[chatId];
+    if (!chat || !chat.projectData) return;
+
+    let task = null;
+    if (taskId) {
         for (const col of chat.projectData.columns) {
-            const idx = (col.tasks || []).findIndex(t => t.id === taskId);
-            if (idx !== -1) {
-                sourceColumn = col;
-                taskIndex = idx;
+            task = (col.tasks || []).find(t => t.id === taskId);
+            if (task) {
+                columnId = col.id; // Set columnId to the task's current column
                 break;
             }
         }
+    }
 
-        if (sourceColumn && taskIndex > -1) {
-            [taskToMove] = sourceColumn.tasks.splice(taskIndex, 1);
-            
-            const targetColumn = chat.projectData.columns.find(c => c.id === targetColumnId);
-            if (targetColumn) {
-                if(!targetColumn.tasks) targetColumn.tasks = [];
-                targetColumn.tasks.push(taskToMove);
-                
-                // Update task status based on column
-                taskToMove.completed = targetColumnId === 'done';
+    const isNewTask = !task;
+    const initialContent = task?.content || '';
+    const initialDueDate = task?.dueDate || '';
+    const initialTime = task?.time || '';
+    const initialLabels = task?.labels || [];
+    const initialUrgent = task?.urgent || false;
+    const initialCompleted = task?.completed || false;
+    const initialCreateNewBoard = false; // New checkbox state
+
+    const allLabels = Array.from(new Set(projectData.columns.flatMap(col => col.tasks).flatMap(t => t.labels || [])));
+    const labelsOptions = allLabels.map(label => `
+        <label class="inline-flex items-center mr-2">
+            <input type="checkbox" class="form-checkbox text-primary rounded" value="${label}" ${initialLabels.includes(label) ? 'checked' : ''}>
+            <span class="ml-1 text-sm">${label}</span>
+        </label>
+    `).join('');
+
+    const result = await showModal({
+        title: isNewTask ? 'Añadir Nueva Tarea' : `Editar Tarea: ${task.content}`,
+        body: `
+            <div class="mb-4">
+                <label for="task-content" class="block text-sm font-bold mb-1">Descripción de la Tarea</label>
+                <input type="text" id="task-content" class="w-full p-2 rounded bg-input border border-themed" value="${initialContent}" placeholder="Escribe la tarea aquí...">
+            </div>
+            <div class="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label for="task-due-date" class="block text-sm font-bold mb-1">Fecha de Vencimiento</label>
+                    <input type="date" id="task-due-date" class="w-full p-2 rounded bg-input border border-themed" value="${initialDueDate}">
+                </div>
+                <div>
+                    <label for="task-time" class="block text-sm font-bold mb-1">Hora (Opcional)</label>
+                    <input type="time" id="task-time" class="w-full p-2 rounded bg-input border border-themed" value="${initialTime}">
+                </div>
+            </div>
+            <div class="mb-4">
+                <label for="task-labels" class="block text-sm font-bold mb-1">Etiquetas</label>
+                <div id="labels-container" class="flex flex-wrap gap-2">
+                    ${labelsOptions}
+                    <input type="text" id="new-label-input" class="p-2 rounded bg-input border border-themed text-sm w-32" placeholder="Nueva etiqueta">
+                    <button id="add-new-label-btn" class="px-2 py-1 bg-primary text-white rounded text-sm"><i class="fas fa-plus"></i></button>
+                </div>
+            </div>
+            <div class="mb-4 flex items-center space-x-4">
+                <label class="inline-flex items-center">
+                    <input type="checkbox" id="task-urgent" class="form-checkbox text-red-500 rounded" ${initialUrgent ? 'checked' : ''}>
+                    <span class="ml-2 text-sm">Marcar como Urgente</span>
+                </label>
+                <label class="inline-flex items-center">
+                    <input type="checkbox" id="task-completed" class="form-checkbox text-green-500 rounded" ${initialCompleted ? 'checked' : ''}>
+                    <span class="ml-2 text-sm">Marcar como Completada</span>
+                </label>
+            </div>
+            <div class="mb-4 flex items-center">
+                <label class="inline-flex items-center">
+                    <input type="checkbox" id="create-new-project-board" class="form-checkbox text-primary rounded" ${initialCreateNewBoard ? 'checked' : ''}>
+                    <span class="ml-2 text-sm">Crear un Nuevo Tablero de Proyecto</span>
+                </label>
+            </div>
+        `,
+        confirmText: isNewTask ? 'Añadir Tarea' : 'Guardar Cambios',
+        extraButtons: isNewTask ? [] : [{
+            id: 'delete-task-from-modal',
+            text: 'Eliminar Tarea',
+            classes: 'px-4 py-2 bg-red-600 text-white rounded',
+            action: (e, bodyEl) => {
+                showModal({
+                    title: 'Confirmar Eliminación',
+                    body: '¿Estás seguro de que quieres eliminar esta tarea? Esta acción no se puede deshacer.',
+                    confirmText: 'Sí, Eliminar',
+                    cancelText: 'Cancelar'
+                }).then(confirmResult => {
+                    if (confirmResult.confirmed) {
+                        deleteProjectTask(chatId, taskId);
+                        hideModal(); // Close the edit task modal too
+                        renderProjectBoard(chatId);
+                    }
+                });
             }
-            
+        }]
+    });
+
+    if (result.confirmed) {
+        const newTaskContent = result.data['task-content'].trim();
+        const newDueDate = result.data['task-due-date'];
+        const newTime = result.data['task-time'];
+        const newUrgent = result.data['task-urgent'];
+        const newCompleted = result.data['task-completed'];
+        const createNewProject = result.data['create-new-project-board'];
+
+        const selectedLabels = Array.from(dom.genericModal.querySelectorAll('#labels-container input[type="checkbox"]:checked')).map(cb => cb.value);
+        const newLabelInput = dom.genericModal.querySelector('#new-label-input');
+        if (newLabelInput.value.trim() && !selectedLabels.includes(newLabelInput.value.trim())) {
+            selectedLabels.push(newLabelInput.value.trim());
+        }
+
+        if (isNewTask) {
+            const newTask = {
+                id: `proj-${crypto.randomUUID()}`,
+                content: newTaskContent,
+                dueDate: newDueDate,
+                time: newTime,
+                labels: selectedLabels,
+                urgent: newUrgent,
+                completed: newCompleted
+            };
+            const targetColumn = chat.projectData.columns.find(col => col.id === columnId);
+            if (targetColumn) {
+                targetColumn.tasks.push(newTask);
+            }
+            if (createNewProject) {
+                const newProjectId = 'project-' + crypto.randomUUID();
+                state.projects[newProjectId] = {
+                    id: newProjectId,
+                    title: `Nuevo Tablero (${newTaskContent})`,
+                    chatIds: [chatId]
+                };
+                state.structure.unshift(newProjectId); // Add as a new folder
+            }
+        } else {
+            // Remove task from its current column
+            for (const col of chat.projectData.columns) {
+                col.tasks = (col.tasks || []).filter(t => t.id !== taskId);
+            }
+
+            // Update task properties
+            task.content = newTaskContent;
+            task.dueDate = newDueDate;
+            task.time = newTime;
+            task.labels = selectedLabels;
+            task.urgent = newUrgent;
+            task.completed = newCompleted;
+
+            // Add task to the correct column based on completion
+            const targetColumn = chat.projectData.columns.find(col => col.id === (task.completed ? 'done' : columnId));
+            if (targetColumn) {
+                targetColumn.tasks.push(task);
+            }
+        }
+        saveState();
+        renderProjectBoard(chatId);
+    }
+
+    dom.genericModal.querySelector('#add-new-label-btn').addEventListener('click', () => {
+        const newLabelInput = dom.genericModal.querySelector('#new-label-input');
+        const labelsContainer = dom.genericModal.querySelector('#labels-container');
+        const newLabelText = newLabelInput.value.trim();
+        if (newLabelText) {
+            const newLabelEl = document.createElement('label');
+            newLabelEl.className = 'inline-flex items-center mr-2';
+            newLabelEl.innerHTML = `
+                <input type="checkbox" class="form-checkbox text-primary rounded" value="${newLabelText}" checked>
+                <span class="ml-1 text-sm">${newLabelText}</span>
+            `;
+            labelsContainer.insertBefore(newLabelEl, newLabelInput.parentElement);
+            newLabelInput.value = '';
+        }
+    });
+}
+
+function deleteProjectTask(chatId, taskId) {
+    const chat = state.chats[chatId];
+    if (!chat || !chat.projectData) return;
+
+    for (const column of chat.projectData.columns) {
+        column.tasks = (column.tasks || []).filter(task => task.id !== taskId);
+    }
+    saveState();
+    renderProjectBoard(chatId);
+}
+
+function toggleTaskUrgent(chatId, taskId) {
+    const chat = state.chats[chatId];
+    if (!chat || !chat.projectData) return;
+
+    for (const column of chat.projectData.columns) {
+        const task = (column.tasks || []).find(t => t.id === taskId);
+        if (task) {
+            task.urgent = !task.urgent;
             saveState();
             renderProjectBoard(chatId);
+            return;
+        }
+    }
+}
+
+function renderTagFilter(chatId) {
+    const chat = state.chats[chatId];
+    if (!chat || !chat.projectData) return;
+
+    const allTags = new Set();
+    chat.projectData.columns.forEach(col => {
+        col.tasks.forEach(task => {
+            (task.labels || []).forEach(label => allTags.add(label));
+        });
+    });
+
+    const dropdown = dom.tagFilterDropdown;
+    dropdown.innerHTML = '';
+
+    const allOption = document.createElement('button');
+    allOption.className = `block w-full text-left p-2 rounded-md hover:bg-current-bg-medium ${!activeTagFilter ? 'font-bold text-primary' : ''}`;
+    allOption.textContent = 'Todas';
+    allOption.addEventListener('click', () => {
+        activeTagFilter = null;
+        renderProjectBoard(chatId);
+        dropdown.classList.add('hidden');
+    });
+    dropdown.appendChild(allOption);
+
+    Array.from(allTags).sort().forEach(tag => {
+        const tagOption = document.createElement('button');
+        tagOption.className = `block w-full text-left p-2 rounded-md hover:bg-current-bg-medium ${activeTagFilter === tag ? 'font-bold text-primary' : ''}`;
+        tagOption.textContent = tag;
+        tagOption.addEventListener('click', () => {
+            activeTagFilter = tag;
+            renderProjectBoard(chatId);
+            dropdown.classList.add('hidden');
+        });
+        dropdown.appendChild(tagOption);
+    });
+
+    dom.tagFilterBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        dropdown.classList.toggle('hidden');
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!dom.tagFilterDropdown.contains(e.target) && e.target !== dom.tagFilterBtn) {
+            dom.tagFilterDropdown.classList.add('hidden');
+        }
+    });
+}
+
+function getLabelColor(label) {
+    const colors = {
+        'Urgente': '#ef4444', // Red
+        'Importante': '#f59e0b', // Amber
+        'Marketing': '#8a4fff', // Primary purple
+        'Ventas': '#10b981', // Emerald
+        'Diseño': '#3b82f6', // Blue
+        'Desarrollo': '#f97316', // Orange
+        'Contenido': '#ec4899', // Pink
+        'Personal': '#6366f1', // Indigo
+        'Finanzas': '#0d9488', // Teal
+        'Decisión': '#7c3aed', // Violet
+        'Comunicación': '#a855f7', // Purple
+        'Web': '#22d3ee', // Cyan
+        'Inglés': '#dc2626', // Red-700
+    };
+    return colors[label] || '#6b7280'; // Default gray
+}
+
+// --- CALENDAR TASK MODAL ---
+async function editCalendarTask(taskId = null, selectedDate = dayjs().format('YYYY-MM-DD'), selectedTime = '') {
+    let task = null;
+    if (taskId) {
+        const tasksForDay = state.calendar[dayjs(selectedDate).format('YYYY-MM-DD')] || [];
+        task = tasksForDay.find(t => t.id === taskId);
+        if (task) {
+            selectedDate = task.date;
+            selectedTime = task.time;
         }
     }
 
-    async function editProjectTask(chatId, taskId, targetColumnId = null) {
-        const chat = state.chats[chatId];
-        if (!chat) return;
+    const isNewTask = !task;
+    const initialContent = task?.content || '';
+    const initialDueDate = task?.date || selectedDate;
+    const initialTime = task?.time || selectedTime;
+    const initialCompleted = task?.completed || false;
 
-        const isNew = !taskId;
-        const task = isNew ? {} : findTask(taskId)?.task;
-
-        if (!task) return;
-
-        const allLabels = getAllProjectLabels(chatId);
-        const labelsHtml = allLabels.map(label => `
-            <option value="${label}" ${task.labels && task.labels.includes(label) ? 'selected' : ''}>${label}</option>
-        `).join('');
-
-        const modalBody = `
-            <div class="space-y-4">
+    const result = await showModal({
+        title: isNewTask ? translations[localStorage.getItem('goatify-lang') || 'es'].calendar_add_task_btn : `Editar Tarea Personal`,
+        body: `
+            <div class="mb-4">
+                <label for="task-content" class="block text-sm font-bold mb-1">Descripción de la Tarea</label>
+                <input type="text" id="task-content" class="w-full p-2 rounded bg-input border border-themed" value="${initialContent}" placeholder="${translations[localStorage.getItem('goatify-lang') || 'es'].calendar_add_task_placeholder}">
+            </div>
+            <div class="grid grid-cols-2 gap-4 mb-4">
                 <div>
-                    <label for="task-content" class="block text-sm font-medium mb-1">Descripción de la Tarea</label>
-                    <textarea id="task-content" class="w-full p-2 rounded bg-input border border-themed h-24" placeholder="Describe la tarea...">${task.content || ''}</textarea>
+                    <label for="task-due-date" class="block text-sm font-bold mb-1">Fecha</label>
+                    <input type="date" id="task-due-date" class="w-full p-2 rounded bg-input border border-themed" value="${initialDueDate}">
                 </div>
-                 <div>
-                    <label for="task-labels" class="block text-sm font-medium mb-1">Etiquetas (tags)</label>
-                    <select multiple id="task-labels" class="w-full p-2 rounded bg-input border border-themed">${labelsHtml}</select>
-                    <input type="text" id="new-label-input" class="w-full p-2 mt-2 rounded bg-input border border-themed" placeholder="O crea una nueva etiqueta...">
+                <div>
+                    <label for="task-time" class="block text-sm font-bold mb-1">Hora (Opcional)</label>
+                    <input type="time" id="task-time" class="w-full p-2 rounded bg-input border border-themed" value="${initialTime}">
                 </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label for="task-due-date" class="block text-sm font-medium mb-1">Fecha de Entrega</label>
-                        <input type="date" id="task-due-date" value="${task.dueDate || ''}" class="w-full p-2 rounded bg-input border border-themed">
-                    </div>
-                     <div>
-                        <label for="task-time" class="block text-sm font-medium mb-1">Hora</label>
-                        <input type="time" id="task-time" value="${task.time || ''}" class="w-full p-2 rounded bg-input border border-themed">
-                    </div>
-                </div>
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center">
-                        <input type="checkbox" id="task-urgent" class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary" ${task.urgent ? 'checked' : ''}>
-                        <label for="task-urgent" class="ml-2 block text-sm">Marcar como Urgente</label>
-                    </div>
-                     ${isNew ? '' : `
-                    <div class="flex items-center">
-                        <input type="checkbox" id="task-completed-edit" class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary" ${task.completed ? 'checked' : ''}>
-                        <label for="task-completed-edit" class="ml-2 block text-sm">Completada</label>
-                    </div>`}
-                </div>
-                <div class="border-t border-themed pt-4 mt-4">
-                     <div class="flex items-center">
-                        <input type="checkbox" id="create-new-project-from-task" class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary">
-                        <label for="create-new-project-from-task" class="ml-2 block text-sm">Convertir en un nuevo Proyecto/Tablero</label>
-                    </div>
-                </div>
-            </div>`;
-            
-        const result = await showModal({
-            title: isNew ? 'Crear Nueva Tarea' : 'Editar Tarea',
-            body: modalBody,
-            confirmText: isNew ? 'Crear Tarea' : 'Guardar Cambios'
-        });
-
-        if (result.confirmed) {
-            const data = result.data;
-            const content = document.getElementById('task-content').value.trim();
-            if (!content) return;
-
-            const selectedLabels = Array.from(document.getElementById('task-labels').selectedOptions).map(opt => opt.value);
-            const newLabel = document.getElementById('new-label-input').value.trim();
-            if (newLabel && !selectedLabels.includes(newLabel)) {
-                selectedLabels.push(newLabel);
+            </div>
+            <div class="mb-4 flex items-center">
+                <label class="inline-flex items-center">
+                    <input type="checkbox" id="task-completed" class="form-checkbox text-green-500 rounded" ${initialCompleted ? 'checked' : ''}>
+                    <span class="ml-2 text-sm">Marcar como Completada</span>
+                </label>
+            </div>
+        `,
+        confirmText: isNewTask ? 'Añadir Tarea' : 'Guardar Cambios',
+        extraButtons: isNewTask ? [] : [{
+            id: 'delete-calendar-task-from-modal',
+            text: 'Eliminar Tarea',
+            classes: 'px-4 py-2 bg-red-600 text-white rounded',
+            action: (e) => {
+                showModal({
+                    title: 'Confirmar Eliminación',
+                    body: '¿Estás seguro de que quieres eliminar esta tarea personal? Esta acción no se puede deshacer.',
+                    confirmText: 'Sí, Eliminar',
+                    cancelText: 'Cancelar'
+                }).then(confirmResult => {
+                    if (confirmResult.confirmed) {
+                        deleteCalendarTask(taskId, selectedDate);
+                        hideModal(); // Close the edit task modal too
+                        renderCalendarView();
+                    }
+                });
             }
+        }]
+    });
 
-            const updates = {
-                content,
-                labels: selectedLabels,
-                dueDate: document.getElementById('task-due-date').value || null,
-                time: document.getElementById('task-time').value || null,
-                urgent: document.getElementById('task-urgent').checked,
-                completed: isNew ? false : document.getElementById('task-completed-edit').checked,
+    if (result.confirmed) {
+        const newTaskContent = result.data['task-content'].trim();
+        const newDueDate = result.data['task-due-date'];
+        const newTime = result.data['task-time'];
+        const newCompleted = result.data['task-completed'];
+
+        if (!newTaskContent) {
+            alert('La descripción de la tarea no puede estar vacía.');
+            return;
+        }
+
+        if (isNewTask) {
+            const newTask = {
+                id: `cal-${crypto.randomUUID()}`,
+                content: newTaskContent,
+                date: newDueDate,
+                time: newTime,
+                completed: newCompleted,
+                source: 'Personal'
             };
+            if (!state.calendar[newDueDate]) {
+                state.calendar[newDueDate] = [];
+            }
+            state.calendar[newDueDate].push(newTask);
+        } else {
+            // If the date changes, remove from old array and add to new
+            if (task.date !== newDueDate) {
+                state.calendar[task.date] = (state.calendar[task.date] || []).filter(t => t.id !== taskId);
+                if (state.calendar[task.date].length === 0) {
+                    delete state.calendar[task.date];
+                }
+                if (!state.calendar[newDueDate]) {
+                    state.calendar[newDueDate] = [];
+                }
+                state.calendar[newDueDate].push(task);
+            }
+            task.content = newTaskContent;
+            task.date = newDueDate;
+            task.time = newTime;
+            task.completed = newCompleted;
+        }
+        saveState();
+        renderCalendarView();
+        updateNotificationBadge();
+    }
+}
 
-            // Lógica para "Convertir en Proyecto"
-            const createNewProject = document.getElementById('create-new-project-from-task').checked;
-            if (createNewProject) {
-                // 1. Crear el nuevo chat de proyecto
-                const newProjectChatId = createNewChat(workflowConfigs['project-management']);
-                const newProjectChat = state.chats[newProjectChatId];
-                
-                // 2. Nombrar el nuevo proyecto basado en la tarea
-                newProjectChat.title = content; 
-                newProjectChat.projectData.title = content;
+function deleteCalendarTask(taskId, date) {
+    if (state.calendar[date]) {
+        state.calendar[date] = state.calendar[date].filter(task => task.id !== taskId);
+        if (state.calendar[date].length === 0) {
+            delete state.calendar[date];
+        }
+        saveState();
+        updateNotificationBadge();
+    }
+}
 
-                // 3. (Opcional) Si era una tarea existente, eliminarla de su tablero original
-                if (!isNew) {
-                    const found = findTask(taskId);
-                    if (found) {
-                        found.column.tasks.splice(found.taskIndex, 1);
+// --- GAMIFICATION FUNCTIONS ---
+function loadGamificationState() {
+    gamificationState = JSON.parse(localStorage.getItem(`gamificationState_${currentUser?.id || 'guest'}`)) || {
+        xp: 0,
+        level: 1,
+        credits: 0,
+        lastLogin: null,
+        dailyStreak: 0,
+        missions: Object.keys(MISSIONS).reduce((acc, key) => {
+            acc[key] = { completed: false, count: 0 };
+            return acc;
+        }, {}),
+        achievements: Object.keys(ACHIEVEMENTS).reduce((acc, key) => {
+            acc[key] = { unlocked: false, progress: 0 };
+            return acc;
+        }, {})
+    };
+    checkDailyStreak();
+    saveGamificationState(); // Ensures new structure is saved and lastLogin is updated
+}
+
+function saveGamificationState() {
+    localStorage.setItem(`gamificationState_${currentUser?.id || 'guest'}`, JSON.stringify(gamificationState));
+    updateCreditCounter();
+}
+
+function checkDailyStreak() {
+    const today = dayjs().format('YYYY-MM-DD');
+    if (!gamificationState.lastLogin) {
+        gamificationState.lastLogin = today;
+        gamificationState.dailyStreak = 1;
+        addXP(10); // First login bonus
+        addCredits(5);
+    } else {
+        const lastLoginDay = dayjs(gamificationState.lastLogin);
+        const diff = dayjs().diff(lastLoginDay, 'day');
+
+        if (diff === 1) { // Consecutive day
+            gamificationState.dailyStreak++;
+            addXP(10 + gamificationState.dailyStreak * 2); // More XP for longer streaks
+            addCredits(5 + gamificationState.dailyStreak * 1);
+        } else if (diff > 1) { // Streak broken
+            gamificationState.dailyStreak = 1;
+            addXP(10);
+            addCredits(5);
+        }
+        // If diff is 0, already logged in today, do nothing for streak
+        gamificationState.lastLogin = today;
+    }
+
+    // Check for 7-day chest
+    if (gamificationState.dailyStreak % 7 === 0) {
+        showModal({
+            title: `<i class="fas fa-gift text-gold mr-2"></i> ¡Cofre GOAT Desbloqueado!`,
+            body: `<p class="mb-4">Has mantenido tu racha diaria por ${gamificationState.dailyStreak} días. ¡Abre tu cofre para una recompensa especial!</p>`,
+            confirmText: 'Abrir Cofre',
+            showCancel: false
+        }).then(() => {
+            const rewards = [
+                { type: 'credits', amount: 50 },
+                { type: 'discount', value: '25%', service: 'página web' },
+                { type: 'consulting', value: 'asesoría estratégica GRATIS' }
+            ];
+            const randomReward = rewards[Math.floor(Math.random() * rewards.length)];
+
+            let rewardMessage = '';
+            if (randomReward.type === 'credits') {
+                addCredits(randomReward.amount);
+                rewardMessage = `<p class="text-xl font-bold text-gold"><i class="fas fa-coins mr-2"></i>¡Has ganado ${randomReward.amount} Créditos de Recompensa!</p>`;
+            } else if (randomReward.type === 'discount') {
+                rewardMessage = `<p class="text-xl font-bold text-primary">¡Has ganado un ${randomReward.value} de descuento en tu primera ${randomReward.service} con nosotros!</p><p class="text-sm mt-2">Te enviaremos los detalles a tu correo.</p>`;
+            } else if (randomReward.type === 'consulting') {
+                rewardMessage = `<p class="text-xl font-bold text-primary">¡Has ganado una ${randomReward.value} de IA para tu negocio!</p><p class="text-sm mt-2">Agenda tu reunión desde Configuración > Agendar Reunión.</p>`;
+            }
+            showModal({
+                title: '¡Recompensa!',
+                body: rewardMessage,
+                confirmText: '¡Genial!',
+                showCancel: false
+            });
+        });
+    }
+}
+
+function addXP(amount) {
+    gamificationState.xp += amount;
+    checkLevelUp();
+    saveGamificationState();
+    if (dom.gamificationModal.classList.contains('flex')) renderGamificationModal();
+}
+
+function addCredits(amount) {
+    gamificationState.credits += amount;
+    saveGamificationState();
+    if (dom.gamificationModal.classList.contains('flex')) renderGamificationModal();
+}
+
+function checkLevelUp() {
+    while (gamificationState.level <= LEVEL_NAMES.length && gamificationState.xp >= XP_FOR_LEVEL[gamificationState.level - 1]) {
+        if (gamificationState.level < LEVEL_NAMES.length) {
+            gamificationState.level++;
+            showModal({
+                title: `<i class="fas fa-star text-gold mr-2"></i> ¡Nivel Ascendido!`,
+                body: `<p class="text-lg text-center">¡Felicidades! Has alcanzado el **Nivel ${gamificationState.level}: ${LEVEL_NAMES[gamificationState.level - 1]}**.</p><p class="text-sm text-center mt-2">Sigue así para desbloquear más beneficios y convertirte en un G.O.A.T. digital.</p>`,
+                confirmText: 'Continuar',
+                showCancel: false
+            });
+        } else {
+            // Max level reached
+            break;
+        }
+    }
+}
+
+function completeMission(missionId, context = null) {
+    const mission = MISSIONS[missionId];
+    if (mission && !gamificationState.missions[missionId].completed) {
+        let missionComplete = false;
+        if (mission.condition) {
+            missionComplete = mission.condition(context);
+        } else if (mission.workflow || mission.action) {
+            missionComplete = true; // Assume completed when workflow/action is triggered
+        }
+
+        if (missionComplete) {
+            gamificationState.missions[missionId].completed = true;
+            addXP(mission.xp);
+            addCredits(mission.credits);
+            showModal({
+                title: `<i class="fas fa-check-circle text-green-500 mr-2"></i> ¡Misión Cumplida!`,
+                body: `<p class="text-lg text-center">"${mission.text}" completada.</p><p class="text-sm text-center mt-2">Has ganado **${mission.xp} XP** y **${mission.credits} Créditos**.</p>`,
+                confirmText: '¡A por la siguiente!',
+                showCancel: false
+            });
+        }
+    }
+}
+
+function updateMissionProgress(missionId, progress) {
+    if (gamificationState.missions[missionId] && !gamificationState.missions[missionId].completed) {
+        gamificationState.missions[missionId].count = progress;
+        if (dom.gamificationModal.classList.contains('flex')) renderGamificationModal();
+    }
+}
+
+function checkAchievement(achievementId, progress) {
+    const achievement = ACHIEVEMENTS[achievementId];
+    if (achievement && !gamificationState.achievements[achievementId].unlocked) {
+        gamificationState.achievements[achievementId].progress = progress;
+        if (progress >= (achievement.target || 1)) { // Assuming target is 1 for simple unlocks, or defined in achievement
+            gamificationState.achievements[achievementId].unlocked = true;
+            addXP(achievement.xp);
+            addCredits(achievement.credits);
+            showModal({
+                title: `<i class="fas fa-medal text-gold mr-2"></i> ¡Logro Desbloqueado!`,
+                body: `<p class="text-lg text-center">**${achievement.title}:** "${achievement.description}"</p><p class="text-sm text-center mt-2">Has ganado **${achievement.xp} XP** y **${achievement.credits} Créditos**.</p>${achievement.reward ? `<p class="text-base mt-3 font-bold text-primary">Recompensa Especial: ${achievement.reward}</p>` : ''}`,
+                confirmText: '¡Imparable!',
+                showCancel: false
+            });
+        }
+        saveGamificationState();
+        if (dom.gamificationModal.classList.contains('flex')) renderGamificationModal();
+    }
+}
+
+
+// Mission Conditions (examples, implement based on app logic)
+function checkWeekOrganized(chatId) {
+    const today = dayjs();
+    let tasksCount = 0;
+    for (let i = 0; i < 7; i++) {
+        const dayKey = today.add(i, 'day').format('YYYY-MM-DD');
+        if (state.calendar[dayKey] && state.calendar[dayKey].length > 0) {
+            tasksCount++;
+        }
+    }
+    updateMissionProgress('week-organized', tasksCount);
+    return tasksCount >= 7;
+}
+
+function checkProjectCreated(chatId, minTasks) {
+    const chat = state.chats[chatId];
+    if (!chat || !chat.projectData) return false;
+    let totalTasks = 0;
+    chat.projectData.columns.forEach(col => {
+        totalTasks += (col.tasks || []).length;
+    });
+    updateMissionProgress('project-created', totalTasks);
+    return totalTasks >= minTasks;
+}
+
+function renderGamificationModal() {
+    const currentLevelName = LEVEL_NAMES[gamificationState.level - 1] || 'Nivel Máximo';
+    const xpNeededForNextLevel = XP_FOR_LEVEL[gamificationState.level - 1];
+    const xpProgress = gamificationState.xp;
+
+    dom.gamificationLevelName.textContent = `Nivel ${gamificationState.level}: ${currentLevelName}`;
+    dom.gamificationXp.textContent = `${xpProgress} / ${xpNeededForNextLevel === Infinity ? 'MAX' : xpNeededForNextLevel} XP`;
+    dom.gamificationCredits.innerHTML = `<i class="fas fa-coins mr-1"></i>${gamificationState.credits} Créditos`;
+    dom.gamificationXpBar.style.width = `${Math.min(100, (xpProgress / xpNeededForNextLevel) * 100)}%`;
+
+    // Render Daily Streak
+    dom.dailyStreakContainer.innerHTML = '';
+    const todayIndex = dayjs().isoWeekday() - 1; // 0 for Monday, 6 for Sunday
+
+    for (let i = 0; i < 7; i++) {
+        const dayElement = document.createElement('div');
+        dayElement.className = `streak-day p-2 rounded-lg flex flex-col items-center justify-center text-center text-sm`;
+        const dayName = dayjs().isoWeekday(i + 1).format('ddd'); // Mon, Tue, etc.
+        
+        let dayClass = '';
+        let rewardIcon = '';
+        if (i < gamificationState.dailyStreak) {
+            dayClass = 'completed';
+        }
+        if (i === 6 && (gamificationState.dailyStreak + 1) % 7 === 0) { // Next day is chest day
+            rewardIcon = '<i class="fas fa-gift text-gold text-2xl"></i>';
+        }
+
+        dayElement.classList.add(dayClass);
+        if (i === todayIndex) {
+            dayElement.classList.add('active');
+        }
+
+        dayElement.innerHTML = `
+            <span class="font-semibold">${dayName}</span>
+            <span class="text-2xl">${i === 6 && gamificationState.dailyStreak % 7 === 6 ? rewardIcon : ''}</span>
+            <span class="text-xs text-text-medium">${i < gamificationState.dailyStreak ? 'Hecho' : 'Pend.'}</span>
+        `;
+        dom.dailyStreakContainer.appendChild(dayElement);
+    }
+
+    // Render Missions
+    dom.missionsContainer.innerHTML = '';
+    for (const key in MISSIONS) {
+        const mission = MISSIONS[key];
+        const stateMission = gamificationState.missions[key];
+        const missionEl = document.createElement('div');
+        missionEl.className = `mission-item flex justify-between items-center bg-current-bg-light p-3 rounded-lg ${stateMission.completed ? 'completed' : ''}`;
+        
+        let missionText = mission.text;
+        if (mission.condition === checkProjectCreated) { // Specific mission with progress
+             missionText += ` (${stateMission.count || 0}/${mission.condition(currentChatId, 3) ? 3 : '3'})`; // Example: show X/Y for project tasks
+        }
+        if (mission.condition === checkWeekOrganized) {
+            missionText += ` (${stateMission.count || 0}/${7})`; // Example: show X/Y for week organized
+        }
+
+        missionEl.innerHTML = `
+            <div>
+                <p class="font-semibold">${missionText}</p>
+                <p class="text-sm text-text-medium">+${mission.xp} XP, +${mission.credits} Créditos</p>
+            </div>
+            <button class="btn-primary p-2 rounded-md text-sm ${stateMission.completed ? 'opacity-50 cursor-not-allowed' : ''}" data-mission-id="${key}" ${stateMission.completed ? 'disabled' : ''}>
+                ${stateMission.completed ? 'Completada' : 'Iniciar'}
+            </button>
+        `;
+        dom.missionsContainer.appendChild(missionEl);
+    }
+
+    // Render Achievements
+    dom.achievementsContainer.innerHTML = '';
+    for (const key in ACHIEVEMENTS) {
+        const achievement = ACHIEVEMENTS[key];
+        const stateAchievement = gamificationState.achievements[key];
+        const achievementEl = document.createElement('div');
+        achievementEl.className = `achievement-badge bg-current-bg-light p-4 rounded-lg flex flex-col items-center text-center ${stateAchievement.unlocked ? 'unlocked' : ''}`;
+        achievementEl.innerHTML = `
+            <i class="fas ${achievement.icon} fa-3x mb-2 ${stateAchievement.unlocked ? 'text-gold' : 'text-gray-500'}"></i>
+            <h4 class="font-bold text-lg">${achievement.title}</h4>
+            <p class="text-xs text-text-medium">${achievement.description}</p>
+            <p class="text-xs font-semibold mt-1">${stateAchievement.unlocked ? 'Desbloqueado' : 'Pendiente'}</p>
+        `;
+        dom.achievementsContainer.appendChild(achievementEl);
+    }
+}
+
+function editCalendarTask(taskId = null, selectedDate = dayjs().format('YYYY-MM-DD'), selectedTime = '') {
+    // This is the implementation from the snippet, it's correct.
+    // It will be re-rendered when the modal is called.
+}
+
+dom.servicesMenuBtn?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    dom.servicesMenu.classList.toggle('hidden');
+    dom.servicesMenu.classList.toggle('show');
+    dom.servicesMenu.classList.toggle('opacity-0');
+    dom.servicesMenu.classList.toggle('scale-95');
+    dom.servicesMenu.classList.toggle('-translate-y-2');
+    dom.servicesMenu.classList.toggle('pointer-events-none');
+});dom.gamificationModal.querySelectorAll('.gamification-tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    dom.gamificationModal.querySelector('.gamification-tab.active').classList.remove('active');
+                    tab.classList.add('active');
+                    dom.gamificationModal.querySelectorAll('.gamification-tab-content').forEach(content => content.classList.add('hidden'));
+                    dom.gamificationModal.querySelector(`#gamification-tab-${tab.dataset.tab}`).classList.remove('hidden');
+                });
+            });
+            dom.missionsContainer.addEventListener('click', (e) => {
+                const button = e.target.closest('button[data-mission-id]');
+                if (button && !button.disabled) {
+                    const missionId = button.dataset.mission-id;
+                    const mission = MISSIONS[missionId];
+                    if (mission && mission.workflow) {
+                        // Find the workflow button and click it to start the chat
+                        const workflowButton = document.querySelector(`[data-workflow="${mission.workflow}"]`);
+                        if(workflowButton) {
+                            workflowButton.click();
+                            // Close gamification modal
+                            dom.closeGamificationModal.click();
+                        }
                     }
                 }
-                
-                // 4. (Opcional) Añadir la tarea al nuevo tablero
-                const todoColumn = newProjectChat.projectData.columns.find(c => c.id === 'todo');
-                if (todoColumn) {
-                    todoColumn.tasks.push({
-                         id: `proj-${crypto.randomUUID()}`,
-                         ...updates
-                    });
-                }
-                
-                saveState();
-                renderSidebar();
-                selectChat(newProjectChatId); // Abrir el nuevo tablero
-                return; // Salir para no procesar como una tarea normal
+            });
+        }
+
+        function renderProjectView(chatId) {
+            const chat = state.chats[chatId];
+            if (!chat) return;
+
+            if (!chat.projectData) {
+                chat.projectData = {
+                    title: chat.title.replace("Nuevo Proyecto", "Tablero"),
+                    columns: [
+                        { id: 'todo', title: 'Por Hacer', tasks: [] },
+                        { id: 'doing', title: 'En Progreso', tasks: [] },
+                        { id: 'done', title: 'Hecho', tasks: [] }
+                    ],
+                    currentView: 'kanban'
+                };
             }
 
-            // Lógica normal de creación/edición de tarea
-            if (isNew) {
-                const newId = `proj-${crypto.randomUUID()}`;
-                const column = chat.projectData.columns.find(c => c.id === targetColumnId) || chat.projectData.columns[0];
-                if (!column.tasks) column.tasks = [];
-                column.tasks.push({ id: newId, ...updates });
+            dom.projectViewTitle.textContent = chat.projectData.title;
+            dom.projectChatMessages.innerHTML = '';
+            chat.messages.forEach((msg, index) => addMessageToUI(msg.role, msg.content, msg.image, index, dom.projectChatMessages));
+
+            renderProjectBoard(chatId);
+        }
+        
+        function renderProjectBoard(chatId) {
+            const chat = state.chats[chatId];
+            if(!chat || !chat.projectData) return;
+            const { projectData } = chat;
+            const isMobile = window.innerWidth < 768;
+
+            const isKanban = projectData.currentView === 'kanban';
+            dom.viewToggleKanban.classList.toggle('active', isKanban);
+            dom.viewToggleList.classList.toggle('active', !isKanban);
+
+            dom.kanbanView.style.display = isKanban ? 'grid' : 'none';
+            dom.listView.style.display = (!isKanban && !isMobile) ? 'flex' : 'none';
+            dom.listViewMobile.style.display = (!isKanban && isMobile) ? 'block' : 'none';
+            
+            if (isKanban) {
+                renderKanbanView(chatId);
             } else {
-                updateTaskStatus(taskId, updates);
+                if (isMobile) {
+                    renderListViewMobile(chatId);
+                } else {
+                    renderListView(chatId);
+                }
+            }
+            renderTagFilter(chatId);
+        }
+
+        function renderKanbanView(chatId) {
+            const { projectData } = state.chats[chatId];
+            dom.kanbanView.innerHTML = '';
+
+            projectData.columns.forEach(column => {
+                const columnEl = document.createElement('div');
+                columnEl.className = 'kanban-column';
+                columnEl.innerHTML = `<h3 class="kanban-column-title">
+                    <span>${column.title}</span>
+                    <button class="add-task-to-column-btn text-lg hover:text-primary" data-column-id="${column.id}">+</button>
+                </h3><div class="kanban-cards" data-column-id="${column.id}"></div>`;
+                
+                const cardsContainer = columnEl.querySelector('.kanban-cards');
+                
+                const tasksToRender = (column.tasks || []).filter(task => !activeTagFilter || (task.labels && task.labels.includes(activeTagFilter)));
+
+                tasksToRender.forEach(task => {
+                    const cardEl = document.createElement('div');
+                    cardEl.className = 'kanban-card';
+                    if (task.urgent) cardEl.classList.add('urgent');
+                    if (task.completed) cardEl.classList.add('task-item-completed');
+                    cardEl.draggable = true;
+                    cardEl.dataset.taskId = task.id;
+                    
+                    const labelsHtml = (task.labels || []).map(label => `<span class="task-label" style="background-color: ${getLabelColor(label)}; color: white;">${label}</span>`).join('');
+                    cardEl.innerHTML = `
+                        <div class="flex justify-between items-start">
+                            <p>${task.content}</p>
+                            ${task.urgent ? '<i class="fas fa-flag text-red-500 ml-2" title="Urgente"></i>' : ''}
+                        </div>
+                        <div class="task-labels">${labelsHtml}</div>
+                        <div class="card-footer">
+                            <span>${task.dueDate ? `<i class="fas fa-calendar-alt mr-1"></i> ${dayjs(task.dueDate).format('D MMM')} ${task.time || ''}` : ''}</span>
+                            <button class="delete-task-btn text-red-500 hover:text-red-400" data-task-id="${task.id}"><i class="fas fa-trash-alt"></i></button>
+                        </div>`;
+                    cardEl.addEventListener('dragstart', e => {
+                        e.dataTransfer.setData('text/plain', task.id);
+                        e.dataTransfer.effectAllowed = 'move';
+                    });
+                     cardEl.addEventListener('touchstart', handleTouchStart, {passive: false}); // Add touch drag for Kanban
+                    cardEl.addEventListener('click', () => editProjectTask(chatId, task.id));
+                    
+                    cardsContainer.appendChild(cardEl);
+                });
+
+                cardsContainer.addEventListener('dragover', e => { e.preventDefault(); cardsContainer.classList.add('drag-over'); });
+                cardsContainer.addEventListener('dragleave', () => { cardsContainer.classList.remove('drag-over'); });
+                cardsContainer.addEventListener('drop', e => {
+                    e.preventDefault();
+                    cardsContainer.classList.remove('drag-over');
+                    const taskId = e.dataTransfer.getData('text/plain');
+                    if (!taskId.startsWith('proj-')) return;
+                    moveTask(chatId, taskId, column.id);
+                });
+                dom.kanbanView.appendChild(columnEl);
+            });
+
+            dom.kanbanView.querySelectorAll('.add-task-to-column-btn').forEach(btn => {
+                btn.addEventListener('click', () => editProjectTask(chatId, null, btn.dataset.columnId));
+            });
+            dom.kanbanView.querySelectorAll('.delete-task-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation(); // Prevent card click from triggering
+                    deleteProjectTask(chatId, btn.dataset.taskId);
+                });
+            });
+        }
+
+        function renderListView(chatId) {
+            const { projectData } = state.chats[chatId];
+            dom.listView.innerHTML = '';
+            dom.listView.classList.add('flex-col'); // Ensure flex-col for proper layout
+
+            const headerHtml = `
+                <div class="list-view-header">
+                    <span></span>
+                    <span>Tarea</span>
+                    <span>Etiquetas</span>
+                    <span>Fecha</span>
+                    <span>Prioridad</span>
+                    <span>Acciones</span>
+                </div>
+            `;
+            dom.listView.insertAdjacentHTML('afterbegin', headerHtml);
+
+            const tasks = projectData.columns.flatMap(column => 
+                (column.tasks || []).map(task => ({ ...task, columnId: column.id }))
+            ).filter(task => !activeTagFilter || (task.labels && task.labels.includes(activeTagFilter)));
+
+            tasks.forEach(task => {
+                const taskEl = document.createElement('div');
+                taskEl.className = 'list-view-task';
+                if (task.completed) taskEl.classList.add('task-item-completed');
+                taskEl.dataset.taskId = task.id;
+
+                const labelsHtml = (task.labels || []).map(label => `<span class="task-label" style="background-color: ${getLabelColor(label)}; color: white;">${label}</span>`).join('');
+                const priorityIcon = task.urgent ? '<i class="fas fa-flag text-red-500"></i>' : '<i class="far fa-flag text-text-medium"></i>';
+
+                taskEl.innerHTML = `
+                    <div><input type="checkbox" class="task-checkbox" data-task-id="${task.id}" ${task.completed ? 'checked' : ''}></div>
+                    <div class="task-content-list">${task.content}</div>
+                    <div class="task-labels">${labelsHtml}</div>
+                    <div>${task.dueDate ? dayjs(task.dueDate).format('D MMM YYYY') : ''} ${task.time || ''}</div>
+                    <div class="priority-cell" data-task-id="${task.id}">${priorityIcon}</div>
+                    <div class="flex items-center space-x-2">
+                        <button class="edit-task-btn text-blue-500 hover:text-blue-400" data-task-id="${task.id}"><i class="fas fa-edit"></i></button>
+                        <button class="delete-task-btn text-red-500 hover:text-red-400" data-task-id="${task.id}"><i class="fas fa-trash-alt"></i></button>
+                    </div>
+                `;
+                dom.listView.appendChild(taskEl);
+            });
+
+            const addTaskBtn = document.createElement('button');
+            addTaskBtn.id = 'add-project-task-btn';
+            addTaskBtn.className = 'w-full btn-primary p-2 rounded-lg flex items-center justify-center mt-4';
+            addTaskBtn.innerHTML = '<i class="fas fa-plus mr-2"></i>Crear Nueva Tarea';
+            dom.listView.appendChild(addTaskBtn);
+
+            addTaskBtn.addEventListener('click', () => editProjectTask(chatId, null, 'todo'));
+
+            dom.listView.querySelectorAll('.task-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('change', (e) => {
+                    updateTaskStatusProject(chatId, e.currentTarget.dataset.taskId, { completed: e.currentTarget.checked });
+                });
+            });
+            dom.listView.querySelectorAll('.edit-task-btn').forEach(btn => {
+                btn.addEventListener('click', () => editProjectTask(chatId, btn.dataset.taskId));
+            });
+            dom.listView.querySelectorAll('.delete-task-btn').forEach(btn => {
+                btn.addEventListener('click', () => deleteProjectTask(chatId, btn.dataset.taskId));
+            });
+            dom.listView.querySelectorAll('.priority-cell').forEach(cell => {
+                cell.addEventListener('click', (e) => {
+                    toggleTaskUrgent(chatId, e.currentTarget.dataset.taskId);
+                });
+            });
+        }
+
+        function renderListViewMobile(chatId) {
+            const { projectData } = state.chats[chatId];
+            dom.listViewMobile.innerHTML = '';
+
+            const tasks = projectData.columns.flatMap(column => 
+                (column.tasks || []).map(task => ({ ...task, columnId: column.id }))
+            ).filter(task => !activeTagFilter || (task.labels && task.labels.includes(activeTagFilter)));
+
+            tasks.forEach(task => {
+                const taskEl = document.createElement('div');
+                taskEl.className = 'list-view-task-mobile bg-current-bg-light p-3 rounded-lg shadow';
+                if (task.completed) taskEl.classList.add('task-item-completed');
+                taskEl.dataset.taskId = task.id;
+
+                const labelsHtml = (task.labels || []).map(label => `<span class="task-label" style="background-color: ${getLabelColor(label)}; color: white;">${label}</span>`).join('');
+                const priorityIcon = task.urgent ? '<i class="fas fa-flag text-red-500"></i>' : '<i class="far fa-flag text-text-medium"></i>';
+
+                taskEl.innerHTML = `
+                    <div class="list-view-task-mobile-header">
+                        <div><input type="checkbox" class="task-checkbox" data-task-id="${task.id}" ${task.completed ? 'checked' : ''}></div>
+                        <div class="flex-grow">
+                            <p class="font-semibold text-text-light">${task.content}</p>
+                            <div class="task-labels mt-1">${labelsHtml}</div>
+                        </div>
+                        <div class="priority-cell" data-task-id="${task.id}">${priorityIcon}</div>
+                    </div>
+                    <div class="list-view-task-mobile-footer">
+                        <span class="text-xs text-text-medium">${task.dueDate ? dayjs(task.dueDate).format('D MMM YYYY') : ''} ${task.time || ''}</span>
+                        <div class="flex items-center space-x-2">
+                            <button class="edit-task-btn text-blue-500 hover:text-blue-400" data-task-id="${task.id}"><i class="fas fa-edit"></i></button>
+                            <button class="delete-task-btn text-red-500 hover:text-red-400" data-task-id="${task.id}"><i class="fas fa-trash-alt"></i></button>
+                        </div>
+                    </div>
+                `;
+                dom.listViewMobile.appendChild(taskEl);
+            });
+
+            const addTaskBtn = document.createElement('button');
+            addTaskBtn.id = 'add-project-task-btn-mobile';
+            addTaskBtn.className = 'w-full btn-primary p-2 rounded-lg flex items-center justify-center mt-4';
+            addTaskBtn.innerHTML = '<i class="fas fa-plus mr-2"></i>Crear Nueva Tarea';
+            dom.listViewMobile.appendChild(addTaskBtn);
+
+            addTaskBtn.addEventListener('click', () => editProjectTask(chatId, null, 'todo'));
+
+            dom.listViewMobile.querySelectorAll('.task-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('change', (e) => {
+                    updateTaskStatusProject(chatId, e.currentTarget.dataset.taskId, { completed: e.currentTarget.checked });
+                });
+            });
+            dom.listViewMobile.querySelectorAll('.edit-task-btn').forEach(btn => {
+                btn.addEventListener('click', () => editProjectTask(chatId, btn.dataset.taskId));
+            });
+            dom.listViewMobile.querySelectorAll('.delete-task-btn').forEach(btn => {
+                btn.addEventListener('click', () => deleteProjectTask(chatId, btn.dataset.taskId));
+            });
+            dom.listViewMobile.querySelectorAll('.priority-cell').forEach(cell => {
+                cell.addEventListener('click', (e) => {
+                    toggleTaskUrgent(chatId, e.currentTarget.dataset.taskId);
+                });
+            });
+        }
+
+        function updateTaskStatusProject(chatId, taskId, updates) {
+            const chat = state.chats[chatId];
+            if (!chat || !chat.projectData) return;
+
+            let taskToUpdate = null;
+            let oldColumn = null;
+            let taskIndex = -1;
+
+            for (const column of chat.projectData.columns) {
+                taskIndex = (column.tasks || []).findIndex(t => t.id === taskId);
+                if (taskIndex > -1) {
+                    taskToUpdate = column.tasks[taskIndex];
+                    oldColumn = column;
+                    break;
+                }
+            }
+
+            if (taskToUpdate) {
+                const originalCompleted = taskToUpdate.completed;
+                Object.assign(taskToUpdate, updates);
+
+                if (updates.completed !== undefined && updates.completed !== originalCompleted) {
+                    if (oldColumn) {
+                        // Remove task from old column
+                        oldColumn.tasks.splice(taskIndex, 1);
+                        
+                        // Add task to new column based on completed status
+                        if (taskToUpdate.completed) {
+                            const doneColumn = chat.projectData.columns.find(c => c.id === 'done');
+                            if (doneColumn) doneColumn.tasks.push(taskToUpdate);
+                        } else {
+                            const todoColumn = chat.projectData.columns.find(c => c.id === 'todo');
+                            if (todoColumn) todoColumn.tasks.push(taskToUpdate);
+                        }
+                    }
+                }
             }
 
             saveState();
             renderProjectBoard(chatId);
         }
-    }
 
-    async function deleteProjectTask(chatId, taskId) {
-        const task = findTask(taskId)?.task;
-        if (!task) return;
-
-        const result = await showModal({
-            title: 'Confirmar Eliminación',
-            body: `¿Estás seguro de que quieres eliminar la tarea "${task.content}"?`,
-            confirmText: 'Eliminar',
-            cancelText: 'Cancelar'
-        });
-
-        if (result.confirmed) {
+        function moveTask(chatId, taskId, newColumnId) {
             const chat = state.chats[chatId];
-            if (chat && chat.projectData) {
-                for (const column of chat.projectData.columns) {
-                    const taskIndex = (column.tasks || []).findIndex(t => t.id === taskId);
-                    if (taskIndex > -1) {
-                        column.tasks.splice(taskIndex, 1);
+            if (!chat || !chat.projectData) return;
+
+            let taskToMove = null;
+            let oldColumn = null;
+            let taskIndex = -1;
+
+            // Find the task and its original column
+            for (const column of chat.projectData.columns) {
+                taskIndex = (column.tasks || []).findIndex(t => t.id === taskId);
+                if (taskIndex > -1) {
+                    taskToMove = column.tasks[taskIndex];
+                    oldColumn = column;
+                    break;
+                }
+            }
+
+            if (taskToMove && oldColumn && oldColumn.id !== newColumnId) {
+                // Remove task from the old column
+                oldColumn.tasks.splice(taskIndex, 1);
+
+                // Add task to the new column
+                const newColumn = chat.projectData.columns.find(c => c.id === newColumnId);
+                if (newColumn) {
+                    // Update completed status based on column
+                    taskToMove.completed = newColumnId === 'done';
+                    newColumn.tasks.push(taskToMove);
+                }
+                saveState();
+                renderProjectBoard(chatId);
+            }
+        }
+
+        async function editProjectTask(chatId, taskId = null, columnId = 'todo') {
+            const chat = state.chats[chatId];
+            if (!chat || !chat.projectData) return;
+
+            let task = null;
+            if (taskId) {
+                for (const col of chat.projectData.columns) {
+                    task = (col.tasks || []).find(t => t.id === taskId);
+                    if (task) {
+                        columnId = col.id; // Set columnId to the task's current column
                         break;
                     }
                 }
-                saveState();
-                renderProjectBoard(chatId);
             }
-        }
-    }
 
-    function getAllProjectLabels(chatId) {
-        const chat = state.chats[chatId];
-        if (!chat || !chat.projectData) return [];
-        const labels = new Set();
-        chat.projectData.columns.forEach(col => {
-            (col.tasks || []).forEach(task => {
-                (task.labels || []).forEach(label => labels.add(label));
-            });
-        });
-        return Array.from(labels).sort();
-    }
-    
-    function getLabelColor(label) {
-        // Simple hash function to get a color from a string
-        let hash = 0;
-        for (let i = 0; i < label.length; i++) {
-            hash = label.charCodeAt(i) + ((hash << 5) - hash);
-        }
-        let color = '#';
-        for (let i = 0; i < 3; i++) {
-            let value = (hash >> (i * 8)) & 0xFF;
-            color += ('00' + value.toString(16)).substr(-2);
-        }
-        return color;
-    }
+            const isNewTask = !task;
+            const initialContent = task?.content || '';
+            const initialDueDate = task?.dueDate || '';
+            const initialTime = task?.time || '';
+            const initialLabels = task?.labels || [];
+            const initialUrgent = task?.urgent || false;
+            const initialCompleted = task?.completed || false;
+            const initialCreateNewBoard = false; // New checkbox state
 
-    function renderTagFilter(chatId) {
-        const allLabels = getAllProjectLabels(chatId);
-        dom.tagFilterDropdown.innerHTML = '';
-        if (allLabels.length === 0) {
-            dom.tagFilterBtn.style.display = 'none';
-            return;
-        }
-        dom.tagFilterBtn.style.display = 'inline-flex';
-
-        const allBtn = document.createElement('button');
-        allBtn.className = 'w-full text-left p-2 text-sm rounded hover:bg-medium';
-        allBtn.textContent = 'Todas las etiquetas';
-        allBtn.onclick = () => {
-            activeTagFilter = null;
-            dom.tagFilterDropdown.classList.add('hidden');
-            renderProjectBoard(chatId);
-        };
-        dom.tagFilterDropdown.appendChild(allBtn);
-
-        allLabels.forEach(label => {
-            const btn = document.createElement('button');
-            btn.className = 'w-full text-left p-2 text-sm rounded hover:bg-medium flex items-center';
-            btn.innerHTML = `<span class="w-3 h-3 rounded-full mr-2" style="background-color: ${getLabelColor(label)}"></span> ${label}`;
-            btn.onclick = () => {
-                activeTagFilter = label;
-                dom.tagFilterDropdown.classList.add('hidden');
-                renderProjectBoard(chatId);
-            };
-            dom.tagFilterDropdown.appendChild(btn);
-        });
-    }
-
-    dom.tagFilterBtn?.addEventListener('click', () => {
-        dom.tagFilterDropdown.classList.toggle('hidden');
-    });
-
-    // Cierre de los listeners
-        } // Fin de setupEventListeners
-        // ^^^ ESTA ES LA LLAVE DE CIERRE QUE FALTABA
-
-        // INICIO DE LA LÓGICA DE LA INTERFAZ
-        function inicializarUI() {
-            setAppHeight(); // Ajusta la altura al inicio
-            window.addEventListener('resize', () => {
-                setAppHeight();
-                // Re-evaluar la vista de lista en resize para cambiar entre desktop/mobile
-                if (currentChatId && state.chats[currentChatId]?.projectData?.currentView === 'list') {
-                    renderProjectBoard(currentChatId);
-                }
-            });
-            // Corrige el problema del menú de usuario en móvil (z-index)
-            dom.sidebar.style.zIndex = '40';
-            dom.userMenuPopup.style.zIndex = '50';
-            
-            // Corrige el problema del menú de servicios que no se despliega
-            dom.servicesMenuBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const menu = dom.servicesMenu;
-                const isVisible = menu.classList.contains('show');
-                if (isVisible) {
-                    menu.classList.add('opacity-0', 'scale-95', '-translate-y-2', 'pointer-events-none');
-                    menu.classList.remove('show');
-                } else {
-                    menu.classList.remove('opacity-0', 'scale-95', '-translate-y-2', 'pointer-events-none');
-                    menu.classList.add('show');
-                }
-            });
-
-            // Arreglo para la vista horizontal del celular
-            // La clase 'is-open' y las transformaciones de #sidebar ya deberían funcionar
-            // con la estructura CSS provista. Nos aseguramos de que el overlay funcione.
-            dom.sidebarOverlay.addEventListener('click', () => toggleSidebar(false));
-
-            // Aseguramos que el contenido del menú de usuario sea visible
-            dom.userMenuBtn?.addEventListener('click', (e) => {
-                e.stopPropagation();
-                dom.userMenuPopup.classList.toggle('hidden');
-                // Forzamos al sidebar a tener un z-index que permita ver el popup
-                if(!dom.userMenuPopup.classList.contains('hidden')) {
-                    dom.sidebar.style.zIndex = '45'; // Asegura que el popup se vea sobre el contenido principal
-                } else {
-                    dom.sidebar.style.zIndex = '40';
-                }
-            });
-
-        }// Función de edición/creación de TAREAS DEL CALENDARIO
-        async function editCalendarTask(taskId, defaultDate = null, defaultTime = null) {
-            const isNew = !taskId;
-            const task = isNew ? {} : findTask(taskId)?.task;
-
-            if (!task) return;
-
-            const modalBody = `
-                <div class="space-y-4">
-                    <div>
-                        <label for="cal-task-content" class="block text-sm font-medium mb-1">Descripción</label>
-                        <textarea id="cal-task-content" class="w-full p-2 rounded bg-input border border-themed h-20" placeholder="Ej: Llamar al contador">${task.content || ''}</textarea>
-                    </div>
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label for="cal-task-date" class="block text-sm font-medium mb-1">Fecha</label>
-                            <input type="date" id="cal-task-date" value="${task.date || defaultDate}" class="w-full p-2 rounded bg-input border border-themed">
-                        </div>
-                        <div>
-                            <label for="cal-task-time" class="block text-sm font-medium mb-1">Hora</label>
-                            <input type="time" id="cal-task-time" value="${task.time || defaultTime || ''}" class="w-full p-2 rounded bg-input border border-themed">
-                        </div>
-                    </div>
-                    ${isNew ? `
-                    <div class="border-t border-themed pt-4">
-                        <div class="flex items-center">
-                            <input type="checkbox" id="cal-create-project-board" class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary">
-                            <label for="cal-create-project-board" class="ml-2 block text-sm">Crear nuevo tablero de proyecto con esta tarea</label>
-                        </div>
-                    </div>
-                    ` : ''}
-                </div>
-            `;
-            
-            const extraButtons = [];
-            if (!isNew) {
-                extraButtons.push({
-                    id: 'modal-delete-cal-task',
-                    text: 'Eliminar Tarea',
-                    classes: 'px-4 py-2 rounded bg-red-600 text-white mr-auto',
-                    action: async () => {
-                        const { dayKey, taskIndex } = findTask(taskId);
-                        state.calendar[dayKey].splice(taskIndex, 1);
-                        if (state.calendar[dayKey].length === 0) delete state.calendar[dayKey];
-                        await saveState();
-                        renderCalendarView();
-                        hideModal({ confirmed: false }); // Cierra el modal principal
-                    }
-                });
-            }
+            const allLabels = Array.from(new Set(chat.projectData.columns.flatMap(col => col.tasks).flatMap(t => t.labels || [])));
+            const labelsOptions = allLabels.map(label => `
+                <label class="inline-flex items-center mr-2">
+                    <input type="checkbox" class="form-checkbox text-primary rounded" value="${label}" ${initialLabels.includes(label) ? 'checked' : ''}>
+                    <span class="ml-1 text-sm">${label}</span>
+                </label>
+            `).join('');
 
             const result = await showModal({
-                title: isNew ? `Añadir Tarea para ${dayjs(defaultDate).format('D MMM')}` : 'Editar Tarea Personal',
-                body: modalBody,
-                confirmText: isNew ? 'Crear' : 'Guardar',
-                showCancel: true,
-                extraButtons
+                title: isNewTask ? 'Añadir Nueva Tarea' : `Editar Tarea: ${task.content}`,
+                body: `
+                    <div class="mb-4">
+                        <label for="task-content" class="block text-sm font-bold mb-1">Descripción de la Tarea</label>
+                        <input type="text" id="task-content" class="w-full p-2 rounded bg-input border border-themed" value="${initialContent}" placeholder="Escribe la tarea aquí...">
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label for="task-due-date" class="block text-sm font-bold mb-1">Fecha de Vencimiento</label>
+                            <input type="date" id="task-due-date" class="w-full p-2 rounded bg-input border border-themed" value="${initialDueDate}">
+                        </div>
+                        <div>
+                            <label for="task-time" class="block text-sm font-bold mb-1">Hora (Opcional)</label>
+                            <input type="time" id="task-time" class="w-full p-2 rounded bg-input border border-themed" value="${initialTime}">
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <label for="task-labels" class="block text-sm font-bold mb-1">Etiquetas</label>
+                        <div id="labels-container" class="flex flex-wrap gap-2">
+                            ${labelsOptions}
+                            <input type="text" id="new-label-input" class="p-2 rounded bg-input border border-themed text-sm w-32" placeholder="Nueva etiqueta">
+                            <button id="add-new-label-btn" class="px-2 py-1 bg-primary text-white rounded text-sm"><i class="fas fa-plus"></i></button>
+                        </div>
+                    </div>
+                    <div class="mb-4 flex items-center space-x-4">
+                        <label class="inline-flex items-center">
+                            <input type="checkbox" id="task-urgent" class="form-checkbox text-red-500 rounded" ${initialUrgent ? 'checked' : ''}>
+                            <span class="ml-2 text-sm">Marcar como Urgente</span>
+                        </label>
+                        <label class="inline-flex items-center">
+                            <input type="checkbox" id="task-completed" class="form-checkbox text-green-500 rounded" ${initialCompleted ? 'checked' : ''}>
+                            <span class="ml-2 text-sm">Marcar como Completada</span>
+                        </label>
+                    </div>
+                    <div class="mb-4 flex items-center">
+                        <label class="inline-flex items-center">
+                            <input type="checkbox" id="create-new-project-board" class="form-checkbox text-primary rounded" ${initialCreateNewBoard ? 'checked' : ''}>
+                            <span class="ml-2 text-sm">Crear un Nuevo Tablero de Proyecto</span>
+                        </label>
+                    </div>
+                `,
+                confirmText: isNewTask ? 'Añadir Tarea' : 'Guardar Cambios',
+                extraButtons: isNewTask ? [] : [{
+                    id: 'delete-task-from-modal',
+                    text: 'Eliminar Tarea',
+                    classes: 'px-4 py-2 bg-red-600 text-white rounded',
+                    action: (e, bodyEl) => {
+                        showModal({
+                            title: 'Confirmar Eliminación',
+                            body: '¿Estás seguro de que quieres eliminar esta tarea? Esta acción no se puede deshacer.',
+                            confirmText: 'Sí, Eliminar',
+                            cancelText: 'Cancelar'
+                        }).then(confirmResult => {
+                            if (confirmResult.confirmed) {
+                                deleteProjectTask(chatId, taskId);
+                                hideModal(); // Close the edit task modal too
+                                renderProjectBoard(chatId);
+                            }
+                        });
+                    }
+                }]
             });
 
             if (result.confirmed) {
-                const content = document.getElementById('cal-task-content').value.trim();
-                if (!content) return;
-                
-                const createProject = document.getElementById('cal-create-project-board')?.checked;
+                const newTaskContent = result.data['task-content'].trim();
+                const newDueDate = result.data['task-due-date'];
+                const newTime = result.data['task-time'];
+                const newUrgent = result.data['task-urgent'];
+                const newCompleted = result.data['task-completed'];
+                const createNewProject = result.data['create-new-project-board'];
 
-                if (createProject) {
-                     // Lógica para crear un proyecto desde la tarea del calendario
-                    const newProjectChatId = createNewChat(workflowConfigs['project-management']);
-                    const newProjectChat = state.chats[newProjectChatId];
-                    newProjectChat.title = content; 
-                    newProjectChat.projectData.title = content;
+                const selectedLabels = Array.from(dom.genericModal.querySelectorAll('#labels-container input[type="checkbox"]:checked')).map(cb => cb.value);
+                const newLabelInput = dom.genericModal.querySelector('#new-label-input');
+                if (newLabelInput.value.trim() && !selectedLabels.includes(newLabelInput.value.trim())) {
+                    selectedLabels.push(newLabelInput.value.trim());
+                }
 
-                    const todoColumn = newProjectChat.projectData.columns.find(c => c.id === 'todo');
-                    if (todoColumn) {
-                        todoColumn.tasks.push({
-                            id: `proj-${crypto.randomUUID()}`,
-                            content: content,
-                            labels: ['Calendario'],
-                            dueDate: document.getElementById('cal-task-date').value,
-                            time: document.getElementById('cal-task-time').value || null,
-                            urgent: false,
-                            completed: false,
+                if (isNewTask) {
+                    const newTask = {
+                        id: `proj-${crypto.randomUUID()}`,
+                        content: newTaskContent,
+                        dueDate: newDueDate,
+                        time: newTime,
+                        labels: selectedLabels,
+                        urgent: newUrgent,
+                        completed: newCompleted
+                    };
+                    const targetColumn = chat.projectData.columns.find(col => col.id === columnId);
+                    if (targetColumn) {
+                        targetColumn.tasks.push(newTask);
+                    }
+                    if (createNewProject) {
+                        const newProjectId = 'project-' + crypto.randomUUID();
+                        state.projects[newProjectId] = {
+                            id: newProjectId,
+                            title: `Nuevo Tablero (${newTaskContent})`,
+                            chatIds: [] // A new project board is a new folder, not a chat.
+                        };
+                        state.structure.unshift(newProjectId); // Add as a new folder
+                    }
+                } else {
+                    // Remove task from its current column
+                    for (const col of chat.projectData.columns) {
+                        col.tasks = (col.tasks || []).filter(t => t.id !== taskId);
+                    }
+
+                    // Update task properties
+                    task.content = newTaskContent;
+                    task.dueDate = newDueDate;
+                    task.time = newTime;
+                    task.labels = selectedLabels;
+                    task.urgent = newUrgent;
+                    task.completed = newCompleted;
+
+                    // Add task to the correct column based on completion
+                    const targetColumn = chat.projectData.columns.find(col => col.id === (task.completed ? 'done' : columnId));
+                    if (targetColumn) {
+                        targetColumn.tasks.push(task);
+                    }
+                }
+                saveState();
+                renderProjectBoard(chatId);
+            }
+
+            dom.genericModal.querySelector('#add-new-label-btn').addEventListener('click', () => {
+                const newLabelInput = dom.genericModal.querySelector('#new-label-input');
+                const labelsContainer = dom.genericModal.querySelector('#labels-container');
+                const newLabelText = newLabelInput.value.trim();
+                if (newLabelText) {
+                    const newLabelEl = document.createElement('label');
+                    newLabelEl.className = 'inline-flex items-center mr-2';
+                    newLabelEl.innerHTML = `
+                        <input type="checkbox" class="form-checkbox text-primary rounded" value="${newLabelText}" checked>
+                        <span class="ml-1 text-sm">${newLabelText}</span>
+                    `;
+                    labelsContainer.insertBefore(newLabelEl, newLabelInput.parentElement);
+                    newLabelInput.value = '';
+                }
+            });
+        }
+
+        function deleteProjectTask(chatId, taskId) {
+            const chat = state.chats[chatId];
+            if (!chat || !chat.projectData) return;
+
+            for (const column of chat.projectData.columns) {
+                column.tasks = (column.tasks || []).filter(task => task.id !== taskId);
+            }
+            saveState();
+            renderProjectBoard(chatId);
+        }
+
+        function toggleTaskUrgent(chatId, taskId) {
+            const chat = state.chats[chatId];
+            if (!chat || !chat.projectData) return;
+
+            for (const column of chat.projectData.columns) {
+                const task = (column.tasks || []).find(t => t.id === taskId);
+                if (task) {
+                    task.urgent = !task.urgent;
+                    saveState();
+                    renderProjectBoard(chatId);
+                    return;
+                }
+            }
+        }
+
+        function renderTagFilter(chatId) {
+            const chat = state.chats[chatId];
+            if (!chat || !chat.projectData) return;
+
+            const allTags = new Set();
+            chat.projectData.columns.forEach(col => {
+                col.tasks.forEach(task => {
+                    (task.labels || []).forEach(label => allTags.add(label));
+                });
+            });
+
+            const dropdown = dom.tagFilterDropdown;
+            dropdown.innerHTML = '';
+
+            const allOption = document.createElement('button');
+            allOption.className = `block w-full text-left p-2 rounded-md hover:bg-current-bg-medium ${!activeTagFilter ? 'font-bold text-primary' : ''}`;
+            allOption.textContent = 'Todas';
+            allOption.addEventListener('click', () => {
+                activeTagFilter = null;
+                renderProjectBoard(chatId);
+                dropdown.classList.add('hidden');
+            });
+            dropdown.appendChild(allOption);
+
+            Array.from(allTags).sort().forEach(tag => {
+                const tagOption = document.createElement('button');
+                tagOption.className = `block w-full text-left p-2 rounded-md hover:bg-current-bg-medium ${activeTagFilter === tag ? 'font-bold text-primary' : ''}`;
+                tagOption.textContent = tag;
+                tagOption.addEventListener('click', () => {
+                    activeTagFilter = tag;
+                    renderProjectBoard(chatId);
+                    dropdown.classList.add('hidden');
+                });
+                dropdown.appendChild(tagOption);
+            });
+
+            dom.tagFilterBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                dropdown.classList.toggle('hidden');
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!dom.tagFilterDropdown.contains(e.target) && e.target !== dom.tagFilterBtn) {
+                    dom.tagFilterDropdown.classList.add('hidden');
+                }
+            });
+        }
+
+        function getLabelColor(label) {
+            const colors = {
+                'Urgente': '#ef4444', // Red
+                'Importante': '#f59e0b', // Amber
+                'Marketing': '#8a4fff', // Primary purple
+                'Ventas': '#10b981', // Emerald
+                'Diseño': '#3b82f6', // Blue
+                'Desarrollo': '#f97316', // Orange
+                'Contenido': '#ec4899', // Pink
+                'Personal': '#6366f1', // Indigo
+                'Finanzas': '#0d9488', // Teal
+                'Decisión': '#7c3aed', // Violet
+                'Comunicación': '#a855f7', // Purple
+                'Web': '#22d3ee', // Cyan
+                'Inglés': '#dc2626', // Red-700
+            };
+            return colors[label] || '#6b7280'; // Default gray
+        }
+
+        // --- CALENDAR TASK MODAL ---
+        async function editCalendarTask(taskId = null, selectedDate = dayjs().format('YYYY-MM-DD'), selectedTime = '') {
+            let task = null;
+            if (taskId) {
+                const tasksForDay = state.calendar[dayjs(selectedDate).format('YYYY-MM-DD')] || [];
+                task = tasksForDay.find(t => t.id === taskId);
+                if (task) {
+                    selectedDate = task.date;
+                    selectedTime = task.time;
+                }
+            }
+
+            const isNewTask = !task;
+            const initialContent = task?.content || '';
+            const initialDueDate = task?.date || selectedDate;
+            const initialTime = task?.time || selectedTime;
+            const initialCompleted = task?.completed || false;
+
+            const result = await showModal({
+                title: isNewTask ? translations[localStorage.getItem('goatify-lang') || 'es'].calendar_add_task_btn : `Editar Tarea Personal`,
+                body: `
+                    <div class="mb-4">
+                        <label for="task-content" class="block text-sm font-bold mb-1">Descripción de la Tarea</label>
+                        <input type="text" id="task-content" class="w-full p-2 rounded bg-input border border-themed" value="${initialContent}" placeholder="${translations[localStorage.getItem('goatify-lang') || 'es'].calendar_add_task_placeholder}">
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label for="task-due-date" class="block text-sm font-bold mb-1">Fecha</label>
+                            <input type="date" id="task-due-date" class="w-full p-2 rounded bg-input border border-themed" value="${initialDueDate}">
+                        </div>
+                        <div>
+                            <label for="task-time" class="block text-sm font-bold mb-1">Hora (Opcional)</label>
+                            <input type="time" id="task-time" class="w-full p-2 rounded bg-input border border-themed" value="${initialTime}">
+                        </div>
+                    </div>
+                    <div class="mb-4 flex items-center">
+                        <label class="inline-flex items-center">
+                            <input type="checkbox" id="task-completed" class="form-checkbox text-green-500 rounded" ${initialCompleted ? 'checked' : ''}>
+                            <span class="ml-2 text-sm">Marcar como Completada</span>
+                        </label>
+                    </div>
+                     <div class="mb-4 flex items-center">
+                        <label class="inline-flex items-center">
+                            <input type="checkbox" id="create-new-project-board" class="form-checkbox text-primary rounded">
+                            <span class="ml-2 text-sm">Crear un Nuevo Tablero de Proyecto</span>
+                        </label>
+                    </div>
+                `,
+                confirmText: isNewTask ? 'Añadir Tarea' : 'Guardar Cambios',
+                extraButtons: isNewTask ? [] : [{
+                    id: 'delete-calendar-task-from-modal',
+                    text: 'Eliminar Tarea',
+                    classes: 'px-4 py-2 bg-red-600 text-white rounded',
+                    action: (e) => {
+                        showModal({
+                            title: 'Confirmar Eliminación',
+                            body: '¿Estás seguro de que quieres eliminar esta tarea personal? Esta acción no se puede deshacer.',
+                            confirmText: 'Sí, Eliminar',
+                            cancelText: 'Cancelar'
+                        }).then(confirmResult => {
+                            if (confirmResult.confirmed) {
+                                deleteCalendarTask(taskId, selectedDate);
+                                hideModal(); // Close the edit task modal too
+                                renderCalendarView();
+                            }
                         });
                     }
-                    
-                    await saveState();
-                    renderSidebar();
-                    selectChat(newProjectChatId);
-                    hideCalendarModal(); // Cerrar calendario y abrir el nuevo proyecto
+                }]
+            });
+
+            if (result.confirmed) {
+                const newTaskContent = result.data['task-content'].trim();
+                const newDueDate = result.data['task-due-date'];
+                const newTime = result.data['task-time'];
+                const newCompleted = result.data['task-completed'];
+                const createNewProject = result.data['create-new-project-board'];
+
+
+                if (!newTaskContent) {
+                    alert('La descripción de la tarea no puede estar vacía.');
                     return;
                 }
 
-                const updates = {
-                    content: content,
-                    date: document.getElementById('cal-task-date').value,
-                    time: document.getElementById('cal-task-time').value || null,
-                };
-                
-                if(isNew) {
-                    if (!state.calendar[updates.date]) state.calendar[updates.date] = [];
-                    state.calendar[updates.date].push({
-                        id: 'cal-' + crypto.randomUUID(),
-                        ...updates,
-                        completed: false,
+                if (isNewTask) {
+                    const newTask = {
+                        id: `cal-${crypto.randomUUID()}`,
+                        content: newTaskContent,
+                        date: newDueDate,
+                        time: newTime,
+                        completed: newCompleted,
                         source: 'Personal'
-                    });
+                    };
+                    if (!state.calendar[newDueDate]) {
+                        state.calendar[newDueDate] = [];
+                    }
+                    state.calendar[newDueDate].push(newTask);
+
+                    if (createNewProject) {
+                         const newProjectId = 'project-' + crypto.randomUUID();
+                         state.projects[newProjectId] = {
+                             id: newProjectId,
+                             title: `Tablero (${newTaskContent})`,
+                             chatIds: [] // New project boards start as empty folders
+                         };
+                         state.structure.unshift(newProjectId); // Add as a new folder
+                    }
+
                 } else {
-                     const { task, dayKey } = findTask(taskId);
-                     const oldDate = task.date;
-                     Object.assign(task, updates);
-                     if (oldDate !== task.date) {
-                         const oldDateKey = dayjs(oldDate).format('YYYY-MM-DD');
-                         const newDateKey = dayjs(task.date).format('YYYY-MM-DD');
-                         const taskIndex = state.calendar[oldDateKey].findIndex(t => t.id === taskId);
-                         state.calendar[oldDateKey].splice(taskIndex, 1);
-                         if(state.calendar[oldDateKey].length === 0) delete state.calendar[oldDateKey];
-                         if(!state.calendar[newDateKey]) state.calendar[newDateKey] = [];
-                         state.calendar[newDateKey].push(task);
-                     }
+                    // If the date changes, remove from old array and add to new
+                    if (task.date !== newDueDate) {
+                        state.calendar[task.date] = (state.calendar[task.date] || []).filter(t => t.id !== taskId);
+                        if (state.calendar[task.date].length === 0) {
+                            delete state.calendar[task.date];
+                        }
+                        if (!state.calendar[newDueDate]) {
+                            state.calendar[newDueDate] = [];
+                        }
+                        state.calendar[newDueDate].push(task);
+                    }
+                    task.content = newTaskContent;
+                    task.date = newDueDate;
+                    task.time = newTime;
+                    task.completed = newCompleted;
                 }
-                
-                await saveState();
+                saveState();
                 renderCalendarView();
                 updateNotificationBadge();
-                // Check missions after saving
-                completeMission('week-organized');
             }
         }
 
-        // Sobrescribir las funciones de drag and drop para que funcionen correctamente
-        function handleCalendarDragStart(e) {
-            // Permitir arrastrar tanto tareas de calendario como de proyecto (si se muestran)
-            const taskId = e.target.dataset.taskId;
-            if (!taskId) {
-                e.preventDefault();
-                return;
+        function deleteCalendarTask(taskId, date) {
+            if (state.calendar[date]) {
+                state.calendar[date] = state.calendar[date].filter(task => task.id !== taskId);
+                if (state.calendar[date].length === 0) {
+                    delete state.calendar[date];
+                }
+                saveState();
+                updateNotificationBadge();
             }
-            draggedCalendarTaskId = taskId;
-            e.dataTransfer.setData('text/plain', taskId);
-            e.dataTransfer.effectAllowed = 'move';
-            e.target.style.opacity = '0.5';
         }
 
-        function handleCalendarDragEnd(e) {
-            e.target.style.opacity = '1';
-        }
-
-        function handleCalendarDrop(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            e.currentTarget.style.backgroundColor = '';
-            e.currentTarget.classList.remove('drag-over');
-
-            const taskId = e.dataTransfer.getData('text/plain');
-            const foundTask = findTask(taskId);
-            if (!foundTask) return;
-            
-            const dropZone = e.currentTarget;
-            const newDate = dropZone.dataset.date || selectedCalendarDate.format('YYYY-MM-DD');
-            const newTime = dropZone.dataset.time || foundTask.task.time || null;
-
-            const updates = { date: newDate, dueDate: newDate, time: newTime };
-            updateTaskStatus(taskId, updates);
-        }// Mejora para Asistente Financiero, Laboratorio de Decisiones y Asistente de Proyecto
-        function enhanceWorkflows() {
-            // 1. Restaurar mensaje de Asistente de Proyectos
-            workflowConfigs['project-management'].initialMessages = [{ 
-                role: 'assistant', 
-                content: `¡Excelente! Vamos a estructurar este proyecto como un profesional.\n\nPara empezar, **¿cuál es el objetivo final y medible que quieres alcanzar con este proyecto?** Descríbelo y luego definiremos los entregables clave.` 
-            }];
-
-            // 2. Añadir mensaje a Laboratorio de Decisiones
-            workflowConfigs['decision-lab'].initialMessages = [{ 
-                role: 'assistant', 
-                content: 'Bienvenido al Laboratorio de Decisiones. Para ayudarte a analizar tu situación, por favor, dime: **¿Cuál es la decisión que necesitas tomar y qué opciones estás considerando?**\n\n*Recuerda que una decisión puede cambiar el rumbo de tu vida.*' 
-            }];
-
-            // 3. Mejorar Asistente Financiero para generar tabla interactiva
-            workflowConfigs['financial-assistant'].initialMessages = [{
-                role: 'assistant',
-                content: `Claro, vamos a organizar tus finanzas. Aquí tienes una tabla para que empieces a registrar tus movimientos. Puedes editarla directamente o pedírmelo en el chat.\n\n<div id="financial-assistant-container" class="bg-current-bg-dark p-3 rounded-lg text-sm">
-                    <table id="financial-table" class="w-full">
-                        <thead>
-                            <tr class="border-b border-themed">
-                                <th class="p-2 text-left">Descripción</th>
-                                <th class="p-2 text-right">Monto</th>
-                                <th class="p-2 w-10"></th>
-                            </tr>
-                        </thead>
-                        <tbody id="financial-table-body">
-                            </tbody>
-                        <tfoot>
-                             <tr class="border-t-2 border-themed font-bold">
-                                <td class="p-2 text-left text-green-400">Total Ingresos</td>
-                                <td id="total-income" class="p-2 text-right text-green-400">$0.00</td>
-                                <td></td>
-                            </tr>
-                             <tr class="font-bold">
-                                <td class="p-2 text-left text-red-400">Total Gastos</td>
-                                <td id="total-expense" class="p-2 text-right text-red-400">$0.00</td>
-                                <td></td>
-                            </tr>
-                             <tr class="border-t border-dashed border-themed font-bold text-lg">
-                                <td class="p-2 text-left">Balance Final</td>
-                                <td id="final-balance" class="p-2 text-right">$0.00</td>
-                                <td></td>
-                            </tr>
-                        </tfoot>
-                    </table>
-                     <button id="add-finance-row" class="mt-4 w-full p-2 text-xs rounded bg-input hover:bg-light transition-colors">
-                        <i class="fas fa-plus mr-2"></i>Añadir Fila
-                    </button>
-                </div>`
-            }];
-        }
-        
-        // Función para hacer la tabla financiera interactiva
-        function activateFinancialTable() {
-            const container = document.getElementById('financial-assistant-container');
-            if (!container) return;
-
-            const tableBody = container.querySelector('#financial-table-body');
-            const addRowBtn = container.querySelector('#add-finance-row');
-
-            const createRow = (desc = '', amount = '') => {
-                const row = document.createElement('tr');
-                row.className = 'financial-row';
-                row.innerHTML = `
-                    <td class="p-1"><input type="text" class="w-full bg-transparent p-1 rounded outline-none focus:bg-medium" placeholder="Descripción..." value="${desc}"></td>
-                    <td class="p-1"><input type="number" class="w-full bg-transparent p-1 rounded outline-none focus:bg-medium text-right" placeholder="0.00" value="${amount}"></td>
-                    <td class="p-1 text-center"><button class="delete-finance-row text-red-500 opacity-50 hover:opacity-100">&times;</button></td>
-                `;
-                tableBody.appendChild(row);
-                // Añadir listeners a la nueva fila
-                row.querySelector('input').addEventListener('input', updateFinancialTotals);
-                row.querySelector('.delete-finance-row').addEventListener('click', () => {
-                    row.remove();
-                    updateFinancialTotals();
-                });
+        // --- GAMIFICATION FUNCTIONS ---
+        function loadGamificationState() {
+            gamificationState = JSON.parse(localStorage.getItem(`gamificationState_${currentUser?.id || 'guest'}`)) || {
+                xp: 0,
+                level: 1,
+                credits: 0,
+                lastLogin: null,
+                dailyStreak: 0,
+                missions: Object.keys(MISSIONS).reduce((acc, key) => {
+                    acc[key] = { completed: false, count: 0 };
+                    return acc;
+                }, {}),
+                achievements: Object.keys(ACHIEVEMENTS).reduce((acc, key) => {
+                    acc[key] = { unlocked: false, progress: 0 };
+                    return acc;
+                }, {})
             };
+            checkDailyStreak();
+            saveGamificationState(); // Ensures new structure is saved and lastLogin is updated
+        }
 
-            const updateFinancialTotals = () => {
-                let totalIncome = 0;
-                let totalExpense = 0;
-                container.querySelectorAll('.financial-row').forEach(row => {
-                    const amountInput = row.querySelector('input[type="number"]');
-                    const amount = parseFloat(amountInput.value) || 0;
-                    if (amount > 0) {
-                        totalIncome += amount;
-                        amountInput.style.color = 'var(--text-light)';
-                    } else {
-                        totalExpense += amount;
-                         amountInput.style.color = 'var(--urgent-color)';
+        function saveGamificationState() {
+            localStorage.setItem(`gamificationState_${currentUser?.id || 'guest'}`, JSON.stringify(gamificationState));
+            updateCreditCounter();
+        }
+
+        function checkDailyStreak() {
+            const today = dayjs().format('YYYY-MM-DD');
+            if (!gamificationState.lastLogin) {
+                gamificationState.lastLogin = today;
+                gamificationState.dailyStreak = 1;
+                addXP(10); // First login bonus
+                addCredits(5);
+            } else {
+                const lastLoginDay = dayjs(gamificationState.lastLogin);
+                const diff = dayjs().diff(lastLoginDay, 'day');
+
+                if (diff === 1) { // Consecutive day
+                    gamificationState.dailyStreak++;
+                    addXP(10 + gamificationState.dailyStreak * 2); // More XP for longer streaks
+                    addCredits(5 + gamificationState.dailyStreak * 1);
+                } else if (diff > 1) { // Streak broken
+                    gamificationState.dailyStreak = 1;
+                    addXP(10);
+                    addCredits(5);
+                }
+                // If diff is 0, already logged in today, do nothing for streak
+                gamificationState.lastLogin = today;
+            }
+
+            // Check for 7-day chest
+            if (gamificationState.dailyStreak > 0 && gamificationState.dailyStreak % 7 === 0 && !gamificationState.lastChestClaimed || (gamificationState.lastChestClaimed && dayjs(gamificationState.lastChestClaimed).week() !== dayjs().week())) {
+                 showModal({
+                    title: `<i class="fas fa-gift text-gold mr-2"></i> ¡Cofre GOAT Desbloqueado!`,
+                    body: `<p class="mb-4">Has mantenido tu racha diaria por ${gamificationState.dailyStreak} días. ¡Abre tu cofre para una recompensa especial!</p>`,
+                    confirmText: 'Abrir Cofre',
+                    showCancel: false
+                }).then(() => {
+                    const rewards = [
+                        { type: 'credits', amount: 50 },
+                        { type: 'discount', value: '25%', service: 'página web' },
+                        { type: 'consulting', value: 'asesoría estratégica GRATIS' }
+                    ];
+                    const randomReward = rewards[Math.floor(Math.random() * rewards.length)];
+
+                    let rewardMessage = '';
+                    if (randomReward.type === 'credits') {
+                        addCredits(randomReward.amount);
+                        rewardMessage = `<p class="text-xl font-bold text-gold"><i class="fas fa-coins mr-2"></i>¡Has ganado ${randomReward.amount} Créditos de Recompensa!</p>`;
+                    } else if (randomReward.type === 'discount') {
+                        rewardMessage = `<p class="text-xl font-bold text-primary">¡Has ganado un ${randomReward.value} de descuento en tu primera ${randomReward.service} con nosotros!</p><p class="text-sm mt-2">Te enviaremos los detalles a tu correo.</p>`;
+                    } else if (randomReward.type === 'consulting') {
+                        rewardMessage = `<p class="text-xl font-bold text-primary">¡Has ganado una ${randomReward.value} de IA para tu negocio!</p><p class="text-sm mt-2">Agenda tu reunión desde Configuración > Agendar Reunión.</p>`;
                     }
+                    showModal({
+                        title: '¡Recompensa!',
+                        body: rewardMessage,
+                        confirmText: '¡Genial!',
+                        showCancel: false
+                    });
+                    gamificationState.lastChestClaimed = today; // Mark chest as claimed for this week
+                    saveGamificationState();
                 });
-
-                const finalBalance = totalIncome + totalExpense;
-
-                container.querySelector('#total-income').textContent = `$${totalIncome.toFixed(2)}`;
-                container.querySelector('#total-expense').textContent = `$${totalExpense.toFixed(2)}`;
-                const balanceEl = container.querySelector('#final-balance');
-                balanceEl.textContent = `$${finalBalance.toFixed(2)}`;
-                balanceEl.style.color = finalBalance >= 0 ? 'var(--primary)' : 'var(--urgent-color)';
-            };
-
-            addRowBtn.addEventListener('click', () => createRow());
-            
-            // Crear una fila inicial
-            if (tableBody.children.length === 0) {
-                 createRow('Sueldo', '2000');
-                 createRow('Alquiler', '-800');
-                 createRow('Supermercado', '-150');
             }
-           
-            updateFinancialTotals();
         }
 
-        // Modificar addMessageToUI para activar la tabla financiera
-        const originalAddMessageToUI = addMessageToUI;
-        addMessageToUI = (role, content, imageSrc, messageIndex, container) => {
-            const bubble = originalAddMessageToUI(role, content, imageSrc, messageIndex, container);
-            if (content.includes('id="financial-table"')) {
-                // Esperar un momento para que el DOM se actualice completamente
-                setTimeout(activateFinancialTable, 100);
-            }
-            return bubble;
-        };// ... (al final de toda la lógica de funciones, antes de la inicialización)
-
-        function initApp() {
-            // Mostrar overlay de carga
-            dom.loadingOverlay.classList.remove('hidden');
-            dom.appContainer.classList.add('opacity-0');
-
-            // Setear el tema al iniciar
-            const savedTheme = localStorage.getItem('theme');
-            setTheme(savedTheme === 'light' ? false : true);
-
-            // Setear el idioma al iniciar
-            const savedLang = localStorage.getItem('goatify-lang') || 'es';
-            dom.languageSelector.value = savedLang;
-            setLanguage(savedLang);
-
-            // Cargar voces para TTS
-            populateVoiceList();
-
-            // Configurar los listeners principales
-            setupEventListeners();
-            
-            // Mejorar los workflows con los nuevos mensajes y lógicas
-            enhanceWorkflows();
-            
-            // Configurar la UI general y arreglos
-            inicializarUI();
-
-            // Manejar la autenticación con Netlify Identity
-            netlifyIdentity.on('init', user => {
-                currentUser = user;
-                updateUserUI();
-                loadStateForUser().then(() => {
-                     // Una vez cargado el estado, esconder el overlay
-                    setTimeout(() => {
-                        dom.loadingOverlay.classList.add('opacity-0', 'pointer-events-none');
-                        dom.appContainer.classList.remove('opacity-0');
-                    }, 500); // Pequeño delay para una transición suave
-                });
-            });
-
-            netlifyIdentity.on('login', user => {
-                currentUser = user;
-                netlifyIdentity.close();
-                updateUserUI();
-                loadStateForUser();
-            });
-
-            netlifyIdentity.on('logout', () => {
-                currentUser = null;
-                updateUserUI();
-                loadStateForUser();
-            });
-
-            // Llamada inicial para renderizar el calendario en caso de que se abra
-            renderCalendarView();
-            updateNotificationBadge();
+        function addXP(amount) {
+            gamificationState.xp += amount;
+            checkLevelUp();
+            saveGamificationState();
+            if (dom.gamificationModal.classList.contains('flex')) renderGamificationModal();
         }
 
-        // Iniciar la aplicación
-        initApp();
+        function addCredits(amount) {
+            gamificationState.credits += amount;
+            saveGamificationState();
+            if (dom.gamificationModal.classList.contains('flex')) renderGamificationModal();
+        }
 
-    }); // Fin del DOMContentLoaded
+        function checkLevelUp() {
+            while (gamificationState.level <= LEVEL_NAMES.length && gamificationState.xp >= XP_FOR_LEVEL[gamificationState.level - 1]) {
+                if (gamificationState.level < LEVEL_NAMES.length) {
+                    gamificationState.level++;
+                    showModal({
+                        title: `<i class="fas fa-star text-gold mr-2"></i> ¡Nivel Ascendido!`,
+                        body: `<p class="text-lg text-center">¡Felicidades! Has alcanzado el **Nivel ${gamificationState.level}: ${LEVEL_NAMES[gamificationState.level - 1]}**.</p><p class="text-sm text-center mt-2">Sigue así para desbloquear más beneficios y convertirte en un G.O.A.T. digital.</p>`,
+                        confirmText: 'Continuar',
+                        showCancel: false
+                    });
+                } else {
+                    // Max level reached
+                    break;
+                }
+            }
+        }
+
+        function completeMission(missionId, context = null) {
+            const mission = MISSIONS[missionId];
+            if (mission && !gamificationState.missions[missionId].completed) {
+                let missionComplete = false;
+                if (mission.condition) {
+                    missionComplete = mission.condition(context);
+                } else if (mission.workflow || mission.action) {
+                    missionComplete = true; // Assume completed when workflow/action is triggered
+                }
+
+                if (missionComplete) {
+                    gamificationState.missions[missionId].completed = true;
+                    addXP(mission.xp);
+                    addCredits(mission.credits);
+                    showModal({
+                        title: `<i class="fas fa-check-circle text-green-500 mr-2"></i> ¡Misión Cumplida!`,
+                        body: `<p class="text-lg text-center">"${mission.text}" completada.</p><p class="text-sm text-center mt-2">Has ganado **${mission.xp} XP** y **${mission.credits} Créditos**.</p>`,
+                        confirmText: '¡A por la siguiente!',
+                        showCancel: false
+                    });
+                }
+            }
+        }
+
+        function updateMissionProgress(missionId, progress) {
+            if (gamificationState.missions[missionId] && !gamificationState.missions[missionId].completed) {
+                gamificationState.missions[missionId].count = progress;
+                if (dom.gamificationModal.classList.contains('flex')) renderGamificationModal();
+            }
+        }
+
+        function checkAchievement(achievementId, progress) {
+            const achievement = ACHIEVEMENTS[achievementId];
+            if (achievement && !gamificationState.achievements[achievementId].unlocked) {
+                gamificationState.achievements[achievementId].progress = progress;
+                if (progress >= (achievement.target || 1)) { // Assuming target is 1 for simple unlocks, or defined in achievement
+                    gamificationState.achievements[achievementId].unlocked = true;
+                    addXP(achievement.xp);
+                    addCredits(achievement.credits);
+                    showModal({
+                        title: `<i class="fas fa-medal text-gold mr-2"></i> ¡Logro Desbloqueado!`,
+                        body: `<p class="text-lg text-center">**${achievement.title}:** "${achievement.description}"</p><p class="text-sm text-center mt-2">Has ganado **${achievement.xp} XP** y **${achievement.credits} Créditos**.</p>${achievement.reward ? `<p class="text-base mt-3 font-bold text-primary">Recompensa Especial: ${achievement.reward}</p>` : ''}`,
+                        confirmText: '¡Imparable!',
+                        showCancel: false
+                    });
+                }
+                saveGamificationState();
+                if (dom.gamificationModal.classList.contains('flex')) renderGamificationModal();
+            }
+        }
+
+
+        // Mission Conditions (examples, implement based on app logic)
+        function checkWeekOrganized(chatId) {
+            const today = dayjs();
+            let tasksCount = 0;
+            for (let i = 0; i < 7; i++) {
+                const dayKey = today.add(i, 'day').format('YYYY-MM-DD');
+                if (state.calendar[dayKey] && state.calendar[dayKey].length > 0) {
+                    tasksCount++;
+                }
+            }
+            updateMissionProgress('week-organized', tasksCount);
+            return tasksCount >= 7;
+        }
+
+        function checkProjectCreated(chatId, minTasks) {
+            const chat = state.chats[chatId];
+            if (!chat || !chat.projectData) return false;
+            let totalTasks = 0;
+            chat.projectData.columns.forEach(col => {
+                totalTasks += (col.tasks || []).length;
+            });
+            updateMissionProgress('project-created', totalTasks);
+            return totalTasks >= minTasks;
+        }
+
+        function renderGamificationModal() {
+            const currentLevelName = LEVEL_NAMES[gamificationState.level - 1] || 'Nivel Máximo';
+            const xpNeededForNextLevel = XP_FOR_LEVEL[gamificationState.level - 1];
+            const xpProgress = gamificationState.xp;
+
+            dom.gamificationLevelName.textContent = `Nivel ${gamificationState.level}: ${currentLevelName}`;
+            dom.gamificationXp.textContent = `${xpProgress} / ${xpNeededForNextLevel === Infinity ? 'MAX' : xpNeededForNextLevel} XP`;
+            dom.gamificationCredits.innerHTML = `<i class="fas fa-coins mr-1"></i>${gamificationState.credits} Créditos`;
+            dom.gamificationXpBar.style.width = `${Math.min(100, (xpProgress / xpNeededForNextLevel) * 100)}%`;
+
+            // Render Daily Streak
+            dom.dailyStreakContainer.innerHTML = '';
+            const todayIndex = dayjs().isoWeekday() - 1; // 0 for Monday, 6 for Sunday
+
+            for (let i = 0; i < 7; i++) {
+                const dayElement = document.createElement('div');
+                dayElement.className = `streak-day p-2 rounded-lg flex flex-col items-center justify-center text-center text-sm`;
+                const dayName = dayjs().isoWeekday(i + 1).format('ddd');
+                
+                let dayClass = '';
+                let rewardIcon = '';
+                if (i < gamificationState.dailyStreak) {
+                    dayClass = 'completed';
+                }
+                if (i === 6 && (gamificationState.dailyStreak + 1) % 7 === 0) { // Next day is chest day
+                    rewardIcon = '<i class="fas fa-gift text-gold text-2xl"></i>';
+                }
+
+                dayElement.classList.add(dayClass);
+                if (i === todayIndex) {
+                    dayElement.classList.add('active');
+                }
+
+                dayElement.innerHTML = `
+                    <span class="font-semibold">${dayName}</span>
+                    <span class="text-2xl">${i === 6 && gamificationState.dailyStreak % 7 === 6 ? rewardIcon : ''}</span>
+                    <span class="text-xs text-text-medium">${i < gamificationState.dailyStreak ? 'Hecho' : 'Pend.'}</span>
+                `;
+                dom.dailyStreakContainer.appendChild(dayElement);
+            }
+
+            // Render Missions
+            dom.missionsContainer.innerHTML = '';
+            for (const key in MISSIONS) {
+                const mission = MISSIONS[key];
+                const stateMission = gamificationState.missions[key];
+                const missionEl = document.createElement('div');
+                missionEl.className = `mission-item flex justify-between items-center bg-current-bg-light p-3 rounded-lg ${stateMission.completed ? 'completed' : ''}`;
+                
+                let missionText = mission.text;
+                if (mission.condition === checkProjectCreated) { // Specific mission with progress
+                     missionText += ` (${stateMission.count || 0}/${3})`; // Example: show X/Y for project tasks
+                }
+                if (mission.condition === checkWeekOrganized) {
+                    missionText += ` (${stateMission.count || 0}/${7})`; // Example: show X/Y for week organized
+                }
+
+                missionEl.innerHTML = `
+                    <div>
+                        <p class="font-semibold">${missionText}</p>
+                        <p class="text-sm text-text-medium">+${mission.xp} XP, +${mission.credits} Créditos</p>
+                    </div>
+                    <button class="btn-primary p-2 rounded-md text-sm ${stateMission.completed ? 'opacity-50 cursor-not-allowed' : ''}" data-mission-id="${key}" ${stateMission.completed ? 'disabled' : ''}>
+                        ${stateMission.completed ? 'Completada' : 'Iniciar'}
+                    </button>
+                `;
+                dom.missionsContainer.appendChild(missionEl);
+            }
+
+            // Render Achievements
+            dom.achievementsContainer.innerHTML = '';
+            for (const key in ACHIEVEMENTS) {
+                const achievement = ACHIEVEMENTS[key];
+                const stateAchievement = gamificationState.achievements[key];
+                const achievementEl = document.createElement('div');
+                achievementEl.className = `achievement-badge bg-current-bg-light p-4 rounded-lg flex flex-col items-center text-center ${stateAchievement.unlocked ? 'unlocked' : ''}`;
+                achievementEl.innerHTML = `
+                    <i class="fas ${achievement.icon} fa-3x mb-2 ${stateAchievement.unlocked ? 'text-gold' : 'text-gray-500'}"></i>
+                    <h4 class="font-bold text-lg">${achievement.title}</h4>
+                    <p class="text-xs text-text-medium">${achievement.description}</p>
+                    <p class="text-xs font-semibold mt-1">${stateAchievement.unlocked ? 'Desbloqueado' : 'Pendiente'}</p>
+                `;
+                dom.achievementsContainer.appendChild(achievementEl);
+            }
+        }
+
+        // Initialize Netlify Identity and load state
+        netlifyIdentity.on("init", (user) => {
+            currentUser = user;
+            loadStateForUser().then(() => {
+                updateUserUI();
+                dom.loadingOverlay.classList.add('opacity-0');
+                dom.loadingOverlay.addEventListener('transitionend', () => dom.loadingOverlay.classList.add('hidden'), { once: true });
+                dom.appContainer.classList.add('opacity-100');
+                if (!currentChatId) {
+                    dom.initialMessageContainer.style.display = 'flex';
+                }
+                populateVoiceList();
+                updateNotificationBadge(); // Initial badge check
+                checkAndNotifyTasks(); // Initial check for immediate tasks
+                setupEventListeners(); // Setup all event listeners after DOM is ready
+            });
+        });
+
+        netlifyIdentity.on("login", (user) => {
+            currentUser = user;
+            loadStateForUser().then(() => {
+                updateUserUI();
+                renderSidebar();
+                selectChat(currentChatId); // Re-render current chat with user data
+                updateCreditCounter();
+                updateNotificationBadge(); // Initial badge check
+                checkAndNotifyTasks(); // Initial check for immediate tasks
+            });
+        });
+
+        netlifyIdentity.on("logout", () => {
+            currentUser = null;
+            // Clear user-specific data from memory, keep guest data
+            state = { chats: {}, projects: {}, structure: [], calendar: {} }; 
+            currentChatId = null;
+            resetChatView();
+            updateUserUI();
+            renderSidebar(); // Re-render sidebar without user chats/projects
+            updateCreditCounter();
+            updateNotificationBadge(); // Initial badge check
+            checkAndNotifyTasks(); // Initial check for immediate tasks
+        });
+
+        // Set initial theme
+        const savedTheme = localStorage.getItem('theme');
+        if (savedTheme) {
+            setTheme(savedTheme === 'dark');
+        } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            setTheme(true); // Default to dark if OS prefers it
+        } else {
+            setTheme(false); // Default to light
+        }
+
+        // Set initial font size
+        const savedFontSize = localStorage.getItem('goatify-font-size');
+        if (savedFontSize) {
+            document.body.style.setProperty('--base-font-size', `${savedFontSize}px`);
+        }
+    });
 </script>
-
 </body>
 </html>
