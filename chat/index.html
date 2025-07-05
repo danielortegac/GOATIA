@@ -77,7 +77,7 @@
             color: var(--light-text-dark);
         }
         
-        #sidebar { background-color: var(--current-bg-dark); border-right: 1px solid var(--current-border-color); height: 100vh; transition: width 0.3s ease, padding 0.3s ease, transform 0.3s ease; }
+        #sidebar { background-color: var(--current-bg-dark); border-right: 1px solid var(--current-border-color); height: 100vh; transition: width 0.3s ease, padding 0.3s ease, transform 0.3s ease; overflow: hidden; display: flex; flex-direction: column; }
         #sidebar.collapsed { width: 0; padding: 0; overflow: hidden; border-right: none;}
         #sidebar.collapsed > * { display: none; }
 
@@ -577,10 +577,12 @@
         .xp-bar-bg { background-color: var(--current-bg-light); }
         .xp-bar-fill { background-color: var(--current-primary); transition: width 0.5s ease-out; }
         .level-badge { background-color: var(--current-primary); color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.7rem; font-weight: bold; }
-        .streak-day { background-color: var(--current-bg-light); border: 2px solid var(--current-border-color); transition: all 0.2s ease; }
+        .streak-day { background-color: var(--current-bg-light); border: 2px solid var(--current-border-color); transition: all 0.2s ease; position: relative; overflow: hidden; }
         .streak-day.active { border-color: var(--current-primary); transform: scale(1.05); box-shadow: 0 0 10px rgba(138, 79, 255, 0.5); }
-        .streak-day.completed { background-color: var(--current-primary); color: white; border-color: var(--current-primary); }
-        .streak-day .fa-gift { color: var(--gold-color); }
+        .streak-day.completed { background-image: linear-gradient(45deg, var(--primary), var(--primary-hover)); color: white; border-color: var(--primary); }
+        .streak-day.completed::before { content: '\f00c'; font-family: 'Font Awesome 6 Free'; font-weight: 900; position: absolute; top: 4px; right: 4px; font-size: 0.8rem; color: white; opacity: 0.8; }
+        .streak-day .fa-gift { color: var(--gold-color); animation: gift-glow 2s infinite; }
+        @keyframes gift-glow { 0%, 100% { transform: scale(1); text-shadow: 0 0 5px var(--gold-color); } 50% { transform: scale(1.1); text-shadow: 0 0 15px var(--gold-color); } }
         .mission-item.completed { opacity: 0.5; text-decoration: line-through; }
         .mission-item.completed .btn-primary { background-color: #4CAF50; cursor: default; }
         .achievement-badge { border: 2px solid var(--current-border-color); filter: grayscale(100%); opacity: 0.6; transition: all 0.3s ease; }
@@ -639,7 +641,7 @@
             #mobile-chat-title-wrapper .edit-icon {
                 display: none;
             }
-
+            
             #project-management-view {
                 height: 100%;
             }
@@ -651,11 +653,11 @@
                 height: 50%;
                 padding-top: 0.5rem;
             }
-            #project-chat-container-header h3 {
-                font-size: 1rem;
-            }
             #project-chat-container-header {
                 padding-bottom: 0.25rem;
+            }
+             #project-chat-container-header h3 {
+                font-size: 1rem;
             }
             #kanban-view {
                 display: grid;
@@ -669,6 +671,7 @@
 
             .pro-controls-bg {
                 padding: 0.125rem 0.25rem;
+                flex-wrap: wrap; /* Allow controls to wrap */
             }
             .pro-controls-bg label,
             .pro-controls-bg select {
@@ -706,7 +709,6 @@
                 font-size: 0.75rem;
                 flex-grow: 0;
             }
-            
             /* Gamification Modal Mobile Compact Styles */
             #gamification-modal .modal-content {
                 padding: 1rem;
@@ -744,6 +746,40 @@
                 font-size: 1.75em;
             }
         }
+        /* Mobile Landscape */
+        @media (max-height: 500px) and (orientation: landscape) {
+            #sidebar {
+                position: fixed;
+                z-index: 40;
+                transform: translateX(-100%);
+            }
+            #sidebar.is-open {
+                transform: translateX(0);
+            }
+            #menu-toggle {
+                display: block; /* Ensure menu toggle is always visible */
+            }
+            #sidebar-toggle-desktop {
+                display: none;
+            }
+            .chat-bubble-wrapper {
+                max-width: 80%;
+            }
+            #input-area {
+                padding: 0.25rem;
+            }
+            #msg {
+                height: 2.5rem !important; /* Fix height for landscape */
+                max-height: 2.5rem;
+            }
+            .pro-controls-bg {
+                flex-wrap: nowrap;
+                overflow-x: auto;
+            }
+            .pro-controls-bg > div:first-child {
+                flex-wrap: nowrap;
+            }
+        }
     </style>
 </head>
 <body class="w-screen overflow-x-hidden dark-theme">
@@ -777,7 +813,7 @@
                 </div>
             </div>
             
-            <div class="flex-grow overflow-y-auto min-h-0 flex flex-col">
+            <div id="sidebar-scroll-area" class="flex-grow overflow-y-auto min-h-0 flex flex-col">
                <div class="flex-shrink-0">
                     <div class="flex flex-col space-y-2 mb-4">
                         <button id="web-launch-offer-btn" class="w-full text-left font-semibold text-sm p-3 rounded-lg btn-primary transition-colors animate-pulse" data-translate-key="web_offer">
@@ -1015,7 +1051,7 @@
                                 </select>
                             </div>
                          </div>
-                        <div id="voice-selector-container" class="flex items-center space-x-2">
+                        <div id="voice-selector-container" class="hidden items-center space-x-2">
                             <label for="voice-selector" class="font-medium text-xs text-text-medium" data-translate-key="voice">Voz:</label>
                                <div class="model-selector-wrapper">
                                 <select id="voice-selector" class="rounded-md py-1 pl-1.5 focus:outline-none focus:ring-2 focus:ring-primary text-sm bg-transparent text-text-light w-24"></select>
@@ -1232,7 +1268,7 @@
             
             <div class="p-4 bg-input rounded-lg mb-4 flex-shrink-0">
                 <div class="flex items-center justify-between mb-2">
-                    <span id="gamification-level-name" class="font-bold text-xl text-text-light">Nivel 1: Emprendedor Novato</span>
+                    <span id="gamification-level-name" class="font-bold text-xl text-text-light">Nivel 1: Visionario Emergente</span>
                     <div class="text-right">
                         <span id="gamification-xp" class="font-bold text-primary">0 / 100 XP</span>
                          <p id="gamification-credits" class="text-sm text-gold font-semibold"><i class="fas fa-coins mr-1"></i>0 Créditos</p>
@@ -1275,18 +1311,18 @@
                 <p>¡Bienvenido a tu viaje para convertirte en un G.O.A.T. (Greatest Of All Time) del emprendimiento digital! Así es como funciona:</p>
                 <div>
                     <h4 class="font-semibold text-text-light">1. Gana Puntos de Experiencia (XP)</h4>
-                    <p>El XP te permite subir de nivel. Ganas XP al:</p>
+                    <p>Los Puntos de Experiencia (XP) son la medida de tu progreso. El XP te permite subir de nivel y demostrar tu maestría en la plataforma. Ganas XP al:</p>
                     <ul class="list-disc list-inside ml-4 mt-1">
-                        <li><strong>Mantener tu Racha Diaria:</strong> Inicia sesión cada día.</li>
-                        <li><strong>Completar Misiones:</strong> Realiza tareas específicas para aprender a usar la plataforma.</li>
-                         <li><strong>Desbloquear Logros:</strong> Alcanza hitos importantes a largo plazo.</li>
+                        <li><strong>Mantener tu Racha Diaria:</strong> Simplemente por iniciar sesión cada día. ¡La consistencia es clave!</li>
+                        <li><strong>Completar Misiones:</strong> Son tareas guiadas que te enseñan a usar las herramientas más poderosas de Goatify para potenciar tu negocio.</li>
+                         <li><strong>Desbloquear Logros:</strong> Son hitos a largo plazo que celebran tus mayores victorias y tu dedicación.</li>
                     </ul>
                 </div>
                  <div>
-                    <h4 class="font-semibold text-text-light">2. Sube de Nivel</h4>
-                    <p>Acumula suficiente XP para pasar al siguiente nivel y desbloquear nuevos estatus y beneficios. Los niveles son:</p>
+                    <h4 class="font-semibold text-text-light">2. Sube de Nivel y Asciende</h4>
+                    <p>Acumula suficiente XP para pasar al siguiente nivel. Cada nivel desbloquea un nuevo estatus que refleja tu crecimiento como estratega digital.</p>
                     <ul class="list-disc list-inside ml-4 mt-1">
-                        <li>Nivel 1: Emprendedor Novato</li>
+                        <li>Nivel 1: Visionario Emergente</li>
                         <li>Nivel 2: Creador de Contenido</li>
                          <li>Nivel 3: Estratega de Marketing</li>
                         <li>Nivel 4: CEO Digital</li>
@@ -1295,11 +1331,11 @@
                 </div>
                   <div>
                     <h4 class="font-semibold text-text-light">3. Acumula Créditos y Recompensas</h4>
-                    <p>Los créditos se usan para acciones dentro de la app. Ganas créditos y recompensas especiales a través de:</p>
+                    <p>Los créditos son tu moneda para acciones especiales dentro de la app. Ganas créditos y recompensas exclusivas a través de:</p>
                     <ul class="list-disc list-inside ml-4 mt-1">
-                        <li><strong>Racha Diaria:</strong> Ganas más créditos a medida que avanza la semana.</li>
-                        <li><strong>Cofre GOAT (Día 7):</strong> ¡Una gran recompensa semanal! Puede contener créditos, cupones de descuento para nuestros servicios o incluso una asesoría estratégica GRATIS.</li>
-                        <li><strong>Misiones y Logros:</strong> Completa estos desafíos para obtener grandes bonificaciones de XP y créditos.</li>
+                        <li><strong>Racha Diaria:</strong> Ganas más XP y créditos a medida que avanza la semana.</li>
+                        <li><strong>Cofre GOAT (Día 7):</strong> ¡Tu gran recompensa por una semana de consistencia! Puede contener grandes bonos de créditos, cupones de descuento para nuestros servicios de agencia, o incluso una asesoría estratégica GRATIS.</li>
+                        <li><strong>Misiones y Logros:</strong> Completar estos desafíos te dará las mayores bonificaciones de XP y créditos.</li>
                     </ul>
                 </div>
                  <p class="font-bold text-center mt-4">¡Cada acción cuenta en tu camino a la cima! ¡A por ello!</p>
@@ -1466,6 +1502,7 @@
                 projectManagementView: document.getElementById('project-management-view'),
                 projectBoardContainer: document.getElementById('project-board-container'),
                 projectChatContainer: document.getElementById('project-chat-container'),
+                projectChatContainerHeader: document.getElementById('project-chat-container-header'),
                  projectChatToggle: document.getElementById('project-chat-toggle'),
                 chatMessagesView: document.getElementById('chat-messages'),
                 projectViewTitle: document.getElementById('project-view-title'),
@@ -1499,7 +1536,7 @@
 
             // --- GAMIFICATION CONFIG ---
             const XP_FOR_LEVEL = [0, 250, 750, 2000, 5000, Infinity]; // XP needed to reach level 1, 2, 3...
-            const LEVEL_NAMES = ["Emprendedor Novato", "Creador de Contenido", "Estratega de Marketing", "CEO Digital", "G.O.A.T."];
+            const LEVEL_NAMES = ["Visionario Emergente", "Creador de Contenido", "Estratega de Marketing", "CEO Digital", "G.O.A.T."];
             const MISSIONS = {
                 'brand-strategy': { id: 'brand-strategy', text: 'Define tu primera estrategia de marca', xp: 50, credits: 15, workflow: 'brand-strategy' },
                 'competitor-analysis': { id: 'competitor-analysis', text: 'Espía a la competencia por primera vez', xp: 50, credits: 15, workflow: 'competitor-analysis' },
@@ -1514,6 +1551,23 @@
                 'project-master': { id: 'project-master', title: 'Project Master', description: 'Completa 10 proyectos.', icon: 'fa-sitemap', xp: 1000, credits: 0, reward: '50% de descuento en consultoría de automatización.' },
                 'influencer': { id: 'influencer', title: 'Influencer', description: 'Genera 50 publicaciones para redes sociales.', icon: 'fa-bullhorn', xp: 750, credits: 0, reward: 'Un mes de GOAT Boost gratis.' },
             };
+            const workflowConfigs = {
+                    'project-management': { title: "Nuevo Proyecto", workflow: 'project-management', initialMessages: [{ role: 'assistant', content: '¡Excelente! Vamos a estructurar este proyecto como un profesional. Para empezar, **¿cuál es el objetivo final y medible que quieres alcanzar con este proyecto?** Descríbelo y luego definiremos los entregables clave.' }] },
+                    'create-full-post': { title: "Creador de Posts", workflow: 'create-full-post', initialMessages: [{ role: 'assistant', content: '¡Claro! Vamos a crear un post increíble. ¿Para qué red social lo necesitas (Instagram, Facebook, LinkedIn, etc.)?' }] },
+                    'persuasive-copy': { title: "Redactor de Copys", workflow: 'persuasive-copy', initialMessages: [{ role: 'assistant', content: 'Estoy listo para redactar textos que vendan. ¿Para qué necesitas este copy? (ej: Anuncio de Facebook, Post de Venta, Descripción de Producto)' }] },
+                    'post-ideas': { title: "Lluvia de Ideas", workflow: 'post-ideas', initialMessages: [{ role: 'assistant', content: '¡Acabemos con el bloqueo creativo! Dime un tema y te daré 7 ideas de contenido excelentes.' }] },
+                    'brand-strategy': { title: "Estratega de Marca", workflow: 'brand-strategy', initialMessages: [{ role: 'assistant', content: 'Definamos el corazón de tu marca. ¿Cuál es el nombre de tu negocio y a qué se dedica?' }] },
+                    'competitor-analysis': { title: "Análisis de Competencia", workflow: 'competitor-analysis', model: 'sonar', initialMessages: [{ role: 'assistant', content: "Estoy listo para analizar a tu competencia usando el buscador web. Por favor, pega la URL (dirección web) de la página que quieres que investigue para entregarte un análisis DAFO simplificado." }] },
+                    'buyer-persona': { title: "Creación de Cliente Ideal", workflow: 'buyer-persona', initialMessages: [{ role: 'assistant', content: "Vamos a definir a tu cliente ideal (Buyer Persona). Describe tu producto o servicio, y te haré preguntas para construir el perfil detallado paso a paso." }] },
+                    'brand-names': { title: "Nombres para Marca", workflow: 'brand-names', initialMessages: [{ role: 'assistant', content: "¡Excelente! Busquemos un nombre increíble. Describe brevemente tu idea de negocio, tu público y el estilo que buscas (ej. moderno, clásico, divertido) para generar nombres y slogans." }] },
+                    'sales-assistant': { title: "Asistente de Ventas", workflow: 'sales-assistant', initialMessages: [{ role: 'assistant', content: 'Para ayudarte a cerrar esa venta, pega aquí el mensaje de tu cliente.' }] },
+                    'email-writing': { title: "Redactor de Emails", workflow: 'email-writing', initialMessages: [{ role: 'assistant', content: 'Creemos un email que convierta. ¿Cuál es el objetivo principal de este correo?' }] },
+                    'english-teacher-translate': { title: "English Translator", workflow: 'english-teacher-translate', initialMessages: [{ role: 'assistant', content: 'Of course! Please provide the text you want me to translate or correct.' }] },
+                    'english-teacher-vocabulary': { title: "Vocabulary Builder", workflow: 'english-teacher-vocabulary', initialMessages: [{ role: 'assistant', content: 'Excellent! Let\'s learn some new vocabulary. What topic are you interested in? (e.g., "business negotiations", "travel")' }] },
+                    'english-teacher-practice': { title: "Conversation Practice", workflow: 'english-teacher-practice', initialMessages: [{ role: 'assistant', content: 'Great! Let\'s practice our conversation. So, tell me about your day.' }] },
+                    'social-skills': { title: "Consejero Social", workflow: 'social-skills', initialMessages: [{ role: 'assistant', content: 'Las habilidades sociales son clave. ¿En qué situación te gustaría mejorar tu comunicación? (Ej: una reunión de networking, una conversación difícil, etc.)' }] },
+                    'design-web': { title: "Diseñador Web", workflow: 'design-web', model: 'gpt-4o-mini', initialMessages: [{ role: 'assistant', content: 'Estoy listo para diseñar con código. Describe la página o componente que quieres crear, y lo programaré para ti.' }] },
+                };
             // --- END GAMIFICATION CONFIG ---
 
             function setLanguage(lang) {
@@ -1734,7 +1788,7 @@
                         <div class="space-y-1">
                             ${tasks.length === 0 ? `<p class="text-xs text-text-medium italic">${translations[lang].calendar_no_tasks}</p>` : ''}
                             ${tasks.map((task, idx) => `
-                                <div class="task-item ${task.completed ? 'task-item-completed' : ''} cursor-pointer" data-task-id="${task.id}">
+                                <div class="task-item ${task.completed ? 'task-item-completed' : ''} cursor-pointer" draggable="true" data-task-id="${task.id}">
                                      <input type="checkbox" class="task-checkbox-week" data-date="${dayKey}" data-task-id="${task.id}" ${task.completed ? 'checked' : ''}>
                                     <span>${task.text} ${task.time ? `(${task.time})` : ''}</span>
                                     <span class="text-xs ml-auto text-primary">${task.source}</span>
@@ -1750,17 +1804,37 @@
                         e.stopPropagation();
                         const taskId = e.currentTarget.dataset.taskId;
                          toggleTaskCompletion(taskId, e.currentTarget.checked);
-                        renderWeekView();
-                        updateNotificationBadge();
                     });
                  });
 
                 dom.weekDaysContent.querySelectorAll('.task-item').forEach(item => {
                     item.addEventListener('click', (e) => {
+                        if (e.target.type === 'checkbox') return;
                         const taskId = e.currentTarget.dataset.taskId;
                         editCalendarTask(taskId);
                      });
+                     item.addEventListener('dragstart', e => {
+                        e.dataTransfer.setData('text/plain', item.dataset.taskId);
+                        e.dataTransfer.effectAllowed = 'move';
+                    });
                 });
+
+                dom.weekDaysContent.querySelectorAll('.week-day-section').forEach(section => {
+                    section.addEventListener('dragover', e => e.preventDefault());
+                    section.addEventListener('drop', e => {
+                        e.preventDefault();
+                        const taskId = e.dataTransfer.getData('text/plain');
+                        const newDate = section.querySelector('.add-task-to-day-btn').dataset.date;
+                        const taskDetails = findTaskAndSource(taskId);
+                        if(taskDetails && taskDetails.task.dueDate !== newDate) {
+                            taskDetails.task.dueDate = newDate;
+                            saveState();
+                            renderCalendarView();
+                            if(taskDetails.source !== 'Personal') renderProjectBoard(taskDetails.source);
+                        }
+                    });
+                });
+
                 dom.weekDaysContent.querySelectorAll('.add-task-to-day-btn').forEach(btn => {
                     btn.addEventListener('click', (e) => {
                         e.stopPropagation();
@@ -1782,9 +1856,9 @@
                     const tasksInHour = tasksForDay.filter(t => t.time && t.time.startsWith((hour < 10 ? '0' : '') + hour));
                     hourEl.innerHTML = `
                         <div class="day-view-hour-label">${hourLabel}</div>
-                        <div class="day-view-hour-content">
+                        <div class="day-view-hour-content" data-time="${hourLabel}">
                             ${tasksInHour.map(task => `
-                                 <div class="task-item flex items-center gap-2 p-1 rounded-md ${task.completed ? 'bg-green-900 text-gray-400 line-through' : 'bg-input'} text-sm" >
+                                 <div class="task-item flex items-center gap-2 p-1 rounded-md ${task.completed ? 'bg-green-900 text-gray-400 line-through' : 'bg-input'} text-sm" draggable="true" data-task-id="${task.id}">
                                     <input type="checkbox" class="task-checkbox-day" data-task-id="${task.id}" ${task.completed ? 'checked' : ''}>
                                      <span class="flex-grow cursor-pointer" data-task-id="${task.id}"><strong>${task.time}:</strong> ${task.text} <span class="text-xs text-primary">(${task.source})</span></span>
                                 </div>
@@ -1807,8 +1881,6 @@
                         e.stopPropagation();
                         const taskId = e.currentTarget.dataset.taskId;
                         toggleTaskCompletion(taskId, e.currentTarget.checked);
-                        renderDayView();
-                        updateNotificationBadge();
                     });
                 });
                 dom.dayViewTimeline.querySelectorAll('.task-item span').forEach(item => {
@@ -1817,6 +1889,43 @@
                         editCalendarTask(taskId);
                     });
                  });
+                dom.dayViewTimeline.querySelectorAll('[draggable="true"]').forEach(item => {
+                    item.addEventListener('dragstart', e => {
+                        e.dataTransfer.setData('text/plain', item.dataset.taskId);
+                        e.dataTransfer.effectAllowed = 'move';
+                    });
+                });
+                 dom.dayViewTimeline.querySelectorAll('.day-view-hour-content').forEach(hourContent => {
+                    hourContent.addEventListener('dragover', e => e.preventDefault());
+                    hourContent.addEventListener('drop', e => {
+                        e.preventDefault();
+                        const taskId = e.dataTransfer.getData('text/plain');
+                        const newTime = hourContent.dataset.time;
+                        const taskDetails = findTaskAndSource(taskId);
+                         if(taskDetails && taskDetails.task.time !== newTime) {
+                            taskDetails.task.time = newTime;
+                            saveState();
+                            renderDayView();
+                        }
+                    });
+                });
+            }
+            
+            function findTaskAndSource(taskId) {
+                for (const dayKey in state.calendar) {
+                    const task = (state.calendar[dayKey] || []).find(t => t.id === taskId);
+                    if (task) return { task, source: 'Personal' };
+                }
+                for (const chatId in state.chats) {
+                    const chat = state.chats[chatId];
+                    if (chat.projectData && chat.projectData.columns) {
+                        for (const column of chat.projectData.columns) {
+                            const task = (column.tasks || []).find(t => t.id === taskId);
+                            if (task) return { task, source: chatId };
+                        }
+                    }
+                }
+                return null;
             }
 
             function getTasksForDay(dayKey) {
@@ -1837,28 +1946,46 @@
             }
 
             function toggleTaskCompletion(taskId, isCompleted) {
-                // Check personal calendar tasks
-                for (const dayKey in state.calendar) {
-                    const taskIndex = (state.calendar[dayKey] || []).findIndex(t => t.id === taskId);
-                    if (taskIndex > -1) {
-                        state.calendar[dayKey][taskIndex].completed = isCompleted;
-                        saveState();
-                        return;
+                const taskDetails = findTaskAndSource(taskId);
+                if (!taskDetails) return;
+
+                taskDetails.task.completed = isCompleted;
+
+                // Sync with Kanban
+                if (taskDetails.source !== 'Personal') {
+                    const projectChatId = taskDetails.source;
+                    const project = state.chats[projectChatId].projectData;
+                    let taskToMove;
+                    let sourceColumn;
+
+                    for (const col of project.columns) {
+                        const taskIndex = (col.tasks || []).findIndex(t => t.id === taskId);
+                        if (taskIndex > -1) {
+                            taskToMove = col.tasks[taskIndex];
+                            sourceColumn = col;
+                            break;
+                        }
                     }
-                }
-                // Check project tasks
-                for (const chat of Object.values(state.chats)) {
-                    if (chat.projectData && chat.projectData.columns) {
-                         for (const column of chat.projectData.columns) {
-                             const taskIndex = (column.tasks || []).findIndex(t => t.id === taskId);
-                             if (taskIndex > -1) {
-                                 column.tasks[taskIndex].completed = isCompleted;
-                                 saveState();
-                                 return;
+
+                    if (taskToMove) {
+                        const targetColumnId = isCompleted ? 'done' : 'todo';
+                        if (sourceColumn.id !== targetColumnId) {
+                             sourceColumn.tasks = sourceColumn.tasks.filter(t => t.id !== taskId);
+                             const targetColumn = project.columns.find(c => c.id === targetColumnId);
+                             if (targetColumn) {
+                                if (!targetColumn.tasks) targetColumn.tasks = [];
+                                targetColumn.tasks.push(taskToMove);
                              }
                         }
                     }
+                     if (dom.projectManagementView.style.display === 'flex' && currentChatId === projectChatId) {
+                        renderProjectBoard(projectChatId);
+                    }
                 }
+                
+                saveState();
+                renderCalendarView();
+                updateNotificationBadge();
             }
 
             function updateNotificationBadge() {
@@ -1921,24 +2048,10 @@
             }
 
             function updateTaskNotifiedFlag(taskId, isNotified) {
-                 for (const dayKey in state.calendar) {
-                    const task = (state.calendar[dayKey] || []).find(t => t.id === taskId);
-                    if (task) {
-                        task.notifiedThisMinute = isNotified;
-                        return;
-                    }
-                }
-                for (const chat of Object.values(state.chats)) {
-                    if (chat.projectData && chat.projectData.columns) {
-                        for (const column of chat.projectData.columns) {
-                             const task = (column.tasks || []).find(t => t.id === taskId);
-                             if (task) {
-                                 task.notifiedThisMinute = isNotified;
-                                 return;
-                             }
-                        }
-                    }
-                }
+                 const taskDetails = findTaskAndSource(taskId);
+                 if(taskDetails) {
+                    taskDetails.task.notifiedThisMinute = isNotified;
+                 }
             }
 
 
@@ -2014,7 +2127,6 @@
                     });
                     dom.voiceSelector.innerHTML = '';
                     if(availableVoices.length > 0) {
-                        dom.voiceSelectorContainer.style.display = 'flex';
                         availableVoices.forEach(voice => {
                             const option = document.createElement('option');
                             const displayName = voice.name.replace('Microsoft', '').replace('Online (Natural) -', '').replace('Google', '').replace('Spanish (Mexico)','Mex').trim();
@@ -2024,15 +2136,12 @@
                         });
                         selectedVoice = availableVoices[0];
                         if (selectedVoice) dom.voiceSelector.value = selectedVoice.name;
-                    } else {
-                        dom.voiceSelectorContainer.style.display = 'none';
                     }
                 }
                 if (speechSynthesis.onvoiceschanged !== undefined) {
                     speechSynthesis.onvoiceschanged = setVoices;
                 }
                 setVoices();
-                // Call it once initially
             }
 
             function updateModelSelectorState() { /* No direct action needed here for now, kept for structure */ }
@@ -2613,9 +2722,23 @@
                 });
             }
 
+            function updateVoiceSelectorVisibility() {
+                if (isRecognizing) {
+                    dom.voiceSelectorContainer.classList.remove('hidden');
+                    dom.voiceSelectorContainer.classList.add('flex');
+                } else {
+                    dom.voiceSelectorContainer.classList.add('hidden');
+                    dom.voiceSelectorContainer.classList.remove('flex');
+                }
+            }
+
             function setupEventListeners() {
                 dom.sendBtn?.addEventListener('click', () => sendMessage(false, null, false));
                 dom.projectSendBtn?.addEventListener('click', () => sendMessage(false, null, true));
+                dom.projectChatContainerHeader?.addEventListener('click', () => {
+                    dom.projectChatContainer.classList.toggle('collapsed');
+                });
+
 
                 const setupInput = (input, isProject) => {
                     input?.addEventListener('keydown', (e) => {
@@ -2657,10 +2780,10 @@
                 if (SR && dom.micBtn) {
                     recognition = new SR();
                     recognition.continuous = false; recognition.interimResults = false; recognition.lang = 'es-ES';
-                    recognition.onstart = () => { isRecognizing = true; dom.micBtn.classList.add('glowing-mic'); };
-                    recognition.onend = () => { isRecognizing = false; dom.micBtn.classList.remove('glowing-mic'); };
+                    recognition.onstart = () => { isRecognizing = true; dom.micBtn.classList.add('glowing-mic'); updateVoiceSelectorVisibility(); };
+                    recognition.onend = () => { isRecognizing = false; dom.micBtn.classList.remove('glowing-mic'); updateVoiceSelectorVisibility(); };
                     recognition.onerror = (e) => { console.error("Speech recognition error", e);
-                    isRecognizing = false; dom.micBtn.classList.remove('glowing-mic'); };
+                    isRecognizing = false; dom.micBtn.classList.remove('glowing-mic'); updateVoiceSelectorVisibility(); };
                     recognition.onresult = (event) => {
                         const transcript = event.results[0][0].transcript;
                         const activeInput = dom.projectManagementView.style.display === 'flex' ? dom.projectMsgInput : dom.msgInput;
@@ -2693,23 +2816,6 @@
                 dom.userMenuBtn?.addEventListener('click', (e) => { e.stopPropagation(); dom.userMenuPopup.classList.toggle('hidden'); });
                 dom.logoutBtn?.addEventListener('click', () => { netlifyIdentity.logout(); dom.userMenuPopup.classList.add('hidden');});
                 
-                const workflowConfigs = {
-                    'project-management': { title: "Nuevo Proyecto", workflow: 'project-management', initialMessages: [{ role: 'assistant', content: '¡Excelente! Vamos a estructurar este proyecto como un profesional. Para empezar, **¿cuál es el objetivo final y medible que quieres alcanzar con este proyecto?** Descríbelo y luego definiremos los entregables clave.' }] },
-                    'create-full-post': { title: "Creador de Posts", workflow: 'create-full-post', initialMessages: [{ role: 'assistant', content: '¡Claro! Vamos a crear un post increíble. ¿Para qué red social lo necesitas (Instagram, Facebook, LinkedIn, etc.)?' }] },
-                    'persuasive-copy': { title: "Redactor de Copys", workflow: 'persuasive-copy', initialMessages: [{ role: 'assistant', content: 'Estoy listo para redactar textos que vendan. ¿Para qué necesitas este copy? (ej: Anuncio de Facebook, Post de Venta, Descripción de Producto)' }] },
-                    'post-ideas': { title: "Lluvia de Ideas", workflow: 'post-ideas', initialMessages: [{ role: 'assistant', content: '¡Acabemos con el bloqueo creativo! Dime un tema y te daré 7 ideas de contenido excelentes.' }] },
-                    'brand-strategy': { title: "Estratega de Marca", workflow: 'brand-strategy', initialMessages: [{ role: 'assistant', content: 'Definamos el corazón de tu marca. ¿Cuál es el nombre de tu negocio y a qué se dedica?' }] },
-                    'competitor-analysis': { title: "Análisis de Competencia", workflow: 'competitor-analysis', model: 'sonar', initialMessages: [{ role: 'assistant', content: "Estoy listo para analizar a tu competencia usando el buscador web. Por favor, pega la URL (dirección web) de la página que quieres que investigue para entregarte un análisis DAFO simplificado." }] },
-                    'buyer-persona': { title: "Creación de Cliente Ideal", workflow: 'buyer-persona', initialMessages: [{ role: 'assistant', content: "Vamos a definir a tu cliente ideal (Buyer Persona). Describe tu producto o servicio, y te haré preguntas para construir el perfil detallado paso a paso." }] },
-                    'brand-names': { title: "Nombres para Marca", workflow: 'brand-names', initialMessages: [{ role: 'assistant', content: "¡Excelente! Busquemos un nombre increíble. Describe brevemente tu idea de negocio, tu público y el estilo que buscas (ej. moderno, clásico, divertido) para generar nombres y slogans." }] },
-                    'sales-assistant': { title: "Asistente de Ventas", workflow: 'sales-assistant', initialMessages: [{ role: 'assistant', content: 'Para ayudarte a cerrar esa venta, pega aquí el mensaje de tu cliente.' }] },
-                    'email-writing': { title: "Redactor de Emails", workflow: 'email-writing', initialMessages: [{ role: 'assistant', content: 'Creemos un email que convierta. ¿Cuál es el objetivo principal de este correo?' }] },
-                    'english-teacher-translate': { title: "English Translator", workflow: 'english-teacher-translate', initialMessages: [{ role: 'assistant', content: 'Of course! Please provide the text you want me to translate or correct.' }] },
-                    'english-teacher-vocabulary': { title: "Vocabulary Builder", workflow: 'english-teacher-vocabulary', initialMessages: [{ role: 'assistant', content: 'Excellent! Let\'s learn some new vocabulary. What topic are you interested in? (e.g., "business negotiations", "travel")' }] },
-                    'english-teacher-practice': { title: "Conversation Practice", workflow: 'english-teacher-practice', initialMessages: [{ role: 'assistant', content: 'Great! Let\'s practice our conversation. So, tell me about your day.' }] },
-                    'social-skills': { title: "Consejero Social", workflow: 'social-skills', initialMessages: [{ role: 'assistant', content: 'Las habilidades sociales son clave. ¿En qué situación te gustaría mejorar tu comunicación? (Ej: una reunión de networking, una conversación difícil, etc.)' }] },
-                    'design-web': { title: "Diseñador Web", workflow: 'design-web', model: 'gpt-4o-mini', initialMessages: [{ role: 'assistant', content: 'Estoy listo para diseñar con código. Describe la página o componente que quieres crear, y lo programaré para ti.' }] },
-                };
                 dom.projectWorkflowHeader.addEventListener('click', () => {
                     createNewChat(workflowConfigs['project-management']);
                 });
@@ -2824,9 +2930,6 @@
                     chat.projectData.currentView = 'list';
                      renderProjectBoard(currentChatId);
                 });
-                dom.projectChatToggle?.addEventListener('click', () => {
-                    dom.projectChatContainer.classList.toggle('collapsed');
-                });
                 document.querySelectorAll('.plan-details-toggle').forEach(button => {
                     button.addEventListener('click', () => {
                         const details = button.nextElementSibling;
@@ -2863,6 +2966,17 @@
                         dom.gamificationModal.querySelectorAll('.gamification-tab-content').forEach(content => content.classList.add('hidden'));
                          dom.gamificationModal.querySelector(`#gamification-tab-${tab.dataset.tab}`).classList.remove('hidden');
                     });
+                });
+                 dom.missionsContainer?.addEventListener('click', e => {
+                    const button = e.target.closest('button');
+                    if(button && button.dataset.missionId) {
+                        const missionId = button.dataset.missionId;
+                        const mission = MISSIONS[missionId];
+                        if (mission && mission.workflow) {
+                            hideGamificationModal();
+                            createNewChat(workflowConfigs[mission.workflow]);
+                        }
+                    }
                 });
             }
 
@@ -3074,7 +3188,81 @@
                 }
             }
             
-            const editCalendarTask = (taskId, preselectedDate, preselectedTime) => editProjectTask(taskId, preselectedDate, preselectedTime, false);
+            async function editCalendarTask(taskId, preselectedDate, preselectedTime) {
+                 const taskDetails = taskId ? findTaskAndSource(taskId) : null;
+                 const task = taskDetails ? taskDetails.task : null;
+
+                const isNew = !task;
+                const modalTitle = isNew ? 'Nueva Tarea Personal' : 'Editar Tarea';
+                const taskContent = isNew ? '' : task.text || task.content;
+                const taskDueDate = isNew ? preselectedDate : task.dueDate;
+                const taskTime = isNew ? preselectedTime : task.time;
+                
+                const modalBody = `
+                    <div class="space-y-4">
+                        <div>
+                            <label for="cal-task-content-edit" class="block text-sm font-medium text-text-light mb-1">Contenido:</label>
+                            <textarea id="cal-task-content-edit" class="w-full p-2 rounded bg-input border border-themed h-24">${taskContent}</textarea>
+                        </div>
+                        <div class="flex gap-4">
+                            <div class="flex-1">
+                                <label for="cal-task-due-date" class="block text-sm font-medium text-text-light mb-1">Fecha:</label>
+                                <input type="date" id="cal-task-due-date" value="${taskDueDate || ''}" class="w-full p-2 rounded bg-input border border-themed">
+                            </div>
+                            <div class="flex-1">
+                                <label for="cal-task-due-time" class="block text-sm font-medium text-text-light mb-1">Hora:</label>
+                                <input type="time" id="cal-task-due-time" value="${taskTime || ''}" class="w-full p-2 rounded bg-input border border-themed">
+                            </div>
+                        </div>
+                        ${taskDetails && taskDetails.source !== 'Personal' ? `<p class="text-xs text-text-medium">Esta tarea pertenece al proyecto: ${state.chats[taskDetails.source].projectData.title}</p>` : ''}
+                    </div>
+                `;
+
+                 const result = await showModal({
+                    title: modalTitle,
+                    body: modalBody,
+                    confirmText: 'Guardar'
+                });
+
+                 if (result.confirmed) {
+                    const newContent = result.data['cal-task-content-edit'];
+                    if (newContent.trim()) {
+                        const newDueDate = result.data['cal-task-due-date'] || null;
+                        const newTime = result.data['cal-task-due-time'] || null;
+
+                        if (isNew) {
+                            if (!state.calendar[newDueDate]) state.calendar[newDueDate] = [];
+                            state.calendar[newDueDate].push({
+                                id: crypto.randomUUID(),
+                                text: newContent.trim(),
+                                time: newTime,
+                                completed: false
+                            });
+                        } else {
+                            task.content = newContent.trim();
+                            task.text = newContent.trim();
+                            task.time = newTime;
+                            if (task.dueDate !== newDueDate) {
+                                 // Handle moving task between dates in state
+                                 if(taskDetails.source === 'Personal') {
+                                    const oldDateTasks = state.calendar[task.dueDate];
+                                    if(oldDateTasks) {
+                                        state.calendar[task.dueDate] = oldDateTasks.filter(t => t.id !== taskId);
+                                    }
+                                    if(!state.calendar[newDueDate]) state.calendar[newDueDate] = [];
+                                    state.calendar[newDueDate].push(task);
+                                 }
+                                 task.dueDate = newDueDate;
+                            }
+                        }
+                        saveState();
+                        renderCalendarView();
+                        if (!isNew && taskDetails.source !== 'Personal') {
+                            renderProjectBoard(taskDetails.source);
+                        }
+                    }
+                }
+            }
             function moveTask(chatId, taskId, targetColumnId) {
                 const project = state.chats[chatId].projectData;
                 let taskToMove;
@@ -3094,8 +3282,14 @@
                     if (targetColumn) {
                         if(!targetColumn.tasks) targetColumn.tasks = [];
                         targetColumn.tasks.push(taskToMove);
+                        if (targetColumn.id === 'done') {
+                            taskToMove.completed = true;
+                        } else if (sourceColumnId === 'done' && targetColumn.id !== 'done') {
+                             taskToMove.completed = false;
+                        }
                         saveState();
                         renderProjectBoard(chatId);
+                        renderCalendarView();
                     }
                 }
             }
@@ -3177,11 +3371,11 @@
                 gamificationState.xp += amount;
                 const currentLevel = gamificationState.level;
                 const nextLevelXp = XP_FOR_LEVEL[currentLevel];
-                if (gamificationState.xp >= nextLevelXp) {
+                if (level < LEVEL_NAMES.length && gamificationState.xp >= nextLevelXp) {
                     gamificationState.level++;
                     showModal({
                         title: '🎉 ¡Nivel Subido! 🎉',
-                        body: `¡Felicidades! Has alcanzado el Nivel ${gamificationState.level}: **${LEVEL_NAMES[gamificationState.level - 1]}**.`,
+                        body: `<p class="text-lg text-center">¡Felicidades! Has ascendido al Nivel ${gamificationState.level}:</p><p class="text-2xl font-bold text-center text-primary mt-2">${LEVEL_NAMES[gamificationState.level - 1]}</p>`,
                         confirmText: '¡Genial!',
                          showCancel: false
                     });
@@ -3211,18 +3405,12 @@
                 
                 gamificationState.lastLogin = today;
                 // Grant rewards
-                const streak = gamificationState.dailyStreak;
-                if (streak <= 3) {
-                    addXp(10);
-                    addCredits(5);
-                } else if (streak <= 6) {
-                    addXp(20);
-                    addCredits(10);
-                } else if (streak === 7) {
-                    addXp(100);
-                    openGoatChest();
-                    gamificationState.dailyStreak = 0; // Reset after day 7
-                }
+                const streak = gamificationState.dailyStreak % 7;
+                const currentDay = streak === 0 ? 7 : streak;
+
+                if (currentDay <= 3) { addXp(10); addCredits(5); } 
+                else if (currentDay <= 6) { addXp(20); addCredits(10); } 
+                else if (currentDay === 7) { addXp(100); openGoatChest(); }
                 
                 if (gamificationState.dailyStreak >= 30) {
                     unlockAchievement('streak-30');
@@ -3243,226 +3431,4 @@
                     rewardBody = '¡Genial! Has ganado un <strong>cupón del 25% de descuento</strong> en cualquiera de nuestros servicios.';
                 } else if (rand < 0.4) { // 30% Rare
                     addCredits(150);
-                    rewardTitle = ' recompensa RARA!';
-                    rewardBody = `Has ganado <strong>150 Créditos</strong> extra. ¡Sigue así!`;
-                } else { // 60% Common
-                    addCredits(50);
-                    rewardTitle = ' recompensa COMÚN!';
-                    rewardBody = `Has ganado <strong>50 Créditos</strong>. ¡Buen trabajo!`;
-                }
-
-                showModal({
-                    title: `<i class="fas fa-gift text-gold mr-2"></i>¡Cofre GOAT Abierto!`,
-                    body: `<p class="text-lg text-center">¡Completaste la racha de 7 días y obtuviste una${rewardTitle}</p><p class="mt-4 text-center">${rewardBody}</p>`,
-                    confirmText: '¡Fantástico!',
-                     showCancel: false
-                });
-            }
-
-            function completeMission(missionId, contextId = null) {
-                if (gamificationState.completedMissions.includes(missionId)) return;
-                const mission = MISSIONS[missionId];
-                if (!mission) return;
-
-                let isCompleted = false;
-                if (mission.condition) {
-                    isCompleted = mission.condition(contextId);
-                } else {
-                    isCompleted = true; // For missions triggered by a single action
-                }
-                
-                if (isCompleted) {
-                    gamificationState.completedMissions.push(missionId);
-                    addXp(mission.xp);
-                    addCredits(mission.credits);
-                    showModal({
-                        title: `<i class="fas fa-check-circle text-green-400 mr-2"></i> Misión Completada`,
-                        body: `<p class="text-lg text-center">¡Completaste "${mission.text}"!</p><p class="text-center font-bold mt-2">+${mission.xp} XP | +${mission.credits} Créditos</p>`,
-                        confirmText: '¡Vamos!',
-                         showCancel: false
-                    });
-                    saveGamificationState();
-                }
-            }
-            
-            function unlockAchievement(achievementId) {
-                if (gamificationState.unlockedAchievements.includes(achievementId)) return;
-                const achievement = ACHIEVEMENTS[achievementId];
-                if (!achievement) return;
-
-                gamificationState.unlockedAchievements.push(achievementId);
-                addXp(achievement.xp);
-                if (achievement.credits) addCredits(achievement.credits);
-                showModal({
-                    title: `<i class="fas fa-medal text-gold mr-2"></i> ¡Logro Desbloqueado!`,
-                    body: `<p class="text-xl text-center font-bold">${achievement.title}</p><p class="text-center mt-2">${achievement.description}</p><p class="text-center font-bold mt-4">+${achievement.xp} XP ${achievement.reward ? `| ${achievement.reward}` : ''}</p>`,
-                    confirmText: '¡Impresionante!',
-                     showCancel: false
-                });
-                saveGamificationState();
-            }
-
-            function renderGamificationModal() {
-                const level = gamificationState.level;
-                const currentXp = gamificationState.xp;
-                const xpForCurrentLevel = XP_FOR_LEVEL[level - 1];
-                const xpForNextLevel = XP_FOR_LEVEL[level];
-                dom.gamificationLevelName.textContent = `Nivel ${level}: ${LEVEL_NAMES[level - 1]}`;
-                dom.gamificationCredits.innerHTML = `<i class="fas fa-coins mr-1"></i>${gamificationState.credits} Créditos`;
-                if (level < LEVEL_NAMES.length) {
-                    const progress = ((currentXp - xpForCurrentLevel) / (xpForNextLevel - xpForCurrentLevel)) * 100;
-                    dom.gamificationXp.textContent = `${currentXp} / ${xpForNextLevel} XP`;
-                    dom.gamificationXpBar.style.width = `${Math.min(100, progress)}%`;
-                } else {
-                    dom.gamificationXp.textContent = `¡Nivel Máximo!`;
-                    dom.gamificationXpBar.style.width = `100%`;
-                }
-
-                // Render Daily Streak
-                dom.dailyStreakContainer.innerHTML = '';
-                for (let i = 1; i <= 7; i++) {
-                    const dayEl = document.createElement('div');
-                    dayEl.className = 'streak-day p-4 rounded-lg flex flex-col items-center justify-center';
-                    const isCompleted = i <= gamificationState.dailyStreak;
-                    const isActive = i === gamificationState.dailyStreak + 1;
-                    
-                    if (isCompleted) dayEl.classList.add('completed');
-                    if (isActive) dayEl.classList.add('active');
-
-                    let rewardText;
-                    if (i <= 3) rewardText = '+10 XP';
-                    else if (i <= 6) rewardText = '+20 XP';
-                    else rewardText = '<i class="fas fa-gift fa-2x"></i>';
-
-                    dayEl.innerHTML = `
-                        <p class="font-bold text-lg">${i === 7 ? '' : `Día ${i}`}</p>
-                        <div class="text-2xl my-2">${rewardText}</div>
-                        <p class="text-xs">${i <= 3 ? '+5 Créditos' : (i <= 6 ? '+10 Créditos' : 'Cofre GOAT')}</p>
-                    `;
-                    dom.dailyStreakContainer.appendChild(dayEl);
-                }
-
-                // Render Missions
-                dom.missionsContainer.innerHTML = '';
-                Object.values(MISSIONS).forEach(mission => {
-                    const isCompleted = gamificationState.completedMissions.includes(mission.id);
-                    const missionEl = document.createElement('div');
-                    missionEl.className = `mission-item p-4 rounded-lg flex items-center justify-between bg-input ${isCompleted ? 'completed' : ''}`;
-                     missionEl.innerHTML = `
-                        <div>
-                            <p class="font-semibold">${mission.text}</p>
-                            <p class="text-sm text-text-medium">+${mission.xp} XP | +${mission.credits} Créditos</p>
-                         </div>
-                        <button class="btn-primary px-4 py-2 rounded-lg text-sm font-bold" data-mission-id="${mission.id}" ${isCompleted ? 'disabled' : ''}>
-                            ${isCompleted ? 'Hecho' : 'Empezar'}
-                         </button>
-                    `;
-                    dom.missionsContainer.appendChild(missionEl);
-                });
-
-                // Render Achievements
-                dom.achievementsContainer.innerHTML = '';
-                Object.values(ACHIEVEMENTS).forEach(ach => {
-                    const isUnlocked = gamificationState.unlockedAchievements.includes(ach.id);
-                    const achEl = document.createElement('div');
-                    achEl.className = `achievement-badge p-4 rounded-lg text-center flex flex-col items-center justify-center ${isUnlocked ? 'unlocked' : ''}`;
-                     achEl.innerHTML = `
-                        <i class="fas ${ach.icon} fa-3x mb-2"></i>
-                        <p class="font-bold">${ach.title}</p>
-                        <p class="text-xs text-text-medium mt-1">${ach.description}</p>
-                     `;
-                    dom.achievementsContainer.appendChild(achEl);
-                });
-            }
-
-            // --- END GAMIFICATION LOGIC ---
-
-            let initFired = false;
-            const finishInitialization = (user) => {
-                if (initFired) {
-                    console.warn("finishInitialization called multiple times. Ignoring subsequent calls.");
-                    return;
-                }
-                initFired = true;
-                currentUser = user;
-                console.log("Netlify Identity Initialization FINISHED. User:", user ? user.email : "guest");
-
-                updateUserUI();
-                loadStateForUser();
-                populateVoiceList();
-                setupEventListeners();
-                updateContextualFooter(null);
-
-                dom.appContainer.classList.remove('opacity-0');
-                dom.loadingOverlay.style.display = 'none';
-
-                if (currentChatId && state.chats[currentChatId]) {
-                    selectChat(currentChatId);
-                } else {
-                    resetChatView();
-                }
-                updateNotificationBadge();
-                // Show gamification rules on first visit
-                if (!localStorage.getItem('goatify-gamification-rules-seen')) {
-                    setTimeout(() => {
-                        dom.gamificationRulesModal.classList.add('flex');
-                        localStorage.setItem('goatify-gamification-rules-seen', 'true');
-                     }, 2000);
-                }
-            };
-
-            const savedLang = localStorage.getItem('goatify-lang') || 'es';
-            setLanguage(savedLang);
-            setTheme(localStorage.getItem('theme') === 'dark' || (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches));
-
-            const unlockAudio = () => {
-                const silence = new SpeechSynthesisUtterance('');
-                silence.volume = 0;
-                window.speechSynthesis.speak(silence);
-                document.body.removeEventListener('touchstart', unlockAudio);
-                document.body.addEventListener('click', unlockAudio); 
-            };
-            document.body.addEventListener('touchstart', unlockAudio, { once: true });
-            document.body.addEventListener('click', unlockAudio, { once: true });
-            
-            if (window.netlifyIdentity) {
-                netlifyIdentity.on('init', (user) => {
-                    console.log("Netlify Identity 'init' event fired by widget.");
-                    finishInitialization(user);
-                });
-                netlifyIdentity.on('login', (user) => {
-                    console.log("Netlify Identity 'login' event fired.");
-                    netlifyIdentity.close(); 
-                    currentUser = user;
-                    updateUserUI(); 
-                     loadStateForUser();
-                });
-                netlifyIdentity.on('logout', () => {
-                    console.log("Netlify Identity 'logout' event fired.");
-                    currentUser = null;
-                    updateUserUI(); 
-                    loadStateForUser(); 
-                     resetChatView();
-                });
-                netlifyIdentity.on('error', (err) => {
-                    console.error("Netlify Identity Error:", err);
-                    if (!initFired) {
-                        console.warn("Netlify Identity failed, proceeding as guest.");
-                         finishInitialization(null); 
-                    }
-                });
-            } else {
-                 console.warn("Netlify Identity widget not found. Proceeding as guest.");
-                 finishInitialization(null);
-            }
-
-            setTimeout(() => {
-                if (!initFired) {
-                    console.warn("Netlify Identity 'init' event did not fire within timeout. Forcing app initialization.");
-                    finishInitialization(window.netlifyIdentity ? netlifyIdentity.currentUser() : null);
-                 }
-            }, 1500);
-        });
-    </script>
-</body>
-</html>
+                    rewardTitle = ' recompensa RARA
