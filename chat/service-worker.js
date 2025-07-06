@@ -41,3 +41,28 @@ self.addEventListener('fetch', event => {
     })
   );
 });
+
+// ==================================================================
+// === CÓDIGO NUEVO PARA RECIBIR Y MOSTRAR NOTIFICACIONES PUSH AÑADIDO AQUÍ ===
+// ==================================================================
+
+self.addEventListener('push', event => {
+  console.log('¡Notificación Push Recibida!');
+
+  // Lee los datos que enviaste desde tu servidor (Supabase Edge Function)
+  const data = event.data.json();
+  const title = data.title || 'Goatify IA';
+  const options = {
+    body: data.body || 'Tienes una nueva notificación.',
+    icon: './Logos HD.png', // Ícono que se muestra en la notificación
+    badge: './Logos HD.png' // Ícono para la "bolita" en Android
+  };
+
+  // Le dice al celular que muestre la notificación
+  event.waitUntil(self.registration.showNotification(title, options));
+
+  // Opcional: Para poner el número en el ícono de la app (la "bolita")
+  if (navigator.setAppBadge) {
+    navigator.setAppBadge(1); // Puedes cambiar el 1 por el número de notificaciones pendientes
+  }
+});
