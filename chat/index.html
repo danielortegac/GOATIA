@@ -45,6 +45,7 @@
             height: 100%;
             width: 100%;
             overflow: hidden;
+            position: fixed; /* Prevent pull-to-refresh and address bar issues */
         }
 
         body {
@@ -79,38 +80,39 @@
             color: var(--light-text-dark);
         }
         
-        #sidebar { background-color: var(--current-bg-dark); border-right: 1px solid var(--current-border-color); height: 100vh; transition: transform 0.3s ease; z-index: 40; }
-        #sidebar.collapsed { width: 0; padding: 0; overflow: hidden; border-right: none;}
-        #sidebar.collapsed > * { display: none; }
-
-        @media (max-width: 767px) {
-            #sidebar {
-                transform: translateX(-100%);
-                position: fixed;
-                top: 0;
-                left: 0;
-            }
-            #sidebar.is-open {
-                transform: translateX(0);
-            }
-            #sidebar > div {
-                height: 100%;
-                overflow-y: auto;
-                padding-bottom: 60px; /* Space for browser nav bar */
-            }
-            /* Make fonts smaller on mobile */
-            body { --base-font-size: 13.5px; }
-            button, .btn-primary { 
-                padding-top: 0.4rem; padding-bottom: 0.4rem; 
-                padding-left: 0.75rem; padding-right: 0.75rem;
-                font-size: 0.8rem;
-            }
-            .text-lg { font-size: 1rem; }
-            .text-xl { font-size: 1.1rem; }
-            .text-2xl { font-size: 1.2rem; }
-            .text-3xl { font-size: 1.4rem; }
+        #app-container { 
+            height: 100vh; 
+            height: -webkit-fill-available; 
+            display: flex;
+            width: 100%;
+            position: relative;
+            opacity: 0;
+            transition: opacity 0.3s ease;
         }
 
+        #sidebar { 
+            background-color: var(--current-bg-dark); 
+            border-right: 1px solid var(--current-border-color); 
+            height: 100%; /* Changed from 100vh */
+            transition: transform 0.3s ease; 
+            z-index: 40; 
+            display: flex;
+            flex-direction: column;
+        }
+        #sidebar.collapsed { width: 0; padding: 0; overflow: hidden; border-right: none;}
+        #sidebar.collapsed > * { display: none; }
+        
+        #sidebar > .p-3 {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            min-height: 0;
+        }
+        .sidebar-scrollable-content {
+            flex-grow: 1;
+            overflow-y: auto;
+            min-height: 0;
+        }
 
         #main-chat-area, .modal-content { background-color: var(--current-bg-medium); }
         .chat-bubble-bot, .bg-input, #pdf-preview-container, .chat-item, .project-header, #user-menu-popup, #services-menu, .pro-controls-bg { background-color: var(--current-bg-light); }
@@ -124,6 +126,15 @@
         .placeholder-themed::placeholder { color: var(--current-text-medium); }
         .text-primary { color: var(--current-primary); }
         .glowing-mic { animation: pulse 1.5s infinite; color: var(--primary) !important; }
+        .glowing-motivation-btn {
+             color: var(--primary) !important;
+             box-shadow: 0 0 10px 0px var(--primary), 0 0 20px 0px var(--primary);
+             animation: glow-animation 2s infinite alternate;
+        }
+        @keyframes glow-animation {
+            from { box-shadow: 0 0 5px 0px var(--primary); }
+            to { box-shadow: 0 0 15px 5px var(--primary); }
+        }
 
         @keyframes pulse {
             0% { box-shadow: 0 0 0 0 rgba(138, 79, 255, 0.7); }
@@ -136,62 +147,17 @@
         .project.open .project-arrow { transform: rotate(90deg); }
         .project-header.drag-over { background-color: var(--current-primary); }
         #sidebar-overlay { transition: opacity 0.3s ease-in-out; }
-        #app-container { height: 100vh; height: -webkit-fill-available; }
         #pricing-modal .modal-content-body { max-height: 80vh; overflow-y: auto; }
         .chat-item.selected-for-delete { background-color: var(--primary) !important; color: white; }
         
-        .model-selector-wrapper {
-            position: relative;
-            display: inline-flex;
-            align-items: center;
-        }
+        .model-selector-wrapper { position: relative; display: inline-flex; align-items: center; }
+        .model-selector-wrapper select { -webkit-appearance: none; -moz-appearance: none; appearance: none; background-image: none; padding-right: 2.5rem; height: 32px; font-size: 0.875rem; line-height: 1.25rem; border: none; outline: none; cursor: pointer; min-width: 120px; background-color: transparent; }
+        .model-selector-wrapper i { position: absolute; right: 0.5rem; pointer-events: none; }
 
-        .model-selector-wrapper select {
-            -webkit-appearance: none;
-            -moz-appearance: none;
-            appearance: none;
-            background-image: none;
-            padding-right: 2.5rem;
-            height: 32px;
-            font-size: 0.875rem;
-            line-height: 1.25rem;
-            border: none;
-            outline: none;
-            cursor: pointer;
-            min-width: 120px;
-            background-color: transparent;
-        }
-         .model-selector-wrapper i {
-            position: absolute;
-            right: 0.5rem;
-            pointer-events: none;
-        }
-
-        .pro-controls-bg {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0.375rem;
-            border-radius: 0.5rem;
-            overflow: hidden; 
-            width: 100%;
-            gap: 0.5rem;
-        }
-
-        #pro-controls-left, #pro-controls-right {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-        
-        #pro-controls-left {
-            flex-grow: 1;
-            min-width: 0;
-        }
-
-        #pro-controls-right {
-            flex-shrink: 0;
-        }
+        .pro-controls-bg { display: flex; align-items: center; justify-content: space-between; padding: 0.375rem; border-radius: 0.5rem; overflow: hidden; width: 100%; gap: 0.5rem; }
+        #pro-controls-left, #pro-controls-right { display: flex; align-items: center; gap: 0.5rem; }
+        #pro-controls-left { flex-grow: 1; min-width: 0; }
+        #pro-controls-right { flex-shrink: 0; }
         
         .workflow-content { display: none; }
         .workflow-category.open .workflow-content { display: block; }
@@ -199,510 +165,147 @@
         .plan-card { background-color: var(--current-bg-light); }
         #pdf-preview-container { padding: 0.5rem; }
         
-        @keyframes sweep {
-            0% { transform: translateX(-100%) skewX(-15deg); }
-            100% { transform: translateX(200%) skewX(-15deg); }
-        }
+        @keyframes sweep { 0% { transform: translateX(-100%) skewX(-15deg); } 100% { transform: translateX(200%) skewX(-15deg); } }
         .cool-light-effect { position: relative; overflow: hidden; }
-        .cool-light-effect::before {
-            content: '';
-            position: absolute; top: 0; left: 0; width: 50%; height: 100%;
-            background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(138, 79, 255, 0.25) 50%, rgba(255,255,255,0) 100%);
-            transform: translateX(-150%) skewX(-15deg); transition: transform 0.8s ease;
-            pointer-events: none;
-        }
+        .cool-light-effect::before { content: ''; position: absolute; top: 0; left: 0; width: 50%; height: 100%; background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(138, 79, 255, 0.25) 50%, rgba(255,255,255,0) 100%); transform: translateX(-150%) skewX(-15deg); transition: transform 0.8s ease; pointer-events: none; }
         .cool-light-effect:hover::before { animation: sweep 2s infinite linear; }
 
         .input-wrapper { border: 2px solid transparent; transition: box-shadow 0.3s ease, border-color 0.3s ease; }
         .input-wrapper:focus-within { box-shadow: 0 0 10px 0px rgba(138, 79, 255, 0.5); border-color: var(--current-primary-hover); }
 
-        #chat-title {
-            color: var(--primary);
-            font-weight: 700;
-            transition: color 0.3s ease;
-        }
-        #chat-title-wrapper:hover #chat-title {
-            color: var(--primary-hover);
-        }
-        
-        #chat-title-wrapper {
-            position: relative;
-            padding-left: 24px;
-        }
-        #chat-title-wrapper .edit-icon,
-        #mobile-chat-title-wrapper .edit-icon {
-            position: absolute;
-            left: 0;
-            top: 50%;
-            transform: translateY(-50%);
-            opacity: 1;
-            transition: transform 0.2s ease;
-        }
-        #chat-title-wrapper:hover .edit-icon,
-        #mobile-chat-title-wrapper:hover .edit-icon {
-            transform: translateY(-50%) scale(1.1);
-        }
+        #chat-title { color: var(--primary); font-weight: 700; transition: color 0.3s ease; }
+        #chat-title-wrapper:hover #chat-title { color: var(--primary-hover); }
+        #chat-title-wrapper { position: relative; padding-left: 24px; }
+        #chat-title-wrapper .edit-icon, #mobile-chat-title-wrapper .edit-icon { position: absolute; left: 0; top: 50%; transform: translateY(-50%); opacity: 1; transition: transform 0.2s ease; }
+        #chat-title-wrapper:hover .edit-icon, #mobile-chat-title-wrapper:hover .edit-icon { transform: translateY(-50%) scale(1.1); }
 
         .btn-disabled { background-color: #3a3a3a !important; color: #888 !important; cursor: not-allowed !important; border-color: #3a3a3a !important;}
-
-        .chat-item.selected-chat {
-            background-color: var(--current-primary);
-            color: white !important;
-        }
-        .chat-item.selected-chat .text-sm {
-            color: white !important;
-        }
-        .light-theme .chat-item {
-            color: var(--light-text-dark);
-        }
+        .chat-item.selected-chat { background-color: var(--current-primary); color: white !important; }
+        .chat-item.selected-chat .text-sm { color: white !important; }
+        .light-theme .chat-item { color: var(--light-text-dark); }
 
         /* Calendar styles */
-        .calendar-grid {
-            display: grid;
-            grid-template-columns: repeat(7, 1fr);
-            gap: 5px;
-            text-align: center;
-        }
-        .calendar-day {
-            padding: 2px;
-            border-radius: 4px;
-            background-color: var(--current-bg-medium);
-            cursor: pointer;
-            transition: background-color 0.2s ease, border 0.2s ease;
-            position: relative;
-            border: 2px solid transparent;
-            min-height: 90px;
-            display: flex;
-            flex-direction: column;
-            align-items: flex-start;
-        }
-        .calendar-day-number {
-            font-weight: bold;
-            font-size: 0.8rem;
-            margin: 4px;
-            align-self: flex-start;
-        }
-        .calendar-day-tasks {
-            flex-grow: 1;
-            width: 100%;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            gap: 2px;
-            padding: 0 2px 2px 2px;
-        }
-        .calendar-day-task {
-            font-size: 0.65rem;
-            padding: 2px 4px;
-            border-radius: 4px;
-            color: white;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            text-align: left;
-            position: relative;
-        }
-        .calendar-day-task .delete-task-icon {
-            display: none;
-            position: absolute;
-            right: 1px;
-            top: 1px;
-            color: white;
-            background-color: rgba(0,0,0,0.5);
-            border-radius: 50%;
-            width: 14px;
-            height: 14px;
-            font-size: 8px;
-            line-height: 14px;
-            text-align: center;
-        }
-        .calendar-day-task:hover .delete-task-icon {
-            display: block;
-        }
-
-        .calendar-day:hover {
-            background-color: var(--current-bg-light);
-        }
-        .calendar-day.current-month {
-            color: var(--current-text-light);
-        }
-        .calendar-day.other-month {
-            color: var(--current-text-medium);
-            opacity: 0.5;
-        }
-        .calendar-day.today .calendar-day-number {
-            background-color: var(--primary);
-            color: white;
-            border-radius: 50%;
-            width: 24px;
-            height: 24px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            margin: 2px;
-        }
-        .task-dots-container {
-            position: absolute;
-            bottom: 4px;
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; text-align: center; }
+        .calendar-day { padding: 2px; border-radius: 4px; background-color: var(--current-bg-medium); cursor: pointer; transition: background-color 0.2s ease, border 0.2s ease; position: relative; border: 2px solid transparent; min-height: 90px; display: flex; flex-direction: column; align-items: flex-start; }
+        .calendar-day-number { font-weight: bold; font-size: 0.8rem; margin: 4px; align-self: flex-start; }
+        .calendar-day-tasks { flex-grow: 1; width: 100%; overflow: hidden; display: flex; flex-direction: column; gap: 2px; padding: 0 2px 2px 2px; }
+        .calendar-day-task { font-size: 0.65rem; padding: 2px 4px; border-radius: 4px; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; position: relative; }
+        .calendar-day-task .delete-task-icon { display: none; position: absolute; right: 1px; top: 1px; color: white; background-color: rgba(0,0,0,0.5); border-radius: 50%; width: 14px; height: 14px; font-size: 8px; line-height: 14px; text-align: center; }
+        .calendar-day-task:hover .delete-task-icon { display: block; }
+        .calendar-day:hover { background-color: var(--current-bg-light); }
+        .calendar-day.current-month { color: var(--current-text-light); }
+        .calendar-day.other-month { color: var(--current-text-medium); opacity: 0.5; }
+        .calendar-day.today .calendar-day-number { background-color: var(--primary); color: white; border-radius: 50%; width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; margin: 2px; }
+        .task-dots-container { position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); display: flex; gap: 2px; }
+        .task-dot { width: 5px; height: 5px; border-radius: 50%; }
+        .calendar-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .task-item-completed { text-decoration: line-through; opacity: 0.6; }
+        
+        .notification-bell-icon { position: relative; }
+        .notification-badge { position: absolute; top: -5px; right: -5px; background-color: red; color: white; border-radius: 50%; padding: 2px 6px; font-size: 0.7em; line-height: 1; min-width: 18px; text-align: center; }
+        
+        /* New In-App Notification Styles */
+        #in-app-notification-popup {
+            position: fixed;
+            top: 20px;
             left: 50%;
-            transform: translateX(-50%);
-            display: flex;
-            gap: 2px;
-        }
-        .task-dot {
-            width: 5px;
-            height: 5px;
-            border-radius: 50%;
-        }
-        .calendar-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-        .task-item-completed {
-            text-decoration: line-through;
-            opacity: 0.6;
-        }
-        .notification-bell-icon {
-            position: relative;
-        }
-        .notification-badge {
-            position: absolute;
-            top: -5px;
-            right: -5px;
-            background-color: red;
-            color: white;
-            border-radius: 50%;
-            padding: 2px 6px;
-            font-size: 0.7em;
-            line-height: 1;
-            min-width: 18px;
-            text-align: center;
-        }
-        
-        .calendar-view-toggle, .project-view-controls {
-            display: flex;
-            gap: 0.5rem;
-            background-color: var(--current-bg-dark);
-            padding: 0.25rem;
-            border-radius: 8px;
-            width: 100%;
-        }
-
-        .calendar-view-toggle button, .project-view-controls button {
-            flex-grow: 1;
-            padding: 8px 12px;
-            border-radius: 6px;
+            transform: translate(-50%, -200%); /* Start off-screen */
+            z-index: 100;
             background-color: var(--current-bg-light);
-            color: var(--current-text-light);
-            font-weight: 600;
-            transition: background-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease;
-            white-space: nowrap; /* Prevents text wrapping */
-        }
-        .calendar-view-toggle button.active, .project-view-controls button.active {
-            background-color: var(--current-primary);
-            color: white;
-            box-shadow: 0 0 8px rgba(138, 79, 255, 0.4);
-        }
-        .calendar-view-toggle button:hover:not(.active), .project-view-controls button:hover:not(.active) {
-            background-color: var(--current-bg-medium);
-        }
-        .dark-theme .project-view-controls button:not(.active) {
-            color: var(--current-text-light);
-        }
-        .light-theme .project-view-controls button:not(.active) {
-            color: var(--current-text-dark);
-        }
-
-        #month-view-container, #day-view-container {
-            display: block;
-        }
-        #week-view-container, #day-view-container {
-            display: none;
-        }
-        #week-view-container, #day-view-container {
-            max-height: 400px;
-            overflow-y: auto;
             border: 1px solid var(--current-border-color);
-            border-radius: 8px;
-            padding: 10px;
+            border-radius: 0.75rem;
+            padding: 1rem 1.5rem;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2), 0 8px 10px -6px rgba(0, 0, 0, 0.2);
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            min-width: 300px;
+            max-width: 90%;
+            transition: transform 0.5s ease-in-out;
         }
-        .week-day-section {
-            margin-bottom: 15px;
-            padding-bottom: 10px;
-            border-bottom: 1px dashed var(--current-border-color);
+        #in-app-notification-popup.show {
+            transform: translate(-50%, 0);
         }
-        .week-day-section:last-child {
-            border-bottom: none;
-            margin-bottom: 0;
-            padding-bottom: 0;
+        #in-app-notification-popup .notification-icon {
+            font-size: 1.5rem;
+            color: var(--primary);
         }
-        .week-day-section h5 {
+        #in-app-notification-popup .notification-title {
             font-weight: 700;
-            color: var(--current-primary);
-            margin-bottom: 5px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
         }
-        .week-day-section .task-item {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            padding: 5px 0;
-        }
-        
-        .day-view-timeline {
-            position: relative;
-        }
-        .day-view-hour {
-            display: flex;
-            border-top: 1px solid var(--current-border-color);
-        }
-        .day-view-hour-label {
-            width: 60px;
-            flex-shrink: 0;
-            text-align: right;
-            padding-right: 10px;
-            font-size: 0.75rem;
+        #in-app-notification-popup .notification-body {
+            font-size: 0.875rem;
             color: var(--current-text-medium);
         }
-        .day-view-hour-content {
-            flex-grow: 1;
-            border-left: 1px solid var(--current-border-color);
-            padding: 5px;
-            min-height: 40px;
-            position: relative;
-        }
-        .add-task-to-time-btn {
+        #in-app-notification-popup .close-btn {
             position: absolute;
-            right: 5px;
-            top: 5px;
-            opacity: 0;
-            transition: opacity 0.2s ease;
+            top: 8px;
+            right: 8px;
+            background: none;
+            border: none;
+            color: var(--current-text-medium);
+            cursor: pointer;
         }
-        .day-view-hour-content:hover .add-task-to-time-btn {
-            opacity: 1;
-        }
+
+        .calendar-view-toggle, .project-view-controls { display: flex; gap: 0.5rem; background-color: var(--current-bg-dark); padding: 0.25rem; border-radius: 8px; width: 100%; }
+        .calendar-view-toggle button, .project-view-controls button { flex-grow: 1; padding: 8px 12px; border-radius: 6px; background-color: var(--current-bg-light); color: var(--current-text-light); font-weight: 600; transition: background-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease; white-space: nowrap; }
+        .calendar-view-toggle button.active, .project-view-controls button.active { background-color: var(--current-primary); color: white; box-shadow: 0 0 8px rgba(138, 79, 255, 0.4); }
+        .calendar-view-toggle button:hover:not(.active), .project-view-controls button:hover:not(.active) { background-color: var(--current-bg-medium); }
+        .dark-theme .project-view-controls button:not(.active) { color: var(--current-text-light); }
+        .light-theme .project-view-controls button:not(.active) { color: var(--current-text-dark); }
+        #month-view-container, #day-view-container { display: block; }
+        #week-view-container, #day-view-container { display: none; }
+        #week-view-container, #day-view-container { max-height: 400px; overflow-y: auto; border: 1px solid var(--current-border-color); border-radius: 8px; padding: 10px; }
+        .week-day-section { margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px dashed var(--current-border-color); }
+        .week-day-section:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+        .week-day-section h5 { font-weight: 700; color: var(--current-primary); margin-bottom: 5px; display: flex; justify-content: space-between; align-items: center; }
+        .week-day-section .task-item { display: flex; align-items: center; gap: 5px; padding: 5px 0; }
+        .day-view-timeline { position: relative; }
+        .day-view-hour { display: flex; border-top: 1px solid var(--current-border-color); }
+        .day-view-hour-label { width: 60px; flex-shrink: 0; text-align: right; padding-right: 10px; font-size: 0.75rem; color: var(--current-text-medium); }
+        .day-view-hour-content { flex-grow: 1; border-left: 1px solid var(--current-border-color); padding: 5px; min-height: 40px; position: relative; }
+        .add-task-to-time-btn { position: absolute; right: 5px; top: 5px; opacity: 0; transition: opacity 0.2s ease; }
+        .day-view-hour-content:hover .add-task-to-time-btn { opacity: 1; }
 
         /* Project & Financial Management View Styles */
-        #project-management-view, #financial-assistant-view {
-            display: flex;
-            flex-direction: column; 
-            gap: 1rem;
-            height: 100%;
-            position: relative; 
-        }
+        #project-management-view, #financial-assistant-view { display: flex; flex-direction: column; gap: 1rem; height: 100%; position: relative; }
+        #project-board-container, #financial-tools-container { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
+        #project-chat-container, #financial-chat-container { display: flex; flex-direction: column; border-top: 1px solid var(--current-border-color); padding-top: 1rem; transition: all 0.3s ease; flex-shrink: 0; background-color: var(--current-bg-medium); }
+        #project-chat-container.collapsed, #financial-chat-container.collapsed { flex-grow: 0; flex-basis: auto; height: 50px !important; }
+        #project-chat-container.collapsed .project-chat-body, #financial-chat-container.collapsed .financial-chat-body { display: none; }
+        #project-chat-toggle i, #financial-chat-toggle i { transition: transform 0.3s ease; }
+        #project-chat-container:not(.collapsed) #project-chat-toggle i, #financial-chat-container:not(.collapsed) #financial-chat-toggle i { transform: rotate(180deg); }
+        #project-chat-messages, #financial-chat-messages { flex-grow: 1; overflow-y: auto; padding: 0.5rem; }
         
-        #project-board-container, #financial-tools-container {
-            flex: 1; 
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            min-height: 0; 
-        }
-        #project-chat-container, #financial-chat-container {
-            display: flex;
-            flex-direction: column;
-            border-top: 1px solid var(--current-border-color);
-            padding-top: 1rem;
-            transition: all 0.3s ease;
-            flex-shrink: 0;
-            background-color: var(--current-bg-medium);
-        }
-        #project-chat-container.collapsed, #financial-chat-container.collapsed {
-            flex-grow: 0;
-            flex-basis: auto;
-            height: 50px !important;
-        }
-        #project-chat-container.collapsed .project-chat-body,
-        #financial-chat-container.collapsed .financial-chat-body {
-            display: none;
-        }
-        #project-chat-toggle i, #financial-chat-toggle i {
-            transition: transform 0.3s ease;
-        }
-        #project-chat-container:not(.collapsed) #project-chat-toggle i,
-        #financial-chat-container:not(.collapsed) #financial-chat-toggle i {
-            transform: rotate(180deg);
-        }
-
-        #project-chat-messages, #financial-chat-messages {
-            flex-grow: 1;
-            overflow-y: auto;
-            padding: 0.5rem;
-        }
+        #kanban-view { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; overflow: hidden; flex-grow: 1; }
+        .kanban-column { background-color: var(--current-bg-light); border-radius: 0.75rem; padding: 1rem; display: flex; flex-direction: column; height: 100%; min-width: 0; }
+        .kanban-column-title { font-weight: 700; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 2px solid var(--current-border-color); display: flex; justify-content: space-between; align-items: center; }
+        .kanban-cards { flex-grow: 1; min-height: 100px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.75rem; }
+        .kanban-card { background-color: var(--current-bg-medium); padding: 0.75rem 1rem; border-radius: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); cursor: pointer; border-left: 4px solid var(--current-primary); position: relative; }
+        .kanban-card .delete-task-icon { display: none; position: absolute; right: 4px; top: 4px; color: var(--current-text-medium); background-color: var(--current-bg-light); border-radius: 50%; width: 18px; height: 18px; font-size: 10px; line-height: 18px; text-align: center; transition: all 0.2s ease; }
+        .kanban-card .delete-task-icon:hover { background-color: var(--danger-color); color: white; transform: scale(1.1); }
+        .kanban-card:hover .delete-task-icon { display: block; }
+        .kanban-card.urgent { border-left-color: var(--urgent-color); }
+        .kanban-card:active { cursor: grabbing; background-color: var(--primary); }
+        .kanban-card p { font-weight: 500; padding-right: 20px; }
+        .kanban-card .card-footer { font-size: 0.75rem; color: var(--current-text-medium); margin-top: 0.75rem; display: flex; justify-content: space-between; align-items: center; }
+        .kanban-cards.drag-over { border: 2px dashed var(--current-primary); background-color: rgba(138, 79, 255, 0.1); }
         
-        #kanban-view {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr); 
-            gap: 1rem;
-            overflow: hidden; 
-            flex-grow: 1;
-        }
-
-        .kanban-column {
-            background-color: var(--current-bg-light);
-            border-radius: 0.75rem;
-            padding: 1rem;
-            display: flex;
-            flex-direction: column;
-            height: 100%;
-            min-width: 0; /* Allow columns to shrink */
-        }
-        .kanban-column-title {
-            font-weight: 700;
-            margin-bottom: 1rem;
-            padding-bottom: 0.5rem;
-            border-bottom: 2px solid var(--current-border-color);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .kanban-cards {
-            flex-grow: 1;
-            min-height: 100px;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 0.75rem;
-        }
-        .kanban-card {
-            background-color: var(--current-bg-medium);
-            padding: 0.75rem 1rem;
-            border-radius: 0.5rem;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            cursor: pointer;
-            border-left: 4px solid var(--current-primary);
-            position: relative;
-        }
-        .kanban-card .delete-task-icon {
-            display: none;
-            position: absolute;
-            right: 4px;
-            top: 4px;
-            color: var(--current-text-medium);
-            background-color: var(--current-bg-light);
-            border-radius: 50%;
-            width: 18px;
-            height: 18px;
-            font-size: 10px;
-            line-height: 18px;
-            text-align: center;
-            transition: all 0.2s ease;
-        }
-        .kanban-card .delete-task-icon:hover {
-            background-color: var(--danger-color);
-            color: white;
-            transform: scale(1.1);
-        }
-        .kanban-card:hover .delete-task-icon {
-            display: block;
-        }
-        .kanban-card.urgent {
-            border-left-color: var(--urgent-color);
-        }
-        .kanban-card:active {
-            cursor: grabbing;
-            background-color: var(--primary);
-        }
-        .kanban-card p {
-            font-weight: 500;
-            padding-right: 20px; /* Space for delete icon */
-        }
-        .kanban-card .card-footer {
-            font-size: 0.75rem;
-            color: var(--current-text-medium);
-            margin-top: 0.75rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .kanban-cards.drag-over {
-            border: 2px dashed var(--current-primary);
-            background-color: rgba(138, 79, 255, 0.1);
-        }
+        #list-view { overflow: hidden; flex-grow: 1; display: flex; flex-direction: column; }
+        .list-view-header { display: grid; grid-template-columns: 1fr 100px 80px 120px 40px; gap: 1rem; padding: 0.5rem 1rem; border-bottom: 2px solid var(--current-border-color); font-weight: 700; font-size: 0.75rem; text-transform: uppercase; color: var(--current-text-medium); flex-shrink: 0; }
+        .list-view-content { overflow-y: auto; flex-grow: 1; }
+        .list-view-task { display: grid; grid-template-columns: 1fr 100px 80px 120px 40px; gap: 1rem; align-items: center; padding: 0.25rem 1rem; border-bottom: 1px solid var(--current-border-color); }
+        .list-view-task:hover { background-color: var(--current-bg-light); }
+        .list-view-task.task-item-completed .task-content-list { text-decoration: line-through; opacity: 0.6; }
+        .task-content-list.urgent { font-weight: 600; color: var(--urgent-color); }
+        .task-content-list input { background: transparent; border: none; outline: none; width: 100%; }
+        .task-content-list input:focus { background-color: var(--current-bg-dark); }
+        .priority-cell { text-align: center; cursor: pointer; }
         
-        /* List View Styles */
-        #list-view {
-            overflow: hidden; /* Changed */
-            flex-grow: 1;
-            display: flex; 
-            flex-direction: column; 
-        }
-        .list-view-header {
-            display: grid;
-            grid-template-columns: 1fr 100px 80px 120px 40px;
-            gap: 1rem;
-            padding: 0.5rem 1rem;
-            border-bottom: 2px solid var(--current-border-color);
-            font-weight: 700;
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            color: var(--current-text-medium);
-            flex-shrink: 0; 
-        }
-        .list-view-content {
-             overflow-y: auto; 
-             flex-grow: 1; 
-        }
-        .list-view-task {
-            display: grid;
-            grid-template-columns: 1fr 100px 80px 120px 40px;
-            gap: 1rem;
-            align-items: center;
-            padding: 0.25rem 1rem; /* Reduced padding */
-            border-bottom: 1px solid var(--current-border-color);
-        }
-        .list-view-task:hover {
-            background-color: var(--current-bg-light);
-        }
-        .list-view-task.task-item-completed .task-content-list {
-            text-decoration: line-through;
-            opacity: 0.6;
-        }
-        .task-content-list.urgent {
-            font-weight: 600;
-            color: var(--urgent-color);
-        }
-        .task-content-list input {
-            background: transparent;
-            border: none;
-            outline: none;
-            width: 100%;
-        }
-        .task-content-list input:focus {
-             background-color: var(--current-bg-dark);
-        }
-        .priority-cell {
-            text-align: center;
-            cursor: pointer;
-        }
-        
-        .task-labels {
-            display: flex;
-            gap: 4px;
-            flex-wrap: wrap;
-        }
-        .task-label {
-            padding: 2px 8px;
-            font-size: 0.7rem;
-            border-radius: 12px;
-            font-weight: 600;
-        }
-        #project-tag-filter-container {
-            position: relative;
-        }
-        #tag-filter-dropdown {
-            position: absolute;
-            background-color: var(--current-bg-light);
-            border: 1px solid var(--current-border-color);
-            border-radius: 0.5rem;
-            z-index: 10;
-            max-height: 200px;
-            overflow-y: auto;
-        }
+        .task-labels { display: flex; gap: 4px; flex-wrap: wrap; }
+        .task-label { padding: 2px 8px; font-size: 0.7rem; border-radius: 12px; font-weight: 600; }
+        #project-tag-filter-container { position: relative; }
+        #tag-filter-dropdown { position: absolute; background-color: var(--current-bg-light); border: 1px solid var(--current-border-color); border-radius: 0.5rem; z-index: 10; max-height: 200px; overflow-y: auto; }
 
         /* Gamification Styles */
         #gamification-modal .modal-content-body { max-height: 80vh; overflow-y: auto; }
@@ -724,142 +327,37 @@
         .text-gold { color: var(--gold-color); }
 
         /* Pricing Modal Enhancements */
-        .plan-details {
-            max-height: 0;
-            overflow: hidden;
-            transition: max-height 0.5s ease-in-out;
-        }
-        .plan-details.open {
-            max-height: 500px; /* Adjust as needed */
-        }
-        .plan-feature-list {
-            list-style-position: inside;
-        }
-        .plan-feature-list li {
-            padding-left: 1em;
-            text-indent: -1em;
-        }
-        .plan-feature-list .fa-check-circle {
-            color: var(--primary);
-        }
+        .plan-details { max-height: 0; overflow: hidden; transition: max-height 0.5s ease-in-out; }
+        .plan-details.open { max-height: 500px; }
+        .plan-feature-list { list-style-position: inside; }
+        .plan-feature-list li { padding-left: 1em; text-indent: -1em; }
+        .plan-feature-list .fa-check-circle { color: var(--primary); }
 
         /* Financial Assistant Styles */
-        #financial-tools-container {
-             padding: 0.5rem;
-             gap: 0.5rem;
-        }
-        #financial-table-container, #financial-categories-container {
-            flex-grow: 1;
-            overflow-y: auto;
-            border: 1px solid var(--current-border-color);
-            border-radius: 0.5rem;
-        }
-        #financial-table thead {
-            background-color: var(--current-bg-light);
-            position: sticky;
-            top: 0;
-            z-index: 1;
-        }
-        #financial-table input, #financial-table select {
-            background: transparent;
-            border: none;
-            outline: none;
-            width: 100%;
-            padding: 0.5rem;
-            color: var(--current-text-light);
-        }
-        #financial-table select option {
-             background-color: var(--current-bg-dark);
-        }
-        #financial-table input:focus {
-            background-color: var(--current-bg-dark);
-        }
-        #financial-summary {
-            background-color: var(--current-bg-light);
-            border-radius: 0.5rem;
-            padding: 1rem;
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 1rem;
-            text-align: center;
-        }
-        #financial-summary h4 {
-            font-size: 0.8rem;
-            color: var(--current-text-medium);
-        }
-        #financial-summary p {
-            font-size: 1.25rem;
-            font-weight: 700;
-        }
+        #financial-tools-container { padding: 0.5rem; gap: 0.5rem; }
+        #financial-table-container, #financial-categories-container { flex-grow: 1; overflow-y: auto; border: 1px solid var(--current-border-color); border-radius: 0.5rem; }
+        #financial-table thead { background-color: var(--current-bg-light); position: sticky; top: 0; z-index: 1; }
+        #financial-table input, #financial-table select { background: transparent; border: none; outline: none; width: 100%; padding: 0.5rem; color: var(--current-text-light); }
+        #financial-table select option { background-color: var(--current-bg-dark); }
+        #financial-table input:focus { background-color: var(--current-bg-dark); }
+        #financial-summary { background-color: var(--current-bg-light); border-radius: 0.5rem; padding: 1rem; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; text-align: center; }
+        #financial-summary h4 { font-size: 0.8rem; color: var(--current-text-medium); }
+        #financial-summary p { font-size: 1.25rem; font-weight: 700; }
         #total-income { color: #22c55e; }
         #total-expenses { color: #ef4444; }
-        .financial-category {
-            background-color: var(--current-bg-light);
-            margin-bottom: 0.5rem;
-            border-radius: 0.5rem;
-        }
-        .financial-category-header {
-            padding: 0.5rem;
-            font-weight: bold;
-            cursor: pointer;
-            border-bottom: 1px solid var(--current-border-color);
-        }
-        .financial-category-content {
-            padding: 0.5rem;
-            display: none;
-        }
-        .financial-category.open .financial-category-content {
-            display: block;
-        }
-        .financial-category-item {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 0.25rem;
-        }
-        .financial-category-item input {
-             background: transparent;
-            border: none;
-            outline: none;
-            width: 100%;
-        }
-
-        /* In-app notification */
-        #in-app-notification {
-            position: fixed;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%) translateY(-200%);
-            background-color: var(--current-bg-light);
-            color: var(--current-text-light);
-            padding: 1rem;
-            border-radius: 0.75rem;
-            z-index: 100;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-            transition: transform 0.5s ease-in-out, opacity 0.5s ease-in-out;
-            border: 1px solid var(--current-border-color);
-            max-width: 90%;
-            width: 400px;
-            opacity: 0;
-            pointer-events: none;
-        }
-        #in-app-notification.show {
-            transform: translateX(-50%) translateY(0);
-            opacity: 1;
-            pointer-events: auto;
-        }
-        #in-app-notification-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 0.5rem;
-        }
-        #in-app-notification-header h4 {
-            font-weight: bold;
-        }
-
-
+        .financial-category { background-color: var(--current-bg-light); margin-bottom: 0.5rem; border-radius: 0.5rem; }
+        .financial-category-header { padding: 0.5rem; font-weight: bold; cursor: pointer; border-bottom: 1px solid var(--current-border-color); }
+        .financial-category-content { padding: 0.5rem; display: none; }
+        .financial-category.open .financial-category-content { display: block; }
+        .financial-category-item { display: flex; justify-content: space-between; margin-bottom: 0.25rem; }
+        .financial-category-item input { background: transparent; border: none; outline: none; width: 100%; }
+        
         /* Desktop specific styles */
         @media (min-width: 768px) {
+            #sidebar {
+                transform: translateX(0);
+                position: relative;
+            }
             #services-menu {
                 opacity: 0;
                 visibility: hidden;
@@ -871,148 +369,87 @@
                 visibility: visible;
                 transform: scale(1) translateY(0);
             }
-            #project-management-view, #financial-assistant-view {
-                flex-direction: row; 
-            }
-            #project-chat-container, #financial-chat-container {
-                border-left: 1px solid var(--current-border-color);
-                border-top: none;
-                padding-left: 1rem;
-                padding-top: 0;
-                height: 100%;
-                flex-basis: 40%;
-                flex-shrink: 0;
-            }
-            #project-chat-container.collapsed, #financial-chat-container.collapsed {
-                flex-basis: 50px;
-                height: 100% !important;
-            }
+            #project-management-view, #financial-assistant-view { flex-direction: row; }
+            #project-chat-container, #financial-chat-container { border-left: 1px solid var(--current-border-color); border-top: none; padding-left: 1rem; padding-top: 0; height: 100%; flex-basis: 40%; flex-shrink: 0; }
+            #project-chat-container.collapsed, #financial-chat-container.collapsed { flex-basis: 50px; height: 100% !important; }
             #project-chat-container-header, #financial-chat-header { cursor: pointer; }
-
-            #project-chat-container.collapsed .project-chat-body,
-            #project-chat-container.collapsed #project-chat-container-header h3,
-            #financial-chat-container.collapsed .financial-chat-body,
-            #financial-chat-container.collapsed #financial-chat-header h3 {
-                display: none;
-            }
-            #project-chat-container.collapsed #project-chat-toggle,
-            #financial-chat-container.collapsed #financial-chat-toggle {
-                transform: rotate(90deg);
-                justify-content: center;
-            }
-            #project-chat-container.collapsed #project-chat-toggle i,
-            #financial-chat-container.collapsed #financial-chat-toggle i {
-                 transform: rotate(180deg);
-            }
+            #project-chat-container.collapsed .project-chat-body, #project-chat-container.collapsed #project-chat-container-header h3, #financial-chat-container.collapsed .financial-chat-body, #financial-chat-container.collapsed #financial-chat-header h3 { display: none; }
+            #project-chat-container.collapsed #project-chat-toggle, #financial-chat-container.collapsed #financial-chat-toggle { transform: rotate(90deg); justify-content: center; }
+            #project-chat-container.collapsed #project-chat-toggle i, #financial-chat-container.collapsed #financial-chat-toggle i { transform: rotate(180deg); }
         }
         
         /* Mobile specific adjustments */
         @media (max-width: 767px) {
-             #mobile-chat-title-wrapper .edit-icon {
-                left: -10px;
+            body { --base-font-size: 13.5px; }
+            #sidebar {
+                position: fixed;
+                top: 0;
+                left: 0;
+                transform: translateX(-100%);
+                height: 100%; /* Ensure it takes full viewport height */
+                height: -webkit-fill-available;
             }
-            #calendar-modal {
-                padding: 0.5rem;
-                max-width: 98vw;
-                max-height: 95vh;
-                overflow: hidden;
-                display: flex;
-                flex-direction: column;
-            }
-            #calendar-modal > div:not(:first-child) {
-                overflow-y: auto;
-            }
-
-            .header-right-icons {
-                flex-shrink: 0;
-                display: flex;
-                align-items: center;
-                gap: 0; /* Adjust gap for more icons */
-            }
-            .header-right-icons > * {
-                padding: 0.3rem; /* Reduce padding to fit more icons */
-            }
-            #chat-title-wrapper {
-                flex-grow: 1;
-                flex-shrink: 1;
-                min-width: 0;
+            #sidebar.is-open {
+                transform: translateX(0);
             }
             #main-header-content {
                 display: flex;
                 align-items: center;
                 justify-content: space-between;
                 width: 100%;
-                gap: 0.5rem;
+                gap: 0.25rem; /* Add gap for spacing */
             }
-
-            #project-chat-container, #financial-chat-container {
-                position: absolute;
-                bottom: 0;
-                left: 0;
-                right: 0;
-                height: 50px; /* Collapsed height */
-                overflow: hidden;
-                border-top: 1px solid var(--current-border-color);
-                z-index: 10;
-                transition: height 0.3s ease;
-                /* This part is important, it ensures content doesn't get cut */
-                max-height: calc(100vh - 120px); /* Adjust 120px to account for header/etc */
-            }
-            #project-chat-container:not(.collapsed),
-            #financial-chat-container:not(.collapsed) {
-                 height: 100%; /* Expanded height */
-            }
-            #project-chat-container .project-chat-body,
-            #financial-chat-container .financial-chat-body {
-                height: calc(100% - 50px); /* Adjust based on header height */
+            .header-right-icons {
+                flex-shrink: 0;
                 display: flex;
-                flex-direction: column;
+                align-items: center;
+                gap: 0.1rem; /* Tighter gap for mobile icons */
             }
+            #chat-title-wrapper {
+                flex-grow: 1;
+                flex-shrink: 1;
+                min-width: 0;
+            }
+            button, .btn-primary { 
+                padding: 0.4rem 0.75rem;
+                font-size: 0.8rem;
+            }
+            .text-lg { font-size: 1rem; } .text-xl { font-size: 1.1rem; } .text-2xl { font-size: 1.2rem; } .text-3xl { font-size: 1.4rem; }
 
-            #kanban-view {
-                grid-template-columns: repeat(3, 1fr);
-                overflow-x: auto; /* Allow horizontal scroll for Kanban */
-                gap: 0.4rem; 
-                padding-bottom: 50px; /* Space for the collapsed chat */
-                -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
-            }
-            .kanban-column {
-                min-width: 150px; /* Give columns a min width to prevent squishing */
-                padding: 0.4rem;
-            }
+            #mobile-chat-title-wrapper .edit-icon { left: -10px; }
+
+            #calendar-modal { padding: 0.5rem; max-width: 98vw; max-height: 95vh; overflow: hidden; display: flex; flex-direction: column; }
+            #calendar-modal > div:not(:first-child) { overflow-y: auto; }
+
+            #project-chat-container, #financial-chat-container { position: absolute; bottom: 0; left: 0; right: 0; height: 50px; overflow: hidden; border-top: 1px solid var(--current-border-color); z-index: 10; transition: height 0.3s ease; }
+            #project-chat-container:not(.collapsed), #financial-chat-container:not(.collapsed) { height: 100%; }
+            #project-chat-container .project-chat-body, #financial-chat-container .financial-chat-body { height: calc(100% - 50px); display: flex; flex-direction: column; }
+
+            #kanban-view { grid-template-columns: repeat(3, 1fr); overflow-x: auto; gap: 0.4rem; padding-bottom: 50px; }
+            .kanban-column { min-width: 200px; padding: 0.4rem; }
             .kanban-column-title { font-size: 0.7rem; }
             .kanban-card { padding: 0.4rem; }
             .kanban-card p { font-weight: normal; font-size: 0.7rem; }
 
-            #list-view-mobile {
-                display: flex;
-                flex-direction: column;
-                gap: 0.5rem;
-                 padding-bottom: 50px; /* Space for the collapsed chat */
-                 overflow-y: auto; /* Ensure vertical scrolling */
-                 flex-grow: 1;
-            }
+            #list-view-mobile { display: flex; flex-direction: column; gap: 0.5rem; padding-bottom: 50px; }
             .list-view-task-mobile { background-color: var(--current-bg-light); padding: 0.75rem; border-radius: 0.5rem; display: flex; flex-direction: column; gap: 0.5rem; }
             .list-view-task-mobile-header { display: flex; align-items: flex-start; gap: 0.75rem; }
             .list-view-task-mobile-footer { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--current-border-color); padding-top: 0.5rem; font-size: 0.75rem; }
 
+            /* Solutions Menu on Mobile */
             #services-menu {
+                display: none; /* Hide by default */
                 position: absolute;
-                opacity: 0;
-                visibility: hidden;
-                transform: scale(0.95) translateY(-10px);
-                transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s;
                 width: 90vw;
                 max-width: 320px;
                 top: 60px;
                 right: 10px;
                 max-height: 75vh;
                 overflow-y: auto;
+                opacity: 1; visibility: visible; transform: none; /* Reset desktop styles */
             }
             #services-menu.show {
-                opacity: 1;
-                visibility: visible;
-                transform: scale(1) translateY(0);
+                display: block; /* Show when class is added */
             }
             
             .calendar-view-toggle button { padding: 6px 4px; font-size: 0.75rem; }
@@ -1032,32 +469,21 @@
         
         /* Mobile Landscape */
         @media (max-height: 500px) and (orientation: landscape) {
-            #sidebar.is-open {
-                transform: translateX(0);
+            #sidebar.is-open { transform: translateX(0); }
+            #sidebar.is-open .sidebar-scrollable-content { overflow-y: auto; }
+            #main-chat-area { overflow-y: auto; } /* Allow main area to scroll */
+            #chat-messages, #project-board-container, #financial-tools-container {
+                overflow-y: auto; /* Ensure content within main area can scroll */
             }
-            #sidebar.is-open > div {
-                 overflow-y: auto;
-                 height: 100%;
-            }
-            #main-chat-area, #project-management-view, #financial-assistant-view {
-                overflow-y: auto; /* Allow scrolling */
-            }
-            #chat-messages {
-                padding: 0.5rem;
-                flex-grow: 1; /* Allow it to take up space */
-            }
-            #kanban-view {
-                grid-template-columns: repeat(3, minmax(250px, 1fr));
-                overflow-x: auto;
-            }
+            #kanban-view { grid-template-columns: repeat(3, minmax(250px, 1fr)); overflow-x: auto; }
             .modal-content { max-height: 95vh; overflow-y: auto; }
-            #input-area { padding: 0.5rem; flex-shrink: 0; }
+            #chat-messages { padding: 0.5rem; }
+            #input-area { padding: 0.5rem; }
             .pro-controls-bg { padding: 0.25rem; }
             #msg { height: 3rem !important; max-height: 3rem; }
         }
     </style>
-</head>
-<body class="w-screen overflow-x-hidden dark-theme">
+</head><body class="w-screen overflow-x-hidden dark-theme">
     <script type="text/javascript" src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
     <script type="text/javascript">
         if (window.netlifyIdentity) {
@@ -1074,26 +500,10 @@
     </div>
 
     <div id="sidebar-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-30 md:hidden opacity-0 pointer-events-none"></div>
-
-    <div id="app-container" class="flex w-full relative opacity-0 transition-opacity duration-300">
-        <aside id="sidebar" class="w-72 flex-shrink-0 flex flex-col transition-transform duration-300 md:translate-x-0 h-full">
-            <div class="p-3 flex flex-col h-full">
-                <div id="user-section" class="flex-shrink-0 pt-3 md:border-t md:border-themed md:mt-auto md:order-last">
-                    <div id="login-view" class="hidden">
-                        <button id="login-btn" class="w-full flex items-center justify-center font-semibold p-3 rounded-lg btn-primary transition-colors"><i class="fas fa-sign-in-alt mr-2"></i><span data-translate-key="login">Iniciar Sesión</span></button>
-                    </div>
-                     <div id="user-menu-view" class="hidden relative">
-                        <button id="user-menu-btn" class="w-full flex items-center text-left p-2 rounded-lg hover:bg-light transition-colors">
-                            <span id="user-email" class="flex-grow truncate text-sm font-semibold"></span>
-                            <i class="fas fa-ellipsis-h"></i>
-                        </button>
-                        <div id="user-menu-popup" class="absolute bottom-full left-0 w-full mb-2 rounded-lg p-2 border border-themed shadow-lg hidden">
-                            <button id="settings-btn" class="w-full text-left text-sm p-2 rounded hover:bg-medium flex items-center"><i class="fas fa-cog w-6 mr-2"></i><span data-translate-key="settings">Configuración</span></button>
-                             <button id="logout-btn" class="w-full text-left text-sm p-2 rounded hover:bg-medium flex items-center"><i class="fas fa-sign-out-alt w-6 mr-2"></i><span data-translate-key="logout">Cerrar Sesión</span></button>
-                        </div>
-                    </div>
-                </div>
-
+    
+    <div id="app-container">
+        <aside id="sidebar" class="w-72 flex-shrink-0 transition-transform duration-300 md:translate-x-0">
+            <div class="p-3">
                 <div id="sidebar-header" class="flex-shrink-0 md:order-first">
                     <div id="logo-space" class="w-24 h-24 rounded-lg mx-auto mb-4 flex-shrink-0 flex items-center justify-center overflow-hidden bg-input">
                         <img src="./Logos HD.png" alt="Goatify Logo" class="w-full h-full object-contain" onerror="this.onerror=null;this.src='https://placehold.co/96x96/2c2c2c/e0e0e0?text=LOGO';">
@@ -1104,7 +514,7 @@
                     </div>
                 </div>
                 
-                <div class="flex-grow overflow-y-auto min-h-0 md:order-2">
+                <div class="sidebar-scrollable-content">
                    <div class="flex-shrink-0">
                         <div class="flex flex-col space-y-2 mb-4">
                             <button id="web-launch-offer-btn" class="w-full text-left font-semibold text-sm p-3 rounded-lg btn-primary transition-colors animate-pulse" data-translate-key="web_offer">
@@ -1205,24 +615,43 @@
                         <div id="sidebar-content" class="pr-1 space-y-1"></div>
                     </div>
                 </div>
+
+                <div id="user-section" class="flex-shrink-0 p-3 md:border-t md:border-themed md:mt-auto md:order-last">
+                    <div id="login-view" class="hidden">
+                        <button id="login-btn" class="w-full flex items-center justify-center font-semibold p-3 rounded-lg btn-primary transition-colors"><i class="fas fa-sign-in-alt mr-2"></i><span data-translate-key="login">Iniciar Sesión</span></button>
+                    </div>
+                     <div id="user-menu-view" class="hidden relative">
+                        <button id="user-menu-btn" class="w-full flex items-center text-left p-2 rounded-lg hover:bg-light transition-colors">
+                            <span id="user-email" class="flex-grow truncate text-sm font-semibold"></span>
+                            <i class="fas fa-ellipsis-h"></i>
+                        </button>
+                        <div id="user-menu-popup" class="absolute bottom-full left-0 w-full mb-2 rounded-lg p-2 border border-themed shadow-lg hidden bg-current-bg-light">
+                            <button id="settings-btn" class="w-full text-left text-sm p-2 rounded hover:bg-medium flex items-center"><i class="fas fa-cog w-6 mr-2"></i><span data-translate-key="settings">Configuración</span></button>
+                             <button id="logout-btn" class="w-full text-left text-sm p-2 rounded hover:bg-medium flex items-center"><i class="fas fa-sign-out-alt w-6 mr-2"></i><span data-translate-key="logout">Cerrar Sesión</span></button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </aside>
 
         <main id="main-chat-area" class="flex-1 flex flex-col h-full overflow-hidden">
             <header class="flex items-center justify-between p-3 md:p-4 border-b border-themed flex-shrink-0 relative">
-                <div id="main-header-content" class="flex items-center justify-between w-full">
+                <div id="main-header-content">
                     <div class="flex items-center flex-shrink-0">
                         <button id="menu-toggle" class="md:hidden text-xl p-2"><i class="fas fa-bars"></i></button>
                         <button id="sidebar-toggle-desktop" class="hidden md:block text-xl p-2 mr-2"><i class="fas fa-angle-left"></i></button>
                     </div>
+                    
                     <div id="chat-title-wrapper" class="hidden sm:flex items-center group cursor-pointer mx-2 flex-1 min-w-0" title="Renombrar Chat">
                         <i class="fas fa-pencil-alt text-xs text-text-medium edit-icon"></i>
                         <h1 id="chat-title" class="text-lg font-semibold truncate">Goatify IA</h1>
                     </div>
-                    <div id="message-counter" class="text-xs font-mono whitespace-nowrap hidden sm:block"></div>
-                    <div class="flex items-center space-x-1 sm:space-x-2 header-right-icons">
-                        <button id="new-chat-icon-btn" title="Nuevo Chat" class="text-xl p-2 hover:opacity-80 transition-opacity"><i class="fas fa-plus-circle text-primary"></i></button>
-                        <button id="motivation-btn" title="Motivación Diaria" class="text-yellow-400 hover:text-yellow-300 p-2 transition-colors"><i class="fas fa-lightbulb text-xl"></i></button>
+                    
+                    <div class="header-right-icons">
+                        <div id="message-counter" class="text-xs font-mono whitespace-nowrap flex items-center mr-2"></div>
+                        <button id="motivation-btn" title="Activar Motivación" class="text-xl p-2 hover:opacity-80 transition-opacity text-primary">
+                            <i class="fas fa-brain"></i>
+                        </button>
                         <button id="gamification-btn" title="Mi Ascensión" class="text-xl p-2 hover:opacity-80 transition-opacity text-gold">
                             <i class="fas fa-trophy"></i>
                         </button>
@@ -1234,10 +663,11 @@
                             <i class="fas fa-calendar-days text-xl"></i>
                             <span id="notification-badge" class="notification-badge hidden">0</span>
                         </button>
-                        <a href="https://wa.me/17439106116?text=Hola%2C%20estoy%2Fa%20en%20contratar%20uno%20de%20sus%20paquetes%20de%20soluciones%20con%20IA%20para%20mi%20negocio.%20%C2%BFPodr%C3%ADan%20darme%20m%C3%A1s%20informaci%C3%B3n%3F" target="_blank" title="Hablar con un Estratega" class="hidden md:block text-green-500 hover:text-green-400 p-2 transition-colors"><i class="fab fa-whatsapp text-xl"></i></a>
+                        <a href="https://wa.me/17439106116?text=Hola%2C%20estoy%2Fa%20en%20contratar%20uno%20de%20sus%20paquetes%20de%20soluciones%20con%20IA%20para%20mi%20negocio.%20%C2%BFPodr%C3%ADan%20darme%20m%C3%A1s%20informaci%C3%B3n%3F" target="_blank" title="Hablar con un Estratega" class="text-green-500 hover:text-green-400 p-2 transition-colors hidden md:block"><i class="fab fa-whatsapp text-xl"></i></a>
                         <button id="theme-toggle" title="Cambiar Tema" class="text-xl p-2"><i class="fas fa-moon" id="theme-icon"></i></button>
                     </div>
                 </div>
+
                  <div id="services-menu" class="absolute top-full right-4 mt-2 w-80 rounded-xl shadow-lg border border-themed z-30 p-4 origin-top-right">
                     <h4 class="font-bold text-lg mb-1 text-text-light" data-translate-key="ally_title">Somos tu Aliado Estratégico</h4>
                     <p class="text-sm text-text-medium mb-4" data-translate-key="ally_desc">Goatify no es solo un chat. Somos una IA personalizada con un equipo de expertos listos para ayudarte a escalar tu negocio.</p>
@@ -1374,41 +804,12 @@
         </main>
     </div>
 
-    <div id="in-app-notification">
-        <div id="in-app-notification-header">
-            <h4 id="in-app-notification-title"></h4>
-            <button id="in-app-notification-close" class="text-text-medium hover:text-text-light">&times;</button>
-        </div>
-        <p id="in-app-notification-body"></p>
-    </div>
-
     <div id="generic-modal" class="fixed inset-0 bg-black bg-opacity-70 hidden items-center justify-center z-50 p-4">
         <div class="modal-content rounded-lg w-full max-w-md p-6 relative">
             <h3 id="modal-title" class="text-lg font-bold mb-4"></h3>
             <div id="modal-body" class="mb-4 text-text-medium text-sm"></div>
             <div id="modal-buttons-container" class="flex justify-end space-x-2">
                  </div>
-        </div>
-    </div>
-
-    <div id="motivation-modal" class="fixed inset-0 bg-black bg-opacity-70 hidden items-center justify-center z-50 p-4">
-        <div class="modal-content rounded-lg w-full max-w-md p-6 relative text-center">
-            <i class="fas fa-brain text-4xl text-yellow-400 mb-4"></i>
-            <h3 class="text-2xl font-bold mb-4">Dosis de Motivación</h3>
-            <p id="motivation-quote" class="text-lg text-text-light mb-6 min-h-[50px]"></p>
-            <div class="flex items-center justify-center mb-6">
-                <label for="motivation-toggle" class="flex items-center cursor-pointer">
-                    <div class="relative">
-                        <input type="checkbox" id="motivation-toggle" class="sr-only">
-                        <div class="block bg-gray-600 w-14 h-8 rounded-full"></div>
-                        <div class="dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition"></div>
-                    </div>
-                    <div class="ml-3 text-text-light font-medium">
-                        Recibir notificaciones
-                    </div>
-                </label>
-            </div>
-            <button id="close-motivation-modal" class="btn-primary px-6 py-2 rounded-lg">¡Entendido!</button>
         </div>
     </div>
     
@@ -1467,9 +868,10 @@
 
     <div id="html-preview-modal" class="fixed inset-0 bg-black bg-opacity-80 hidden items-center justify-center z-50 p-4"><div class="modal-content rounded-2xl w-full h-full max-w-4xl p-2 md:p-4 relative flex flex-col"><h3 class="text-lg font-bold" data-translate-key="preview">Vista Previa</h3><button id="close-html-preview-modal" class="text-gray-400 hover:text-white"><i class="fas fa-times fa-lg"></i></button></div><iframe id="html-preview-iframe" class="w-full flex-grow h-full border-2 border-themed rounded-lg bg-white"></iframe></div>
     
-    <div id="settings-modal" class="fixed inset-0 bg-black bg-opacity-70 hidden items-center justify-center z-40 p-4">
+    <div id="settings-modal" class="fixed inset-0 bg-black bg-opacity-70 hidden items-center justify-center z-50 p-4">
         <div class="modal-content rounded-lg w-full max-w-lg p-6 relative">
              <h3 class="text-lg font-bold mb-4" data-translate-key="settings">Configuración</h3>
+            <button id="close-settings-modal" class="absolute top-4 right-4 text-gray-400 hover:text-text-light"><i class="fas fa-times fa-lg"></i></button>
             <div class="space-y-4 text-sm max-h-[70vh] overflow-y-auto pr-2">
                 <div>
                     <p class="font-semibold" data-translate-key="settings_email">Correo Electrónico:</p>
@@ -1500,7 +902,16 @@
                             <div class="w-11 h-6 bg-gray-200 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
                         </label>
                     </div>
-                 </div>
+                </div>
+                <div>
+                     <div class="flex items-center justify-between">
+                        <p class="font-semibold">Motivación Diaria:</p>
+                        <label for="motivation-toggle-settings" class="inline-flex relative items-center cursor-pointer">
+                            <input type="checkbox" id="motivation-toggle-settings" class="sr-only peer">
+                            <div class="w-11 h-6 bg-gray-200 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+                        </label>
+                    </div>
+                </div>
                 <div>
                     <p class="font-semibold mb-2" data-translate-key="settings_lang">Idioma:</p>
                     <select id="language-selector" class="w-full p-2 rounded bg-input border border-themed">
@@ -1529,13 +940,13 @@
                      </a>
                 </div>
             </div>
-            <button id="close-settings-modal" class="absolute top-4 right-4 text-gray-400 hover:text-text-light"><i class="fas fa-times fa-lg"></i></button>
         </div>
     </div>
 
-    <div id="calendar-modal-overlay" class="fixed inset-0 bg-black bg-opacity-70 hidden items-center justify-center z-40 p-4">
+    <div id="calendar-modal-overlay" class="fixed inset-0 bg-black bg-opacity-70 hidden items-center justify-center z-50 p-4">
         <div id="calendar-modal" class="modal-content rounded-lg w-full max-w-4xl p-6 relative">
              <h3 class="text-lg font-bold mb-4" data-translate-key="calendar_my_calendar">Mi Calendario y Tareas</h3>
+            <button id="close-calendar-modal" class="absolute top-4 right-4 text-gray-400 hover:text-text-light"><i class="fas fa-times fa-lg"></i></button>
             <div class="calendar-view-toggle mb-4">
                 <button id="day-view-btn" data-translate-key="calendar_day_view">Vista de Día</button>
                 <button id="week-view-btn" data-translate-key="calendar_week_view">Vista de Semana</button>
@@ -1583,8 +994,6 @@
                     <i class="fas fa-plus mr-2"></i><span data-translate-key="calendar_add_task_btn">Añadir Tarea</span>
                 </button>
             </div>
-
-            <button id="close-calendar-modal" class="absolute top-4 right-4 text-gray-400 hover:text-text-light"><i class="fas fa-times fa-lg"></i></button>
         </div>
     </div>
 
@@ -1638,6 +1047,7 @@
     <div id="gamification-rules-modal" class="fixed inset-0 bg-black bg-opacity-70 hidden items-center justify-center z-[60] p-4">
          <div class="modal-content rounded-lg w-full max-w-2xl p-6 relative">
             <h3 class="text-lg font-bold mb-4 text-gold"><i class="fas fa-scroll mr-2"></i>Reglas de "La Ascensión del GOAT"</h3>
+            <button id="close-gamification-rules-modal" class="absolute top-4 right-4 text-gray-400 hover:text-text-light"><i class="fas fa-times fa-lg"></i></button>
             <div class="space-y-4 text-text-medium text-sm max-h-[70vh] overflow-y-auto pr-2">
                 <p>¡Bienvenido a tu viaje para convertirte en un G.O.A.T. (Greatest Of All Time) del emprendimiento digital! La lógica es simple: cuanto más usas la plataforma de forma estratégica, más recompensas obtienes.</p>
                 <div>
@@ -1669,14 +1079,36 @@
                 </div>
                  <p class="font-bold text-center mt-4 text-lg text-primary">¡Cada acción cuenta en tu camino a la cima! ¡A por ello!</p>
             </div>
-            <button id="close-gamification-rules-modal" class="absolute top-4 right-4 text-gray-400 hover:text-text-light"><i class="fas fa-times fa-lg"></i></button>
+        </div>
+    </div>
+    
+    <div id="motivational-modal" class="fixed inset-0 bg-black bg-opacity-70 hidden items-center justify-center z-[60] p-4">
+         <div class="modal-content rounded-lg w-full max-w-md p-6 relative text-center">
+            <h3 id="motivational-modal-title" class="text-2xl font-bold mb-4 text-primary">¡Un Impulso Para Ti!</h3>
+            <button id="close-motivational-modal" class="absolute top-4 right-4 text-gray-400 hover:text-text-light"><i class="fas fa-times fa-lg"></i></button>
+            <div id="motivational-modal-body" class="text-lg text-text-light my-4">
+                <p>¡Hoy es tu día para brillar!</p>
+            </div>
+            <label for="motivation-toggle-modal" class="inline-flex items-center cursor-pointer mt-4">
+                <input type="checkbox" id="motivation-toggle-modal" class="sr-only peer">
+                <div class="w-11 h-6 bg-gray-200 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+                <span class="ml-3 text-sm font-medium text-text-medium">Recibir notificaciones de motivación</span>
+            </label>
         </div>
     </div>
 
-
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <div id="in-app-notification-popup">
+        <button class="close-btn"><i class="fas fa-times"></i></button>
+        <div id="in-app-notification-icon" class="notification-icon">
+            <i class="fas fa-bell"></i>
+        </div>
+        <div>
+            <p id="in-app-notification-title" class="notification-title">Recordatorio de Tarea</p>
+            <p id="in-app-notification-body" class="notification-body">Es hora de tu tarea.</p>
+        </div>
+    </div><script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script type="module">
-        // Start of Part 1 - Continues in next response
+        // Start of Part 3
         window.addEventListener('DOMContentLoaded', () => {
             dayjs.extend(window.dayjs_plugin_localizedFormat);
             dayjs.extend(window.dayjs_plugin_isoWeek);
@@ -1757,14 +1189,16 @@
             const FREE_PLAN_CREDIT_LIMIT = 15;
             const BOOST_PLAN_CREDIT_LIMIT = 100;
             const MOTIVATIONAL_MESSAGES = [
-                "Eres una persona increíble, ¡nunca lo dudes!",
-                "Hoy es tu día para brillar. ¡Ve por ello!",
-                "Tu potencial es infinito. ¡Puedes lograr lo que te propongas!",
-                "La rompes todos los días, ¡sigue así!",
-                "Confía en tu proceso. Estás construyendo algo grandioso.",
-                "Cada paso que das te acerca a tu meta. ¡No te detengas!",
-                "Tu energía es contagiosa. ¡Ilumina el mundo!",
-                "Puedes con todo y más. ¡Cree en ti!"
+                "¡Eres una persona increíble, nunca lo dudes!",
+                "Todo el esfuerzo que pones hoy, construye el mañana que deseas. ¡Sigue así!",
+                "La única forma de hacer un gran trabajo es amar lo que haces. ¡Y tú lo haces genial!",
+                "¡Eres más fuerte de lo que crees y más capaz de lo que imaginas!",
+                "Recuerda por qué empezaste. Esa razón es tu mayor combustible.",
+                "¡La estás rompiendo! Cada paso que das es una victoria.",
+                "¡Confía en tu potencial! Tienes todo para triunfar.",
+                "No te detengas hasta que te sientas orgulloso de lo que has logrado.",
+                "¡Tú puedes con todo! Que nada ni nadie te diga lo contrario.",
+                "¡El éxito es la suma de pequeños esfuerzos repetidos día tras día! ¡Vas por buen camino!"
             ];
 
             const COSTS = { GENERAL: 1, SEARCH: 1, NEBULA: 2, COPYWRITING: 2, IMAGE: 5 };
@@ -1775,15 +1209,11 @@
             let modalResolve = null;
             let isSelectModeActive = false;
             let chatsToDelete = new Set();
-            
-            // Set notifications to ON by default if not previously set
-            let notificationsEnabled = localStorage.getItem('goatify-notifications-enabled') === null ? true : localStorage.getItem('goatify-notifications-enabled') === 'true';
-            let motivationEnabled = localStorage.getItem('goatify-motivation-enabled') === null ? true : localStorage.getItem('goatify-motivation-enabled') === 'true';
+            let notificationsEnabled;
+            let motivationEnabled;
+            let lastMotivationalHour = -1;
 
-            let selectedCalendarDate = dayjs();
-            let currentCalendarView = 'month';
             let activeTagFilter = null;
-            let motivationInterval = null;
             const dom = {};
             
             const fullDom = {
@@ -1828,7 +1258,6 @@
                 settingsThemeIcon: document.getElementById('settings-theme-icon'), languageSelector: document.getElementById('language-selector'),
                 connectWhatsappBtn: document.getElementById('connect-whatsapp-btn'), scheduleMeetingBtn: document.getElementById('schedule-meeting-btn'), freePlanButton: document.getElementById('free-plan-button'),
                 notificationsToggle: document.getElementById('notifications-toggle'),
-                projectWorkflowHeader: document.getElementById('project-workflow-header'),
                 sidebarToggleDesktop: document.getElementById('sidebar-toggle-desktop'),
                  mainChatArea: document.getElementById('main-chat-area'),
 
@@ -1841,11 +1270,7 @@
                 currentMonthYear: document.getElementById('current-month-year'), calendarDaysGrid: document.getElementById('calendar-days-grid'),
                 addTaskBtn: document.getElementById('add-task-btn'),
                 notificationBadge: document.getElementById('notification-badge'),
-                inAppNotification: document.getElementById('in-app-notification'), 
-                inAppNotificationTitle: document.getElementById('in-app-notification-title'),
-                inAppNotificationBody: document.getElementById('in-app-notification-body'),
-                inAppNotificationClose: document.getElementById('in-app-notification-close'),
-                 monthViewContainer: document.getElementById('month-view-container'), weekViewContainer: document.getElementById('week-view-container'),
+                monthViewContainer: document.getElementById('month-view-container'), weekViewContainer: document.getElementById('week-view-container'),
                 dayViewContainer: document.getElementById('day-view-container'),
                 monthViewBtn: document.getElementById('month-view-btn'), weekViewBtn: document.getElementById('week-view-btn'), dayViewBtn: document.getElementById('day-view-btn'),
                 prevWeekBtn: document.getElementById('prev-week'), nextWeekBtn: document.getElementById('next-week'),
@@ -1892,14 +1317,23 @@
                 gamificationRulesModal: document.getElementById('gamification-rules-modal'),
                 closeGamificationRulesModal: document.getElementById('close-gamification-rules-modal'),
 
-                // Motivation Elements
+                // New Motivation Elements
                 motivationBtn: document.getElementById('motivation-btn'),
-                motivationModal: document.getElementById('motivation-modal'),
-                motivationQuote: document.getElementById('motivation-quote'),
-                motivationToggle: document.getElementById('motivation-toggle'),
-                closeMotivationModal: document.getElementById('close-motivation-modal'),
+                motivationalModal: document.getElementById('motivational-modal'),
+                closeMotivationalModal: document.getElementById('close-motivational-modal'),
+                motivationalModalBody: document.getElementById('motivational-modal-body'),
+                motivationToggleModal: document.getElementById('motivation-toggle-modal'),
+                motivationToggleSettings: document.getElementById('motivation-toggle-settings'),
+
+                // New In-App Notification Elements
+                inAppNotificationPopup: document.getElementById('in-app-notification-popup'),
+                inAppNotificationIcon: document.getElementById('in-app-notification-icon'),
+                inAppNotificationTitle: document.getElementById('in-app-notification-title'),
+                inAppNotificationBody: document.getElementById('in-app-notification-body'),
             };
-            Object.assign(dom, fullDom);// --- GAMIFICATION CONFIG ---
+            Object.assign(dom, fullDom);
+
+            // --- GAMIFICATION CONFIG ---
             const XP_FOR_LEVEL = [0, 250, 750, 2000, 5000, Infinity]; // XP needed to reach level 1, 2, 3...
             const LEVEL_NAMES = ["Iniciador Digital", "Creador de Contenido", "Estratega de Marketing", "CEO Digital", "G.O.A.T."];
             const MISSIONS = {
@@ -1932,7 +1366,6 @@
                         } else {
                              const icon = el.querySelector('i');
                             if (icon && el.childNodes.length > 1 && !el.classList.contains('notification-bell-icon')) {
-                                // Rebuild content preserving icon
                                 const textNode = document.createTextNode(' ' + translationData[key]);
                                 el.innerHTML = '';
                                 el.appendChild(icon);
@@ -1970,6 +1403,26 @@
 
             const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
             let recognition;
+
+            function showInAppNotification({ title, body, iconClass = 'fa-bell', duration = 5000 }) {
+                dom.inAppNotificationTitle.textContent = title;
+                dom.inAppNotificationBody.textContent = body;
+                dom.inAppNotificationIcon.innerHTML = `<i class="fas ${iconClass}"></i>`;
+
+                dom.inAppNotificationPopup.classList.add('show');
+
+                const hideNotif = () => {
+                    dom.inAppNotificationPopup.classList.remove('show');
+                };
+
+                const timer = setTimeout(hideNotif, duration);
+
+                const closeBtn = dom.inAppNotificationPopup.querySelector('.close-btn');
+                closeBtn.onclick = () => {
+                    clearTimeout(timer);
+                    hideNotif();
+                };
+            }
 
             function showModal({ title, body, confirmText = 'Confirmar', cancelText = 'Cancelar', showCancel = true, showConfirm = true, extraButtons = [], dangerConfirm = false }) {
                 const modalTitle = dom.genericModal.querySelector('#modal-title');
@@ -2058,31 +1511,12 @@
                 dom.settingsThemeIcon.className = `fas fa-${document.body.classList.contains('dark-theme') ? 'moon' : 'sun'} mr-2`;
                 dom.languageSelector.value = localStorage.getItem('goatify-lang') || 'es';
                 dom.notificationsToggle.checked = notificationsEnabled;
+                dom.motivationToggleSettings.checked = motivationEnabled;
             }
 
             function hideSettingsModal() {
                 dom.settingsModal.classList.add('hidden');
                 dom.settingsModal.classList.remove('flex');
-            }
-
-            function showInAppNotification(title, body, duration = 5000) {
-                dom.inAppNotificationTitle.innerHTML = title;
-                dom.inAppNotificationBody.innerHTML = body;
-                dom.inAppNotification.classList.add('show');
-
-                const close = () => {
-                    dom.inAppNotification.classList.remove('show');
-                };
-
-                const timer = setTimeout(close, duration);
-                
-                const closeBtn = dom.inAppNotification.querySelector('#in-app-notification-close');
-                const clickHandler = () => {
-                    clearTimeout(timer);
-                    close();
-                    closeBtn.removeEventListener('click', clickHandler);
-                };
-                closeBtn.addEventListener('click', clickHandler);
             }
 
             function showCalendarModal() {
@@ -2095,7 +1529,29 @@
             function hideCalendarModal() {
                 dom.calendarModalOverlay.classList.add('hidden');
                 dom.calendarModalOverlay.classList.remove('flex');
-            }function renderMonthView() {
+            }
+            
+            function showMotivationalPopup() {
+                const randomIndex = Math.floor(Math.random() * MOTIVATIONAL_MESSAGES.length);
+                dom.motivationalModalBody.innerHTML = `<p>${MOTIVATIONAL_MESSAGES[randomIndex]}</p>`;
+                dom.motivationToggleModal.checked = motivationEnabled;
+                dom.motivationalModal.classList.remove('hidden');
+                dom.motivationalModal.classList.add('flex');
+            }
+            function hideMotivationalPopup() {
+                dom.motivationalModal.classList.add('hidden');
+                dom.motivationalModal.classList.remove('flex');
+            }
+            
+            function setMotivation(enabled) {
+                motivationEnabled = enabled;
+                localStorage.setItem('goatify-motivation-enabled', motivationEnabled);
+                dom.motivationToggleModal.checked = motivationEnabled;
+                dom.motivationToggleSettings.checked = motivationEnabled;
+                dom.motivationBtn.classList.toggle('glowing-motivation-btn', motivationEnabled);
+            }
+
+            function renderMonthView() {
                 dom.calendarDaysGrid.innerHTML = '';
                 dom.currentMonthYear.textContent = selectedCalendarDate.format('MMMM YYYY');
                 const startDay = selectedCalendarDate.startOf('month').startOf('isoWeek');
@@ -2527,16 +1983,9 @@
                     const tasksForDay = getTasksForDay(dayKey);
                     tasksForDay.forEach(task => {
                          if (!task.completed) {
-                            if (task.time) {
-                                const taskDateTime = dayjs(`${dayKey}T${task.time}`);
-                                if (taskDateTime.isBefore(now)) {
-                                     pendingNotifications++;
-                                }
-                            } else {
-                                const taskDate = dayjs(dayKey);
-                                if (taskDate.isBefore(now, 'day') || taskDate.isSame(now, 'day')) {
-                                    pendingNotifications++;
-                                }
+                            const taskDate = dayjs(dayKey);
+                            if (taskDate.isBefore(now, 'day') || taskDate.isSame(now, 'day')) {
+                                pendingNotifications++;
                             }
                          }
                     });
@@ -2550,7 +1999,6 @@
                 }
             }
 
-
             function checkAndNotifyTasks() {
                 if (!notificationsEnabled) return;
                 const now = dayjs();
@@ -2563,13 +2011,12 @@
                         const notificationTitle = translations[lang].notification_title;
                         const notificationBody = `${translations[lang].notification_task_due} ${task.text} (${task.time})`;
                         
-                        // New In-App Popup
-                        showInAppNotification(
-                            `<i class="fas fa-bell animate-tada text-yellow-400 mr-2"></i> ${notificationTitle}`,
-                            `<p class="text-md">${notificationBody}</p>`
-                        );
+                        showInAppNotification({
+                            title: notificationTitle,
+                            body: notificationBody,
+                            iconClass: 'fa-bell'
+                        });
 
-                        // Original System Notification (must stay)
                         if (Notification.permission === "granted") {
                             new Notification(notificationTitle, {
                                  body: notificationBody,
@@ -2589,13 +2036,32 @@
                 updateNotificationBadge();
             }
 
+            function checkMotivationalNotifications() {
+                if (!motivationEnabled) return;
+                const now = dayjs();
+                const hour = now.hour();
+                
+                if (hour >= 8 && hour <= 18 && now.minute() === 0) {
+                    if (hour !== lastMotivationalHour && (hour === 8 || hour === 11 || hour === 14 || hour === 17)) {
+                        const randomIndex = Math.floor(Math.random() * MOTIVATIONAL_MESSAGES.length);
+                        const message = MOTIVATIONAL_MESSAGES[randomIndex];
+
+                        showInAppNotification({
+                            title: "¡Un Impulso Para Ti!",
+                            body: message,
+                            iconClass: 'fa-brain text-primary'
+                        });
+                        lastMotivationalHour = hour;
+                    }
+                }
+            }
+
             function updateTaskNotifiedFlag(taskId, isNotified) {
                 const found = findTask(taskId);
                 if (found) {
                     found.task.notifiedThisMinute = isNotified;
                 }
             }
-
 
             function renderCalendarView() {
                  dom.dayViewContainer.style.display = currentCalendarView === 'day' ? 'block' : 'none';
@@ -2611,10 +2077,26 @@
                 if (currentCalendarView === 'month') renderMonthView();
             }
 
+            function setupDefaultSettings() {
+                if (localStorage.getItem('goatify-notifications-enabled') === null) {
+                    localStorage.setItem('goatify-notifications-enabled', 'true');
+                }
+                notificationsEnabled = localStorage.getItem('goatify-notifications-enabled') === 'true';
+                dom.notificationsToggle.checked = notificationsEnabled;
+
+                if (localStorage.getItem('goatify-motivation-enabled') === null) {
+                    localStorage.setItem('goatify-motivation-enabled', 'true');
+                }
+                motivationEnabled = localStorage.getItem('goatify-motivation-enabled') === 'true';
+                setMotivation(motivationEnabled);
+            }
+
             setInterval(checkAndNotifyTasks, 10 * 1000);
+            setInterval(checkMotivationalNotifications, 60 * 1000); // Check every minute
+            
             if ("Notification" in window) {
                 if (Notification.permission !== "granted" && Notification.permission !== "denied") {
-                    Notification.requestPermission();
+                    setTimeout(() => Notification.requestPermission(), 5000);
                 }
             } else {
                 console.warn("Browser does not support desktop notifications.");
@@ -2848,12 +2330,7 @@
                 const { remaining, limit } = getCreditCount();
                 const gamCredits = gamificationState.credits || 0;
                 let displayLimit = limit === Infinity ? '∞' : limit;
-                // Updated to always be visible, even on mobile. Relies on CSS changes.
-                dom.messageCounterEl.innerHTML = `
-                    <span class="hidden sm:inline">${remaining}/${displayLimit}</span>
-                    <i class="fas fa-coins text-gold ml-2 mr-1" title="Créditos de Recompensa"></i> ${gamCredits}
-                `;
-                dom.messageCounterEl.classList.remove('hidden');
+                dom.messageCounterEl.innerHTML = `<span class="hidden sm:inline">${remaining}/${displayLimit}</span> <i class="fas fa-coins text-gold ml-2 mr-1" title="Créditos de Recompensa"></i> ${gamCredits}`;
             }
 
             function setTheme(isDark) { 
@@ -3288,78 +2765,7 @@
                 dom.actionButtonsContainer.classList.toggle('hidden', show);
             }
 
-            function showMotivationModal() {
-                dom.motivationModal.classList.remove('hidden');
-                dom.motivationModal.classList.add('flex');
-                
-                // Show a random quote
-                const randomIndex = Math.floor(Math.random() * MOTIVATIONAL_MESSAGES.length);
-                dom.motivationQuote.textContent = MOTIVATIONAL_MESSAGES[randomIndex];
-
-                // Set toggle state
-                const toggle = dom.motivationToggle;
-                const dot = toggle.nextElementSibling.nextElementSibling;
-                toggle.checked = motivationEnabled;
-                if (motivationEnabled) {
-                    dot.style.transform = 'translateX(1.5rem)';
-                } else {
-                    dot.style.transform = 'translateX(0)';
-                }
-            }
-
-            function hideMotivationModal() {
-                dom.motivationModal.classList.add('hidden');
-                dom.motivationModal.classList.remove('flex');
-            }
-
-            function setupMotivationInterval() {
-                if (motivationInterval) clearInterval(motivationInterval);
-                if (!motivationEnabled) return;
-
-                const notificationTimes = ['08:00', '11:00', '14:00', '17:00'];
-                let lastNotifiedHour = -1;
-
-                motivationInterval = setInterval(() => {
-                    if (!motivationEnabled) {
-                        clearInterval(motivationInterval);
-                        return;
-                    }
-                    const now = dayjs();
-                    const currentTime = now.format('HH:mm');
-                    const currentHour = now.hour();
-
-                    if (notificationTimes.includes(currentTime) && currentHour !== lastNotifiedHour) {
-                        lastNotifiedHour = currentHour;
-                        const randomIndex = Math.floor(Math.random() * MOTIVATIONAL_MESSAGES.length);
-                        const message = MOTIVATIONAL_MESSAGES[randomIndex];
-                        showInAppNotification(
-                            `<i class="fas fa-lightbulb text-yellow-400 mr-2"></i> ¡Dosis de Motivación!`,
-                            `<p class="text-md">${message}</p>`
-                        );
-                    }
-                }, 60000); // Check every minute
-            }
-
             function setupEventListeners() {
-                dom.inAppNotificationClose?.addEventListener('click', () => {
-                    dom.inAppNotification.classList.remove('show');
-                });
-
-                dom.motivationBtn?.addEventListener('click', showMotivationModal);
-                dom.closeMotivationModal?.addEventListener('click', hideMotivationModal);
-                dom.motivationToggle?.addEventListener('change', () => {
-                    motivationEnabled = dom.motivationToggle.checked;
-                    localStorage.setItem('goatify-motivation-enabled', motivationEnabled);
-                    const dot = dom.motivationToggle.nextElementSibling.nextElementSibling;
-                    if(motivationEnabled) {
-                        dot.style.transform = 'translateX(1.5rem)';
-                        setupMotivationInterval(); // Start the interval
-                    } else {
-                        dot.style.transform = 'translateX(0)';
-                        if(motivationInterval) clearInterval(motivationInterval); // Stop it
-                    }
-                });
-
                 dom.sendBtn?.addEventListener('click', () => sendMessage(false, null, {}));
                 dom.projectSendBtn?.addEventListener('click', () => sendMessage(false, null, {isProjectChat: true}));
 
@@ -3503,7 +2909,7 @@
                     
                     const servicesMenu = dom.servicesMenu;
                     const servicesMenuBtn = dom.servicesMenuBtn;
-                    if (servicesMenu && servicesMenuBtn && servicesMenu.classList.contains('show') && !servicesMenuBtn.contains(e.target) && !servicesMenu.contains(e.target)) {
+                    if (servicesMenu && servicesMenu.classList.contains('show') && !servicesMenuBtn.contains(e.target) && !servicesMenu.contains(e.target)) {
                         servicesMenu.classList.remove('show');
                     }
                     if (dom.tagFilterDropdown && dom.tagFilterBtn && !dom.tagFilterBtn.contains(e.target) && !dom.tagFilterDropdown.contains(e.target)) {
@@ -3551,13 +2957,22 @@
                 dom.settingsThemeToggle?.addEventListener('click', () => {
                     setTheme(!document.body.classList.contains('dark-theme'));
                 });
-                dom.notificationsToggle?.addEventListener('change', () => {
-                    notificationsEnabled = dom.notificationsToggle.checked;
+                
+                dom.notificationsToggle?.addEventListener('change', (e) => {
+                    notificationsEnabled = e.target.checked;
                     localStorage.setItem('goatify-notifications-enabled', notificationsEnabled);
                     if (notificationsEnabled && Notification.permission !== 'granted') {
                         Notification.requestPermission();
                      }
                 });
+
+                // Motivation Listeners
+                dom.motivationBtn?.addEventListener('click', showMotivationalPopup);
+                dom.closeMotivationalModal?.addEventListener('click', hideMotivationalPopup);
+                dom.motivationToggleModal?.addEventListener('change', (e) => setMotivation(e.target.checked));
+                dom.motivationToggleSettings?.addEventListener('change', (e) => setMotivation(e.target.checked));
+
+
                 dom.languageSelector?.addEventListener('change', (e) => {
                     setLanguage(e.target.value);
                 });
@@ -3623,7 +3038,7 @@
                 setupModalClickOutside(dom.pricingModal, hidePricingModal);
                 setupModalClickOutside(dom.settingsModal, hideSettingsModal);
                 setupModalClickOutside(dom.calendarModalOverlay, hideCalendarModal);
-                setupModalClickOutside(dom.motivationModal, hideMotivationModal);
+                setupModalClickOutside(dom.motivationalModal, hideMotivationalPopup);
                 setupModalClickOutside(dom.htmlPreviewModal, () => {
                     dom.htmlPreviewModal.classList.add('hidden');
                     dom.htmlPreviewModal.classList.remove('flex');
@@ -4755,12 +4170,12 @@
                 initFired = true;
                 currentUser = user;
                 
+                setupDefaultSettings();
                 updateUserUI();
                 loadStateForUser();
                 populateVoiceList();
                 setupEventListeners();
                 updateContextualFooter(null);
-                setupMotivationInterval();
 
                 dom.appContainer.classList.remove('opacity-0');
                 dom.loadingOverlay.style.display = 'none';
