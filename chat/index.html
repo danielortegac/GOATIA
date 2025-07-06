@@ -89,20 +89,31 @@
         #sidebar.collapsed { width: 0; padding: 0; overflow: hidden; border-right: none;}
         #sidebar.collapsed > * { display: none; }
         
-        #sidebar-header, #sidebar-footer {
+        #sidebar-header, #sidebar-bottom-fixed {
             flex-shrink: 0;
             padding: 0.75rem;
         }
         #sidebar-header { border-bottom: 1px solid var(--current-border-color); }
-        #sidebar-footer { border-top: 1px solid var(--current-border-color); }
+        #sidebar-bottom-fixed { border-top: 1px solid var(--current-border-color); }
 
         #sidebar-scrollable-content {
             flex-grow: 1;
             overflow-y: auto;
             min-height: 0;
             padding: 0.75rem;
+            display: flex;
+            flex-direction: column;
         }
-        
+        #sidebar-content-main {
+            flex-grow: 1;
+        }
+        #sidebar-footer {
+            flex-shrink: 0;
+            margin-top: auto;
+            padding-top: 1rem;
+        }
+
+
         @media (max-width: 767px) {
             #sidebar {
                 transform: translateX(-100%);
@@ -114,9 +125,9 @@
             #sidebar.is-open {
                 transform: translateX(0);
             }
-            #sidebar-scrollable-content {
-                height: 100%;
-                padding-bottom: 60px; /* Space for browser nav bar */
+            #sidebar, #sidebar > .flex {
+                height: 100vh;
+                height: -webkit-fill-available;
             }
             body { --base-font-size: 13.5px; }
             button, .btn-primary { 
@@ -240,19 +251,24 @@
             font-weight: 700;
             transition: color 0.3s ease;
         }
-        #chat-title-wrapper:hover #chat-title {
+        #desktop-chat-title-wrapper:hover #chat-title {
             color: var(--primary-hover);
         }
         
-        #chat-title-wrapper {
+        #desktop-chat-title-wrapper {
             position: relative;
+            cursor: pointer;
+        }
+        #desktop-chat-title-wrapper .edit-icon {
+            opacity: 0;
+            transition: opacity 0.2s;
+            margin-right: 8px;
+        }
+        #desktop-chat-title-wrapper:hover .edit-icon {
+            opacity: 1;
         }
         #mobile-chat-title-wrapper .edit-icon {
-            opacity: 1;
-            transition: transform 0.2s ease;
-        }
-        #mobile-chat-title-wrapper:hover .edit-icon {
-            transform: scale(1.1);
+            margin-right: 8px;
         }
 
         .btn-disabled { background-color: #3a3a3a !important; color: #888 !important; cursor: not-allowed !important; border-color: #3a3a3a !important;}
@@ -646,7 +662,7 @@
         
         /* List View Styles */
         #list-view {
-            overflow: hidden; /* Changed */
+            overflow: hidden;
             flex-grow: 1;
             display: flex; 
             flex-direction: column; 
@@ -866,21 +882,80 @@
         #total-expenses { color: #ef4444; }
 
         /* Notepad View */
-        #notepad-view {
+        #notepad-view-container {
             display: none;
+            height: 100%;
+            flex-direction: row;
         }
-        #notepad-textarea {
+        #notes-list-panel {
+            width: 200px;
+            flex-shrink: 0;
+            border-right: 1px solid var(--current-border-color);
+            display: flex;
+            flex-direction: column;
+            padding: 0.5rem;
+        }
+        #notes-list {
+            flex-grow: 1;
+            overflow-y: auto;
+        }
+        .note-item {
+            padding: 0.5rem;
+            border-radius: 0.25rem;
+            cursor: pointer;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .note-item:hover { background-color: var(--current-bg-light); }
+        .note-item.active { background-color: var(--current-primary); color: white; }
+        #note-editor-panel {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 0.5rem;
+        }
+        #note-editor-toolbar {
+            padding-bottom: 0.5rem;
+            margin-bottom: 0.5rem;
+            border-bottom: 1px solid var(--current-border-color);
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+        #note-title-input {
+            flex-grow: 1;
+            background: transparent;
+            border: none;
+            outline: none;
+            font-size: 1.25rem;
+            font-weight: bold;
+        }
+        #note-content-editor {
+            flex-grow: 1;
             width: 100%;
             height: 100%;
             background-color: var(--current-bg-dark);
             color: var(--current-text-light);
-            border: 1px solid var(--current-border-color);
+            border: none;
             border-radius: 0.5rem;
             padding: 1rem;
             font-family: 'Montserrat', sans-serif;
             font-size: 1rem;
             resize: none;
             outline: none;
+            overflow-y: auto;
+        }
+        #note-content-editor .checklist-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin: 0.25rem 0;
+        }
+        #note-canvas {
+            background-color: white;
+            border-radius: 0.5rem;
+            cursor: crosshair;
         }
 
 
@@ -973,8 +1048,11 @@
         
         /* Mobile specific adjustments */
         @media (max-width: 767px) {
-            #mobile-chat-title-wrapper .edit-icon {
-                margin-right: 8px;
+            #mobile-chat-title-wrapper .edit-icon, #mobile-chat-title-wrapper #motivation-btn-mobile {
+                display: inline-block;
+            }
+             #desktop-chat-title-wrapper .edit-icon, #desktop-chat-title-wrapper #motivation-btn-header {
+                display: none;
             }
             #calendar-modal {
                 padding: 0.5rem;
@@ -1006,7 +1084,7 @@
             .header-right-icons > * {
                 padding: 0.3rem;
             }
-            #main-header-content #chat-title-wrapper { display: none; } /* Hide desktop title on mobile */
+            #desktop-chat-title-wrapper { display: none; }
             #main-header-content {
                 display: flex;
                 align-items: center;
@@ -1014,6 +1092,13 @@
                 width: 100%;
                 gap: 0.5rem;
             }
+            #main-header-content > * {
+                flex-basis: 33.33%;
+            }
+            #main-header-content .header-left-icons { justify-content: flex-start; }
+            #main-header-content .header-right-icons { justify-content: flex-end; }
+            #main-header-content #message-counter { text-align: center; }
+
 
              #file-preview-area {
                 display: none; /* Only show when there is a file */
@@ -1125,8 +1210,9 @@
             
             #gamification-modal .modal-content { padding: 1rem; }
             #gamification-modal h2 { font-size: 1.25rem; }
-            .streak-day { padding: 0.5rem; font-size: 0.7rem; }
-            .streak-day .text-2xl { font-size: 1.25rem; margin-top: 0.25rem; margin-bottom: 0.25rem; }
+            .streak-day .text-lg { font-size: 0.8rem; }
+            .streak-day .text-2xl { font-size: 1.1rem; }
+            .streak-day .text-xs { font-size: 0.6rem; }
             .mission-item { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
             .mission-item .btn-primary { padding: 0.25rem 0.5rem; font-size: 0.75rem; align-self: flex-end; }
             #achievements-container { gap: 0.5rem; }
@@ -1216,93 +1302,98 @@
                          <i class="fas fa-wallet w-6 mr-2"></i>
                         <span class="text-sm font-bold">Asistente Financiero</span>
                     </button>
+                     <button data-workflow="notepad-app" class="workflow-header flex items-center p-2 rounded-md cursor-pointer hover:bg-light w-full text-left">
+                         <i class="fas fa-book-open w-6 mr-2"></i>
+                        <span class="text-sm font-bold">Bloc de Notas</span>
+                    </button>
                 </div>
             </div>
 
             <div id="sidebar-scrollable-content">
-                <div id="sidebar-content-main">
-                    <div class="mb-4">
-                        <h3 class="text-xs font-semibold uppercase text-text-medium mb-2 px-2" data-translate-key="workflows">Workflows</h3>
-                         <div id="workflows-container" class="space-y-1">
-                            <div class="workflow-category">
-                                <div class="workflow-header flex items-center p-2 rounded-md cursor-pointer hover:bg-light">
-                                     <i class="fas fa-chevron-right workflow-arrow mr-2 transition-transform text-xs"></i><i class="fas fa-brain w-6 mr-2"></i>
-                                    <span class="text-sm font-bold">Asistente Experto</span>
+                <div id="sidebar-content-main" class="flex flex-col">
+                    <div class="flex-grow">
+                        <div class="mb-4">
+                            <h3 class="text-xs font-semibold uppercase text-text-medium mb-2 px-2" data-translate-key="workflows">Workflows</h3>
+                             <div id="workflows-container" class="space-y-1">
+                                <div class="workflow-category">
+                                    <div class="workflow-header flex items-center p-2 rounded-md cursor-pointer hover:bg-light">
+                                         <i class="fas fa-chevron-right workflow-arrow mr-2 transition-transform text-xs"></i><i class="fas fa-brain w-6 mr-2"></i>
+                                        <span class="text-sm font-bold">Asistente Experto</span>
+                                    </div>
+                                     <div class="workflow-content pl-4 pt-1 space-y-1">
+                                        <button data-workflow="decision-lab" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center">Laboratorio de Decisiones</button>
+                                        <button data-workflow="conflict-resolution" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center">Resolución de Conflictos</button>
+                                     </div>
                                 </div>
-                                 <div class="workflow-content pl-4 pt-1 space-y-1">
-                                    <button data-workflow="decision-lab" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center">Laboratorio de Decisiones</button>
-                                    <button data-workflow="conflict-resolution" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center">Resolución de Conflictos</button>
-                                    <button data-workflow="notepad" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center">Bloc de Notas</button>
-                                 </div>
-                            </div>
-                            <div class="workflow-category">
-                                <div class="workflow-header flex items-center p-2 rounded-md cursor-pointer hover:bg-light">
-                                     <i class="fas fa-chevron-right workflow-arrow mr-2 transition-transform text-xs"></i><i class="fas fa-share-alt w-6 mr-2"></i>
-                                    <span class="text-sm font-bold" data-translate-key="wf_social">Potenciador de Redes Sociales</span>
-                                 </div>
-                                <div class="workflow-content pl-4 pt-1 space-y-1">
-                                    <button data-workflow="create-full-post" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_social_1">Crear un Post Completo</button>
-                                     <button data-workflow="persuasive-copy" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_social_2">Redacción de Copys</button>
-                                    <button data-workflow="post-ideas" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_social_3">Lluvia de Ideas para Posts</button>
-                                     <button data-workflow="brand-strategy" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_social_4">Definir Estrategia de Marca</button>
+                                <div class="workflow-category">
+                                    <div class="workflow-header flex items-center p-2 rounded-md cursor-pointer hover:bg-light">
+                                         <i class="fas fa-chevron-right workflow-arrow mr-2 transition-transform text-xs"></i><i class="fas fa-share-alt w-6 mr-2"></i>
+                                        <span class="text-sm font-bold" data-translate-key="wf_social">Potenciador de Redes Sociales</span>
+                                     </div>
+                                    <div class="workflow-content pl-4 pt-1 space-y-1">
+                                        <button data-workflow="create-full-post" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_social_1">Crear un Post Completo</button>
+                                         <button data-workflow="persuasive-copy" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_social_2">Redacción de Copys</button>
+                                        <button data-workflow="post-ideas" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_social_3">Lluvia de Ideas para Posts</button>
+                                         <button data-workflow="brand-strategy" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_social_4">Definir Estrategia de Marca</button>
+                                    </div>
                                 </div>
-                            </div>
-                             <div class="workflow-category">
-                                <div class="workflow-header flex items-center p-2 rounded-md cursor-pointer hover:bg-light">
-                                     <i class="fas fa-chevron-right workflow-arrow mr-2 transition-transform text-xs"></i><i class="fas fa-chart-pie w-6 mr-2"></i>
-                                    <span class="text-sm font-bold" data-translate-key="wf_business">Análisis de Negocio</span>
+                                 <div class="workflow-category">
+                                    <div class="workflow-header flex items-center p-2 rounded-md cursor-pointer hover:bg-light">
+                                         <i class="fas fa-chevron-right workflow-arrow mr-2 transition-transform text-xs"></i><i class="fas fa-chart-pie w-6 mr-2"></i>
+                                        <span class="text-sm font-bold" data-translate-key="wf_business">Análisis de Negocio</span>
+                                    </div>
+                                     <div class="workflow-content pl-4 pt-1 space-y-1">
+                                        <button data-workflow="competitor-analysis" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_business_1">Análisis de tu Competencia</button>
+                                         <button data-workflow="buyer-persona" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_business_2">Definir mi Cliente Ideal</button>
+                                        <button data-workflow="brand-names" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_business_3">Lluvia de Nombres para Marca</button>
+                                     </div>
                                 </div>
-                                 <div class="workflow-content pl-4 pt-1 space-y-1">
-                                    <button data-workflow="competitor-analysis" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_business_1">Análisis de tu Competencia</button>
-                                     <button data-workflow="buyer-persona" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_business_2">Definir mi Cliente Ideal</button>
-                                    <button data-workflow="brand-names" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_business_3">Lluvia de Nombres para Marca</button>
+                                <div class="workflow-category">
+                                    <div class="workflow-header flex items-center p-2 rounded-md cursor-pointer hover:bg-light">
+                                         <i class="fas fa-chevron-right workflow-arrow mr-2 transition-transform text-xs"></i><i class="fas fa-headset w-6 mr-2"></i>
+                                        <span class="text-sm font-bold" data-translate-key="wf_sales">Comunicación y Ventas</span>
+                                     </div>
+                                    <div class="workflow-content pl-4 pt-1 space-y-1">
+                                        <button data-workflow="sales-assistant" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_sales_1">Asistente de Ventas 24/7</button>
+                                        <button data-workflow="email-writing" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_sales_2">Redacción de Email</button>
+                                        <button data-workflow="design-web" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_sales_3">Diseño Web</button>
+                                         <button data-workflow="social-skills" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_sales_4">Mejorar Habilidades Sociales</button>
+                                    </div>
                                  </div>
-                            </div>
-                            <div class="workflow-category">
-                                <div class="workflow-header flex items-center p-2 rounded-md cursor-pointer hover:bg-light">
-                                     <i class="fas fa-chevron-right workflow-arrow mr-2 transition-transform text-xs"></i><i class="fas fa-headset w-6 mr-2"></i>
-                                    <span class="text-sm font-bold" data-translate-key="wf_sales">Comunicación y Ventas</span>
-                                 </div>
-                                <div class="workflow-content pl-4 pt-1 space-y-1">
-                                    <button data-workflow="sales-assistant" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_sales_1">Asistente de Ventas 24/7</button>
-                                    <button data-workflow="email-writing" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_sales_2">Redacción de Email</button>
-                                    <button data-workflow="design-web" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_sales_3">Diseño Web</button>
-                                     <button data-workflow="social-skills" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_sales_4">Mejorar Habilidades Sociales</button>
+                                <div class="workflow-category">
+                                    <div class="workflow-header flex items-center p-2 rounded-md cursor-pointer hover:bg-light">
+                                         <i class="fas fa-chevron-right workflow-arrow mr-2 transition-transform text-xs"></i><i class="fas fa-language w-6 mr-2"></i>
+                                        <span class="text-sm font-bold">English Teacher</span>
+                                    </div>
+                                       <div class="workflow-content pl-4 pt-1 space-y-1">
+                                        <button data-workflow="english-teacher-translate" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_eng_1">Traducir/Corregir Texto</button>
+                                         <button data-workflow="english-teacher-vocabulary" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_eng_2">Aprender Vocabulario Nuevo</button>
+                                        <button data-workflow="english-teacher-practice" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_eng_3">Practicar Conversación</button>
+                                     </div>
                                 </div>
-                             </div>
-                            <div class="workflow-category">
-                                <div class="workflow-header flex items-center p-2 rounded-md cursor-pointer hover:bg-light">
-                                     <i class="fas fa-chevron-right workflow-arrow mr-2 transition-transform text-xs"></i><i class="fas fa-language w-6 mr-2"></i>
-                                    <span class="text-sm font-bold">English Teacher</span>
-                                </div>
-                                   <div class="workflow-content pl-4 pt-1 space-y-1">
-                                    <button data-workflow="english-teacher-translate" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_eng_1">Traducir/Corregir Texto</button>
-                                     <button data-workflow="english-teacher-vocabulary" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_eng_2">Aprender Vocabulario Nuevo</button>
-                                    <button data-workflow="english-teacher-practice" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_eng_3">Practicar Conversación</button>
-                                 </div>
                             </div>
                         </div>
+                        
+                        <div class="flex flex-col space-y-2 py-4 border-t border-themed">
+                            <button id="new-chat-btn" class="flex items-center justify-center font-semibold p-3 rounded-lg btn-primary transition-colors"><i class="fas fa-plus mr-2"></i><span data-translate-key="new_chat">Nuevo Chat</span></button>
+                            <button id="new-folder-btn" class="flex items-center justify-center font-semibold p-3 rounded-lg bg-input"><i class="fas fa-folder-plus mr-2"></i><span data-translate-key="new_folder">Nueva Carpeta</span></button>
+                        </div>
+    
+                        <div class="border-t border-themed pt-2">
+                             <button id="select-chats-btn" class="w-full text-sm p-2 rounded hover:bg-light flex items-center justify-center">
+                                <i class="fas fa-tasks mr-2"></i><span data-translate-key="select_chats">Seleccionar Múltiples Chats</span>
+                            </button>
+                         </div>
+                        <div id="delete-mode-controls" class="hidden flex space-x-2 my-2">
+                            <button id="delete-selected-btn" class="flex-1 flex items-center justify-center font-semibold p-2 rounded-lg bg-red-600 text-white disabled:opacity-50" disabled><i class="fas fa-trash-alt mr-2"></i><span data-translate-key="delete">Borrar</span></button>
+                             <button id="cancel-select-mode-btn" class="p-2 rounded-lg bg-gray-600 text-white"><i class="fas fa-times"></i></button>
+                        </div>
+                        <div id="sidebar-content" class="pr-1 space-y-1"></div>
                     </div>
-                    
-                    <div class="flex flex-col space-y-2 py-4 border-t border-themed">
-                        <button id="new-chat-btn" class="flex items-center justify-center font-semibold p-3 rounded-lg btn-primary transition-colors"><i class="fas fa-plus mr-2"></i><span data-translate-key="new_chat">Nuevo Chat</span></button>
-                        <button id="new-folder-btn" class="flex items-center justify-center font-semibold p-3 rounded-lg bg-input"><i class="fas fa-folder-plus mr-2"></i><span data-translate-key="new_folder">Nueva Carpeta</span></button>
-                    </div>
-
-                    <div class="border-t border-themed pt-2">
-                         <button id="select-chats-btn" class="w-full text-sm p-2 rounded hover:bg-light flex items-center justify-center">
-                            <i class="fas fa-tasks mr-2"></i><span data-translate-key="select_chats">Seleccionar Múltiples Chats</span>
-                        </button>
-                     </div>
-                    <div id="delete-mode-controls" class="hidden flex space-x-2 my-2">
-                        <button id="delete-selected-btn" class="flex-1 flex items-center justify-center font-semibold p-2 rounded-lg bg-red-600 text-white disabled:opacity-50" disabled><i class="fas fa-trash-alt mr-2"></i><span data-translate-key="delete">Borrar</span></button>
-                         <button id="cancel-select-mode-btn" class="p-2 rounded-lg bg-gray-600 text-white"><i class="fas fa-times"></i></button>
-                    </div>
-                    <div id="sidebar-content" class="pr-1 space-y-1"></div>
                 </div>
 
                 <div id="sidebar-footer">
-                    <div class="flex flex-col space-y-2 mb-4 border-t border-themed pt-4">
+                    <div class="flex flex-col space-y-2 border-t border-themed pt-4">
                         <button id="web-launch-offer-btn" class="w-full text-left font-semibold text-sm p-3 rounded-lg btn-primary transition-colors animate-pulse" data-translate-key="web_offer">
                            🚀 ¡Lanza tu Negocio, te regalamos una pg web Gratis con tu suscripcion!
                         </button>
@@ -1322,7 +1413,7 @@
                 </div>
             </div>
 
-            <div id="sidebar-bottom-fixed" class="flex-shrink-0 p-4 border-t border-themed">
+            <div id="sidebar-bottom-fixed">
                  <div id="user-section">
                     <div id="login-view" class="hidden">
                         <button id="login-btn" class="w-full flex items-center justify-center font-semibold p-3 rounded-lg btn-primary transition-colors"><i class="fas fa-sign-in-alt mr-2"></i><span data-translate-key="login">Iniciar Sesión</span></button>
@@ -1350,7 +1441,9 @@
                     </div>
                     
                     <div id="desktop-chat-title-wrapper" class="hidden sm:flex items-center justify-center group cursor-pointer mx-2 flex-1 min-w-0" title="Renombrar Chat">
+                        <i class="fas fa-pencil-alt text-xs text-text-medium edit-icon"></i>
                         <h1 id="chat-title" class="text-lg font-semibold truncate">Goatify IA</h1>
+                        <button id="motivation-btn-header" title="Motivación Diaria" class="text-yellow-400 hover:text-yellow-300 p-2 transition-colors ml-2"><i class="fas fa-lightbulb text-xl"></i></button>
                     </div>
 
                     <div class="flex items-center space-x-1 sm:space-x-2 header-right-icons">
@@ -1400,8 +1493,25 @@
                     </div>
                 </div>
 
-                <div id="notepad-view" class="h-full p-2 md:p-4">
-                    <textarea id="notepad-textarea" class="w-full h-full bg-input rounded-lg p-4" placeholder="Tus notas e ideas se guardan aquí..."></textarea>
+                <div id="notepad-view-container">
+                    <div id="notes-list-panel">
+                        <div class="flex items-center gap-2 mb-2">
+                            <button id="add-new-note-btn" class="w-full btn-primary text-sm">Nueva Nota</button>
+                            <button id="add-new-drawing-btn" class="p-2 bg-input rounded-md" title="Nueva Nota de Dibujo"><i class="fas fa-paint-brush"></i></button>
+                        </div>
+                        <div id="notes-list"></div>
+                    </div>
+                    <div id="note-editor-panel">
+                        <div id="note-editor-toolbar">
+                            <input id="note-title-input" type="text" placeholder="Título de la nota..." class="bg-transparent text-lg font-bold w-full outline-none">
+                            <button id="add-checklist-item-btn" title="Añadir Checklist" class="p-2 hover:text-primary transition-colors"><i class="fas fa-check-square"></i></button>
+                            <button id="delete-note-btn" title="Eliminar Nota" class="p-2 text-red-500 hover:text-red-400 transition-colors"><i class="fas fa-trash-alt"></i></button>
+                        </div>
+                        <div id="note-content-area" class="relative flex-grow">
+                            <div id="note-content-editor" contenteditable="true" class="h-full"></div>
+                            <canvas id="note-canvas" class="absolute top-0 left-0 hidden"></canvas>
+                        </div>
+                    </div>
                 </div>
                 
                 <div id="financial-assistant-view" class="hidden h-full"></div>
@@ -1755,8 +1865,7 @@
                     <button class="gamification-tab" data-tab="logros">Logros</button>
                     <button id="gamification-rules-btn" class="ml-auto text-sm text-text-medium hover:text-primary"><i class="fas fa-circle-question mr-1"></i> Reglas</button>
                 </div>
-
-               <div class="flex-grow overflow-y-auto pt-4">
+                <div class="flex-grow overflow-y-auto pt-4">
                      <div id="gamification-tab-racha" class="gamification-tab-content space-y-4">
                         <p class="text-center text-text-medium">Mantén tu racha para ganar XP, créditos y un cofre especial el día 7.</p>
                          <div id="daily-streak-container" class="grid grid-cols-7 gap-2 md:gap-4 text-center">
@@ -1907,13 +2016,14 @@
             const MOTIVATION_BUTTON_TEXTS = ["¡Listo!", "¡Vamos a darle!", "¡Perfecto!", "¡Sí, yo puedo!", "¡Vamos!"];
 
             const COSTS = { GENERAL: 1, SEARCH: 1, NEBULA: 2, COPYWRITING: 2, IMAGE: 5 };
-            let state = { chats: {}, projects: {}, structure: [], calendar: {} };
+            let state = { chats: {}, projects: {}, structure: [], calendar: {}, notes: [] };
             let gamificationState = {};
             let currentChatId = null, currentUser = null, speechOn = false, availableVoices = [], selectedVoice = null, isRecognizing = false, selectedImageBase64 = null, selectedPdfText = null;
             let micWasOnBeforeSpeaking = false;
             let modalResolve = null;
             let isSelectModeActive = false;
             let chatsToDelete = new Set();
+            let currentNoteId = null;
             
             let notificationsEnabled = localStorage.getItem('goatify-notifications-enabled') === null ? true : localStorage.getItem('goatify-notifications-enabled') === 'true';
             let motivationEnabled = localStorage.getItem('goatify-motivation-enabled') === null ? true : localStorage.getItem('goatify-motivation-enabled') === 'true';
@@ -1937,8 +2047,7 @@
                 genericModal: document.getElementById('generic-modal'), 
                 viewContainer: document.getElementById('view-container'),
                 chatMessages: document.getElementById('chat-messages'),
-                notepadView: document.getElementById('notepad-view'),
-                notepadTextarea: document.getElementById('notepad-textarea'),
+                notepadViewContainer: document.getElementById('notepad-view-container'),
                 chatTitle: document.getElementById('chat-title'), mobileChatTitle: document.getElementById('mobile-chat-title'),
                 desktopChatTitleWrapper: document.getElementById('desktop-chat-title-wrapper'), mobileChatTitleWrapper: document.getElementById('mobile-chat-title-wrapper'),
                 initialMessageContainer: document.getElementById('initial-message-container'), themeToggle: document.getElementById('theme-toggle'), themeIcon: document.getElementById('theme-icon'),
@@ -2034,6 +2143,8 @@
             };
             Object.assign(dom, fullDom);
 
+            // --- END OF DOM MAPPING ---
+
             const XP_FOR_LEVEL = [0, 250, 750, 2000, 5000, Infinity]; 
             const LEVEL_NAMES = ["Iniciador Digital", "Creador de Contenido", "Estratega de Marketing", "CEO Digital", "G.O.A.T."];
             const MISSIONS = {
@@ -2094,7 +2205,7 @@
                     'conflict-resolution': 'Modo Mediador: Describe la situación de conflicto para encontrar una solución.',
                     'decision-lab': 'Modo Estratega: Describe la decisión que enfrentas y tus opciones.',
                     'financial-assistant': 'Modo Financiero: Usa la tabla para registrar transacciones. Pídeme análisis en el chat.',
-                    'notepad': 'Modo Bloc de Notas: Apunta lo que sea. Tus ideas están seguras aquí.'
+                    'notepad-app': 'Bloc de Notas: Organiza tus ideas, crea listas y dibuja. Todo se guarda automáticamente.'
                 };
                 const currentChat = state.chats[currentChatId];
                 const key = workflowKey || (currentChat ? currentChat.workflow : null);
@@ -2236,7 +2347,9 @@
             function hideCalendarModal() {
                 dom.calendarModalOverlay.classList.add('hidden');
                 dom.calendarModalOverlay.classList.remove('flex');
-            }function renderMonthView() {
+            }
+
+            function renderMonthView() {
                 dom.calendarDaysGrid.innerHTML = '';
                 dom.currentMonthYear.textContent = selectedCalendarDate.format('MMMM YYYY');
                 const startDay = selectedCalendarDate.startOf('month').startOf('isoWeek');
@@ -2944,10 +3057,15 @@
             }
 
             async function loadStateForUser() {
+                const loadLocalStorage = (key) => {
+                    const saved = localStorage.getItem(key);
+                    return saved ? JSON.parse(saved) : {};
+                };
+
                 if (!currentUser) {
-                    const saved = localStorage.getItem('guestState');
-                    state = saved ? JSON.parse(saved).state : { chats: {}, projects: {}, structure: [], calendar: {} };
-                    currentChatId = saved ? JSON.parse(saved).currentChatId : null;
+                    const guestData = loadLocalStorage('guestState');
+                    state = guestData.state || { chats: {}, projects: {}, structure: [], calendar: {}, notes: [] };
+                    currentChatId = guestData.currentChatId || null;
                 } else {
                      try {
                         const response = await fetch('/.netlify/functions/load-chats', {
@@ -2957,20 +3075,22 @@
                         });
                         if (!response.ok) { throw new Error(`Server error: ${response.status}`); }
                         const dbState = await response.json();
-                        state = dbState.state || { chats: {}, projects: {}, structure: [], calendar: {} };
+                        state = dbState.state || { chats: {}, projects: {}, structure: [], calendar: {}, notes: [] };
                         currentChatId = dbState.currentChatId;
                     } catch (error) {
                         console.error("Could not load from DB, falling back to localStorage:", error);
-                        const saved = localStorage.getItem(`goatbotState_${currentUser.id}`);
-                        const parsed = saved ? JSON.parse(saved) : {};
-                        state = parsed.state || { chats: {}, projects: {}, structure: [], calendar: {} };
-                        currentChatId = parsed.currentChatId;
+                        const userLocalData = loadLocalStorage(`goatbotState_${currentUser.id}`);
+                        state = userLocalData.state || { chats: {}, projects: {}, structure: [], calendar: {}, notes: [] };
+                        currentChatId = userLocalData.currentChatId;
                     }
                 }
+
                 state.calendar = state.calendar || {};
                 state.projects = state.projects || {};
                 state.chats = state.chats || {};
                 state.structure = state.structure || [];
+                state.notes = state.notes || [];
+
                 loadGamificationState();
                 renderSidebar();
                 selectChat(currentChatId);
@@ -2978,18 +3098,20 @@
 
             async function saveState() {
                 const stateData = { state, currentChatId };
-                if (!currentUser) {
-                    try { localStorage.setItem('guestState', JSON.stringify(stateData)); } 
-                    catch (e) { console.error("Guest localStorage is full.", e); }
-                    return;
-                }
+                const key = currentUser ? `goatbotState_${currentUser.id}` : 'guestState';
+                
                 try {
-                    await fetch('/.netlify/functions/save-chats', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ userId: currentUser.id, stateToSave: stateData }),
-                    });
-                } catch (error) { console.error("Failed to save state to DB:", error); }
+                    localStorage.setItem(key, JSON.stringify(stateData));
+                    if(currentUser) {
+                        await fetch('/.netlify/functions/save-chats', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ userId: currentUser.id, stateToSave: stateData }),
+                        });
+                    }
+                } catch (error) {
+                    console.error("Failed to save state:", error);
+                }
             }
             
             function updateUserUI() {
@@ -3051,15 +3173,11 @@
                 }
                 
                 let initialMessages;
-                if (options.workflow === 'notepad') {
-                    initialMessages = [{ role: 'user', content: '' }];
-                } else {
-                    initialMessages = options.initialMessages ||
-                    [{ 
-                        role: 'assistant', 
-                        content: `Saludos, ${title}. Soy Goatify IA, aquí para servirte. Cada idea tuya es una estrella a punto de nacer. ¿En qué universo nos sumergimos hoy?` 
-                    }];
-                }
+                initialMessages = options.initialMessages ||
+                [{ 
+                    role: 'assistant', 
+                    content: `Saludos, ${title}. Soy Goatify IA, aquí para servirte. Cada idea tuya es una estrella a punto de nacer. ¿En qué universo nos sumergimos hoy?` 
+                }];
 
                 state.chats[id] = { 
                     id, 
@@ -3095,69 +3213,58 @@
             }
 
             function selectChat(chatId) { 
-                if (isSelectModeActive) return;
-                if (!chatId || !state.chats[chatId]) { resetChatView(); return; } 
                 currentChatId = chatId;
-                const chat = state.chats[chatId]; 
+                if (isSelectModeActive) return;
+
+                if (!chatId || (!state.chats[chatId] && chatId !== 'notepad-app')) { 
+                    resetChatView(); 
+                    return; 
+                } 
 
                 // Hide all views first
                 dom.chatMessages.style.display = 'none';
                 dom.projectManagementView.style.display = 'none';
                 dom.financialAssistantView.style.display = 'none';
-                dom.notepadView.style.display = 'none';
+                dom.notepadViewContainer.style.display = 'none';
                 dom.inputArea.style.display = 'none'; 
-
                 dom.projectChatContainer.style.display = 'none';
+                
                 const financialChatContainer = document.getElementById('financial-chat-container');
                 if (financialChatContainer) financialChatContainer.style.display = 'none';
 
-                if (chat.workflow === 'notepad') {
-                    showNotepadView(chatId);
-                } else if (chat.workflow === 'project-management') {
-                    dom.projectManagementView.style.display = 'flex';
-                    dom.projectChatContainer.style.display = 'flex';
-                    renderProjectView(chatId);
-                } else if (chat.workflow === 'financial-assistant') {
-                    dom.financialAssistantView.style.display = 'flex';
-                    renderFinancialAssistant(chatId);
-                    document.getElementById('financial-chat-container').style.display = 'flex';
-                }
-                else {
-                    dom.chatMessages.style.display = 'block';
-                    dom.inputArea.style.display = 'block';
-                    dom.chatMessages.innerHTML = ''; 
-                    chat.messages.forEach((msg, index) => addMessageToUI(msg.role, msg.content, msg.image, index, dom.chatMessages));
-                    dom.initialMessageContainer.style.display = 'none';
+                if (chatId === 'notepad-app') {
+                    dom.chatTitle.textContent = "Bloc de Notas";
+                    dom.mobileChatTitle.textContent = "Bloc de Notas";
+                    showNotepadView();
+                } else {
+                    const chat = state.chats[chatId]; 
+                    if (chat.workflow === 'project-management') {
+                        dom.projectManagementView.style.display = 'flex';
+                        dom.projectChatContainer.style.display = 'flex';
+                        renderProjectView(chatId);
+                    } else if (chat.workflow === 'financial-assistant') {
+                        dom.financialAssistantView.style.display = 'flex';
+                        renderFinancialAssistant(chatId);
+                        document.getElementById('financial-chat-container').style.display = 'flex';
+                    } else {
+                        dom.chatMessages.style.display = 'block';
+                        dom.inputArea.style.display = 'block';
+                        dom.chatMessages.innerHTML = ''; 
+                        chat.messages.forEach((msg, index) => addMessageToUI(msg.role, msg.content, msg.image, index, dom.chatMessages));
+                        dom.initialMessageContainer.style.display = 'none';
+                    }
+
+                    dom.chatTitle.textContent = chat.title;
+                    dom.mobileChatTitle.textContent = chat.title;
+                    dom.modelSelector.value = chat.model || 'gpt-3.5-turbo-1106';
+                    updateContextualFooter(chat.workflow);
                 }
 
-                dom.chatTitle.textContent = chat.title;
-                dom.mobileChatTitle.textContent = chat.title;
-                dom.modelSelector.value = chat.model || 'gpt-3.5-turbo-1106';
                 updateActiveChatHighlight(); 
                 saveState();
-                updateContextualFooter(chat.workflow);
                 if (window.innerWidth < 768) toggleSidebar(false);
             }
             
-            function showNotepadView(chatId) {
-                const chat = state.chats[chatId];
-                if (!chat) return;
-
-                dom.notepadView.style.display = 'block';
-                dom.notepadTextarea.value = chat.messages[0]?.content || '';
-                dom.notepadTextarea.focus();
-
-                let saveTimeout;
-                dom.notepadTextarea.oninput = () => {
-                    clearTimeout(saveTimeout);
-                    saveTimeout = setTimeout(() => {
-                        chat.messages = [{ role: 'user', content: dom.notepadTextarea.value }];
-                        saveState();
-                    }, 500);
-                };
-            }
-
-
             function resetChatView() { 
                 currentChatId = null;
                 dom.chatTitle.textContent = "Goatify IA";
@@ -3167,7 +3274,7 @@
                 dom.inputArea.style.display = 'block';
                 dom.projectManagementView.style.display = 'none';
                 dom.financialAssistantView.style.display = 'none';
-                dom.notepadView.style.display = 'none';
+                dom.notepadViewContainer.style.display = 'none';
 
                 dom.chatMessages.innerHTML = '';
                 dom.initialMessageContainer.style.display = 'flex'; 
@@ -3625,8 +3732,8 @@
                 dom.closePricingModalBtn?.addEventListener('click', hidePricingModal);
                 dom.themeToggle?.addEventListener('click', () => setTheme(!document.body.classList.contains('dark-theme')));
                 dom.loginBtn?.addEventListener('click', () => netlifyIdentity.open('login'));
-                dom.sidebarToggleDesktop?.addEventListener('click', () => {
-                    const icon = dom.sidebarToggleDesktop.querySelector('i');
+                document.getElementById('sidebar-toggle-desktop')?.addEventListener('click', () => {
+                    const icon = document.getElementById('sidebar-toggle-desktop').querySelector('i');
                     dom.sidebar.classList.toggle('collapsed');
                     icon.classList.toggle('fa-angle-left');
                     icon.classList.toggle('fa-angle-right');
@@ -3688,6 +3795,8 @@
                 
                 const workflowConfigs = {
                     'project-management': { title: "Asistente de Proyectos", workflow: 'project-management', initialMessages: [{ role: 'assistant', content: '¡Excelente! Vamos a estructurar este proyecto como un profesional. Para empezar, **¿cuál es el objetivo final y medible que quieres alcanzar con este proyecto?** Descríbelo y luego definiremos los entregables clave.' }] },
+                    'financial-assistant': { title: "Asistente Financiero", workflow: 'financial-assistant', initialMessages: [{ role: 'assistant', content: '¡Vamos a organizar tus finanzas! Utiliza la tabla de arriba para añadir tus ingresos y gastos. Luego, puedes hacerme preguntas aquí sobre tus finanzas, como por ejemplo: "¿En qué categoría estoy gastando más?" o "Proyecta mis ahorros para los próximos 6 meses".' }] },
+                    'notepad-app': { title: "Bloc de Notas", workflow: 'notepad-app' },
                     'create-full-post': { title: "Post para Redes", workflow: 'create-full-post', initialMessages: [{ role: 'assistant', content: '¡Claro! Vamos a crear un post increíble. ¿Para qué red social lo necesitas (Instagram, Facebook, LinkedIn, etc.)?' }] },
                     'persuasive-copy': { title: "Copy Persuasivo", workflow: 'persuasive-copy', initialMessages: [{ role: 'assistant', content: 'Estoy listo para redactar textos que vendan. ¿Para qué necesitas este copy? (ej: Anuncio de Facebook, Post de Venta, Descripción de Producto)' }] },
                     'post-ideas': { title: "Lluvia de Ideas", workflow: 'post-ideas', initialMessages: [{ role: 'assistant', content: '¡Acabemos con el bloqueo creativo! Dime un tema y te daré 7 ideas de contenido excelentes.' }] },
@@ -3704,8 +3813,7 @@
                     'design-web': { title: "Diseñador Web", workflow: 'design-web', model: 'gpt-4o-mini', initialMessages: [{ role: 'assistant', content: 'Estoy listo para diseñar con código. Describe la página o componente que quieres crear, y lo programaré para ti.' }] },
                     'conflict-resolution': { title: "Mediador de Conflictos", workflow: 'conflict-resolution', initialMessages: [{ role: 'assistant', content: 'Entiendo. Las situaciones difíciles requieren una comunicación clara. Por favor, describe el conflicto objetivamente: ¿quiénes están involucrados y cuál es el punto principal de desacuerdo?' }] },
                     'decision-lab': { title: "Laboratorio de Decisiones", workflow: 'decision-lab', initialMessages: [{ role: 'assistant', content: 'Bienvenido al Laboratorio de Decisiones. Recuerda que una decisión puede cambiar el rumbo de tu vida. Para ayudarte a analizar tu situación, por favor, dime: ¿Cuál es la decisión que necesitas tomar y qué opciones estás considerando?' }] },
-                    'financial-assistant': { title: "Asistente Financiero", workflow: 'financial-assistant', initialMessages: [{ role: 'assistant', content: '¡Vamos a organizar tus finanzas! Utiliza la tabla de arriba para añadir tus ingresos y gastos. Luego, puedes hacerme preguntas aquí sobre tus finanzas, como por ejemplo: "¿En qué categoría estoy gastando más?" o "Proyecta mis ahorros para los próximos 6 meses".' }] },
-                    'notepad': { title: "Bloc de Notas", workflow: 'notepad', initialMessages: [{ role: 'user', content: '' }] },
+                    'notepad': { title: "Bloc de Notas", workflow: 'notepad-app' },
                 };
                 
                 dom.workflowsContainer.addEventListener('click', e => { 
@@ -3721,7 +3829,11 @@
                         const workflowKey = button.dataset.workflow;
                         const config = workflowConfigs[workflowKey];
                          if (config) {
-                            createNewChat(config);
+                            if (workflowKey === 'notepad-app') {
+                                selectChat('notepad-app');
+                            } else {
+                                createNewChat(config);
+                            }
                         }
                     });
                 });
@@ -4993,7 +5105,7 @@
                     dom.appContainer.classList.remove('opacity-0');
                     dom.loadingOverlay.style.display = 'none';
 
-                    if (currentChatId && state.chats[currentChatId]) {
+                    if (currentChatId && (state.chats[currentChatId] || currentChatId === 'notepad-app')) {
                         selectChat(currentChatId);
                     } else {
                         resetChatView();
