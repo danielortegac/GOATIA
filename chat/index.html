@@ -3,6 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#121212">
+    <link rel="manifest" href="manifest.json">
     <title>Goatify IA</title>
     <link rel="icon" type="image/png" href="./Logos HD.png">
     <script src="https://cdn.tailwindcss.com"></script>
@@ -16,28 +20,28 @@
     
     <style>
         :root {
-            --bg-dark: #121212;
-            --bg-medium: #1e1e1e;
-            --bg-light: #2c2c2c;
+            --bg-dark: #101010;
+            --bg-medium: #1a1a1a;
+            --bg-light: #282828;
             --primary: #8a4fff;
             --primary-hover: #7b46e6;
-            --text-light: #e0e0e0;
-            --text-medium: #b3b3b3;
-            --border-color: #3a3a3a;
+            --text-light: #e5e5e5;
+            --text-medium: #a0a0a0;
+            --border-color: rgba(255, 255, 255, 0.1);
             --gold-color: #FFD700;
             --urgent-color: #ef4444;
             --danger-color: #dc2626;
 
-            --light-bg-dark: #f7f7f8;
+            --light-bg-dark: #f9f9f9;
             --light-bg-medium: #ffffff;
-            --light-bg-light: #f0f0f0;
+            --light-bg-light: #f1f1f1;
             --light-primary: #7c40e6;
             --light-primary-hover: #6a37d3;
             --light-text-dark: #1f2937;
             --light-text-medium: #6b7280;
-            --light-border-color: #e5e7eb;
+            --light-border-color: rgba(0, 0, 0, 0.09);
 
-            --base-font-size: 16px;
+            --base-font-size: 15px;
         }
 
         html,
@@ -51,6 +55,8 @@
             font-family: 'Montserrat', sans-serif;
             transition: background-color 0.3s ease, color 0.3s ease;
             font-size: var(--base-font-size);
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
 
         .dark-theme {
@@ -82,6 +88,18 @@
         #sidebar { background-color: var(--current-bg-dark); border-right: 1px solid var(--current-border-color); height: 100vh; transition: transform 0.3s ease; z-index: 40; }
         #sidebar.collapsed { width: 0; padding: 0; overflow: hidden; border-right: none;}
         #sidebar.collapsed > * { display: none; }
+        
+        #sidebar-top-fixed {
+            flex-shrink: 0;
+            padding: 0.75rem;
+            border-bottom: 1px solid var(--current-border-color);
+        }
+        #sidebar-scrollable {
+            flex-grow: 1;
+            overflow-y: auto;
+            min-height: 0;
+            padding: 0.75rem;
+        }
 
         @media (max-width: 767px) {
             #sidebar {
@@ -98,7 +116,6 @@
                 overflow-y: auto;
                 padding-bottom: 60px; /* Space for browser nav bar */
             }
-            /* Make fonts smaller on mobile */
             body { --base-font-size: 13.5px; }
             button, .btn-primary { 
                 padding-top: 0.4rem; padding-bottom: 0.4rem; 
@@ -122,7 +139,7 @@
         .btn-danger:hover { background-color: #b91c1c; }
         .plan-card-highlight { border-color: var(--current-primary); box-shadow: 0 0 15px rgba(138, 79, 255, 0.3); }
         .placeholder-themed::placeholder { color: var(--current-text-medium); }
-        .text-primary { color: var(--current-primary); }
+        .text-primary, .workflow-header i { color: var(--current-primary); }
         .glowing-mic { animation: pulse 1.5s infinite; color: var(--primary) !important; }
 
         @keyframes pulse {
@@ -213,7 +230,7 @@
         }
         .cool-light-effect:hover::before { animation: sweep 2s infinite linear; }
 
-        .input-wrapper { border: 2px solid transparent; transition: box-shadow 0.3s ease, border-color 0.3s ease; }
+        .input-wrapper { border: 1px solid transparent; transition: box-shadow 0.3s ease, border-color 0.3s ease; }
         .input-wrapper:focus-within { box-shadow: 0 0 10px 0px rgba(138, 79, 255, 0.5); border-color: var(--current-primary-hover); }
 
         #chat-title {
@@ -942,6 +959,15 @@
                 overflow-y: auto;
             }
 
+            .header-left-icons {
+                flex-shrink: 0;
+                display: flex;
+                align-items: center;
+                gap: 0;
+            }
+             .header-left-icons > * {
+                padding: 0.3rem; 
+            }
             .header-right-icons {
                 flex-shrink: 0;
                 display: flex;
@@ -955,6 +981,7 @@
                 flex-grow: 1;
                 flex-shrink: 1;
                 min-width: 0;
+                text-align: center;
             }
             #main-header-content {
                 display: flex;
@@ -962,6 +989,23 @@
                 justify-content: space-between;
                 width: 100%;
                 gap: 0.5rem;
+            }
+
+             #image-preview-container {
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+                max-height: 45px;
+                flex-shrink: 1;
+            }
+            #image-preview {
+                max-height: 45px;
+                width: auto;
+                border-radius: 0.25rem;
+            }
+            #input-area {
+                display: flex;
+                flex-direction: column;
             }
 
             #project-chat-container, #financial-chat-container {
@@ -974,8 +1018,7 @@
                 border-top: 1px solid var(--current-border-color);
                 z-index: 10;
                 transition: height 0.3s ease;
-                /* This part is important, it ensures content doesn't get cut */
-                max-height: calc(100vh - 120px); /* Adjust 120px to account for header/etc */
+                max-height: calc(100vh - 120px); 
             }
             #project-chat-container:not(.collapsed),
             #financial-chat-container:not(.collapsed) {
@@ -990,13 +1033,13 @@
 
             #kanban-view {
                 grid-template-columns: repeat(3, 1fr);
-                overflow-x: auto; /* Allow horizontal scroll for Kanban */
+                overflow-y: auto;
+                overflow-x: hidden;
                 gap: 0.4rem; 
-                padding-bottom: 50px; /* Space for the collapsed chat */
-                -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+                padding-bottom: 50px;
             }
             .kanban-column {
-                min-width: 150px; /* Give columns a min width to prevent squishing */
+                min-width: 0;
                 padding: 0.4rem;
             }
             .kanban-column-title { font-size: 0.7rem; }
@@ -1014,9 +1057,19 @@
             .list-view-task-mobile { background-color: var(--current-bg-light); padding: 0.75rem; border-radius: 0.5rem; display: flex; flex-direction: column; gap: 0.5rem; }
             .list-view-task-mobile-header { display: flex; align-items: flex-start; gap: 0.75rem; }
             .list-view-task-mobile-footer { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--current-border-color); padding-top: 0.5rem; font-size: 0.75rem; }
+            .list-view-task-mobile-footer .task-time-date-inputs { display: flex; align-items: center; gap: 4px; }
+            .list-view-task-mobile-footer input[type="time"], .list-view-task-mobile-footer input[type="date"] {
+                background: var(--current-bg-dark);
+                border: none;
+                border-radius: 4px;
+                padding: 2px 4px;
+                font-size: 0.7rem;
+                width: auto;
+            }
+
 
             #services-menu {
-                position: fixed; /* Changed to fixed for better mobile positioning */
+                position: fixed;
                 opacity: 0;
                 visibility: hidden;
                 transform: scale(0.95) translateY(-10px);
@@ -1025,9 +1078,9 @@
                 max-width: 320px;
                 top: 60px;
                 right: 10px;
-                max-height: calc(100vh - 80px); /* Ensures it stays within viewport */
+                max-height: calc(100vh - 80px);
                 overflow-y: auto;
-                z-index: 50; /* Ensure it's on top */
+                z-index: 50;
             }
             #services-menu.show {
                 opacity: 1;
@@ -1075,6 +1128,28 @@
             .pro-controls-bg { padding: 0.25rem; }
             #msg { height: 3rem !important; max-height: 3rem; }
         }
+
+        /* Motivation Modal Shimmer Effect */
+        #motivation-quote.shimmer-text {
+            position: relative;
+            overflow: hidden;
+        }
+        #motivation-quote.shimmer-text::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 50%;
+            height: 100%;
+            background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.4) 50%, rgba(255,255,255,0) 100%);
+            animation: shimmer 2.5s ease-in-out infinite;
+            pointer-events: none;
+        }
+        @keyframes shimmer {
+            0% { transform: translateX(-150%) skewX(-15deg); }
+            100% { transform: translateX(250%) skewX(-15deg); }
+        }
+
     </style>
 </head>
 <body class="w-screen overflow-x-hidden dark-theme">
@@ -1084,7 +1159,6 @@
             netlifyIdentity.init();
         }
     </script>
-
     <div id="loading-overlay" class="fixed inset-0 bg-bg-dark bg-opacity-95 flex flex-col items-center justify-center z-[100] transition-opacity duration-300">
         <img src="./Logos HD.png" alt="Goatify Logo" class="w-24 h-24 object-contain mb-6 animate-pulse" onerror="this.onerror=null;this.src='https://placehold.co/96x96/121212/e0e0e0?text=LOGO';">
         <div class="text-text-light text-center">
@@ -1097,36 +1171,101 @@
 
     <div id="app-container" class="flex w-full relative opacity-0 transition-opacity duration-300">
         <aside id="sidebar" class="w-72 flex-shrink-0 flex flex-col transition-transform duration-300 md:translate-x-0 h-full">
-            <div class="p-3 flex flex-col h-full">
-                <div id="user-section" class="flex-shrink-0 pt-3 md:border-t md:border-themed md:mt-auto md:order-last">
-                    <div id="login-view" class="hidden">
-                        <button id="login-btn" class="w-full flex items-center justify-center font-semibold p-3 rounded-lg btn-primary transition-colors"><i class="fas fa-sign-in-alt mr-2"></i><span data-translate-key="login">Iniciar Sesión</span></button>
+            
+            <div id="sidebar-top-fixed">
+                <h3 class="text-xs font-semibold uppercase text-text-medium mb-2 px-2" data-translate-key="workflows">Workflows</h3>
+                 <div id="workflows-container" class="space-y-1">
+                    <div class="workflow-category">
+                        <div id="project-workflow-header" class="workflow-header flex items-center p-2 rounded-md cursor-pointer hover:bg-light">
+                             <i class="fas fa-tasks w-6 mr-2"></i>
+                            <span class="text-sm font-bold" data-translate-key="wf_pm">Dirección de Proyectos</span>
+                        </div>
+                     </div>
+                    <div class="workflow-category">
+                        <div class="workflow-header flex items-center p-2 rounded-md cursor-pointer hover:bg-light">
+                             <i class="fas fa-chevron-right workflow-arrow mr-2 transition-transform text-xs"></i><i class="fas fa-brain w-6 mr-2"></i>
+                            <span class="text-sm font-bold">Asistente Experto</span>
+                        </div>
+                         <div class="workflow-content pl-4 pt-1 space-y-1">
+                            <button data-workflow="decision-lab" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center">Laboratorio de Decisiones</button>
+                            <button data-workflow="financial-assistant" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center">Asistente Financiero</button>
+                            <button data-workflow="conflict-resolution" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center">Resolución de Conflictos</button>
+                            <button data-workflow="notepad" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center">Bloc de Notas</button>
+                         </div>
                     </div>
-                     <div id="user-menu-view" class="hidden relative">
-                        <button id="user-menu-btn" class="w-full flex items-center text-left p-2 rounded-lg hover:bg-light transition-colors">
-                            <span id="user-email" class="flex-grow truncate text-sm font-semibold"></span>
-                            <i class="fas fa-ellipsis-h"></i>
-                        </button>
-                        <div id="user-menu-popup" class="absolute bottom-full left-0 w-full mb-2 rounded-lg p-2 border border-themed shadow-lg hidden">
-                            <button id="settings-btn" class="w-full text-left text-sm p-2 rounded hover:bg-medium flex items-center"><i class="fas fa-cog w-6 mr-2"></i><span data-translate-key="settings">Configuración</span></button>
-                             <button id="logout-btn" class="w-full text-left text-sm p-2 rounded hover:bg-medium flex items-center"><i class="fas fa-sign-out-alt w-6 mr-2"></i><span data-translate-key="logout">Cerrar Sesión</span></button>
+                    <div class="workflow-category">
+                        <div class="workflow-header flex items-center p-2 rounded-md cursor-pointer hover:bg-light">
+                             <i class="fas fa-chevron-right workflow-arrow mr-2 transition-transform text-xs"></i><i class="fas fa-share-alt w-6 mr-2"></i>
+                            <span class="text-sm font-bold" data-translate-key="wf_social">Potenciador de Redes Sociales</span>
+                         </div>
+                        <div class="workflow-content pl-4 pt-1 space-y-1">
+                            <button data-workflow="create-full-post" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_social_1">Crear un Post Completo</button>
+                             <button data-workflow="persuasive-copy" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_social_2">Redacción de Copys</button>
+                            <button data-workflow="post-ideas" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_social_3">Lluvia de Ideas para Posts</button>
+                             <button data-workflow="brand-strategy" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_social_4">Definir Estrategia de Marca</button>
                         </div>
                     </div>
-                </div>
-
-                <div id="sidebar-header" class="flex-shrink-0 md:order-first">
-                    <div id="logo-space" class="w-24 h-24 rounded-lg mx-auto mb-4 flex-shrink-0 flex items-center justify-center overflow-hidden bg-input">
-                        <img src="./Logos HD.png" alt="Goatify Logo" class="w-full h-full object-contain" onerror="this.onerror=null;this.src='https://placehold.co/96x96/2c2c2c/e0e0e0?text=LOGO';">
+                     <div class="workflow-category">
+                        <div class="workflow-header flex items-center p-2 rounded-md cursor-pointer hover:bg-light">
+                             <i class="fas fa-chevron-right workflow-arrow mr-2 transition-transform text-xs"></i><i class="fas fa-chart-pie w-6 mr-2"></i>
+                            <span class="text-sm font-bold" data-translate-key="wf_business">Análisis de Negocio</span>
+                        </div>
+                         <div class="workflow-content pl-4 pt-1 space-y-1">
+                            <button data-workflow="competitor-analysis" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_business_1">Análisis de tu Competencia</button>
+                             <button data-workflow="buyer-persona" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_business_2">Definir mi Cliente Ideal</button>
+                            <button data-workflow="brand-names" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_business_3">Lluvia de Nombres para Marca</button>
+                         </div>
                     </div>
+                    <div class="workflow-category">
+                        <div class="workflow-header flex items-center p-2 rounded-md cursor-pointer hover:bg-light">
+                             <i class="fas fa-chevron-right workflow-arrow mr-2 transition-transform text-xs"></i><i class="fas fa-headset w-6 mr-2"></i>
+                            <span class="text-sm font-bold" data-translate-key="wf_sales">Comunicación y Ventas</span>
+                         </div>
+                        <div class="workflow-content pl-4 pt-1 space-y-1">
+                            <button data-workflow="sales-assistant" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_sales_1">Asistente de Ventas 24/7</button>
+                            <button data-workflow="email-writing" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_sales_2">Redacción de Email</button>
+                            <button data-workflow="design-web" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_sales_3">Diseño Web</button>
+                             <button data-workflow="social-skills" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_sales_4">Mejorar Habilidades Sociales</button>
+                        </div>
+                     </div>
+                    <div class="workflow-category">
+                        <div class="workflow-header flex items-center p-2 rounded-md cursor-pointer hover:bg-light">
+                             <i class="fas fa-chevron-right workflow-arrow mr-2 transition-transform text-xs"></i><i class="fas fa-language w-6 mr-2"></i>
+                            <span class="text-sm font-bold">English Teacher</span>
+                        </div>
+                           <div class="workflow-content pl-4 pt-1 space-y-1">
+                            <button data-workflow="english-teacher-translate" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_eng_1">Traducir/Corregir Texto</button>
+                             <button data-workflow="english-teacher-vocabulary" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_eng_2">Aprender Vocabulario Nuevo</button>
+                            <button data-workflow="english-teacher-practice" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_eng_3">Practicar Conversación</button>
+                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="sidebar-scrollable" class="flex flex-col">
+                <div class="flex-shrink-0">
                     <div class="flex flex-col space-y-2 mb-4">
                         <button id="new-chat-btn" class="flex items-center justify-center font-semibold p-3 rounded-lg btn-primary transition-colors"><i class="fas fa-plus mr-2"></i><span data-translate-key="new_chat">Nuevo Chat</span></button>
                         <button id="new-folder-btn" class="flex items-center justify-center font-semibold p-3 rounded-lg bg-input"><i class="fas fa-folder-plus mr-2"></i><span data-translate-key="new_folder">Nueva Carpeta</span></button>
                     </div>
                 </div>
-                
-                <div class="flex-grow overflow-y-auto min-h-0 md:order-2">
-                   <div class="flex-shrink-0">
-                        <div class="flex flex-col space-y-2 mb-4">
+
+                <div class="flex-grow min-h-0">
+                    <div class="border-t border-themed my-3 py-3">
+                         <button id="select-chats-btn" class="w-full text-sm p-2 rounded hover:bg-light flex items-center justify-center">
+                            <i class="fas fa-tasks mr-2"></i><span data-translate-key="select_chats">Seleccionar Múltiples Chats</span>
+                        </button>
+                     </div>
+                    <div id="delete-mode-controls" class="hidden flex space-x-2 mb-2 px-2">
+                        <button id="delete-selected-btn" class="flex-1 flex items-center justify-center font-semibold p-2 rounded-lg bg-red-600 text-white disabled:opacity-50" disabled><i class="fas fa-trash-alt mr-2"></i><span data-translate-key="delete">Borrar</span></button>
+                         <button id="cancel-select-mode-btn" class="p-2 rounded-lg bg-gray-600 text-white"><i class="fas fa-times"></i></button>
+                    </div>
+                    <div id="sidebar-content" class="pr-1 space-y-1"></div>
+                </div>
+
+                <div class="mt-auto flex-shrink-0 pt-4 space-y-4">
+                    <div class="flex-shrink-0">
+                        <div class="flex flex-col space-y-2">
                             <button id="web-launch-offer-btn" class="w-full text-left font-semibold text-sm p-3 rounded-lg btn-primary transition-colors animate-pulse" data-translate-key="web_offer">
                                🚀 ¡Lanza tu Negocio, te regalamos una pg web Gratis con tu suscripcion!
                             </button>
@@ -1144,85 +1283,23 @@
                             </div>
                         </div>
                      </div>
-                    <div class="flex-grow">
-                        <div class="border-t border-b border-themed my-3 py-3">
-                            <h3 class="text-xs font-semibold uppercase text-text-medium mb-2 px-2" data-translate-key="workflows">Workflows</h3>
-                             <div id="workflows-container" class="space-y-1">
-                                <div class="workflow-category">
-                                    <div id="project-workflow-header" class="workflow-header flex items-center p-2 rounded-md cursor-pointer hover:bg-light">
-                                         <i class="fas fa-tasks w-6 mr-2 text-purple-400"></i>
-                                        <span class="text-sm font-bold" data-translate-key="wf_pm">Dirección de Proyectos</span>
-                                    </div>
-                                 </div>
-                                <div class="workflow-category">
-                                    <div class="workflow-header flex items-center p-2 rounded-md cursor-pointer hover:bg-light">
-                                         <i class="fas fa-chevron-right workflow-arrow mr-2 transition-transform text-xs"></i><i class="fas fa-brain w-6 mr-2 text-teal-400"></i>
-                                        <span class="text-sm font-bold">Asistente Experto</span>
-                                    </div>
-                                     <div class="workflow-content pl-4 pt-1 space-y-1">
-                                        <button data-workflow="decision-lab" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center">Laboratorio de Decisiones</button>
-                                        <button data-workflow="financial-assistant" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center">Asistente Financiero</button>
-                                        <button data-workflow="conflict-resolution" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center">Resolución de Conflictos</button>
-                                     </div>
-                                </div>
-                                <div class="workflow-category">
-                                    <div class="workflow-header flex items-center p-2 rounded-md cursor-pointer hover:bg-light">
-                                         <i class="fas fa-chevron-right workflow-arrow mr-2 transition-transform text-xs"></i><i class="fas fa-share-alt w-6 mr-2 text-pink-400"></i>
-                                        <span class="text-sm font-bold" data-translate-key="wf_social">Potenciador de Redes Sociales</span>
-                                     </div>
-                                    <div class="workflow-content pl-4 pt-1 space-y-1">
-                                        <button data-workflow="create-full-post" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_social_1">Crear un Post Completo</button>
-                                         <button data-workflow="persuasive-copy" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_social_2">Redacción de Copys</button>
-                                        <button data-workflow="post-ideas" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_social_3">Lluvia de Ideas para Posts</button>
-                                         <button data-workflow="brand-strategy" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_social_4">Definir Estrategia de Marca</button>
-                                    </div>
-                                </div>
-                                 <div class="workflow-category">
-                                    <div class="workflow-header flex items-center p-2 rounded-md cursor-pointer hover:bg-light">
-                                         <i class="fas fa-chevron-right workflow-arrow mr-2 transition-transform text-xs"></i><i class="fas fa-chart-pie w-6 mr-2 text-blue-400"></i>
-                                        <span class="text-sm font-bold" data-translate-key="wf_business">Análisis de Negocio</span>
-                                    </div>
-                                     <div class="workflow-content pl-4 pt-1 space-y-1">
-                                        <button data-workflow="competitor-analysis" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_business_1">Análisis de tu Competencia</button>
-                                         <button data-workflow="buyer-persona" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_business_2">Definir mi Cliente Ideal</button>
-                                        <button data-workflow="brand-names" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_business_3">Lluvia de Nombres para Marca</button>
-                                     </div>
-                                </div>
-                                <div class="workflow-category">
-                                    <div class="workflow-header flex items-center p-2 rounded-md cursor-pointer hover:bg-light">
-                                         <i class="fas fa-chevron-right workflow-arrow mr-2 transition-transform text-xs"></i><i class="fas fa-headset w-6 mr-2 text-green-400"></i>
-                                        <span class="text-sm font-bold" data-translate-key="wf_sales">Comunicación y Ventas</span>
-                                     </div>
-                                    <div class="workflow-content pl-4 pt-1 space-y-1">
-                                        <button data-workflow="sales-assistant" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_sales_1">Asistente de Ventas 24/7</button>
-                                        <button data-workflow="email-writing" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_sales_2">Redacción de Email</button>
-                                        <button data-workflow="design-web" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_sales_3">Diseño Web</button>
-                                         <button data-workflow="social-skills" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_sales_4">Mejorar Habilidades Sociales</button>
-                                    </div>
-                                 </div>
-                                <div class="workflow-category">
-                                    <div class="workflow-header flex items-center p-2 rounded-md cursor-pointer hover:bg-light">
-                                         <i class="fas fa-chevron-right workflow-arrow mr-2 transition-transform text-xs"></i><i class="fas fa-language w-6 mr-2 text-red-400"></i>
-                                        <span class="text-sm font-bold">English Teacher</span>
-                                    </div>
-                                       <div class="workflow-content pl-4 pt-1 space-y-1">
-                                        <button data-workflow="english-teacher-translate" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_eng_1">Traducir/Corregir Texto</button>
-                                         <button data-workflow="english-teacher-vocabulary" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_eng_2">Aprender Vocabulario Nuevo</button>
-                                        <button data-workflow="english-teacher-practice" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_eng_3">Practicar Conversación</button>
-                                     </div>
-                                </div>
+                    <div id="user-section" class="border-t border-themed pt-3">
+                        <div id="login-view" class="hidden">
+                            <button id="login-btn" class="w-full flex items-center justify-center font-semibold p-3 rounded-lg btn-primary transition-colors"><i class="fas fa-sign-in-alt mr-2"></i><span data-translate-key="login">Iniciar Sesión</span></button>
+                        </div>
+                         <div id="user-menu-view" class="hidden relative">
+                            <button id="user-menu-btn" class="w-full flex items-center text-left p-2 rounded-lg hover:bg-light transition-colors">
+                                <span id="user-email" class="flex-grow truncate text-sm font-semibold"></span>
+                                <i class="fas fa-ellipsis-h"></i>
+                            </button>
+                            <div id="user-menu-popup" class="absolute bottom-full left-0 w-full mb-2 rounded-lg p-2 border border-themed shadow-lg hidden">
+                                <button id="settings-btn" class="w-full text-left text-sm p-2 rounded hover:bg-medium flex items-center"><i class="fas fa-cog w-6 mr-2"></i><span data-translate-key="settings">Configuración</span></button>
+                                 <button id="logout-btn" class="w-full text-left text-sm p-2 rounded hover:bg-medium flex items-center"><i class="fas fa-sign-out-alt w-6 mr-2"></i><span data-translate-key="logout">Cerrar Sesión</span></button>
                             </div>
-                            <div class="border-t border-themed pt-2 mt-2">
-                                 <button id="select-chats-btn" class="w-full text-sm p-2 rounded hover:bg-light flex items-center justify-center">
-                                    <i class="fas fa-tasks mr-2"></i><span data-translate-key="select_chats">Seleccionar Múltiples Chats</span>
-                                </button>
-                             </div>
                         </div>
-                        <div id="delete-mode-controls" class="hidden flex space-x-2 mb-2 px-2">
-                            <button id="delete-selected-btn" class="flex-1 flex items-center justify-center font-semibold p-2 rounded-lg bg-red-600 text-white disabled:opacity-50" disabled><i class="fas fa-trash-alt mr-2"></i><span data-translate-key="delete">Borrar</span></button>
-                             <button id="cancel-select-mode-btn" class="p-2 rounded-lg bg-gray-600 text-white"><i class="fas fa-times"></i></button>
-                        </div>
-                        <div id="sidebar-content" class="pr-1 space-y-1"></div>
+                    </div>
+                    <div id="logo-space" class="w-24 h-24 rounded-lg mx-auto flex-shrink-0 flex items-center justify-center overflow-hidden bg-input">
+                        <img src="./Logos HD.png" alt="Goatify Logo" class="w-full h-full object-contain" onerror="this.onerror=null;this.src='https://placehold.co/96x96/2c2c2c/e0e0e0?text=LOGO';">
                     </div>
                 </div>
             </div>
@@ -1231,24 +1308,24 @@
         <main id="main-chat-area" class="flex-1 flex flex-col h-full overflow-hidden">
             <header class="flex items-center justify-between p-3 md:p-4 border-b border-themed flex-shrink-0 relative">
                 <div id="main-header-content" class="flex items-center justify-between w-full">
-                    <div class="flex items-center flex-shrink-0">
+                    <div class="flex items-center flex-shrink-0 header-left-icons">
                         <button id="menu-toggle" class="md:hidden text-xl p-2"><i class="fas fa-bars"></i></button>
                         <button id="sidebar-toggle-desktop" class="hidden md:block text-xl p-2 mr-2"><i class="fas fa-angle-left"></i></button>
-                        <button id="new-chat-icon-btn" title="Nuevo Chat" class="text-xl p-2 hover:opacity-80 transition-opacity"><i class="fas fa-plus-circle text-primary"></i></button>
+                        <button id="calendar-btn-mobile" title="Mi Calendario y Tareas" class="text-sky-400 hover:text-sky-300 p-2 transition-colors notification-bell-icon sm:hidden">
+                            <i class="fas fa-calendar-days text-xl"></i>
+                             <span id="notification-badge-mobile" class="notification-badge hidden">0</span>
+                        </button>
+                        <div id="message-counter" class="text-xs font-mono whitespace-nowrap block ml-1"></div>
                     </div>
-                    <div id="chat-title-wrapper" class="hidden sm:flex items-center group cursor-pointer mx-2 flex-1 min-w-0" title="Renombrar Chat">
+                    
+                    <div id="chat-title-wrapper" class="hidden sm:flex items-center justify-center group cursor-pointer mx-2 flex-1 min-w-0" title="Renombrar Chat">
                         <i class="fas fa-pencil-alt text-xs text-text-medium edit-icon"></i>
                         <h1 id="chat-title" class="text-lg font-semibold truncate">Goatify IA</h1>
                         <button id="motivation-btn-header" title="Motivación Diaria" class="text-yellow-400 hover:text-yellow-300 p-2 transition-colors"><i class="fas fa-lightbulb text-xl"></i></button>
                     </div>
-                    
-                    <button id="calendar-btn" title="Mi Calendario y Tareas" class="text-sky-400 hover:text-sky-300 p-2 transition-colors notification-bell-icon hidden sm:block">
-                        <i class="fas fa-calendar-days text-xl"></i>
-                        <span id="notification-badge" class="notification-badge hidden">0</span>
-                    </button>
-                    <div id="message-counter" class="text-xs font-mono whitespace-nowrap hidden sm:block mx-2"></div>
 
                     <div class="flex items-center space-x-1 sm:space-x-2 header-right-icons">
+                        <button id="new-chat-icon-btn" title="Nuevo Chat" class="text-xl p-2 hover:opacity-80 transition-opacity"><i class="fas fa-plus-circle text-primary"></i></button>
                         <button id="gamification-btn" title="Mi Ascensión" class="text-xl p-2 hover:opacity-80 transition-opacity text-gold">
                             <i class="fas fa-trophy"></i>
                         </button>
@@ -1256,9 +1333,9 @@
                             <i class="fas fa-rocket text-primary"></i>
                             <span class="text-sm font-semibold text-primary hidden md:inline" data-translate-key="solutions">Soluciones</span>
                         </button>
-                         <button id="calendar-btn-mobile" title="Mi Calendario y Tareas" class="text-sky-400 hover:text-sky-300 p-2 transition-colors notification-bell-icon sm:hidden">
+                        <button id="calendar-btn" title="Mi Calendario y Tareas" class="text-sky-400 hover:text-sky-300 p-2 transition-colors notification-bell-icon hidden sm:block">
                             <i class="fas fa-calendar-days text-xl"></i>
-                             <span id="notification-badge-mobile" class="notification-badge hidden">0</span>
+                            <span id="notification-badge" class="notification-badge hidden">0</span>
                         </button>
                         <button id="theme-toggle" title="Cambiar Tema" class="text-xl p-2"><i class="fas fa-moon" id="theme-icon"></i></button>
                     </div>
@@ -1422,7 +1499,7 @@
     <div id="motivation-modal" class="fixed inset-0 bg-black bg-opacity-70 hidden items-center justify-center z-50 p-4">
         <div class="modal-content rounded-lg w-full max-w-md p-6 relative text-center">
             <i class="fas fa-lightbulb text-4xl text-yellow-400 mb-4"></i>
-            <h3 class="text-2xl font-bold mb-4">Dosis de Motivación</h3>
+            <h3 id="motivation-title" class="text-2xl mb-4">Dosis de Motivación</h3>
             <p id="motivation-quote" class="text-lg text-text-light mb-6 min-h-[50px]"></p>
             <div class="flex items-center justify-center mb-6">
                 <label for="motivation-toggle" class="flex items-center cursor-pointer">
@@ -1644,8 +1721,7 @@
                     <button class="gamification-tab" data-tab="logros">Logros</button>
                     <button id="gamification-rules-btn" class="ml-auto text-sm text-text-medium hover:text-primary"><i class="fas fa-circle-question mr-1"></i> Reglas</button>
                 </div>
-
-                <div class="flex-grow overflow-y-auto pt-4">
+            <div class="flex-grow overflow-y-auto pt-4">
                      <div id="gamification-tab-racha" class="gamification-tab-content space-y-4">
                         <p class="text-center text-text-medium">Mantén tu racha para ganar XP, créditos y un cofre especial el día 7.</p>
                          <div id="daily-streak-container" class="grid grid-cols-7 gap-2 md:gap-4 text-center">
@@ -1703,7 +1779,6 @@
 
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script type="module">
-        // Start of Part 1 - Continues in next response
         window.addEventListener('DOMContentLoaded', () => {
             dayjs.extend(window.dayjs_plugin_localizedFormat);
             dayjs.extend(window.dayjs_plugin_isoWeek);
@@ -1793,6 +1868,7 @@
                 "Tu energía es contagiosa. ¡Ilumina el mundo!",
                 "Puedes con todo y más. ¡Cree en ti!"
             ];
+            const MOTIVATION_BUTTON_TEXTS = ["¡Listo!", "¡Vamos a darle!", "¡Perfecto!", "¡Sí, yo puedo!", "¡Vamos!"];
 
             const COSTS = { GENERAL: 1, SEARCH: 1, NEBULA: 2, COPYWRITING: 2, IMAGE: 5 };
             let state = { chats: {}, projects: {}, structure: [], calendar: {} };
@@ -1803,7 +1879,6 @@
             let isSelectModeActive = false;
             let chatsToDelete = new Set();
             
-            // Set notifications to ON by default if not previously set
             let notificationsEnabled = localStorage.getItem('goatify-notifications-enabled') === null ? true : localStorage.getItem('goatify-notifications-enabled') === 'true';
             let motivationEnabled = localStorage.getItem('goatify-motivation-enabled') === null ? true : localStorage.getItem('goatify-motivation-enabled') === 'true';
 
@@ -1926,6 +2001,7 @@
                 motivationBtnHeader: document.getElementById('motivation-btn-header'),
                 motivationBtnMobile: document.getElementById('motivation-btn-mobile'),
                 motivationModal: document.getElementById('motivation-modal'),
+                motivationTitle: document.getElementById('motivation-title'),
                 motivationQuote: document.getElementById('motivation-quote'),
                 motivationToggle: document.getElementById('motivation-toggle'),
                 closeMotivationModal: document.getElementById('close-motivation-modal'),
@@ -1965,7 +2041,6 @@
                         } else {
                              const icon = el.querySelector('i');
                             if (icon && el.childNodes.length > 1 && !el.classList.contains('notification-bell-icon')) {
-                                // Rebuild content preserving icon
                                 const textNode = document.createTextNode(' ' + translationData[key]);
                                 el.innerHTML = '';
                                 el.appendChild(icon);
@@ -1995,6 +2070,7 @@
                     'conflict-resolution': 'Modo Mediador: Describe la situación de conflicto para encontrar una solución.',
                     'decision-lab': 'Modo Estratega: Describe la decisión que enfrentas y tus opciones.',
                     'financial-assistant': 'Modo Financiero: Usa la tabla para registrar transacciones. Pídeme análisis en el chat.',
+                    'notepad': 'Modo Bloc de Notas: Apunta lo que sea. Tus ideas están seguras aquí.'
                 };
                 const currentChat = state.chats[currentChatId];
                 const key = workflowKey || (currentChat ? currentChat.workflow : null);
@@ -2361,10 +2437,9 @@
 
                 const dropZone = e.currentTarget;
                 const newDate = dropZone.dataset.date;
-                // For day view, newTime could be like "09:00", for week/month it will be null
                 let newTime = dropZone.dataset.time || findTask(taskId)?.task?.time || null; 
                 
-                if (newTime && newTime.length === 2) { // It's just an hour "09", not "09:00"
+                if (newTime && newTime.length === 2) { 
                    const originalTask = findTask(taskId)?.task;
                    const originalMinutes = originalTask?.time?.substring(3,5) || '00';
                    newTime = `${newTime}:${originalMinutes}`;
@@ -2415,9 +2490,8 @@
                     const dropZone = dropTarget.closest('.calendar-day, .week-day-section, .day-view-hour-content, .kanban-cards, .list-view-column-mobile');
                     if(dropZone) {
                         const taskId = touchDragElement.dataset.taskId;
-                        // Kanban drop
                         if (dropZone.classList.contains('kanban-cards')) {
-                            const chatId = currentChatId; // Assume drop is within current project
+                            const chatId = currentChatId;
                             const columnId = dropZone.dataset.columnId;
                             moveTask(chatId, taskId, columnId);
                         } else if(dropZone.classList.contains('list-view-column-mobile')) {
@@ -2425,7 +2499,6 @@
                             const columnId = dropZone.dataset.columnId;
                             moveTask(chatId, taskId, columnId);
                         }
-                        // Calendar drop
                         else {
                             const newDate = dropZone.dataset.date;
                             let newTime = dropZone.dataset.time || findTask(taskId)?.task?.time || null;
@@ -2443,7 +2516,6 @@
                 document.removeEventListener('touchmove', handleTouchMove);
                 document.removeEventListener('touchend', handleTouchEnd);
             }
-            // --- End Touch Drag Simulation ---
 
             function findTask(taskId) {
                 if (!taskId) return null;
@@ -2513,7 +2585,7 @@
                             if (task.completed) {
                                 const doneColumn = chat.projectData.columns.find(c => c.id === 'done');
                                 if (doneColumn && sourceColumn.id !== 'done') doneColumn.tasks.push(taskToMove);
-                                else sourceColumn.tasks.push(taskToMove); // remain if already in done
+                                else sourceColumn.tasks.push(taskToMove); 
                             } else {
                                 const todoColumn = chat.projectData.columns.find(c => c.id === 'todo');
                                 if (todoColumn && sourceColumn.id === 'done') todoColumn.tasks.push(taskToMove);
@@ -2595,13 +2667,11 @@
                         const notificationTitle = translations[lang].notification_title;
                         const notificationBody = `${translations[lang].notification_task_due} ${task.text} (${task.time})`;
                         
-                        // New In-App Popup
                         showInAppNotification(
                             `<i class="fas fa-bell animate-tada text-yellow-400 mr-2"></i> ${notificationTitle}`,
                             `<p class="text-md">${notificationBody}</p>`
                         );
 
-                        // Original System Notification (must stay)
                         if (Notification.permission === "granted") {
                             new Notification(notificationTitle, {
                                  body: notificationBody,
@@ -2768,7 +2838,7 @@
                 const today = dayjs().format('YYYY-MM-DD');
 
                 if (usageData.date !== today) {
-                    return { remaining: limit, limit: limit }; // Full credits for the new day
+                    return { remaining: limit, limit: limit }; 
                 }
                 
                 return { remaining: Math.max(0, limit - usageData.count), limit: limit };
@@ -2776,13 +2846,12 @@
             
             function spendCredits(cost) {
                 const plan = currentUser?.app_metadata?.plan || 'free';
-                if (plan === 'pro') return true; // Unlimited
+                if (plan === 'pro') return true; 
 
                 const usageKey = `usage_${currentUser?.id || 'guest'}`;
                 const today = dayjs().format('YYYY-MM-DD');
                 let usageData = JSON.parse(localStorage.getItem(usageKey)) || { count: 0, date: '' };
 
-                // Reset daily count if it's a new day
                 if (usageData.date !== today) {
                     usageData = { count: 0, date: today };
                 }
@@ -2796,14 +2865,33 @@
                     return true;
                 }
 
-                // If daily credits are not enough, try to use gamification credits
                 if (gamificationState.credits >= cost) {
                     gamificationState.credits -= cost;
-                    saveGamificationState(); // This will also call updateCreditCounter
+                    saveGamificationState();
+                    updateCreditCounter();
                     return true;
                 }
-
-                // Not enough credits from any source
+                
+                if (!currentUser) {
+                    showModal({
+                        title: 'Créditos de Invitado Agotados',
+                        body: 'Has utilizado todos tus créditos de invitado. <strong>Inicia sesión para obtener 15 créditos diarios más, ¡gratis!</strong>',
+                        confirmText: 'Iniciar Sesión',
+                        cancelText: 'Más Tarde'
+                    }).then(res => {
+                        if (res.confirmed) {
+                            netlifyIdentity.open('login');
+                        }
+                    });
+                } else { 
+                    showModal({
+                        title: 'Créditos Insuficientes',
+                        body: 'No tienes suficientes créditos de tu plan ni créditos de recompensa. Mejora tu plan para continuar.',
+                        confirmText: 'Ver Planes'
+                    }).then(res => {
+                        if (res.confirmed) showPricingModal();
+                    });
+                }
                 return false;
             }
 
@@ -2880,9 +2968,9 @@
                 const { remaining, limit } = getCreditCount();
                 const gamCredits = gamificationState.credits || 0;
                 let displayLimit = limit === Infinity ? '∞' : limit;
-                // Updated to always be visible, even on mobile. Relies on CSS changes.
                 dom.messageCounterEl.innerHTML = `
                     <span class="hidden sm:inline">${remaining}/${displayLimit}</span>
+                    <span class="sm:hidden">${remaining}</span>
                     <i class="fas fa-coins text-gold ml-2 mr-1" title="Créditos de Recompensa"></i> ${gamCredits}
                 `;
                 dom.messageCounterEl.classList.remove('hidden');
@@ -2933,7 +3021,6 @@
                 dom.modelSelector.value = options.model || 'gpt-3.5-turbo-1106';
                 if (window.innerWidth < 768) toggleSidebar(false);
                 
-                // New notification
                 const chatType = options.title || 'chat';
                 showInAppNotification("Éxito", `Has creado un nuevo ${chatType}.`, 3000);
 
@@ -2946,11 +3033,10 @@
                 currentChatId = chatId;
                 const chat = state.chats[chatId]; 
 
-                // Hide all special views first
                 dom.chatMessages.style.display = 'none';
                 dom.projectManagementView.style.display = 'none';
                 dom.financialAssistantView.style.display = 'none';
-                dom.inputArea.style.display = 'none'; // Hide main input area by default
+                dom.inputArea.style.display = 'none'; 
 
                 if (chat.workflow === 'project-management') {
                     dom.projectManagementView.style.display = 'flex';
@@ -2960,7 +3046,6 @@
                     renderFinancialAssistant(chatId);
                 }
                 else {
-                    // Regular chat view
                     dom.chatMessages.style.display = 'block';
                     dom.inputArea.style.display = 'block';
                     dom.chatMessages.innerHTML = ''; 
@@ -2982,7 +3067,6 @@
                 dom.chatTitle.textContent = "Goatify IA";
                 dom.mobileChatTitle.textContent = "Goatify IA";
 
-                // Show standard chat UI, hide others
                 dom.chatMessages.style.display = 'block';
                 dom.inputArea.style.display = 'block';
                 dom.projectManagementView.style.display = 'none';
@@ -3014,7 +3098,7 @@
                 contentDiv.innerHTML = content === '…' ? `<div class="flex items-center space-x-2"><div class="w-2 h-2 bg-gray-400 rounded-full animate-pulse"></div><div class="w-2 h-2 bg-gray-400 rounded-full animate-pulse" style="animation-delay: .2s;"></div><div class="w-2 h-2 bg-gray-400 rounded-full animate-pulse" style="animation-delay: .4s;"></div></div>` : marked.parse(content || "");
                 bubble.appendChild(contentDiv);
 
-                if (role === 'user' && container === dom.chatMessages) { // Only show edit for main chat
+                if (role === 'user' && container === dom.chatMessages) { 
                     const editBtn = document.createElement('button');
                     editBtn.className = 'p-1 text-text-medium opacity-100 transition-opacity';
                     editBtn.innerHTML = '<i class="fas fa-pencil-alt fa-xs"></i>';
@@ -3224,7 +3308,6 @@
                 if(hasFile()) cost = COSTS.NEBULA;
 
                 if (!spendCredits(cost)) {
-                    showModal({ title: 'Créditos Insuficientes', body: 'No tienes suficientes créditos de tu plan ni créditos de recompensa. Mejora tu plan para continuar.', confirmText: 'Ver Planes' }).then(res => { if (res.confirmed) showPricingModal(); });
                     return;
                 }
 
@@ -3248,7 +3331,6 @@
                     updateMessageInUI(thinkingBubble, responseData.reply, null, messageContainer);
                     speak(responseData.reply);
 
-                    // Mission Completion Check
                     if (currentChat.workflow) {
                         completeMission(currentChat.workflow, chatIdToUpdate);
                     }
@@ -3274,7 +3356,6 @@
                 if (!result.confirmed || !result.data['img-prompt']) return;
                 
                 if (!spendCredits(COSTS.IMAGE)) {
-                    showModal({ title: 'Créditos Insuficientes', body: `Necesitas ${COSTS.IMAGE} créditos para generar una imagen.`, confirmText: 'Ver Planes' }).then(res => { if (res.confirmed) showPricingModal(); });
                     return;
                 }
                 
@@ -3329,11 +3410,17 @@
                 dom.motivationModal.classList.remove('hidden');
                 dom.motivationModal.classList.add('flex');
                 
-                // Show a random quote
                 const randomIndex = Math.floor(Math.random() * MOTIVATIONAL_MESSAGES.length);
-                dom.motivationQuote.textContent = MOTIVATIONAL_MESSAGES[randomIndex];
+                const randomButtonText = MOTIVATION_BUTTON_TEXTS[Math.floor(Math.random() * MOTIVATION_BUTTON_TEXTS.length)];
 
-                // Set toggle state
+                dom.motivationTitle.style.fontWeight = 'normal';
+                dom.motivationQuote.textContent = MOTIVATIONAL_MESSAGES[randomIndex];
+                dom.motivationQuote.style.fontWeight = 'bold';
+                dom.motivationQuote.classList.add('shimmer-text');
+                dom.closeMotivationModal.textContent = randomButtonText;
+
+                setTimeout(() => dom.motivationQuote.classList.remove('shimmer-text'), 2500);
+
                 const toggle = dom.motivationToggle;
                 toggle.checked = motivationEnabled;
             }
@@ -3368,7 +3455,7 @@
                             `<p class="text-md">${message}</p>`
                         );
                     }
-                }, 60000); // Check every minute
+                }, 60000); 
             }
 
             function setupEventListeners() {
@@ -3385,9 +3472,9 @@
                     motivationEnabled = dom.motivationToggle.checked;
                     localStorage.setItem('goatify-motivation-enabled', motivationEnabled);
                     if(motivationEnabled) {
-                        setupMotivationInterval(); // Start the interval
+                        setupMotivationInterval(); 
                     } else {
-                        if(motivationInterval) clearInterval(motivationInterval); // Stop it
+                        if(motivationInterval) clearInterval(motivationInterval); 
                     }
                 });
 
@@ -3500,6 +3587,7 @@
                     'conflict-resolution': { title: "Mediador de Conflictos", workflow: 'conflict-resolution', initialMessages: [{ role: 'assistant', content: 'Entiendo. Las situaciones difíciles requieren una comunicación clara. Por favor, describe el conflicto objetivamente: ¿quiénes están involucrados y cuál es el punto principal de desacuerdo?' }] },
                     'decision-lab': { title: "Laboratorio de Decisiones", workflow: 'decision-lab', initialMessages: [{ role: 'assistant', content: 'Bienvenido al Laboratorio de Decisiones. Recuerda que una decisión puede cambiar el rumbo de tu vida. Para ayudarte a analizar tu situación, por favor, dime: ¿Cuál es la decisión que necesitas tomar y qué opciones estás considerando?' }] },
                     'financial-assistant': { title: "Asistente Financiero", workflow: 'financial-assistant', initialMessages: [{ role: 'assistant', content: '¡Vamos a organizar tus finanzas! Utiliza la tabla de arriba para añadir tus ingresos y gastos. Luego, puedes hacerme preguntas aquí sobre tus finanzas, como por ejemplo: "¿En qué categoría estoy gastando más?" o "Proyecta mis ahorros para los próximos 6 meses".' }] },
+                    'notepad': { title: "Bloc de Notas", workflow: 'notepad', initialMessages: [{ role: 'assistant', content: 'Aquí estoy, listo para apuntar tus ideas, pensamientos y recordatorios. ¿Qué tienes en mente?' }] },
                 };
                 dom.projectWorkflowHeader.addEventListener('click', () => {
                     createNewChat(workflowConfigs['project-management']);
@@ -3666,7 +3754,6 @@
                     dom.htmlPreviewModal.classList.add('hidden');
                     dom.htmlPreviewModal.classList.remove('flex');
                 });
-                // Gamification Event Listeners
                 dom.gamificationBtn?.addEventListener('click', () => {
                     renderGamificationModal();
                     dom.gamificationModal.classList.remove('hidden');
@@ -3703,11 +3790,9 @@
                         const missionId = button.dataset.missionId;
                         const mission = MISSIONS[missionId];
                         if (mission && mission.workflow) {
-                            // Find the workflow button and click it to start the chat
                             const workflowButton = document.querySelector(`[data-workflow="${mission.workflow}"]`);
                             if(workflowButton) {
                                 workflowButton.click();
-                                // Close gamification modal
                                 dom.closeGamificationModal.click();
                             }
                         }
@@ -3890,7 +3975,6 @@
                         listContent.appendChild(taskEl);
                     });
 
-                    // Add "new task" row
                     const newRowEl = document.createElement('div');
                     newRowEl.className = 'list-view-task';
                     newRowEl.innerHTML = `
@@ -3922,7 +4006,6 @@
                         const save = () => {
                             const newText = input.value.trim() || originalText;
                             updateTaskStatus(taskId, { content: newText });
-                            // Re-render is handled by updateTaskStatus
                         };
                         
                         input.addEventListener('blur', save);
@@ -3977,14 +4060,16 @@
                             </div>
                             <div class="list-view-task-mobile-footer">
                                 <div class="task-labels truncate">${labelsHtml || '–'}</div>
-                                <input type="date" class="task-date-input bg-transparent text-xs" value="${task.dueDate || ''}" data-task-id="${task.id}">
+                                <div class="task-time-date-inputs">
+                                     <input type="time" class="task-time-input" value="${task.time || ''}" data-task-id="${task.id}">
+                                     <input type="date" class="task-date-input" value="${task.dueDate || ''}" data-task-id="${task.id}">
+                                </div>
                             </div>
                         `;
                         taskEl.addEventListener('touchstart', handleTouchStart, {passive: false});
                         tasksContainer.appendChild(taskEl);
                     });
 
-                    // Add new task button
                     const addTaskBtn = document.createElement('button');
                     addTaskBtn.className = 'add-task-to-list-btn text-left text-text-medium hover:text-primary p-2 w-full';
                     addTaskBtn.innerHTML = '<i class="fas fa-plus mr-2"></i>Añadir tarea';
@@ -4015,10 +4100,11 @@
                         makeEditable(e.currentTarget, 'content');
                     });
                 });
-                dom.listViewMobile.querySelectorAll('.task-date-input').forEach(input => {
+                dom.listViewMobile.querySelectorAll('.task-date-input, .task-time-input').forEach(input => {
                     input.addEventListener('change', (e) => {
                          const taskId = e.currentTarget.dataset.taskId;
-                         updateTaskStatus(taskId, { dueDate: e.currentTarget.value });
+                         const field = e.currentTarget.classList.contains('task-date-input') ? 'dueDate' : 'time';
+                         updateTaskStatus(taskId, { [field]: e.currentTarget.value });
                     });
                 });
                 dom.listViewMobile.querySelectorAll('.delete-task-icon').forEach(btn => {
@@ -4230,7 +4316,7 @@
                 }
                 let color = '#';
                 for (let i = 0; i < 3; i++) {
-                    let value = (hash >> (i * 8)) & 0xCF; // Use CF to avoid very dark colors
+                    let value = (hash >> (i * 8)) & 0xCF; 
                     color += ('00' + value.toString(16)).substr(-2);
                 }
                 return color;
@@ -4268,7 +4354,7 @@
                     dom.tagFilterDropdown.classList.toggle('hidden');
                 };
             }
-            // --- FINANCIAL ASSISTANT LOGIC (REFACTORED) ---
+
             function renderFinancialAssistant(chatId) {
                 const chat = state.chats[chatId];
                 if (!chat.financialData) {
@@ -4385,7 +4471,6 @@
 
                 const chat = state.chats[chatId];
                 
-                // Use event delegation for efficiency
                 view.addEventListener('input', (e) => {
                     if (e.target.classList.contains('finance-category-name-input')) {
                         const catEl = e.target.closest('.finance-category');
@@ -4394,7 +4479,7 @@
                         const category = chat.financialData[`${type}Categories`].find(c => c.id === catId);
                         if (category) {
                             category.name = e.target.value;
-                            saveState(); // Save on name change
+                            saveState();
                         }
                     } else if (e.target.classList.contains('finance-item-input')) {
                         const itemRow = e.target.closest('.finance-item-row');
@@ -4416,7 +4501,6 @@
                     const chat = state.chats[chatId];
                     if (!chat || !chat.financialData) return;
 
-                    // Add new item to a category
                     const addItemBtn = e.target.closest('.add-finance-item-btn');
                     if(addItemBtn) {
                         const catEl = addItemBtn.closest('.finance-category');
@@ -4427,13 +4511,12 @@
                             if (!category.items) category.items = [];
                             category.items.push({ id: `fin-${crypto.randomUUID()}`, description: '', amount: 0 });
                             renderFinancialData(chatId);
-                            attachFinancialListeners(chatId); // Re-attach listeners after re-render
+                            attachFinancialListeners(chatId); 
                             saveState();
                         }
                         return;
                     }
 
-                    // Delete an item from a category
                     const deleteItemBtn = e.target.closest('.delete-finance-item-btn');
                     if (deleteItemBtn) {
                         const itemRow = deleteItemBtn.closest('.finance-item-row');
@@ -4451,7 +4534,6 @@
                         return;
                     }
 
-                    // Delete a whole category
                     const deleteCategoryBtn = e.target.closest('.delete-finance-category-btn');
                     if (deleteCategoryBtn) {
                         const catEl = deleteCategoryBtn.closest('.finance-category');
@@ -4525,8 +4607,6 @@
                 netBalanceEl.style.color = netBalance >= 0 ? '#22c55e' : '#ef4444';
             }
 
-
-            // --- GAMIFICATION LOGIC ---
             function checkWeekOrganized() {
                 const startOfWeek = dayjs().startOf('isoWeek');
                 for (let i = 0; i < 7; i++) {
@@ -4618,7 +4698,7 @@
                 if (streak === 7) {
                     addXp(100);
                     openGoatChest();
-                    gamificationState.dailyStreak = 0; // Reset after day 7
+                    gamificationState.dailyStreak = 0; 
                 } else {
                     addXp(xpReward);
                     addCredits(creditReward);
@@ -4635,17 +4715,17 @@
                 const rand = Math.random();
                 let rewardTitle, rewardBody;
 
-                if (rand < 0.01) { // 1% Legendary
+                if (rand < 0.01) { 
                     rewardTitle = ' recompensa ¡LEGENDARIA!';
                     rewardBody = '¡Increíble! Has ganado una <strong>Asesoría Estratégica de 30 minutos GRATIS</strong> con un experto de Goatify. ¡Nos pondremos en contacto contigo!';
-                } else if (rand < 0.1) { // 9% Epic
+                } else if (rand < 0.1) { 
                     rewardTitle = ' recompensa ¡ÉPICA!';
                     rewardBody = '¡Genial! Has ganado un <strong>cupón del 25% de descuento</strong> en cualquiera de nuestros servicios.';
-                } else if (rand < 0.4) { // 30% Rare
+                } else if (rand < 0.4) { 
                     addCredits(150);
                     rewardTitle = ' recompensa RARA!';
                     rewardBody = `Has ganado <strong>150 Créditos de Recompensa</strong> extra. ¡Sigue así!`;
-                } else { // 60% Common
+                } else { 
                     addCredits(50);
                     rewardTitle = ' recompensa COMÚN!';
                     rewardBody = `Has ganado <strong>50 Créditos de Recompensa</strong>. ¡Buen trabajo!`;
@@ -4668,9 +4748,8 @@
                 if (mission.condition) {
                     isCompleted = mission.condition(contextId);
                 } else {
-                    // For workflows, complete after first response
                     const chat = state.chats[contextId];
-                    if (chat && chat.messages.length > 1) { // Initial message + user message
+                    if (chat && chat.messages.length > 1) { 
                         isCompleted = true;
                     }
                 }
@@ -4722,7 +4801,6 @@
                     dom.gamificationXpBar.style.width = `100%`;
                 }
 
-                // Render Daily Streak
                 dom.dailyStreakContainer.innerHTML = '';
                 for (let i = 1; i <= 7; i++) {
                     const dayEl = document.createElement('div');
@@ -4746,7 +4824,6 @@
                     dom.dailyStreakContainer.appendChild(dayEl);
                 }
 
-                // Render Missions
                 dom.missionsContainer.innerHTML = '';
                 Object.values(MISSIONS).forEach(mission => {
                     const isCompleted = gamificationState.completedMissions.includes(mission.id);
@@ -4764,7 +4841,6 @@
                     dom.missionsContainer.appendChild(missionEl);
                 });
 
-                // Render Achievements
                 dom.achievementsContainer.innerHTML = '';
                 Object.values(ACHIEVEMENTS).forEach(ach => {
                     const isUnlocked = gamificationState.unlockedAchievements.includes(ach.id);
@@ -4778,8 +4854,6 @@
                     dom.achievementsContainer.appendChild(achEl);
                 });
             }
-
-            // --- END GAMIFICATION LOGIC ---
 
             let initFired = false;
             const finishInitialization = (user) => {
