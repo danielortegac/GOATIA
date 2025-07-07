@@ -953,34 +953,15 @@
         #notepad-view-container {
             display: none; /* Hidden by default */
             padding: 0; /* No padding on main container */
+            flex-direction: column; /* Organiza el toolbar y el resto verticalmente */
         }
         
-        /* This rule hides the internal list inside the notepad view as requested. */
         #notes-list-panel {
-           display: none !important;
+            flex-shrink: 0; /* El panel no debe encogerse */
+            padding: 0.5rem;
+            border-bottom: 1px solid var(--current-border-color);
         }
         
-        #notes-list-panel.collapsed {
-            width: 50px; /* Collapsed width */
-            overflow: hidden;
-            padding: 0;
-        }
-        #notes-list-panel.collapsed > *:not(#notes-list-toggle, #notes-list-header) {
-            display: none;
-        }
-        #notes-list-panel.collapsed #notes-list-toggle {
-            display: block; /* Show toggle button */
-            margin: auto;
-            padding: 0.5rem;
-            transform: translateY(0%) rotate(180deg); /* Rotate arrow when collapsed */
-        }
-        #notes-list-panel.collapsed #notes-list-toggle {
-            top: 12px; /* Position at the top right of the collapsed panel */
-            right: -12px;
-            transform: translateY(0%) rotate(180deg);
-        }
-
-
         #notepad-editor-and-chat-container {
             display: flex;
             flex-direction: row;
@@ -990,11 +971,7 @@
             min-height: 0;
         }
         #notes-list {
-            flex-grow: 1;
-            overflow-y: auto;
-            display: flex; /* Always expanded */
-            flex-direction: column;
-            gap: 0.5rem;
+            display: none; /* La lista interna ya no es necesaria aquí */
         }
         .note-item {
             padding: 0.75rem 1rem;
@@ -1006,6 +983,9 @@
             background-color: var(--current-bg-medium);
             border-left: 4px solid transparent;
             transition: all 0.2s ease;
+            display: block; /* Asegurarse de que las etiquetas 'a' se comporten como bloques */
+            color: var(--current-text-light); /* Heredar color de texto */
+            text-decoration: none; /* Quitar subrayado de los links */
         }
         .note-item:hover { 
             background-color: var(--current-bg-dark);
@@ -1013,9 +993,12 @@
         }
         .note-item.active { 
             background-color: var(--current-primary); 
-            color: white; 
+            color: white !important; 
             font-weight: bold;
             border-left-color: var(--gold-color);
+        }
+        .note-item.active * {
+            color: white !important;
         }
         #note-editor-panel {
             flex-grow: 1;
@@ -1221,14 +1204,9 @@
              #notepad-editor-and-chat-container {
                 flex-direction: row;
             }
-            #notes-list-panel {
-                transition: width 0.3s ease, padding 0.3s ease;
-            }
+            
             #notes-list-toggle {
                 display: block; /* Show toggle on desktop */
-            }
-            #notes-list {
-                display: flex; /* Always show notes list on desktop when panel is expanded */
             }
 
 
@@ -1431,11 +1409,8 @@
             }
             #notes-list-panel {
                 width: 100%;
-                height: 100%;
+                height: auto; /* Ajustar altura automáticamente */
                 border-radius: 0;
-            }
-            #notes-list {
-                display: flex; /* Always show notes list on mobile when notes panel is active */
             }
             #note-editor-panel {
                 height: 100%;
@@ -1554,6 +1529,17 @@
         }
         .speaker-icon:hover {
             opacity: 1;
+        }
+        /* Make chat items links for right-click functionality */
+        .chat-item {
+            display: block;
+            text-decoration: none;
+        }
+        .chat-item, a.chat-item:hover {
+            color: var(--current-text-light);
+        }
+        .light-theme .chat-item, .light-theme a.chat-item:hover {
+            color: var(--light-text-dark);
         }
 
     </style>
@@ -1807,10 +1793,6 @@
                             <button id="add-new-note-btn" class="w-full btn-primary text-sm flex items-center justify-center gap-2"><i class="fas fa-file-alt"></i>Nueva Nota</button>
                             <button id="add-new-drawing-btn" class="p-2 bg-input rounded-md" title="Nuevo Dibujo"><i class="fas fa-paint-brush"></i></button>
                         </div>
-                        <div id="notes-list">
-                            </div>
-                        <button id="notes-list-toggle" class="absolute bg-current-bg-dark border border-themed rounded-full p-2 cursor-pointer transition-transform hidden md:block">
-                            <i class="fas fa-chevron-left"></i> </button>
                     </div>
                     <div id="notepad-editor-and-chat-container">
                         <div id="note-editor-panel">
@@ -2544,7 +2526,6 @@
                 
                 // Notepad DOM elements
                 notesListPanel: document.getElementById('notes-list-panel'),
-                notesList: document.getElementById('notes-list'),
                 notesListHeader: document.getElementById('notes-list-header'),
                 noteEditorPanel: document.getElementById('note-editor-panel'),
                 noteTitleInput: document.getElementById('note-title-input'),
@@ -2566,13 +2547,10 @@
                 notepadChatMessages: document.getElementById('notepad-chat-messages'),
                 notepadMsgInput: document.getElementById('notepad-msg'),
                 notepadSendBtn: document.getElementById('notepad-send'),
-                notesListToggle: document.getElementById('notes-list-toggle'),
-                planCreditsDisplay: document.getElementById('plan-credits-display'), // New element for plan credits
-                rewardCreditsDisplay: document.getElementById('reward-credits-display'), // New element for reward credits
+                planCreditsDisplay: document.getElementById('plan-credits-display'),
+                rewardCreditsDisplay: document.getElementById('reward-credits-display'),
             };
             Object.assign(dom, fullDom);
-
-                // --- END OF DOM MAPPING ---
 
             const XP_FOR_LEVEL = [0, 250, 750, 2000, 5000, Infinity]; 
             const LEVEL_NAMES = ["Iniciador Digital", "Creador de Contenido", "Estratega de Marketing", "CEO Digital", "G.O.A.T."];
@@ -2686,7 +2664,7 @@
                          btn.action(e, modalBody);
                     });
                 });
-
+                
                 const confirmButton = dom.genericModal.querySelector('#modal-confirm');
                 modalKeydownHandler = (e) => {
                     if (e.key === 'Enter') {
@@ -2699,7 +2677,7 @@
                     }
                 };
                 document.addEventListener('keydown', modalKeydownHandler);
-                
+
                 dom.genericModal.classList.remove('hidden');
                 dom.genericModal.classList.add('flex');
                 
@@ -3249,7 +3227,6 @@
                 return [...calendarTasks, ...projectTasks].sort((a, b) => (a.time || '23:59').localeCompare(b.time || '23:59'));
             }
 
-
             function updateNotificationBadge() {
                  let pendingNotifications = 0;
                 const now = dayjs();
@@ -3789,6 +3766,12 @@
                         currentView: 'list' 
                     };
                 }
+                if (options.workflow === 'financial-assistant') {
+                    state.chats[id].financialData = {
+                        incomeCategories: [],
+                        expenseCategories: []
+                    };
+                }
 
                 state.structure.unshift(id); 
                 selectChat(id); 
@@ -3814,13 +3797,6 @@
                     return; 
                 } 
                 
-                // Keep notes panel collapsed when opening other sections unless it's the notes app itself
-                if (chatId !== 'notepad-app' && dom.notesListPanel && !dom.notesListPanel.classList.contains('collapsed')) {
-                    dom.notesListPanel.classList.add('collapsed');
-                    if(dom.notesListToggle) dom.notesListToggle.querySelector('i').classList.replace('fa-chevron-left', 'fa-chevron-right'); // Ensure arrow points right
-                }
-
-
                 dom.chatMessages.style.display = 'none';
                 dom.projectManagementView.style.display = 'none';
                 dom.financialAssistantView.style.display = 'none';
@@ -3885,10 +3861,6 @@
                 updateActiveChatHighlight(); 
                 dom.modelSelector.value = 'gpt-3.5-turbo-1106';
                 updateContextualFooter(null);
-                if(dom.notesListPanel) {
-                    dom.notesListPanel.classList.add('collapsed');
-                    if(dom.notesListToggle) dom.notesListToggle.querySelector('i').classList.replace('fa-chevron-left', 'fa-chevron-right');
-                }
             }
 
             function addMessageToUI(role, content, imageSrc, messageIndex, container) {
@@ -4012,12 +3984,13 @@
                 dom.sidebarContent.appendChild(fragChats);
                 updateActiveChatHighlight(); 
             }
-
+            
             function createChatItemElement(id, isSubItem = false) { 
                 const chat = state.chats[id];
                 if (!chat || chat.isDeletable === false) return document.createDocumentFragment(); 
 
-                const item = document.createElement('div'); 
+                const item = document.createElement('a');
+                item.href = `?chat=${id}`;
                 item.className = `chat-item group flex items-center justify-between p-2 rounded-md cursor-pointer ${isSubItem ? 'pl-8' : ''}`;
                 item.dataset.id = id; 
                 item.dataset.type = 'chat';
@@ -4027,7 +4000,8 @@
                     const isSelected = chatsToDelete.has(id);
                     item.innerHTML = `<i class="far ${isSelected ? 'fa-check-square' : 'fa-square'} mr-2 text-primary"></i><span class="flex-grow truncate text-sm font-medium">${chat.title}</span>`;
                     if (isSelected) item.classList.add('selected-for-delete');
-                    item.addEventListener('click', () => {
+                    item.addEventListener('click', (e) => {
+                        e.preventDefault();
                         if (chatsToDelete.has(id)) {
                             chatsToDelete.delete(id);
                             item.querySelector('i').classList.replace('fa-check-square', 'fa-square');
@@ -4046,14 +4020,27 @@
                     item.draggable = true;
                     item.innerHTML = `<i class="far fa-comment-dots mr-2"></i><span class="flex-grow truncate text-sm font-medium">${chat.title}</span>
                     <div class="chat-item-actions flex-shrink-0 flex items-center ${actionsOpacityClass} transition-opacity">
-                        <a href="?chat=${id}" target="_blank" class="text-text-medium hover:text-primary p-1" title="Abrir en Pestaña Nueva" onclick="event.stopPropagation();"><i class="fas fa-external-link-alt fa-xs"></i></a>
                         <button class="rename-btn text-text-medium hover:text-primary p-1" title="Renombrar"><i class="fas fa-pencil-alt fa-xs"></i></button>
                         <button class="delete-btn text-text-medium hover:text-red-500 p-1" title="Eliminar"><i class="fas fa-trash-alt fa-xs"></i></button>
                     </div>`;
-                    item.addEventListener('click', e => { if (!e.target.closest('.chat-item-actions')) selectChat(id); }); 
+                    
+                    item.addEventListener('click', e => {
+                        if (!e.ctrlKey && !e.metaKey && e.button === 0) {
+                            e.preventDefault();
+                            if (!e.target.closest('.chat-item-actions')) {
+                                selectChat(id);
+                                history.pushState({chatId: id}, '', item.href);
+                            }
+                        }
+                    });
+                    
                     item.addEventListener('dragstart', e => handleDragStart(e, id));
-                    item.querySelector('.rename-btn').addEventListener('click', (e) => { e.stopPropagation(); renameItem('chat', id); });
-                    item.querySelector('.delete-btn').addEventListener('click', (e) => { e.stopPropagation(); deleteItem('chat', id); });
+
+                    const renameBtn = item.querySelector('.rename-btn');
+                    const deleteBtn = item.querySelector('.delete-btn');
+                    
+                    renameBtn.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); renameItem('chat', id); });
+                    deleteBtn.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); deleteItem('chat', id); });
                 }
                 return item;
             }
@@ -4062,8 +4049,9 @@
                 const note = state.notes.find(n => n.id === id);
                 if (!note) return document.createDocumentFragment();
 
-                const item = document.createElement('div');
-                item.className = 'chat-item group flex items-center justify-between p-2 rounded-md cursor-pointer'; // Use chat-item for consistent styling
+                const item = document.createElement('a');
+                item.href = `?chat=${id}`;
+                item.className = 'note-item group flex items-center justify-between p-2 rounded-md cursor-pointer'; 
                 if (isSubItem) item.classList.add('pl-8');
                 item.dataset.id = note.id;
                 item.dataset.type = 'note';
@@ -4076,7 +4064,8 @@
                     const isSelected = chatsToDelete.has(id);
                     item.innerHTML = `<i class="far ${isSelected ? 'fa-check-square' : 'fa-square'} mr-2 text-primary"></i><span class="flex-grow truncate text-sm font-medium">${note.title}</span>`;
                     if (isSelected) item.classList.add('selected-for-delete');
-                    item.addEventListener('click', () => {
+                    item.addEventListener('click', (e) => {
+                        e.preventDefault();
                         if (chatsToDelete.has(id)) {
                             chatsToDelete.delete(id);
                             item.querySelector('i').classList.replace('fa-check-square', 'fa-square');
@@ -4093,26 +4082,35 @@
                     item.innerHTML = `
                         <i class="fas ${note.type === 'drawing' ? 'fa-paint-brush' : 'fa-file-alt'} mr-2"></i>
                         <span class="flex-grow truncate text-sm font-medium">${note.title}</span>
-                        <div class="chat-item-actions flex-shrink-0 flex items-center ${actionsOpacityClass} transition-opacity">
-                            <a href="?chat=${id}" target="_blank" class="text-text-medium hover:text-primary p-1" title="Abrir en Pestaña Nueva" onclick="event.stopPropagation();"><i class="fas fa-external-link-alt fa-xs"></i></a>
+                        <div class="chat-item-actions flex-shrink-0 ${actionsOpacityClass} transition-opacity">
                             <button class="rename-btn text-text-medium hover:text-primary p-1" title="Renombrar"><i class="fas fa-pencil-alt fa-xs"></i></button>
                             <button class="delete-btn text-text-medium hover:text-red-500 p-1" title="Eliminar"><i class="fas fa-trash-alt fa-xs"></i></button>
                         </div>
                     `;
-                    item.addEventListener('click', e => { 
-                        if (!e.target.closest('.chat-item-actions')) {
-                            selectChat(id);
-                            if (window.innerWidth < 768) {
-                                dom.notepadViewContainer.classList.add('mobile-editor-active');
+                    item.addEventListener('click', e => {
+                        if (!e.ctrlKey && !e.metaKey && e.button === 0) {
+                            e.preventDefault();
+                            if (!e.target.closest('.chat-item-actions')) {
+                                selectChat(id);
+                                history.pushState({chatId: id}, '', item.href);
+                                if (window.innerWidth < 768) {
+                                    dom.notepadViewContainer.classList.add('mobile-editor-active');
+                                }
                             }
                         }
                     });
+                    
                     item.addEventListener('dragstart', e => handleDragStart(e, id));
-                    item.querySelector('.rename-btn').addEventListener('click', (e) => { e.stopPropagation(); renameItem('note', id); });
-                    item.querySelector('.delete-btn').addEventListener('click', (e) => { e.stopPropagation(); deleteItem('note', id); });
+                    
+                    const renameBtn = item.querySelector('.rename-btn');
+                    const deleteBtn = item.querySelector('.delete-btn');
+
+                    renameBtn.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); renameItem('note', id); });
+                    deleteBtn.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); deleteItem('note', id); });
                 }
                 return item;
             }
+
 
             function createProjectElement(id) {
                 const project = state.projects[id];
@@ -4457,10 +4455,8 @@
                 };
                 state.notes.unshift(newNote);
                 state.structure.unshift(newNote.id);
-                selectNote(newNote.id);
-                saveState();
-                renderSidebar();
-
+                selectChat(newNote.id); // Select the new note, which also renders sidebar and saves state
+                
                 if (window.innerWidth < 768) {
                     dom.notepadViewContainer.classList.add('mobile-editor-active');
                 }
@@ -4674,9 +4670,6 @@
             }
 
             function setupEventListeners() {
-                const urlParams = new URLSearchParams(window.location.search);
-                const chatIdFromUrl = urlParams.get('chat');
-
                 dom.inAppNotificationClose?.addEventListener('click', (e) => {
                     e.stopPropagation();
                     dom.inAppNotification.classList.remove('show');
@@ -4749,7 +4742,6 @@
                 };
 
                 setupAssistantInput('project-msg', 'project-send', 'project');
-                setupAssistantInput('financial-msg', 'financial-send', 'financial');
                 setupAssistantInput('notepad-msg', 'notepad-send', 'notepad');
 
 
@@ -4868,28 +4860,13 @@
                         }
                     }
                 });
-
-                // Notepad list toggle for desktop
-                if(dom.notesListToggle) {
-                    dom.notesListToggle.addEventListener('click', () => { 
-                        dom.notesListPanel.classList.toggle('collapsed');
-                        // Toggle visibility of the notes list based on panel collapse state
-                        if (dom.notesListPanel.classList.contains('collapsed')) {
-                            dom.notesList.style.display = 'none'; // Hide list when panel collapses
-                            dom.notesListToggle.querySelector('i').classList.replace('fa-chevron-left', 'fa-chevron-right');
-                        } else {
-                            dom.notesList.style.display = 'flex'; // Show list when panel expands
-                            dom.notesListToggle.querySelector('i').classList.replace('fa-chevron-right', 'fa-chevron-left');
-                        }
-                    });
-                }
                 
                 dom.userMenuBtn?.addEventListener('click', (e) => { e.stopPropagation(); dom.userMenuPopup.classList.toggle('hidden'); });
                 dom.logoutBtn?.addEventListener('click', () => { netlifyIdentity.logout(); dom.userMenuPopup.classList.add('hidden');});
                 
                 const workflowConfigs = {
-                    'project-management': { title: "Asistente de Proyectos", workflow: 'project-management', initialMessages: [{ role: 'assistant', content: '¡Excelente! Vamos a estructurar este proyecto como un profesional. Para empezar, **¿cuál es el objetivo final y medible que quieres alcanzar con este proyecto?** Descríbelo y luego definiremos los entregables clave.' }] },
-                    'financial-assistant': { title: "Asistente Financiero", workflow: 'financial-assistant', initialMessages: [{ role: 'assistant', content: '¡Vamos a organizar tus finanzas! Utiliza la tabla de arriba para añadir tus ingresos y gastos. Luego, puedes hacerme preguntas aquí sobre tus finanzas, como por ejemplo: "¿En qué categoría estoy gastando más?" o "Proyecta mis ahorros para los próximos 6 meses".' }] },
+                    'project-management': { title: "Asistente de Proyectos", workflow: 'project-management' },
+                    'financial-assistant': { title: "Asistente Financiero", workflow: 'financial-assistant' },
                     'notepad-app': { title: "Bloc de Notas", workflow: 'notepad-app' },
                     'create-full-post': { title: "Post para Redes", workflow: 'create-full-post', initialMessages: [{ role: 'assistant', content: '¡Claro! Vamos a crear un post increíble. ¿Para qué red social lo necesitas (Instagram, Facebook, LinkedIn, etc.)?' }] },
                     'persuasive-copy': { title: "Copy Persuasivo", workflow: 'persuasive-copy', initialMessages: [{ role: 'assistant', content: 'Estoy listo para redactar textos que vendan. ¿Para qué necesitas este copy? (ej: Anuncio de Facebook, Post de Venta, Descripción de Producto)' }] },
@@ -5813,15 +5790,9 @@
             function renderFinancialAssistant(chatId) {
                 const chat = state.chats[chatId];
                 if (!chat) return;
-                if (!chat.financialData) {
-                    chat.financialData = {
-                        incomeCategories: [], 
-                        expenseCategories: []
-                    };
-                }
-
+                
                 dom.financialAssistantView.innerHTML = `
-                     <div id="financial-tools-container">
+                     <div id="financial-tools-container" class="flex-1 overflow-y-auto p-4 space-y-4">
                          <div class="finance-summary">
                             <div>
                                 <h4>Ingresos Totales</h4>
@@ -5842,7 +5813,6 @@
                                 <div class="finance-section-header">
                                     <h3 class="text-green-400">Ingresos</h3>
                                     <button id="add-income-category-btn" class="text-sm btn-primary p-1 px-2"><i class="fas fa-folder-plus mr-1"></i> Nueva Carpeta</button>
-                                    <button id="share-income-data-btn" title="Compartir Datos de Ingresos" class="p-1 rounded-md bg-gray-600 text-white text-xs ml-2"><i class="fas fa-share-alt"></i></button>
                                 </div>
                                 <div id="income-categories-list" class="space-y-3"></div>
                             </div>
@@ -5850,7 +5820,6 @@
                                 <div class="finance-section-header">
                                     <h3 class="text-red-400">Gastos</h3>
                                     <button id="add-expense-category-btn" class="text-sm btn-primary p-1 px-2"><i class="fas fa-folder-plus mr-1"></i> Nueva Carpeta</button>
-                                    <button id="share-expense-data-btn" title="Compartir Datos de Gastos" class="p-1 rounded-md bg-gray-600 text-white text-xs ml-2"><i class="fas fa-share-alt"></i></button>
                                 </div>
                                 <div id="expense-categories-list" class="space-y-3"></div>
                             </div>
@@ -5902,6 +5871,9 @@
 
             function renderFinancialData(chatId) {
                 const chat = state.chats[chatId];
+                if (!chat.financialData) {
+                    chat.financialData = { incomeCategories: [], expenseCategories: [] };
+                }
                 const { incomeCategories = [], expenseCategories = [] } = chat.financialData;
 
                 const incomeList = dom.financialAssistantView.querySelector('#income-categories-list');
@@ -5951,6 +5923,21 @@
                 if (!view) return;
 
                 const chat = state.chats[chatId];
+
+                // Setup send button and Enter key for financial chat
+                const financialInput = view.querySelector('#financial-msg');
+                const financialSendBtn = view.querySelector('#financial-send');
+                if (financialSendBtn) {
+                    financialSendBtn.addEventListener('click', () => sendMessage(false, null, { assistantType: 'financial' }));
+                }
+                if (financialInput) {
+                    financialInput.addEventListener('keydown', (e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            sendMessage(false, null, { assistantType: 'financial' });
+                        }
+                    });
+                }
                 
                 view.addEventListener('input', (e) => {
                     if (e.target.classList.contains('finance-category-name-input')) {
@@ -5992,7 +5979,6 @@
                             if (!category.items) category.items = [];
                             category.items.push({ id: `fin-${crypto.randomUUID()}`, description: '', amount: 0 });
                             renderFinancialData(chatId);
-                            attachFinancialListeners(chatId); 
                             saveState();
                         }
                         return;
@@ -6009,7 +5995,6 @@
                         if (category) {
                             category.items = (category.items || []).filter(i => i.id !== itemId);
                             renderFinancialData(chatId);
-                            attachFinancialListeners(chatId);
                             saveState();
                         }
                         return;
@@ -6022,42 +6007,7 @@
                         const type = catEl.dataset.type;
                         chat.financialData[`${type}Categories`] = chat.financialData[`${type}Categories`].filter(c => c.id !== catId);
                         renderFinancialData(chatId);
-                        attachFinancialListeners(chatId);
                         saveState();
-                        return;
-                    }
-
-                    const shareIncomeBtn = e.target.closest('#share-income-data-btn');
-                    if (shareIncomeBtn) {
-                        const lang = localStorage.getItem('goatify-lang') || 'es';
-                        const result = await showModal({
-                            title: translations[lang].share_financial_data,
-                            body: `<p>${translations[lang].share_financial_data_desc}</p>
-                                   <input type="email" id="share-email-input" class="w-full p-2 rounded bg-input border border-themed mt-2" placeholder="${translations[lang].share_note_email_placeholder}">
-                                   <p class="text-xs text-text-medium mt-2">${translations[lang].share_financial_data_info}</p>`,
-                            confirmText: translations[lang].share_note_button
-                        });
-                        if (result.confirmed && result.data['share-email-input']) {
-                            console.log(`(DEMO) Sharing income data for chat ${chatId} with ${result.data['share-email-input']}. Backend needed.`);
-                            showInAppNotification("Función en Desarrollo", `Datos de ingresos serán compartidos con ${result.data['share-email-input']}.`);
-                        }
-                        return;
-                    }
-                    
-                    const shareExpenseBtn = e.target.closest('#share-expense-data-btn');
-                    if (shareExpenseBtn) {
-                        const lang = localStorage.getItem('goatify-lang') || 'es';
-                        const result = await showModal({
-                            title: translations[lang].share_financial_data,
-                            body: `<p>${translations[lang].share_financial_data_desc}</p>
-                                   <input type="email" id="share-email-input" class="w-full p-2 rounded bg-input border border-themed mt-2" placeholder="${translations[lang].share_note_email_placeholder}">
-                                   <p class="text-xs text-text-medium mt-2">${translations[lang].share_financial_data_info}</p>`,
-                            confirmText: translations[lang].share_note_button
-                        });
-                        if (result.confirmed && result.data['share-email-input']) {
-                            console.log(`(DEMO) Sharing expense data for chat ${chatId} with ${result.data['share-email-input']}. Backend needed.`);
-                            showInAppNotification("Función en Desarrollo", `Datos de gastos serán compartidos con ${result.data['share-email-input']}.`);
-                        }
                         return;
                     }
                 });
@@ -6067,7 +6017,6 @@
                     if (!chat.financialData.incomeCategories) chat.financialData.incomeCategories = [];
                     chat.financialData.incomeCategories.push(newCategory);
                     renderFinancialData(chatId);
-                    attachFinancialListeners(chatId);
                     saveState();
                 });
 
@@ -6076,7 +6025,6 @@
                     if (!chat.financialData.expenseCategories) chat.financialData.expenseCategories = [];
                     chat.financialData.expenseCategories.push(newCategory);
                     renderFinancialData(chatId);
-                    attachFinancialListeners(chatId);
                     saveState();
                 });
 
@@ -6376,31 +6324,35 @@
                     const chatIdFromUrl = urlParams.get('chat');
 
                     updateUserUI();
-                    loadStateForUser();
-                    populateVoiceList();
-                    setupEventListeners();
-                    setupNotifications();
-                    updateContextualFooter(null);
-                    setupMotivationInterval();
+                    loadStateForUser().then(() => {
+                        // This logic runs after state is loaded
+                        populateVoiceList();
+                        setupEventListeners();
+                        setupNotifications();
+                        updateContextualFooter(null);
+                        setupMotivationInterval();
 
-                    dom.appContainer.classList.remove('opacity-0');
-                    dom.loadingOverlay.style.display = 'none';
+                        dom.appContainer.classList.remove('opacity-0');
+                        dom.loadingOverlay.style.display = 'none';
+                        
+                        // Check for chat ID from URL after state is fully loaded
+                        if (chatIdFromUrl && (state.chats[chatIdFromUrl] || (state.notes || []).find(n => n.id === chatIdFromUrl))) {
+                            selectChat(chatIdFromUrl);
+                        } else if (currentChatId && (state.chats[currentChatId] || (state.notes || []).find(n => n.id === currentChatId))) {
+                            selectChat(currentChatId);
+                        } else {
+                            resetChatView();
+                        }
 
-                    if (chatIdFromUrl && (state.chats[chatIdFromUrl] || (state.notes || []).find(n => n.id === chatIdFromUrl))) {
-                        selectChat(chatIdFromUrl);
-                    } else if (currentChatId && (state.chats[currentChatId] || (state.notes || []).find(n => n.id === currentChatId))) {
-                        selectChat(currentChatId);
-                    } else {
-                        resetChatView();
-                    }
-                    updateNotificationBadge();
-                    if (currentUser && !localStorage.getItem('goatify-gamification-rules-seen')) {
-                        setTimeout(() => {
-                            dom.gamificationRulesModal.classList.remove('hidden');
-                            dom.gamificationRulesModal.classList.add('flex');
-                            localStorage.setItem('goatify-gamification-rules-seen', 'true');
-                        }, 2000);
-                    }
+                        updateNotificationBadge();
+                        if (currentUser && !localStorage.getItem('goatify-gamification-rules-seen')) {
+                            setTimeout(() => {
+                                dom.gamificationRulesModal.classList.remove('hidden');
+                                dom.gamificationRulesModal.classList.add('flex');
+                                localStorage.setItem('goatify-gamification-rules-seen', 'true');
+                            }, 2000);
+                        }
+                    });
                 } catch (e) {
                     console.error("Error during finishInitialization:", e);
                     dom.loadingOverlay.innerHTML = `<div class="text-red-500 text-center">Error al cargar la aplicación.<br>Por favor, recarga la página.<br><small>${e.message}</small></div>`;
@@ -6455,4 +6407,5 @@
     </script>
 </body>
 </html>
+
             
