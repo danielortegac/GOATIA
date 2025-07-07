@@ -202,7 +202,7 @@
         .folders-category .folder-header:hover {
             background-color: var(--current-bg-light);
         }
-        .folders-category.open .folder-content {
+        .folders-category.open .folders-content {
             display: block;
         }
         .folders-category.open .folder-arrow {
@@ -2151,7 +2151,7 @@
     <div id="settings-modal" class="fixed inset-0 bg-black bg-opacity-70 hidden items-center justify-center z-40 p-4">
         <div class="modal-content rounded-lg w-full max-w-lg p-6 relative">
              <h3 class="text-lg font-bold mb-4" data-translate-key="settings">Configuración</h3>
-             <div class="space-y-4 text-sm max-h-[70vh] overflow-y-auto pr-2">
+        <div class="space-y-4 text-sm max-h-[70vh] overflow-y-auto pr-2">
                 <div>
                     <p class="font-semibold" data-translate-key="settings_email">Correo Electrónico:</p>
                     <p id="settings-user-email" class="text-text-medium"></p>
@@ -3094,7 +3094,6 @@
                     });
                 });
             }
-
             function renderDayView() {
                 dom.currentDayDisplay.textContent = selectedCalendarDate.format('dddd, D [de] MMMM');
                 dom.dayViewTimeline.innerHTML = '';
@@ -3851,16 +3850,11 @@
                 state.structure = state.structure || [];
                 state.notes = state.notes || [];
 
-                // Ensure notepad-assistant-chat exists and is not deletable
-                if (!state.chats['notepad-assistant-chat']) {
-                    state.chats['notepad-assistant-chat'] = {
-                        id: 'notepad-assistant-chat',
-                        title: 'Asistente de Redacción',
-                        messages: [{ role: 'assistant', content: '¡Hola! Soy tu asistente de redacción. Pega tu texto aquí o pídeme ideas para empezar. También puedo corregir tu ortografía y gramática.' }], /* Updated message */
-                        workflow: 'notepad-assistant',
-                        isDeletable: false,
-                    };
+                // Remove the obsolete shared notepad chat assistant if it exists
+                if (state.chats['notepad-assistant-chat']) {
+                    delete state.chats['notepad-assistant-chat'];
                 }
+
 
                 // Initialize goatXProUsage for the current day
                 const today = dayjs().format('YYYY-MM-DD');
@@ -4310,7 +4304,7 @@
             function createProjectElement(id) {
                 const project = state.projects[id];
                 if (!project) return document.createDocumentFragment();
-                const div = document.createElement('div'); div.className = 'project folders-category'; div.dataset.id = id; // Changed class to folders-category
+                const div = document.createElement('div'); div.className = 'project folders-category'; div.dataset.id = id;
                 const header = document.createElement('div');
                 header.className = 'folder-header group flex items-center p-2 rounded-md cursor-pointer';
 
@@ -4318,14 +4312,19 @@
                 const actionsOpacityClass = isMobileView ? 'opacity-100' : 'opacity-0 group-hover:opacity-100';
 
                 header.innerHTML = `<i class="fas fa-chevron-right folder-arrow mr-2 transition-transform"></i><i class="fas fa-folder mr-2 text-yellow-500"></i><span class="flex-grow truncate text-sm font-bold">${project.title}</span><div class="chat-item-actions flex-shrink-0 ${actionsOpacityClass} transition-opacity"><button class="rename-btn text-text-medium hover:text-primary p-1" title="Renombrar"><i class="fas fa-pencil-alt fa-xs"></i></button><button class="delete-btn text-text-medium hover:text-red-500 p-1" title="Eliminar"><i class="fas fa-trash-alt fa-xs"></i></button></div>`;
-                const content = document.createElement('div'); content.className = 'folders-content pt-1 space-y-1 pl-4'; // Changed class to folders-content
+                const content = document.createElement('div'); content.className = 'folders-content pt-1 space-y-1 pl-4';
                 (project.itemIds || []).forEach(itemId => {
-                    // Filter out notepad-assistant-chat from project folders
-                    if (itemId.startsWith('chat-') && itemId !== 'notepad-assistant-chat') content.appendChild(createChatItemElement(itemId, true));
+                    if (itemId.startsWith('chat-')) content.appendChild(createChatItemElement(itemId, true));
                     if (itemId.startsWith('note-')) content.appendChild(createNoteItemElement(itemId, true));
                 });
                 div.append(header, content);
-                header.addEventListener('click', e => { if (!e.target.closest('.chat-item-actions')) div.classList.toggle('open'); });
+                
+                header.addEventListener('click', e => { 
+                    if (!e.target.closest('.chat-item-actions')) {
+                        e.stopPropagation(); // Prevents the body's generic listener from firing
+                        div.classList.toggle('open');
+                    }
+                });
                 header.addEventListener('dragover', e => handleDragOver(e, header));
                 header.addEventListener('dragleave', e => handleDragLeave(e, header));
                 header.addEventListener('drop', e => handleDrop(e, id, header));
@@ -4490,62 +4489,67 @@
             function hasFile() { return selectedImageBase64 || selectedPdfText; }
             async function sendMessage(forceSend = false, spokenMessage = null, { assistantType = 'main' } = {}) {
                 let inputEl, messageContainer, financialData = null, noteContent = null;
-                let chatIdToUpdate = currentChatId;
-                let modelToUse;
+                let currentItem, modelToUse;
 
                 switch(assistantType) {
                     case 'project':
                         inputEl = dom.projectMsgInput;
                         messageContainer = dom.projectChatMessages;
-                        modelToUse = getModelForRequest(state.chats[chatIdToUpdate]?.workflow, false, 'project');
+                        currentItem = state.chats[currentChatId];
+                        modelToUse = getModelForRequest(currentItem?.workflow, false, 'project');
                         break;
                     case 'financial':
                         inputEl = document.getElementById('financial-msg');
                         messageContainer = document.getElementById('financial-chat-messages');
-                        financialData = state.chats[currentChatId].financialData;
-                        modelToUse = getModelForRequest(state.chats[chatIdToUpdate]?.workflow, false, 'financial');
+                        currentItem = state.chats[currentChatId];
+                        financialData = currentItem.financialData;
+                        modelToUse = getModelForRequest(currentItem?.workflow, false, 'financial');
                         break;
                     case 'notepad':
                         inputEl = dom.notepadMsgInput;
                         messageContainer = dom.notepadChatMessages;
-                        chatIdToUpdate = 'notepad-assistant-chat';
-                        noteContent = dom.noteContentEditor.innerHTML; // Get HTML content for notepad assistant
-                        modelToUse = getModelForRequest(state.chats[chatIdToUpdate]?.workflow, false, 'notepad');
+                        currentItem = state.notes.find(n => n.id === currentNoteId);
+                        noteContent = dom.noteContentEditor.innerHTML;
+                        modelToUse = getModelForRequest(null, false, 'notepad'); // Notepad has no workflow key
                         break;
                     default: // main
                         inputEl = dom.msgInput;
                         messageContainer = dom.chatMessages;
-                        if (!chatIdToUpdate) chatIdToUpdate = createNewChat({});
-                        modelToUse = getModelForRequest(state.chats[chatIdToUpdate]?.workflow, hasFile(), 'main');
+                        if (!currentChatId) {
+                           currentChatId = createNewChat({});
+                        }
+                        currentItem = state.chats[currentChatId];
+                        modelToUse = getModelForRequest(currentItem?.workflow, hasFile(), 'main');
                 }
 
                 const userMessage = spokenMessage || inputEl.value.trim();
                 if (!userMessage && !selectedImageBase64 && !selectedPdfText) return;
                 
-                const currentChat = state.chats[chatIdToUpdate];
-                if (!currentChat) return;
+                if (!currentItem) return;
+                // Ensure messages array exists
+                if (!currentItem.messages) currentItem.messages = [];
 
                 const webSearchTriggers = ['busca', 'investiga', 'en internet', 'tiempo real', 'qué día es hoy', 'qué fecha es hoy', 'cuál es el precio de', 'quién es', 'qué es', 'noticias sobre'];
                 const requiresWebSearch = webSearchTriggers.some(trigger => userMessage.toLowerCase().startsWith(trigger));
-                if (requiresWebSearch && !hasFile() && !currentChat.workflow) { modelToUse = 'sonar'; }
+                if (requiresWebSearch && !hasFile() && (!currentItem.workflow || assistantType === 'main')) { modelToUse = 'sonar'; }
                 
                 let cost = COSTS.GENERAL;
                 if(modelToUse === 'sonar') cost = COSTS.SEARCH;
-                if(currentChat.workflow) cost = COSTS.WORKFLOW;
+                if(currentItem.workflow) cost = COSTS.WORKFLOW;
                 if(selectedPdfText) cost = COSTS.PDF_ANALYSIS;
                 if(selectedImageBase64) cost = COSTS.IMAGE_ANALYSIS;
                 if(modelToUse === 'gpt-4o') cost = COSTS.GPT4O; // Specific cost for GPT-4o
 
-                if (!spendCredits(cost, modelToUse)) return; // Pass modelUsed to spendCredits
+                if (!spendCredits(cost, modelToUse)) return;
 
-                if(currentChat.title === 'Conversación Cósmica' && userMessage.length > 5 && assistantType === 'main') {
-                    currentChat.title = userMessage.split(' ').slice(0, 4).join(' ');
+                if(assistantType === 'main' && currentItem.title === 'Conversación Cósmica' && userMessage.length > 5) {
+                    currentItem.title = userMessage.split(' ').slice(0, 4).join(' ');
                     renderSidebar();
                 }
 
                 const [image, pdf] = [selectedImageBase64, selectedPdfText];
-                currentChat.messages.push({ role: 'user', content: userMessage, image, pdfText: pdf });
-                addMessageToUI('user', userMessage, image, currentChat.messages.length - 1, messageContainer);
+                currentItem.messages.push({ role: 'user', content: userMessage, image, pdfText: pdf });
+                addMessageToUI('user', userMessage, image, currentItem.messages.length - 1, messageContainer);
                 const thinkingBubble = addMessageToUI('assistant', '…', null, null, messageContainer);
                 inputEl.value = '';
                 inputEl.style.height = 'auto'; 
@@ -4556,26 +4560,26 @@
 
                 try {
                     const userNameForCall = currentUser ? (currentUser.user_metadata.full_name || currentUser.email) : 'viajero';
-                    const responseData = await getAIResponse(userMessage, currentChat.messages.slice(0, -1), image, pdf, modelToUse, currentChat.workflow, userNameForCall, financialData, noteContent);
+                    const responseData = await getAIResponse(userMessage, currentItem.messages.slice(0, -1), image, pdf, modelToUse, currentItem.workflow, userNameForCall, financialData, noteContent);
                     
                     updateCreditCounter();
-                    currentChat.messages.push({ role: 'assistant', content: responseData.reply });
+                    currentItem.messages.push({ role: 'assistant', content: responseData.reply });
                     updateMessageInUI(thinkingBubble, responseData.reply, null, messageContainer);
                     speak(responseData.reply);
 
-                    if (currentChat.workflow && currentChat.workflow !== 'notepad-assistant') {
-                        completeMission(currentChat.workflow, chatIdToUpdate);
+                    if (currentItem.workflow && currentItem.workflow !== 'notepad-assistant') {
+                        completeMission(currentItem.workflow, currentChatId);
                     }
 
                     if (assistantType === 'project' && responseData.projectUpdate && responseData.projectUpdate.tasks) {
-                        const todoColumn = currentChat.projectData.columns.find(c => c.id === 'todo');
+                        const todoColumn = currentItem.projectData.columns.find(c => c.id === 'todo');
                         if (todoColumn) {
                             if (!todoColumn.tasks) todoColumn.tasks = [];
                              responseData.projectUpdate.tasks.forEach(task => {
                                  todoColumn.tasks.push({ id: `proj-${crypto.randomUUID()}`, content: task.content, completed: false, labels: task.labels || [], urgent: false });
                             });
                         }
-                        renderProjectBoard(chatIdToUpdate);
+                        renderProjectBoard(currentChatId);
                     }
                     
                     saveState();
@@ -4632,11 +4636,6 @@
                 // Hide the internal notes list within the notepad view
                 dom.notesList.style.display = 'none';
 
-                const notepadChat = state.chats['notepad-assistant-chat'];
-                dom.notepadChatMessages.innerHTML = '';
-                notepadChat.messages.forEach((msg, index) => addMessageToUI(msg.role, msg.content, msg.image, index, dom.notepadChatMessages));
-
-
                 if (state.notes.length === 0) {
                      dom.noteEditorPanel.classList.add('hidden');
                 } else if (!currentNoteId || !state.notes.find(n => n.id === currentNoteId)) {
@@ -4652,84 +4651,20 @@
                 }
             }
             
-            function renderNotesList() {
-                // This function is now primarily for updating the external sidebar's list of notes
-                // The internal notes-list element (dom.notesList) is hidden as per new requirements.
-                dom.sidebarContent.innerHTML = '';
-                const frag = document.createDocumentFragment(); 
-                
-                const itemMap = new Map();
-                // Filter out notepad-assistant-chat from the main chat list
-                Object.values(state.chats).filter(chat => chat.isDeletable !== false).forEach(chat => itemMap.set(chat.id, { type: 'chat', data: chat })); 
-                Object.values(state.notes).forEach(note => itemMap.set(note.id, { type: 'note', data: note }));
-                Object.values(state.projects).forEach(proj => itemMap.set(proj.id, { type: 'project', data: proj }));
-
-                const renderStructure = (structure, isSubItem = false) => {
-                    structure.forEach(id => {
-                        const item = itemMap.get(id);
-                        if (!item) return;
-
-                        if(item.type === 'chat') frag.appendChild(createChatItemElement(id, isSubItem));
-                        else if(item.type === 'note') frag.appendChild(createNoteItemElement(id, isSubItem));
-                        else if(item.type === 'project') {
-                            const projectEl = createProjectElement(id);
-                            frag.appendChild(projectEl);
-                        }
-                    });
-                };
-                
-                // Render folders first
-                const foldersCategory = document.createElement('div');
-                foldersCategory.className = 'folders-category border-t border-themed pt-4 default-open';
-                foldersCategory.innerHTML = `
-                    <div class="folder-header flex items-center p-2 rounded-md cursor-pointer hover:bg-light">
-                        <i class="fas fa-chevron-right folder-arrow mr-2 transition-transform text-xs"></i>
-                        <i class="fas fa-folder-open mr-2 text-yellow-500"></i>
-                        <span class="text-sm font-bold" data-translate-key="my_folders">Mis Carpetas</span>
-                    </div>
-                    <div class="folders-content pl-4 pt-1 space-y-1">
-                        <button id="new-folder-btn" class="flex items-center justify-center font-semibold p-3 rounded-lg bg-input w-full"><i class="fas fa-folder-plus mr-2"></i><span data-translate-key="new_folder">Nueva Carpeta</span></button>
-                        <div id="folders-list" class="space-y-1"></div>
-                    </div>
-                `;
-                frag.appendChild(foldersCategory);
-                const foldersListEl = foldersCategory.querySelector('#folders-list');
-
-                const folderIds = state.structure.filter(id => id.startsWith('project-'));
-                folderIds.forEach(folderId => {
-                    foldersListEl.appendChild(createProjectElement(folderId));
-                });
-                // Then render other items (chats and notes) directly below the folders category or workflows.
-                // Filter out projects from the main structure rendering to avoid duplication.
-                const nonFolderItems = state.structure.filter(id => !id.startsWith('project-'));
-                nonFolderItems.forEach(id => {
-                    const item = itemMap.get(id);
-                    if (item && item.data.isDeletable !== false) { // Ensure notepad-assistant-chat is not duplicated and is only in workflows
-                        if (item.type === 'chat') {
-                            frag.appendChild(createChatItemElement(id));
-                        } else if (item.type === 'note') {
-                            frag.appendChild(createNoteItemElement(id));
-                        }
-                    }
-                });
-
-                dom.sidebarContent.appendChild(frag); 
-                updateActiveChatHighlight(); 
-            }
-
-
             function selectNote(noteId) {
-                const noteExists = state.notes.find(n => n.id === noteId);
-                if (!noteExists) {
+                const note = state.notes.find(n => n.id === noteId);
+                if (!note) {
                     currentNoteId = null;
                     dom.noteEditorPanel.classList.add('hidden');
                     return;
                 }
-                dom.noteEditorPanel.classList.remove('hidden');
+
+                currentChatId = noteId; // Set the main ID to the note ID for selection handling
                 currentNoteId = noteId;
+
+                dom.noteEditorPanel.classList.remove('hidden');
                 loadNoteIntoEditor(noteId);
-                // No need to call renderNotesList() here as the internal list is hidden
-                updateActiveChatHighlight(); // To update the 'active' class in the sidebar
+                updateActiveChatHighlight();
             }
 
             function createNewNote(type = 'text') {
@@ -4738,6 +4673,7 @@
                     title: type === 'text' ? 'Nueva Nota' : 'Nuevo Dibujo',
                     content: type === 'text' ? '' : null, 
                     type: type,
+                    messages: [{ role: 'assistant', content: '¡Hola! Soy tu asistente de redacción para esta nota. ¿En qué puedo ayudarte?' }],
                     createdAt: new Date().toISOString()
                 };
                 state.notes.unshift(newNote);
@@ -4768,6 +4704,16 @@
                 dom.textTools.style.display = isDrawing ? 'none' : 'flex';
                 dom.drawingTools.style.display = isDrawing ? 'flex' : 'none';
                 
+                // Load this note's specific chat history
+                dom.notepadChatMessages.innerHTML = '';
+                if (note.messages && note.messages.length > 0) {
+                    note.messages.forEach((msg, index) => addMessageToUI(msg.role, msg.content, msg.image, index, dom.notepadChatMessages));
+                } else {
+                    // Add initial message if none exists
+                    note.messages = [{ role: 'assistant', content: '¡Hola! Soy tu asistente de redacción para esta nota. ¿En qué puedo ayudarte?' }];
+                    addMessageToUI('assistant', note.messages[0].content, null, 0, dom.notepadChatMessages);
+                }
+                
                 if (isDrawing) {
                     setupCanvas(note);
                 }
@@ -4778,23 +4724,18 @@
                 const ctx = canvas.getContext('2d');
                 const toolbar = dom.drawingTools;
                 
-                // Set canvas size to match its parent's rendered size (which handles responsiveness)
-                // This must be done every time the canvas or its parent's size might change
                 const resizeCanvas = () => {
                     const rect = canvas.parentElement.getBoundingClientRect();
                     canvas.width = rect.width;
                     canvas.height = rect.height;
-                    // When canvas is resized, its content is cleared. Redraw if content exists.
                     if (note.content) {
                         const img = new Image();
-                        img.onload = () => { ctx.drawImage(img, 0, 0, canvas.width, canvas.height); } // Ensure drawing scales with canvas
+                        img.onload = () => { ctx.drawImage(img, 0, 0, canvas.width, canvas.height); }
                         img.src = note.content;
                     }
                 };
                 
-                // Initial resize and redraw
                 resizeCanvas();
-                // Add event listener for window resize to make canvas responsive
                 window.addEventListener('resize', resizeCanvas);
 
 
@@ -4811,7 +4752,6 @@
                 }
 
                 const getCoords = (e) => {
-                    // Use clientX/Y for both mouse and touch events
                     const event = e.touches ? e.touches[0] : e; 
                     const canvasRect = canvas.getBoundingClientRect();
                     return [event.clientX - canvasRect.left, event.clientY - canvasRect.top];
@@ -4825,7 +4765,7 @@
                 };
                 const draw = (e) => {
                     if (!isDrawing) return;
-                    e.preventDefault(); // Prevent scrolling on touch devices
+                    e.preventDefault();
                     
                     const [currentX, currentY] = getCoords(e);
                     ctx.lineTo(currentX, currentY);
@@ -4843,17 +4783,15 @@
                     ctx.closePath(); 
                     const activeNote = state.notes.find(n => n.id === currentNoteId);
                     if (activeNote) {
-                        activeNote.content = canvas.toDataURL(); // Save drawing
+                        activeNote.content = canvas.toDataURL();
                         saveState();
                     }
                 };
 
-                // Desktop events
                 canvas.onmousedown = startDrawing;
                 canvas.onmousemove = draw;
                 canvas.onmouseup = stopDrawing;
                 canvas.onmouseout = stopDrawing;
-                // Mobile/Touch events - crucial for touch screen drawing
                 canvas.ontouchstart = (e) => { e.preventDefault(); startDrawing(e); }; 
                 canvas.ontouchmove = (e) => { e.preventDefault(); draw(e); };
                 canvas.ontouchend = stopDrawing;
@@ -4910,7 +4848,6 @@
             function setupModalClickOutside(modalElement, hideFunction) {
                 if (!modalElement) return;
                 modalElement.addEventListener('click', (e) => {
-                    // Only hide if the click is directly on the overlay, not on the content itself
                     if (e.target === modalElement) {
                         hideFunction();
                     }
@@ -6805,3 +6742,5 @@
     </script>
 </body>
 </html>
+
+        
