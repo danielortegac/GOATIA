@@ -108,15 +108,15 @@
             display: flex;
             left: unset; /* Reset left positioning */
             right: -12px; /* Position correctly when collapsed */
-            transform: translateY(-50%) rotate(180deg);
-            top: 50%; /* Center vertically */
+            transform: translateY(0%) rotate(180deg); /* Arrow points right when collapsed */
+            top: 12px; /* Position at the top right */
         }
 
         #sidebar-toggle-arrow {
             position: absolute;
             top: 12px; /* Position at the top right */
             right: -12px;
-            transform: translateY(0%) rotate(0deg); /* No vertical translation initially */
+            transform: translateY(0%) rotate(0deg); /* No vertical translation initially, arrow points left initially (expanded state) */
             background-color: var(--current-bg-dark);
             border: 1px solid var(--current-border-color);
             border-radius: 50%;
@@ -131,7 +131,7 @@
         }
         #sidebar:not(.collapsed) #sidebar-toggle-arrow {
             right: -12px; /* Keep it on the right side when expanded */
-            transform: translateY(0%) rotate(0deg);
+            transform: translateY(0%) rotate(0deg); /* Arrow points left when expanded */
         }
 
 
@@ -967,7 +967,7 @@
             display: block; /* Show toggle button */
             margin: auto;
             padding: 0.5rem;
-            transform: translateY(-50%) rotate(180deg); /* Rotate arrow when collapsed */
+            transform: translateY(0%) rotate(180deg); /* Rotate arrow when collapsed */
         }
         #notes-list-panel.collapsed #notes-list-toggle {
             top: 12px; /* Position at the top right of the collapsed panel */
@@ -1004,7 +1004,7 @@
         #notes-list {
             flex-grow: 1;
             overflow-y: auto;
-            display: flex;
+            display: none; /* Hidden by default as per new requirements */
             flex-direction: column;
             gap: 0.5rem;
         }
@@ -1095,13 +1095,14 @@
             resize: none;
             outline: none;
             overflow-y: auto;
+            white-space: pre-wrap; /* Ensure line breaks are respected */
         }
         #note-content-editor:focus-within {
             box-shadow: none;
         }
         .checklist-item {
             display: flex;
-            align-items: center;
+            align-items: flex-start; /* Align items to the top for multi-line text */
             gap: 0.75rem; /* Space between checkbox and text */
             margin: 0.5rem 0;
         }
@@ -1111,13 +1112,15 @@
             accent-color: var(--current-primary);
             cursor: pointer;
             flex-shrink: 0; /* Prevent checkbox from shrinking */
+            margin-top: 0.2em; /* Adjust vertical alignment of checkbox */
         }
         .checklist-item-text {
             flex-grow: 1;
             outline: none;
             min-height: 1.15em; /* Ensure text area has minimum height */
-            padding-top: 2px;
-            padding-bottom: 2px;
+            padding-top: 0.2em; /* Align text with checkbox visually */
+            padding-bottom: 0.2em;
+            word-wrap: break-word; /* Allow text to wrap within the span */
         }
         .checklist-item-text[data-checked="true"] {
             text-decoration: line-through;
@@ -1224,6 +1227,9 @@
             }
             #notes-list-toggle {
                 display: block; /* Show toggle on desktop */
+            }
+            #notes-list {
+                display: flex; /* Always show notes list on desktop when panel is expanded */
             }
 
 
@@ -1428,6 +1434,9 @@
                 width: 100%;
                 height: 100%;
                 border-radius: 0;
+            }
+            #notes-list {
+                display: flex; /* Always show notes list on mobile when notes panel is active */
             }
             #note-editor-panel {
                 height: 100%;
@@ -1729,8 +1738,11 @@
                             <span id="notification-badge" class="notification-badge hidden">0</span>
                         </button>
                         <button id="gamification-btn" title="Mi Ascensión" class="text-xl p-2 hover:opacity-80 transition-opacity text-gold">
-                            <i class="fas fa-coins"></i> </button>
-                        <div id="message-counter" class="text-xs font-mono whitespace-nowrap block mx-2"></div>
+                            <i class="fas fa-coins text-lg"></i> </button>
+                        <div id="message-counter" class="text-xs font-mono whitespace-nowrap block mx-2">
+                             <i class="fas fa-trophy text-gold mr-1 text-base"></i> <span id="plan-credits-display">0/0</span>
+                            <i class="fas fa-coins text-gold ml-2 mr-1 text-base"></i> <span id="reward-credits-display">0</span>
+                        </div>
                         <button id="services-menu-btn" title="Potenciar mi Negocio" class="relative text-xl p-2 hover:opacity-80 transition-opacity flex items-center gap-2">
                             <i class="fas fa-rocket text-primary"></i>
                             <span class="text-sm font-semibold text-primary hidden md:inline" data-translate-key="solutions">Soluciones</span>
@@ -1778,8 +1790,7 @@
                         <div id="notes-list">
                             </div>
                         <button id="notes-list-toggle" class="absolute bg-current-bg-dark border border-themed rounded-full p-2 cursor-pointer transition-transform hidden md:block">
-                            <i class="fas fa-chevron-left"></i>
-                        </button>
+                            <i class="fas fa-chevron-left"></i> </button>
                     </div>
                     <div id="notepad-editor-and-chat-container">
                         <div id="note-editor-panel">
@@ -2515,7 +2526,9 @@
                 notepadChatMessages: document.getElementById('notepad-chat-messages'),
                 notepadMsgInput: document.getElementById('notepad-msg'),
                 notepadSendBtn: document.getElementById('notepad-send'),
-                notesListToggle: document.getElementById('notes-list-toggle'), 
+                notesListToggle: document.getElementById('notes-list-toggle'),
+                planCreditsDisplay: document.getElementById('plan-credits-display'), // New element for plan credits
+                rewardCreditsDisplay: document.getElementById('reward-credits-display'), // New element for reward credits
             };
             Object.assign(dom, fullDom);
 
@@ -2795,7 +2808,7 @@
                 const endOfWeek = startOfWeek.add(6, 'day');
                 dom.currentWeekRange.textContent = `${startOfWeek.format('D MMM')} - ${endOfWeek.format('D MMM,YYYY')}`;
 
-                for (let i = 0; i < 7; i++) {
+            for (let i = 0; i < 7; i++) {
                     const day = startOfWeek.add(i, 'day');
                     const dayKey = day.format('YYYY-MM-DD');
                     const tasks = getTasksForDay(dayKey);
@@ -2884,7 +2897,7 @@
                                     draggable="true" data-task-id="${task.id}" data-task-source="${task.source}">
                                     <input type="checkbox" class="task-checkbox flex-shrink-0" data-task-id="${task.id}" ${task.completed ? 'checked' : ''}>
                                      <span class="flex-grow cursor-pointer"><strong>${task.time}:</strong> ${task.text} <span class="text-xs text-primary">(${task.source})</span></span>
-                                     <button class="delete-task-icon text-text-medium hover:text-danger-color text-xs p-1"><i class="fas fa-trash-alt"></i></button>
+                                    <button class="delete-task-icon text-text-medium hover:text-danger-color text-xs p-1"><i class="fas fa-trash-alt"></i></button>
                                 </div>
                                 `
                             }).join('')}
@@ -3345,8 +3358,8 @@
                 if (hasFile) return "gpt-4o-mini"; 
                 
                 const selectedModel = selector.value;
-                if (selectedModel === 'gpt-4o' && (!currentUser)) {
-                     showInAppNotification("Acceso Restringido", "El modelo GOAT X PRO está disponible solo para usuarios logueados.", 3000);
+                if (selectedModel === 'gpt-4o' && (!currentUser || (currentUser.app_metadata?.plan || 'free') === 'free')) { // Check if user is logged in AND not on free plan
+                     showInAppNotification("Acceso Restringido", "El modelo GOAT X PRO está disponible solo para usuarios con un plan de pago.", 3000); // Updated message
                      selector.value = 'gpt-3.5-turbo-1106'; 
                      return 'gpt-3.5-turbo-1106';
                 }
@@ -3619,13 +3632,11 @@
                 const gamCredits = (currentUser && gamificationState.credits) ? gamificationState.credits : 0;
                 let displayLimit = limit === Infinity ? '∞' : limit;
 
-                let creditText = `<span class="font-semibold">${remaining}/${displayLimit}</span>`;
-                if(currentUser) {
-                    creditText += `<i class="fas fa-coins text-gold ml-2 mr-1" title="Créditos de Recompensa"></i> ${gamCredits}`;
-                }
+                // Update individual spans for plan and reward credits
+                dom.planCreditsDisplay.textContent = `${remaining}/${displayLimit}`;
+                dom.rewardCreditsDisplay.textContent = `${gamCredits}`;
                 
-                dom.messageCounterEl.innerHTML = creditText;
-                dom.messageCounterEl.classList.remove('hidden');
+                dom.messageCounterEl.classList.remove('hidden'); // Ensure the counter is visible
             }
 
             function setTheme(isDark) { 
@@ -3866,7 +3877,7 @@
                 
                 const itemMap = new Map();
                 // Filter out notepad-assistant-chat from the main chat list
-                Object.values(state.chats).filter(chat => chat.id !== 'notepad-assistant-chat').forEach(chat => itemMap.set(chat.id, { type: 'chat', data: chat }));
+                Object.values(state.chats).filter(chat => chat.isDeletable !== false).forEach(chat => itemMap.set(chat.id, { type: 'chat', data: chat })); // Filter out non-deletable chats like notepad-assistant
                 Object.values(state.notes).forEach(note => itemMap.set(note.id, { type: 'note', data: note }));
                 Object.values(state.projects).forEach(proj => itemMap.set(proj.id, { type: 'project', data: proj }));
 
@@ -4290,7 +4301,9 @@
                 dom.notepadViewContainer.style.display = 'flex';
                 dom.notepadChatContainer.classList.toggle('hidden', window.innerWidth < 768);
                 updateContextualFooter('notepad-app');
-                renderNotesList();
+                
+                // Hide the internal notes list within the notepad view
+                dom.notesList.style.display = 'none';
 
                 const notepadChat = state.chats['notepad-assistant-chat'];
                 dom.notepadChatMessages.innerHTML = '';
@@ -4313,35 +4326,14 @@
             }
             
             function renderNotesList() {
-                dom.notesList.innerHTML = '';
-                // Combine chats and notes for the sidebar, filtering out non-deletable chats like notepad-assistant
-                const allItems = [
-                    ...Object.values(state.chats).filter(chat => chat.isDeletable !== false),
-                    ...state.notes
-                ];
-                
-                // Sort by creation date or a similar relevant metric if available
-                // For now, let's keep the existing structure. If items have createdAt, we can sort.
-                // Assuming notes have 'createdAt' and chats might not, or we pick the first message date for chats.
-                const sortedItems = [...state.structure]
-                    .map(id => {
-                        let item;
-                        if (id.startsWith('chat-')) item = state.chats[id];
-                        else if (id.startsWith('note-')) item = state.notes.find(n => n.id === id);
-                        else if (id.startsWith('project-')) item = state.projects[id];
-                        return item;
-                    })
-                    .filter(Boolean); // Remove any null/undefined entries if ID not found
-
-                // Clear previous list, if applicable
+                // This function is now primarily for updating the external sidebar's list of notes
+                // The internal notes-list element (dom.notesList) is hidden as per new requirements.
                 dom.sidebarContent.innerHTML = '';
-                dom.notesList.innerHTML = ''; // This is for the notepad's internal list
-
-
-                // Populate the main sidebar (dom.sidebarContent) with all items, including projects and chats
-                const mainSidebarFragment = document.createDocumentFragment();
+                const frag = document.createDocumentFragment(); 
+                
                 const itemMap = new Map();
-                Object.values(state.chats).filter(chat => chat.id !== 'notepad-assistant-chat').forEach(chat => itemMap.set(chat.id, { type: 'chat', data: chat }));
+                // Filter out notepad-assistant-chat from the main chat list
+                Object.values(state.chats).filter(chat => chat.isDeletable !== false).forEach(chat => itemMap.set(chat.id, { type: 'chat', data: chat })); 
                 Object.values(state.notes).forEach(note => itemMap.set(note.id, { type: 'note', data: note }));
                 Object.values(state.projects).forEach(proj => itemMap.set(proj.id, { type: 'project', data: proj }));
 
@@ -4362,39 +4354,7 @@
                 };
                 renderStructureRecursive(state.structure, dom.sidebarContent);
 
-
-                // Populate the specific notes list inside the Notepad view
-                const notesListFragment = document.createDocumentFragment();
-                const sortedNotes = [...state.notes].sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
-
-                if (sortedNotes.length === 0) {
-                    dom.notesList.innerHTML = `<div class="text-center text-sm text-text-medium p-4">No tienes notas. ¡Crea una!</div>`;
-                    return;
-                }
-
-                sortedNotes.forEach(note => {
-                    const item = document.createElement('div');
-                    item.className = 'note-item flex items-center gap-3';
-                    item.dataset.id = note.id;
-                    item.dataset.type = 'note';
-                    item.innerHTML = `
-                        <i class="fas ${note.type === 'drawing' ? 'fa-paint-brush' : 'fa-file-alt'}"></i>
-                        <span class="flex-grow truncate">${note.title || 'Nota sin título'}</span>
-                    `;
-                    if (note.id === currentNoteId) {
-                        item.classList.add('active');
-                    }
-                    item.addEventListener('click', () => {
-                         selectNote(note.id);
-                         if (window.innerWidth < 768) {
-                            dom.notepadViewContainer.classList.add('mobile-editor-active');
-                         }
-                    });
-                    notesListFragment.appendChild(item);
-                });
-                dom.notesList.appendChild(notesListFragment);
-
-                updateActiveChatHighlight(); // Re-apply active highlights
+                updateActiveChatHighlight(); 
             }
 
 
@@ -4408,7 +4368,8 @@
                 dom.noteEditorPanel.classList.remove('hidden');
                 currentNoteId = noteId;
                 loadNoteIntoEditor(noteId);
-                renderNotesList(); // To update the 'active' class
+                // No need to call renderNotesList() here as the internal list is hidden
+                updateActiveChatHighlight(); // To update the 'active' class in the sidebar
             }
 
             function createNewNote(type = 'text') {
@@ -4457,9 +4418,25 @@
                 const ctx = canvas.getContext('2d');
                 const toolbar = dom.drawingTools;
                 
-                const rect = canvas.parentElement.getBoundingClientRect();
-                canvas.width = rect.width;
-                canvas.height = rect.height;
+                // Set canvas size to match its parent's rendered size (which handles responsiveness)
+                // This must be done every time the canvas or its parent's size might change
+                const resizeCanvas = () => {
+                    const rect = canvas.parentElement.getBoundingClientRect();
+                    canvas.width = rect.width;
+                    canvas.height = rect.height;
+                    // When canvas is resized, its content is cleared. Redraw if content exists.
+                    if (note.content) {
+                        const img = new Image();
+                        img.onload = () => { ctx.drawImage(img, 0, 0, canvas.width, canvas.height); } // Ensure drawing scales with canvas
+                        img.src = note.content;
+                    }
+                };
+                
+                // Initial resize and redraw
+                resizeCanvas();
+                // Add event listener for window resize to make canvas responsive
+                window.addEventListener('resize', resizeCanvas);
+
 
                 let isDrawing = false;
                 let lastX = 0;
@@ -4469,12 +4446,13 @@
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 if (note.content) {
                     const img = new Image();
-                    img.onload = () => { ctx.drawImage(img, 0, 0); }
+                    img.onload = () => { ctx.drawImage(img, 0, 0, canvas.width, canvas.height); }
                     img.src = note.content;
                 }
 
                 const getCoords = (e) => {
-                    const event = e.touches ? e.touches[0] : e;
+                    // Use clientX/Y for both mouse and touch events
+                    const event = e.touches ? e.touches[0] : e; 
                     const canvasRect = canvas.getBoundingClientRect();
                     return [event.clientX - canvasRect.left, event.clientY - canvasRect.top];
                 }
@@ -4482,7 +4460,6 @@
                 const startDrawing = (e) => { 
                     isDrawing = true; 
                     [lastX, lastY] = getCoords(e);
-                    // Begin new path for each stroke to ensure distinct lines
                     ctx.beginPath(); 
                     ctx.moveTo(lastX, lastY);
                 };
@@ -4503,7 +4480,6 @@
                 const stopDrawing = () => {
                     if (!isDrawing) return;
                     isDrawing = false;
-                    // Ensure the current path is closed before saving
                     ctx.closePath(); 
                     const activeNote = state.notes.find(n => n.id === currentNoteId);
                     if (activeNote) {
@@ -4517,8 +4493,8 @@
                 canvas.onmousemove = draw;
                 canvas.onmouseup = stopDrawing;
                 canvas.onmouseout = stopDrawing;
-                // Mobile/Touch events
-                canvas.ontouchstart = (e) => { e.preventDefault(); startDrawing(e); }; // Prevent default scroll/zoom
+                // Mobile/Touch events - crucial for touch screen drawing
+                canvas.ontouchstart = (e) => { e.preventDefault(); startDrawing(e); }; 
                 canvas.ontouchmove = (e) => { e.preventDefault(); draw(e); };
                 canvas.ontouchend = stopDrawing;
                 
@@ -4763,8 +4739,8 @@
 
                 dom.modelSelector?.addEventListener('change', () => {
                     const selectedValue = dom.modelSelector.value;
-                    if (selectedValue === 'gpt-4o' && !currentUser) {
-                        showInAppNotification("Acceso Restringido", "El modelo GOAT X PRO está disponible solo para usuarios logueados.", 3000);
+                    if (selectedValue === 'gpt-4o' && (!currentUser || (currentUser.app_metadata?.plan || 'free') === 'free')) { // Re-check on change
+                        showInAppNotification("Acceso Restringido", "El modelo GOAT X PRO está disponible solo para usuarios con un plan de pago.", 3000);
                         dom.modelSelector.value = 'gpt-3.5-turbo-1106';
                     }
                 });
@@ -4795,11 +4771,15 @@
                     }
                 });
 
+                // Notepad list toggle for desktop
                 dom.notesListToggle?.addEventListener('click', () => { 
                     dom.notesListPanel.classList.toggle('collapsed');
-                     if (dom.notesListPanel.classList.contains('collapsed')) {
+                    // Toggle visibility of the notes list based on panel collapse state
+                    if (dom.notesListPanel.classList.contains('collapsed')) {
+                        dom.notesList.style.display = 'none'; // Hide list when panel collapses
                         dom.notesListToggle.querySelector('i').classList.replace('fa-chevron-left', 'fa-chevron-right');
                     } else {
+                        dom.notesList.style.display = 'flex'; // Show list when panel expands
                         dom.notesListToggle.querySelector('i').classList.replace('fa-chevron-right', 'fa-chevron-left');
                     }
                 });
@@ -5011,31 +4991,47 @@
                     // Get the current selection or cursor position
                     const selection = window.getSelection();
                     const range = selection.getRangeAt(0);
-                    const currentNode = selection.focusNode;
+                    const currentContainer = selection.focusNode?.parentElement?.closest('#note-content-editor, .checklist-item-text');
 
-                    // Create the checklist item HTML structure
-                    const listItemHTML = `<div class="checklist-item"><input type="checkbox" class="checklist-item-checkbox"><span contenteditable="true" class="checklist-item-text"></span></div>`;
-                    const tempDiv = document.createElement('div');
-                    tempDiv.innerHTML = listItemHTML;
-                    const newChecklistItem = tempDiv.firstChild;
-
-                    // Insert the new checklist item at the cursor's position or append
-                    if (currentNode && dom.noteContentEditor.contains(currentNode)) {
-                        range.deleteContents(); // Remove any selected text
-                        range.insertNode(newChecklistItem);
-                        range.setStartAfter(newChecklistItem);
-                        range.setEndAfter(newChecklistItem);
-                        selection.removeAllRanges();
-                        selection.addRange(range);
+                    if (!currentContainer) {
+                         // If no selection or not in editor, append at the end
+                        dom.noteContentEditor.innerHTML += `<div class="checklist-item"><input type="checkbox" class="checklist-item-checkbox"><span contenteditable="true" class="checklist-item-text"></span></div>`;
+                        const newChecklistItem = dom.noteContentEditor.lastElementChild;
+                        const newTextSpan = newChecklistItem.querySelector('.checklist-item-text');
+                        if (newTextSpan) {
+                            newTextSpan.focus();
+                        }
                     } else {
-                        // Fallback to appending if cursor position is not directly in content
-                        dom.noteContentEditor.appendChild(newChecklistItem);
-                    }
+                        const tempDiv = document.createElement('div');
+                        tempDiv.innerHTML = `<input type="checkbox" class="checklist-item-checkbox"><span contenteditable="true" class="checklist-item-text"></span>`;
+                        const newChecklistItemContent = tempDiv.firstChild;
+                        const newTextSpan = newChecklistItemContent.nextElementSibling;
 
-                    // Focus on the new text span
-                    const newTextSpan = newChecklistItem.querySelector('.checklist-item-text');
-                    if (newTextSpan) {
-                        newTextSpan.focus();
+                        if (currentContainer.classList.contains('checklist-item-text')) {
+                            // If inside an existing checklist item text, create a new checklist item below
+                            const parentChecklistItem = currentContainer.closest('.checklist-item');
+                            const newChecklistItemWrapper = document.createElement('div');
+                            newChecklistItemWrapper.className = 'checklist-item';
+                            newChecklistItemWrapper.appendChild(newChecklistItemContent);
+                            newChecklistItemWrapper.appendChild(newTextSpan); // Append the span element
+
+                            parentChecklistItem.parentNode.insertBefore(newChecklistItemWrapper, parentChecklistItem.nextSibling);
+                            newTextSpan.focus();
+                        } else {
+                            // If in the main editor, insert at current cursor position
+                            range.deleteContents(); // Remove any selected text
+                            const wrapper = document.createElement('div');
+                            wrapper.className = 'checklist-item';
+                            wrapper.appendChild(newChecklistItemContent);
+                            wrapper.appendChild(newTextSpan); // Append the span element
+
+                            range.insertNode(wrapper);
+                            range.setStartAfter(wrapper);
+                            range.setEndAfter(wrapper);
+                            selection.removeAllRanges();
+                            selection.addRange(range);
+                            newTextSpan.focus();
+                        }
                     }
 
                     const note = state.notes.find(n => n.id === currentNoteId);
@@ -5052,9 +5048,9 @@
                     if (e.key === 'Enter' && !e.shiftKey) {
                         const selection = window.getSelection();
                         const range = selection.getRangeAt(0);
-                        const currentBlock = range.startContainer.closest('.checklist-item, .markdown-content'); // Get the current block element
+                        const currentChecklistItem = range.startContainer.closest('.checklist-item');
 
-                        if (currentBlock && currentBlock.classList.contains('checklist-item')) {
+                        if (currentChecklistItem) {
                             e.preventDefault(); // Prevent default Enter behavior
 
                             const newChecklistItem = document.createElement('div');
@@ -5062,7 +5058,7 @@
                             newChecklistItem.innerHTML = `<input type="checkbox" class="checklist-item-checkbox"><span contenteditable="true" class="checklist-item-text"></span>`;
 
                             // Insert the new checklist item after the current one
-                            currentBlock.parentNode.insertBefore(newChecklistItem, currentBlock.nextSibling);
+                            currentChecklistItem.parentNode.insertBefore(newChecklistItem, currentChecklistItem.nextSibling);
 
                             // Set cursor to the new text span
                             const newTextSpan = newChecklistItem.querySelector('.checklist-item-text');
