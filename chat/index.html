@@ -41,7 +41,8 @@
             --light-text-medium: #6b7280;
             --light-border-color: rgba(0, 0, 0, 0.09);
 
-            --base-font-size: 15px;
+            /* Base font size, will be controlled by JS for dynamic changes */
+            --base-font-size: 15px; 
         }
 
         html,
@@ -49,15 +50,28 @@
             height: 100%;
             width: 100%;
             overflow: hidden;
+            /* Apply font size to everything by default */
+            font-size: var(--base-font-size); 
         }
 
         body {
             font-family: 'Montserrat', sans-serif;
             transition: background-color 0.3s ease, color 0.3s ease;
-            font-size: var(--base-font-size);
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
         }
+        /* All font-size related classes will inherit from --base-font-size and scale */
+        .text-xxs { font-size: calc(var(--base-font-size) * 0.6); }
+        .text-xs { font-size: calc(var(--base-font-size) * 0.75); }
+        .text-sm { font-size: calc(var(--base-font-size) * 0.875); }
+        .text-base { font-size: var(--base-font-size); }
+        .text-lg { font-size: calc(var(--base-font-size) * 1.125); }
+        .text-xl { font-size: calc(var(--base-font-size) * 1.25); }
+        .text-2xl { font-size: calc(var(--base-font-size) * 1.5); }
+        .text-3xl { font-size: calc(var(--base-font-size) * 1.875); }
+        .text-4xl { font-size: calc(var(--base-font-size) * 2.25); }
+        .text-5xl { font-size: calc(var(--base-font-size) * 3); }
+
 
         .dark-theme {
             --current-bg-dark: var(--bg-dark);
@@ -95,15 +109,31 @@
             display: flex; /* Ensure flex column layout for sidebar content */
             flex-direction: column;
         }
+        /* When collapsed, only show the logo space, and the toggle arrow */
         #sidebar.collapsed { 
-            width: 50px; /* Adjusted collapsed width to show logo/icon */
-            padding: 0; 
+            width: 80px; /* Adjusted collapsed width to show logo (e.g., 64px width + 2x8px padding) */
+            padding-left: 0;
+            padding-right: 0; 
             overflow: hidden; 
             border-right: none;
         }
-        #sidebar.collapsed > *:not(#sidebar-toggle-arrow, #sidebar-header) { /* Hide most content when collapsed */
+        /* When sidebar is collapsed, only display the header (logo) and the toggle arrow */
+        #sidebar.collapsed > *:not(#sidebar-toggle-arrow, #sidebar-header, .workflow-category) { 
             display: none; 
         }
+        /* Style for collapsed workflow icons at the bottom of the collapsed sidebar */
+        #sidebar.collapsed .workflow-category .workflow-header {
+            padding: 8px 0; /* Adjust padding for icon-only display */
+            justify-content: center; /* Center the icon */
+        }
+        #sidebar.collapsed .workflow-category .workflow-header i:not(.workflow-arrow) {
+            margin-right: 0; /* Remove margin for icon-only display */
+        }
+        #sidebar.collapsed .workflow-category .workflow-header span,
+        #sidebar.collapsed .workflow-category .workflow-arrow {
+            display: none; /* Hide text and arrow when collapsed */
+        }
+
         #sidebar.collapsed #sidebar-toggle-arrow {
             display: flex;
             left: unset; /* Reset left positioning */
@@ -159,6 +189,33 @@
             padding-top: 1rem;
         }
 
+        /* New styles for folder category in sidebar */
+        .folders-category .folder-header {
+            display: flex;
+            align-items: center;
+            padding: 2px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+            font-weight: 600; /* Made folder names bold */
+        }
+        .folders-category .folder-header:hover {
+            background-color: var(--current-bg-light);
+        }
+        .folders-category.open .folder-content {
+            display: block;
+        }
+        .folders-category.open .folder-arrow {
+            transform: rotate(90deg);
+        }
+        .folders-content {
+            display: none;
+            padding-left: 0.5rem; /* Indent contents of the folder */
+        }
+        .folders-content .chat-item {
+            padding-left: 1.5rem; /* Further indent items inside folders */
+        }
+        .folders-category.default-open .folder-content { display: block; } /* Always open by default */
 
         @media (max-width: 767px) {
             #sidebar {
@@ -175,16 +232,16 @@
                 height: 100vh;
                 height: -webkit-fill-available;
             }
-            body { --base-font-size: 13.5px; }
-            button, .btn-primary { 
+            /* Mobile font size adjustment - handled by base-font-size now */
+            /* button, .btn-primary { 
                 padding-top: 0.4rem; padding-bottom: 0.4rem; 
                 padding-left: 0.75rem; padding-right: 0.75rem;
                 font-size: 0.8rem;
-            }
-            .text-lg { font-size: 1rem; }
+            } */
+            /* .text-lg { font-size: 1rem; }
             .text-xl { font-size: 1.1rem; }
             .text-2xl { font-size: 1.2rem; }
-            .text-3xl { font-size: 1.4rem; }
+            .text-3xl { font-size: 1.4rem; } */
             #app-container {
                 max-height: calc(100vh - 10px);
             }
@@ -244,7 +301,7 @@
             background-image: none;
             padding-right: 2.5rem;
             height: 32px;
-            font-size: 0.875rem;
+            font-size: calc(var(--base-font-size) * 0.875); /* Adjusted to use calc or be relative to base */
             line-height: 1.25rem;
             border: none;
             outline: none;
@@ -284,10 +341,11 @@
             flex-shrink: 0;
         }
         
-        .workflow-category.open .workflow-content, .actions-category.open .actions-content { display: block; }
-        .workflow-category.open .workflow-arrow, .actions-category.open .actions-arrow { transform: rotate(90deg); }
-        .workflow-content, .actions-content { display: none; }
-        
+        .workflow-category.open .workflow-content, .actions-category.open .actions-content, .folders-category.open .folders-content { display: block; }
+        .workflow-category.open .workflow-arrow, .actions-category.open .actions-arrow, .folders-category.open .folder-arrow { transform: rotate(90deg); }
+        .workflow-content, .actions-content, .folders-content { display: none; }
+        .folders-category.default-open .folders-content { display: block; } /* Always open by default */
+
         .plan-card { background-color: var(--current-bg-light); }
         #pdf-preview-container { padding: 0.5rem; }
         
@@ -368,7 +426,7 @@
         }
         .calendar-day-number {
             font-weight: bold;
-            font-size: 0.8rem;
+            font-size: calc(var(--base-font-size) * 0.8); 
             margin: 4px;
             align-self: flex-start;
         }
@@ -382,7 +440,7 @@
             padding: 0 2px 2px 2px;
         }
         .calendar-day-task {
-            font-size: 0.65rem;
+            font-size: calc(var(--base-font-size) * 0.65); 
             padding: 2px 4px;
             border-radius: 4px;
             color: white;
@@ -402,7 +460,7 @@
             border-radius: 50%;
             width: 14px;
             height: 14px;
-            font-size: 8px;
+            font-size: calc(var(--base-font-size) * 0.5); 
             line-height: 14px;
             text-align: center;
         }
@@ -555,7 +613,7 @@
             flex-shrink: 0;
             text-align: right;
             padding-right: 10px;
-            font-size: 0.75rem;
+            font-size: calc(var(--base-font-size) * 0.75); 
             color: var(--current-text-medium);
         }
         .day-view-hour-content {
@@ -692,7 +750,7 @@
             border-radius: 50%;
             width: 18px;
             height: 18px;
-            font-size: 10px;
+            font-size: calc(var(--base-font-size) * 0.65); 
             line-height: 18px;
             text-align: center;
             transition: all 0.2s ease;
@@ -717,7 +775,7 @@
             padding-right: 20px; /* Space for delete icon */
         }
         .kanban-card .card-footer {
-            font-size: 0.75rem;
+            font-size: calc(var(--base-font-size) * 0.75); 
             color: var(--current-text-medium);
             margin-top: 0.75rem;
             display: flex;
@@ -743,7 +801,7 @@
             padding: 0.5rem 1rem;
             border-bottom: 2px solid var(--current-border-color);
             font-weight: 700;
-            font-size: 0.75rem;
+            font-size: calc(var(--base-font-size) * 0.75); 
             text-transform: uppercase;
             color: var(--current-text-medium);
             flex-shrink: 0; 
@@ -765,7 +823,7 @@
                 border: none;
                 border-radius: 4px;
                 padding: 2px 4px;
-                font-size: 0.8rem;
+                font-size: calc(var(--base-font-size) * 0.8); 
                 width: auto;
                 color: var(--current-text-light);
                 color-scheme: dark;
@@ -782,15 +840,23 @@
             font-weight: 600;
             color: var(--urgent-color);
         }
-        .task-content-list input {
+        /* Make text inputs for list view editable in place */
+        .task-content-list[contenteditable="true"] { /* Changed from input[type="text"] to contenteditable span */
             background: transparent;
             border: none;
             outline: none;
             width: 100%;
+            color: var(--current-text-light); /* Inherit text color */
+            min-height: 1.25rem; /* Ensure minimum height for contenteditable */
+            display: inline-block; /* Allow proper sizing */
+            padding: 0; /* Remove padding here */
         }
-        .task-content-list input:focus {
+        .task-content-list[contenteditable="true"]:focus {
              background-color: var(--current-bg-dark);
+             border-radius: 4px;
+             padding: 2px 4px; /* Add padding when focused for better editing experience */
         }
+
         .priority-cell {
             text-align: center;
             cursor: pointer;
@@ -803,7 +869,7 @@
         }
         .task-label {
             padding: 2px 8px;
-            font-size: 0.7rem;
+            font-size: calc(var(--base-font-size) * 0.7); 
             border-radius: 12px;
             font-weight: 600;
         }
@@ -827,7 +893,7 @@
         .gamification-tab.active { color: var(--current-primary); border-color: var(--current-primary); }
         .xp-bar-bg { background-color: var(--current-bg-light); }
         .xp-bar-fill { background-color: var(--current-primary); transition: width 0.5s ease-out; }
-        .level-badge { background-color: var(--current-primary); color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.7rem; font-weight: bold; }
+        .level-badge { background-color: var(--current-primary); color: white; padding: 2px 8px; border-radius: 12px; font-size: calc(var(--base-font-size) * 0.7); font-weight: bold; }
         .streak-day { background-color: var(--current-bg-light); border: 2px solid var(--current-border-color); transition: all 0.2s ease; }
         .streak-day.active { border-color: var(--current-primary); transform: scale(1.05); box-shadow: 0 0 10px rgba(138, 79, 255, 0.5); }
         .streak-day.completed { background-color: var(--current-primary); color: white; border-color: var(--current-primary); }
@@ -879,7 +945,7 @@
             border-bottom: 1px solid var(--current-border-color);
         }
         .finance-section-header h3 {
-            font-size: 1.125rem;
+            font-size: calc(var(--base-font-size) * 1.125); 
             font-weight: 700;
         }
         .finance-category {
@@ -940,11 +1006,11 @@
             text-align: center;
         }
         .finance-summary h4 {
-            font-size: 0.8rem;
+            font-size: calc(var(--base-font-size) * 0.8); 
             color: var(--current-text-medium);
         }
         .finance-summary p {
-            font-size: 1.25rem;
+            font-size: calc(var(--base-font-size) * 1.25); 
             font-weight: 700;
         }
         #total-income { color: #22c55e; }
@@ -955,24 +1021,32 @@
             display: none; /* Hidden by default */
             padding: 0; /* No padding on main container */
         }
+        /* Collapsed state for notes list panel */
         #notes-list-panel.collapsed {
             width: 50px; /* Collapsed width */
-            overflow: hidden;
             padding: 0;
+            overflow: hidden;
         }
         #notes-list-panel.collapsed > *:not(#notes-list-toggle, #notes-list-header) {
             display: none;
         }
-        #notes-list-panel.collapsed #notes-list-toggle {
-            display: block; /* Show toggle button */
-            margin: auto;
-            padding: 0.5rem;
-            transform: translateY(0%) rotate(180deg); /* Rotate arrow when collapsed */
+        /* Remove the toggle button from the Notepad's internal UI, it will always be expanded */
+        #notes-list-panel #notes-list-toggle {
+            display: none; /* Hide the internal toggle button */
         }
-        #notes-list-panel.collapsed #notes-list-toggle {
-            top: 12px; /* Position at the top right of the collapsed panel */
-            right: -12px;
-            transform: translateY(0%) rotate(180deg);
+        /* Ensure notes-list-header remains visible when collapsed to show "Nueva Nota/Dibujo" buttons */
+        #notes-list-panel.collapsed #notes-list-header {
+            display: flex; /* Keep header visible */
+            justify-content: center; /* Center buttons */
+            flex-direction: column; /* Stack buttons */
+            align-items: center;
+            padding-top: 1rem;
+            padding-bottom: 1rem;
+        }
+        #notes-list-panel.collapsed #notes-list-header #add-new-note-btn,
+        #notes-list-panel.collapsed #notes-list-header #add-new-drawing-btn {
+            width: auto; /* Allow buttons to shrink */
+            padding: 0.5rem; /* Adjust padding for smaller buttons */
         }
 
 
@@ -1000,11 +1074,16 @@
             flex-shrink: 0;
             padding-bottom: 0.5rem;
             border-bottom: 1px solid var(--current-border-color);
+            /* Ensure the header buttons are always visible and formatted correctly */
+            display: flex; /* Enable flex for buttons */
+            align-items: center; /* Align buttons vertically */
+            justify-content: space-between; /* Space out buttons */
+            gap: 0.5rem; /* Space between buttons */
         }
         #notes-list {
             flex-grow: 1;
-            overflow-y: auto;
-            display: none; /* Hidden by default as per new requirements */
+            /* Hidden by default as per new requirements - Only visible when explicitly opened in mobile or if desktop mode forces it */
+            display: none; 
             flex-direction: column;
             gap: 0.5rem;
         }
@@ -1018,10 +1097,9 @@
             background-color: var(--current-bg-medium);
             border-left: 4px solid transparent;
             transition: all 0.2s ease;
-        }
-        .note-item:hover { 
-            background-color: var(--current-bg-dark);
-            border-left-color: var(--current-primary-hover);
+            /* Ensure notes in the sidebar are thinner/normal, not bold or oversized */
+            font-weight: normal; /* Override bold if accidentally applied */
+            font-size: calc(var(--base-font-size) * 0.875); /* Match text-sm */
         }
         .note-item.active { 
             background-color: var(--current-primary); 
@@ -1072,9 +1150,9 @@
             background: transparent;
             border: none;
             outline: none;
-            font-size: 1.1rem; /* Reduced font size */
+            font-size: calc(var(--base-font-size) * 1.1); 
             font-weight: bold;
-            padding: 0.5rem 0.75rem; /* Reduced padding */
+            padding: 0.5rem 0.75rem; 
             border-bottom: 1px solid var(--current-border-color);
         }
         #note-content-area {
@@ -1091,7 +1169,7 @@
             border-radius: 0.5rem;
             padding: 1rem;
             font-family: 'Montserrat', sans-serif;
-            font-size: 1rem;
+            font-size: var(--base-font-size); /* Scales with base-font-size */
             resize: none;
             outline: none;
             overflow-y: auto;
@@ -1135,33 +1213,18 @@
             background-color: var(--light-bg-medium); /* Or a translucent background for dark theme */
             cursor: crosshair;
         }
+        /* This toggle button is for the notes panel collapse/expand, not needed if always expanded */
         #notes-list-toggle {
-            position: absolute;
-            top: 12px; /* Adjusted to match sidebar toggle */
-            right: -12px; /* Half of width to position it outside */
-            transform: translateY(0%) rotate(0deg); /* Initial state when expanded */
-            background-color: var(--current-bg-dark);
-            border: 1px solid var(--current-border-color);
-            border-radius: 50%;
-            padding: 4px;
-            cursor: pointer;
-            z-index: 10;
-            transition: transform 0.3s ease;
-        }
-        #notes-list-panel:not(.collapsed) #notes-list-toggle {
-            transform: translateY(0%) rotate(0deg); /* Arrow points left when list is open */
-        }
-        #notes-list-panel.collapsed #notes-list-toggle {
-            transform: translateY(0%) rotate(180deg); /* Arrow points right when list is collapsed */
+            display: none; /* This button is removed as per requirements */
         }
 
 
         /* In-app notification */
         #in-app-notification {
             position: fixed;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%) translateY(-200%);
+            top: 50%; /* Center vertically */
+            left: 50%; /* Center horizontally */
+            transform: translate(-50%, -50%) translateY(-200%); /* Start above and center */
             background-color: var(--current-bg-light);
             color: var(--current-text-light);
             padding: 1rem;
@@ -1174,10 +1237,11 @@
             width: 400px;
             opacity: 0;
             pointer-events: none;
-            cursor: pointer;
+            cursor: default; /* Changed to default since it's dismissable by buttons now */
+            text-align: center; /* Center content within notification */
         }
         #in-app-notification.show {
-            transform: translateX(-50%) translateY(0);
+            transform: translate(-50%, -50%) translateY(0); /* Move to center */
             opacity: 1;
             pointer-events: auto;
         }
@@ -1190,6 +1254,18 @@
         #in-app-notification-header h4 {
             font-weight: bold;
         }
+        .glowing-text {
+            animation: text-glow 1.5s infinite alternate;
+            text-shadow: 0 0 8px rgba(138, 79, 255, 0.7), 0 0 12px rgba(138, 79, 255, 0.5);
+        }
+        @keyframes text-glow {
+            from {
+                text-shadow: 0 0 4px rgba(138, 79, 255, 0.5), 0 0 8px rgba(138, 79, 255, 0.3);
+            }
+            to {
+                text-shadow: 0 0 8px rgba(138, 79, 255, 0.7), 0 0 16px rgba(138, 79, 255, 0.5);
+            }
+        }
 
 
         /* Desktop specific styles */
@@ -1198,7 +1274,7 @@
                 display: flex;
             }
             #sidebar.collapsed {
-                width: 50px;
+                width: 80px; /* Match the content width (logo) */
             }
             #sidebar:not(.collapsed) {
                 width: 288px;
@@ -1225,8 +1301,9 @@
             #notes-list-panel {
                 transition: width 0.3s ease, padding 0.3s ease;
             }
+            /* The toggle button is now always hidden, and the panel is always expanded. */
             #notes-list-toggle {
-                display: block; /* Show toggle on desktop */
+                display: none; 
             }
             #notes-list {
                 display: flex; /* Always show notes list on desktop when panel is expanded */
@@ -1280,14 +1357,22 @@
              #desktop-chat-title-wrapper .edit-icon, #desktop-chat-title-wrapper #motivation-btn-header {
                 display: none;
             }
+            /* Calendar modal should now always appear centered, not specifically top-left or relative to other elements */
             #calendar-modal {
                 padding: 0.5rem;
                 max-width: 98vw;
                 max-height: 95vh;
+                position: fixed; /* Ensures it's positioned relative to the viewport */
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%); /* Centers the modal based on its own dimensions */
                 overflow: hidden;
                 display: flex;
                 flex-direction: column;
             }
+            /* Other modals (generic, pricing, settings, gamification) will have their default behavior (top:20px or top:50%/left:50%) */
+            /* In-app notification uses top:50%/left:50% and transform:translate for centering and glowing effect */
+            
             #calendar-modal > div:not(:first-child) {
                 overflow-y: auto;
             }
@@ -1323,10 +1408,11 @@
             }
             #main-header-content .header-left-icons { justify-content: flex-start; }
             #main-header-content .header-right-icons { justify-content: flex-end; }
-            #main-header-content #message-counter { text-align: center; }
+            /* Hide the combined message counter on small screens, individual icons will have popups */
+            #main-header-content #message-counter { display: none; } 
 
 
-             #file-preview-area {
+            #file-preview-area {
                 display: none; /* Only show when there is a file */
              }
              #image-preview-container {
@@ -1383,9 +1469,9 @@
                 min-width: 0;
                 padding: 0.4rem;
             }
-            .kanban-column-title { font-size: 0.7rem; }
+            .kanban-column-title { font-size: calc(var(--base-font-size) * 0.7); } 
             .kanban-card { padding: 0.4rem; }
-            .kanban-card p { font-weight: normal; font-size: 0.7rem; }
+            .kanban-card p { font-weight: normal; font-size: calc(var(--base-font-size) * 0.7); } 
 
             #list-view-mobile {
                 display: flex;
@@ -1397,14 +1483,13 @@
             }
             .list-view-task-mobile { background-color: var(--current-bg-light); padding: 0.75rem; border-radius: 0.5rem; display: flex; flex-direction: column; gap: 0.5rem; }
             .list-view-task-mobile-header { display: flex; align-items: flex-start; gap: 0.75rem; }
-            .list-view-task-mobile-footer { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--current-border-color); padding-top: 0.5rem; font-size: 0.75rem; }
-            .list-view-task-mobile-footer .task-time-date-inputs { display: flex; align-items: center; gap: 4px; }
+            .list-view-task-mobile-footer { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--current-border-color); padding-top: 0.5rem; font-size: calc(var(--base-font-size) * 0.75); }
             .list-view-task-mobile-footer input[type="time"], .list-view-task-mobile-footer input[type="date"] {
                 background: var(--current-bg-dark);
                 border: none;
                 border-radius: 4px;
                 padding: 2px 4px;
-                font-size: 0.7rem;
+                font-size: calc(var(--base-font-size) * 0.7); 
                 width: auto;
                 color-scheme: dark;
             }
@@ -1470,20 +1555,20 @@
                 transform: scale(1) translateY(0);
             }
             
-            .calendar-view-toggle button { padding: 6px 4px; font-size: 0.75rem; }
+            .calendar-view-toggle button { padding: 6px 4px; font-size: calc(var(--base-font-size) * 0.75); }
             .project-view-controls { width: fit-content; flex-grow: 0; }
-            .project-view-controls button { padding: 6px 8px; font-size: 0.75rem; flex-grow: 0; }
+            .project-view-controls button { padding: 6px 8px; font-size: calc(var(--base-font-size) * 0.75); flex-grow: 0; }
             
             #gamification-modal .modal-content { padding: 1rem; }
-            #gamification-modal h2 { font-size: 1.25rem; }
-            .streak-day .text-lg { font-size: 0.8rem; }
-            .streak-day .text-2xl { font-size: 1.1rem; }
-            .streak-day .text-xs { font-size: 0.6rem; }
+            #gamification-modal h2 { font-size: calc(var(--base-font-size) * 1.25); }
+            .streak-day .text-lg { font-size: calc(var(--base-font-size) * 0.8); }
+            .streak-day .text-2xl { font-size: calc(var(--base-font-size) * 1.1); }
+            .streak-day .text-xs { font-size: calc(var(--base-font-size) * 0.6); }
             .mission-item { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
-            .mission-item .btn-primary { padding: 0.25rem 0.5rem; font-size: 0.75rem; align-self: flex-end; }
+            .mission-item .btn-primary { padding: 0.25rem 0.5rem; font-size: calc(var(--base-font-size) * 0.75); align-self: flex-end; }
             #achievements-container { gap: 0.5rem; }
-            .achievement-badge { padding: 0.5rem; font-size: 0.7rem; }
-            .achievement-badge .fa-3x { font-size: 1.75em; }
+            .achievement-badge { padding: 0.5rem; font-size: calc(var(--base-font-size) * 0.7); }
+            .achievement-badge .fa-3x { font-size: calc(var(--base-font-size) * 1.75); }
 
             /* Mobile chat item icons always visible */
             .chat-item .chat-item-actions {
@@ -1560,10 +1645,11 @@
     <div id="app-container" class="flex w-full relative opacity-0 transition-opacity duration-300">
         <aside id="sidebar" class="w-72 flex-shrink-0 flex flex-col transition-transform duration-300 md:translate-x-0 h-full">
             
-            <div id="sidebar-header">
+            <div id="sidebar-header" class="relative">
                 <div id="logo-space" class="w-16 h-16 rounded-lg mx-auto flex-shrink-0 flex items-center justify-center overflow-hidden cursor-pointer">
                     <img src="./Logos HD.png" alt="Goatify Logo" class="w-full h-full object-contain" onerror="this.onerror=null;this.src='https://placehold.co/64x64/2c2c2c/e0e0e0?text=LOGO';">
                 </div>
+                 <div id="sidebar-toggle-arrow" class="absolute top-3 right-3 md:block"> <i class="fas fa-chevron-left"></i> </div>
             </div>
 
             <div class="flex-shrink-0 px-4 pt-2 pb-4 border-b border-themed">
@@ -1572,15 +1658,15 @@
                     <div id="sidebar-top-actions" class="space-y-2">
                         <button data-workflow="project-management" class="workflow-header flex items-center p-2 rounded-md cursor-pointer hover:bg-light w-full text-left">
                             <i class="fas fa-tasks w-6 mr-2"></i>
-                           <span class="text-sm font-bold">Asistente de Proyectos</span>
+                           <span class="text-sm font-bold" data-translate-key="wf_pm_title">Asistente de Proyectos</span>
                        </button>
                        <button data-workflow="financial-assistant" class="workflow-header flex items-center p-2 rounded-md cursor-pointer hover:bg-light w-full text-left">
                             <i class="fas fa-wallet w-6 mr-2"></i>
-                           <span class="text-sm font-bold">Asistente Financiero</span>
+                           <span class="text-sm font-bold" data-translate-key="wf_fa_title">Asistente Financiero</span>
                        </button>
                         <button data-workflow="notepad-app" class="workflow-header flex items-center p-2 rounded-md cursor-pointer hover:bg-light w-full text-left">
                             <i class="fas fa-book-open w-6 mr-2"></i>
-                           <span class="text-sm font-bold">Bloc de Notas</span>
+                           <span class="text-sm font-bold" data-translate-key="wf_na_title">Bloc de Notas</span>
                        </button>
                    </div>
                 </div>
@@ -1594,11 +1680,11 @@
                                 <div class="workflow-category">
                                     <div class="workflow-header flex items-center p-2 rounded-md cursor-pointer hover:bg-light">
                                          <i class="fas fa-chevron-right workflow-arrow mr-2 transition-transform text-xs"></i><i class="fas fa-brain w-6 mr-2"></i>
-                                        <span class="text-sm font-bold">Asistente Experto</span>
+                                        <span class="text-sm font-bold" data-translate-key="wf_expert">Asistente Experto</span>
                                     </div>
                                      <div class="workflow-content pl-4 pt-1 space-y-1">
-                                        <button data-workflow="decision-lab" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center">Laboratorio de Decisiones</button>
-                                        <button data-workflow="conflict-resolution" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center">Resolución de Conflictos</button>
+                                        <button data-workflow="decision-lab" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_expert_1">Laboratorio de Decisiones</button>
+                                        <button data-workflow="conflict-resolution" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_expert_2">Resolución de Conflictos</button>
                                      </div>
                                 </div>
                                 <div class="workflow-category">
@@ -1627,11 +1713,10 @@
                                 <div class="workflow-category">
                                     <div class="workflow-header flex items-center p-2 rounded-md cursor-pointer hover:bg-light">
                                          <i class="fas fa-chevron-right workflow-arrow mr-2 transition-transform text-xs"></i><i class="fas fa-headset w-6 mr-2"></i>
-                                        <span class="text-sm font-bold" data-translate-key="wf_sales">Comunicación y Ventas</span>
+                                        <span class="text-sm font-bold" data-translate-key="wf_sales_category">Comunicación y Ventas</span>
                                      </div>
                                     <div class="workflow-content pl-4 pt-1 space-y-1">
-                                        <button data-workflow="sales-assistant" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_sales_1">Asistente de Ventas 24/7</button>
-                                        <button data-workflow="email-writing" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_sales_2">Redacción de Email</button>
+                                        <button data-workflow="sales-assistant" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_sales_1">Ventas para tu Negocio</button> <button data-workflow="email-writing" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_sales_2">Redacción de Email</button>
                                         <button data-workflow="design-web" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_sales_3">Diseño Web</button>
                                          <button data-workflow="social-skills" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_sales_4">Mejorar Habilidades Sociales</button>
                                     </div>
@@ -1639,7 +1724,7 @@
                                 <div class="workflow-category">
                                     <div class="workflow-header flex items-center p-2 rounded-md cursor-pointer hover:bg-light">
                                          <i class="fas fa-chevron-right workflow-arrow mr-2 transition-transform text-xs"></i><i class="fas fa-language w-6 mr-2"></i>
-                                        <span class="text-sm font-bold">English Teacher</span>
+                                        <span class="text-sm font-bold" data-translate-key="wf_eng_category">English Teacher</span>
                                     </div>
                                        <div class="workflow-content pl-4 pt-1 space-y-1">
                                         <button data-workflow="english-teacher-translate" class="w-full text-left text-sm p-2 rounded hover:bg-light flex items-center" data-translate-key="wf_eng_1">Traducir/Corregir Texto</button>
@@ -1653,11 +1738,21 @@
                         <div class="actions-category border-t border-themed pt-4">
                             <div class="actions-header flex items-center p-2 rounded-md cursor-pointer hover:bg-light">
                                 <i class="fas fa-chevron-right actions-arrow mr-2 transition-transform text-xs"></i>
-                                <span class="text-sm font-bold">Acciones Rápidas</span>
+                                <span class="text-sm font-bold" data-translate-key="quick_actions">Acciones Rápidas</span>
                             </div>
                             <div class="actions-content pl-4 pt-2 space-y-2">
                                 <button id="new-chat-btn" class="flex items-center justify-center font-semibold p-3 rounded-lg btn-primary transition-colors w-full"><i class="fas fa-plus mr-2"></i><span data-translate-key="new_chat">Nuevo Chat</span></button>
+                            </div>
+                        </div>
+
+                        <div class="folders-category border-t border-themed pt-4 default-open"> <div class="folder-header flex items-center p-2 rounded-md cursor-pointer hover:bg-light">
+                                <i class="fas fa-chevron-right folder-arrow mr-2 transition-transform text-xs"></i>
+                                <i class="fas fa-folder-open mr-2 text-yellow-500"></i>
+                                <span class="text-sm font-bold" data-translate-key="my_folders">Mis Carpetas</span>
+                            </div>
+                            <div class="folders-content pl-4 pt-1 space-y-1">
                                 <button id="new-folder-btn" class="flex items-center justify-center font-semibold p-3 rounded-lg bg-input w-full"><i class="fas fa-folder-plus mr-2"></i><span data-translate-key="new_folder">Nueva Carpeta</span></button>
+                                <div id="folders-list" class="space-y-1"></div>
                             </div>
                         </div>
 
@@ -1713,8 +1808,6 @@
                     </div>
                 </div>
             </div>
-            <div id="sidebar-toggle-arrow">
-                <i class="fas fa-chevron-left"></i> </div>
         </aside>
 
         <main id="main-chat-area" class="flex-1 flex flex-col h-full overflow-hidden">
@@ -1724,6 +1817,10 @@
                         <button id="menu-toggle" class="md:hidden text-xl p-2"><i class="fas fa-bars"></i></button>
                         <button id="new-chat-icon-btn" title="Nuevo Chat" class="text-xl p-2 hover:opacity-80 transition-opacity"><i class="fas fa-plus-circle text-primary"></i></button>
                         <button id="new-folder-icon-btn" title="Nueva Carpeta" class="text-xl p-2 hover:opacity-80 transition-opacity"><i class="fas fa-folder-plus text-primary"></i></button>
+                        <button id="calendar-btn" title="Mi Calendario y Tareas" class="text-sky-400 hover:text-sky-300 p-2 transition-colors notification-bell-icon">
+                            <i class="fas fa-calendar-days text-xl"></i>
+                            <span id="notification-badge" class="notification-badge hidden">0</span>
+                        </button>
                     </div>
                     
                     <div id="desktop-chat-title-wrapper" class="hidden sm:flex items-center justify-center group cursor-pointer mx-2 flex-1 min-w-0" title="Renombrar Chat">
@@ -1733,16 +1830,10 @@
                     </div>
 
                     <div class="flex items-center space-x-1 sm:space-x-2 header-right-icons">
-                         <button id="calendar-btn" title="Mi Calendario y Tareas" class="text-sky-400 hover:text-sky-300 p-2 transition-colors notification-bell-icon">
-                            <i class="fas fa-calendar-days text-xl"></i>
-                            <span id="notification-badge" class="notification-badge hidden">0</span>
-                        </button>
-                        <button id="gamification-btn" title="Mi Ascensión" class="text-xl p-2 hover:opacity-80 transition-opacity text-gold">
-                            <i class="fas fa-coins text-lg"></i> </button>
-                        <div id="message-counter" class="text-xs font-mono whitespace-nowrap block mx-2">
-                             <i class="fas fa-trophy text-gold mr-1 text-base"></i> <span id="plan-credits-display">0/0</span>
-                            <i class="fas fa-coins text-gold ml-2 mr-1 text-base"></i> <span id="reward-credits-display">0</span>
-                        </div>
+                        <button id="plan-credits-btn" title="Créditos del Plan" class="text-xs px-1 py-1 hover:opacity-80 transition-opacity flex items-center space-x-0.5"> <i class="fas fa-trophy text-base" style="color: var(--primary);"></i> <span id="plan-credits-display" class="font-bold text-xs text-black">0/0</span> </button>
+                        <button id="gamification-btn" title="Créditos de Recompensa / Mi Ascensión" class="text-xs px-1 py-1 hover:opacity-80 transition-opacity flex items-center space-x-0.5"> <i class="fas fa-coins text-base"></i> <span id="reward-credits-display" class="font-bold text-xs text-black">0</span> </button>
+                        <div id="message-counter" class="text-xs font-mono whitespace-nowrap block mx-2 md:block hidden">
+                            </div>
                         <button id="services-menu-btn" title="Potenciar mi Negocio" class="relative text-xl p-2 hover:opacity-80 transition-opacity flex items-center gap-2">
                             <i class="fas fa-rocket text-primary"></i>
                             <span class="text-sm font-semibold text-primary hidden md:inline" data-translate-key="solutions">Soluciones</span>
@@ -1784,14 +1875,10 @@
                 <div id="notepad-view-container" class="hidden">
                     <div id="notes-list-panel">
                         <div id="notes-list-header" class="flex items-center gap-2">
-                            <button id="add-new-note-btn" class="w-full btn-primary text-sm flex items-center justify-center gap-2"><i class="fas fa-file-alt"></i>Nueva Nota</button>
-                            <button id="add-new-drawing-btn" class="p-2 bg-input rounded-md" title="Nuevo Dibujo"><i class="fas fa-paint-brush"></i></button>
+                            <button id="add-new-note-btn" class="flex-1 text-sm p-2 rounded-md bg-input hover:bg-current-bg-dark flex items-center justify-center gap-2"><i class="fas fa-file-alt"></i><span data-translate-key="new_note_btn">Nueva Nota</span></button> 
+                            <button id="add-new-drawing-btn" class="p-2 bg-input rounded-md hover:bg-current-bg-dark" title="Nuevo Dibujo" data-translate-key="new_drawing_title"><i class="fas fa-paint-brush"></i></button> 
                         </div>
-                        <div id="notes-list">
-                            </div>
-                        <button id="notes-list-toggle" class="absolute bg-current-bg-dark border border-themed rounded-full p-2 cursor-pointer transition-transform hidden md:block">
-                            <i class="fas fa-chevron-left"></i> </button>
-                    </div>
+                        </div>
                     <div id="notepad-editor-and-chat-container">
                         <div id="note-editor-panel">
                              <div id="note-editor-toolbar">
@@ -1827,8 +1914,7 @@
                                            <label for="notepad-model-selector" class="font-medium text-xs text-text-medium pl-2 pr-1">Modelo:</label>
                                             <div class="model-selector-wrapper">
                                                <select id="notepad-model-selector" class="rounded-md py-1 pl-1.5 focus:outline-none focus:ring-2 focus:ring-primary text-sm bg-transparent text-text-light">
-                                                    <option value="gpt-3.5-turbo-1106">General (Turbo)</option>
-                                                    <option value="sonar">Búsqueda Web</option>
+                                                    <option value="gpt-3.5-turbo-1106">GOAT X</option> <option value="sonar">Búsqueda Web</option>
                                                     <option value="gpt-4o" class="goat-x-pro-model">GOAT X PRO</option>
                                                 </select>
                                                  <i class="fas fa-chevron-down text-xs"></i>
@@ -1883,8 +1969,7 @@
                                         <label for="project-model-selector" class="font-medium text-xs text-text-medium pl-2 pr-1">Modelo:</label>
                                          <div class="model-selector-wrapper">
                                             <select id="project-model-selector" class="rounded-md py-1 pl-1.5 focus:outline-none focus:ring-2 focus:ring-primary text-sm bg-transparent text-text-light">
-                                                <option value="gpt-3.5-turbo-1106">General (Turbo)</option>
-                                                <option value="sonar">Búsqueda Web</option>
+                                                <option value="gpt-3.5-turbo-1106">GOAT X</option> <option value="sonar">Búsqueda Web</option>
                                                 <option value="gpt-4o" class="goat-x-pro-model">GOAT X PRO</option>
                                              </select>
                                               <i class="fas fa-chevron-down text-xs"></i>
@@ -1922,8 +2007,7 @@
                         <label for="model-selector" class="font-medium text-xs text-text-medium pl-2 pr-1" data-translate-key="model">Modelo:</label>
                         <div class="model-selector-wrapper">
                             <select id="model-selector" class="rounded-md py-1 pl-1.5 focus:outline-none focus:ring-2 focus:ring-primary text-sm bg-transparent text-text-light">
-                                <option value="gpt-3.5-turbo-1106" data-translate-key="model_general">Chat</option>
-                                <option value="sonar" data-translate-key="model_web">Búsqueda Web</option>
+                                <option value="gpt-3.5-turbo-1106" data-translate-key="model_general">GOAT X</option> <option value="sonar" data-translate-key="model_web">Búsqueda Web</option>
                                 <option value="gpt-4o" class="goat-x-pro-model">GOAT X PRO</option>
                             </select>
                             <i class="fas fa-chevron-down text-xs"></i>
@@ -1961,6 +2045,9 @@
             <button id="in-app-notification-close" class="text-text-medium hover:text-text-light text-2xl leading-none">&times;</button>
         </div>
         <p id="in-app-notification-body"></p>
+        <div id="in-app-notification-buttons" class="mt-4 flex justify-center space-x-2">
+            <button id="notification-done-btn" class="btn-primary px-4 py-2 rounded-lg">Listo</button>
+            <button id="notification-snooze-btn" class="bg-gray-600 text-white px-4 py-2 rounded-lg">Aplazar</button> </div>
     </div>
 
     <div id="generic-modal" class="fixed inset-0 bg-black bg-opacity-70 hidden items-center justify-center z-50 p-4">
@@ -2062,7 +2149,7 @@
                  </div>
                 <div>
                     <p class="font-semibold mb-2" data-translate-key="settings_fontsize">Tamaño de Letra:</p>
-                    <input type="range" id="font-size-slider" min="14" max="20" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer range-lg dark:bg-gray-700">
+                    <input type="range" id="font-size-slider" min="12" max="20" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer range-lg dark:bg-gray-700">
                     <span id="font-size-value" class="text-xs text-text-medium">16px</span>
                 </div>
                 <div>
@@ -2251,6 +2338,26 @@
         </div>
     </div>
 
+    <div id="plan-credits-info-modal" class="fixed inset-0 bg-black bg-opacity-70 hidden items-center justify-center z-50 p-4">
+        <div class="modal-content rounded-lg w-full max-w-md p-6 relative">
+            <h3 class="text-lg font-bold mb-4">Información de Créditos del Plan</h3>
+            <div class="text-text-medium text-sm">
+                <p>Aquí se detallan los costos de los créditos para cada acción:</p>
+                <ul class="list-disc list-inside mt-2 space-y-1">
+                    <li>**GOAT X (General):** 1 crédito por mensaje</li>
+                    <li>**Búsqueda Web:** 2 créditos por mensaje</li>
+                    <li>**Workflows:** 2 créditos por mensaje</li>
+                    <li>**Análisis de PDF:** 2 créditos por mensaje</li>
+                    <li>**Análisis de Imagen:** 2 créditos por mensaje</li>
+                    <li>**Generación de Imagen:** 5 créditos por imagen</li>
+                    <li>**GOAT X PRO:** 3 créditos por mensaje</li>
+                </ul>
+                <p class="mt-4">Los créditos se renuevan mensualmente según tu plan de suscripción.</p>
+            </div>
+            <button id="close-plan-credits-info-modal" class="absolute top-4 right-4 text-gray-400 hover:text-text-light"><i class="fas fa-times fa-lg"></i></button>
+        </div>
+    </div>
+
 
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script type="module">
@@ -2264,16 +2371,17 @@
                     initializing: "Inicializando...", new_chat: "Nuevo Chat", new_folder: "Nueva Carpeta",
                     web_offer: "🚀 ¡Lanza tu Negocio, te regalamos una pg web Gratis con tu suscripcion!",
                      upgrade_plan: "Mejorar Plan", free_guides: "Guías de IA Gratis", workflows: "Workflows",
-                    wf_pm: "Dirección de Proyectos", wf_pm_1: "Crear Tablero de Proyecto",
+                    wf_pm_title: "Asistente de Proyectos", wf_fa_title: "Asistente Financiero", wf_na_title: "Bloc de Notas",
+                    wf_expert: "Asistente Experto", wf_expert_1: "Laboratorio de Decisiones", wf_expert_2: "Resolución de Conflictos",
                     wf_social: "Potenciador de Redes Sociales", wf_social_1: "Crear un Post Completo", wf_social_2: "Redacción de Copys",
                      wf_social_3: "Lluvia de Ideas para Posts", wf_social_4: "Definir Estrategia de Marca",
                     wf_business: "Análisis de Negocio", wf_business_1: "Análisis de tu Competencia", wf_business_2: "Definir mi Cliente Ideal",
-                    wf_business_3: "Lluvia de Nombres para Marca", wf_sales: "Comunicación y Ventas", wf_sales_1: "Asistente de Ventas 24/7",
+                    wf_business_3: "Lluvia de Nombres para Marca", wf_sales_category: "Comunicación y Ventas", wf_sales_1: "Ventas para tu Negocio", /* Changed text */
                      wf_sales_2: "Redacción de Email", wf_sales_3: "Diseño Web", wf_sales_4: "Mejorar Habilidades Sociales",
-                    wf_eng_1: "Traducir/Corregir Texto",
-                    wf_eng_2: "Aprender Vocabulario Nuevo", wf_eng_3: "Practicar Conversación", select_chats: "Seleccionar Múltiples Chats",
+                    wf_eng_category: "English Teacher", wf_eng_1: "Traducir/Corregir Texto",
+                    wf_eng_2: "Aprender Vocabulario Nuevo", wf_eng_3: "Practicar Conversación", quick_actions: "Acciones Rápidas", select_chats: "Seleccionar Múltiples Chats",
                     delete: "Borrar", login: "Iniciar Sesión", settings: "Configuración", logout: "Cerrar Sesión",
-                     solutions: "Soluciones", ally_title: "Somos tu Aliado Estratégico",
+                     solutions: "Soluciones", ally_title: "Somos tu Aliado Estratégico", my_folders: "Mis Carpetas",
                     ally_desc: "Goatify no es solo un chat. Somos una IA personalizada con un equipo de expertos listos para ayudarte a escalar tu negocio.",
                     welcome_user: "¡Hola, ", welcome_user_2: "! Hoy es un gran día para crear algo increíble.",
                     welcome_guest: "¿Cómo puedo ayudarte hoy?", model: "Modelo:", model_general: "GOAT X",
@@ -2284,7 +2392,7 @@
                     settings_fontsize: "Tamaño de Letra:", settings_theme: "Personalización:", settings_dark_mode: "Modo Oscuro",
                      settings_lang: "Idioma:", settings_whatsapp: "Conectarse a WhatsApp", current_plan: "Tu Plan Actual",
                     settings_notifications: "Notificaciones de Tareas:", settings_schedule_meeting: "Agendar Reunión",
-                    settings_integrations: "Integraciones",
+                    settings_integrations: "Integraciones", new_note_btn: "Nueva Nota", new_drawing_title: "Nuevo Dibujo",
                     calendar_today: "Hoy", calendar_this_week: "Esta Semana", calendar_mon: "Lun", calendar_tue: "Mar", calendar_wed: "Mié",
                      calendar_thu: "Jue", calendar_fri: "Vie", calendar_sat: "Sáb", calendar_sun: "Dom",
                     calendar_no_tasks: "No hay tareas para este día.", calendar_add_task_placeholder: "Añadir nueva tarea personal...",
@@ -2307,16 +2415,17 @@
                      initializing: "Initializing...", new_chat: "New Chat", new_folder: "New Folder",
                     web_offer: "🚀 Launch your Business, get a free website with your subscription!",
                     upgrade_plan: "Upgrade Plan", free_guides: "Free AI Guides", workflows: "Workflows",
-                     wf_pm: "Project Management", wf_pm_1: "Create Project Board",
+                    wf_pm_title: "Project Assistant", wf_fa_title: "Financial Assistant", wf_na_title: "Notepad",
+                    wf_expert: "Expert Assistant", wf_expert_1: "Decision Lab", wf_expert_2: "Conflict Resolution",
                     wf_social: "Social Media Booster", wf_social_1: "Create a Full Post", wf_social_2: "Copywriting",
                     wf_social_3: "Brainstorm Post Ideas", wf_social_4: "Define Brand Strategy",
                     wf_business: "Business Analysis", wf_business_1: "Analyze your Competition", wf_business_2: "Define my Ideal Customer",
-                     wf_business_3: "Brainstorm Brand Names", wf_sales: "Communication & Sales", wf_sales_1: "24/7 Sales Assistant",
+                     wf_business_3: "Brainstorm Brand Names", wf_sales_category: "Communication & Sales", wf_sales_1: "Sales for your Business", /* Changed text */
                     wf_sales_2: "Email Writing", wf_sales_3: "Web Design", wf_sales_4: "Improve Social Skills",
-                    wf_eng_1: "Translate/Correct Text",
-                    wf_eng_2: "Learn New Vocabulary", wf_eng_3: "Practice Conversation", select_chats: "Select Multiple Chats",
+                    wf_eng_category: "English Teacher", wf_eng_1: "Translate/Correct Text",
+                    wf_eng_2: "Learn New Vocabulary", wf_eng_3: "Practice Conversation", quick_actions: "Quick Actions", select_chats: "Select Multiple Chats",
                     delete: "Delete", login: "Login", settings: "Settings", logout: "Logout",
-                    solutions: "Solutions", ally_title: "We are your Strategic Ally",
+                    solutions: "Solutions", ally_title: "We are your Strategic Ally", my_folders: "My Folders",
                     ally_desc: "Goatify is not just a chat. We are a custom IA with a team of experts ready to help you scale your business.",
                     welcome_user: "Hello, ", welcome_user_2: "! Today is a great day to create something amazing.",
                     welcome_guest: "How can I help you today?", model: "Model:", model_general: "GOAT X",
@@ -2327,7 +2436,7 @@
                     settings_fontsize: "Font Size:", settings_theme: "Personalization:", settings_dark_mode: "Dark Mode",
                      settings_lang: "Language:", settings_whatsapp: "Connect to WhatsApp", current_plan: "Current Plan",
                     settings_notifications: "Task Notifications:", settings_schedule_meeting: "Schedule Meeting",
-                    settings_integrations: "Integrations",
+                    settings_integrations: "Integrations", new_note_btn: "New Note", new_drawing_title: "New Drawing",
                     calendar_today: "Today", calendar_this_week: "This Week", calendar_mon: "Mon", calendar_tue: "Tue", calendar_wed: "Wed",
                      calendar_thu: "Thu", calendar_fri: "Fri", calendar_sat: "Sat", calendar_sun: "Sun",
                     calendar_no_tasks: "No tasks for this day.", calendar_add_task_placeholder: "Add new personal task...",
@@ -2353,16 +2462,25 @@
             const PRO_PLAN_CREDIT_LIMIT = 2000;
 
             const MOTIVATIONAL_MESSAGES = [
-                "Eres una persona increíble, ¡never lo dudes!",
+                "Eres una persona increíble, ¡nunca lo dudes!",
                 "Hoy es tu día para brillar. ¡Ve por ello!",
                 "Tu potencial es infinito. ¡Puedes lograr lo que te propongas!",
                 "La rompes todos los días, ¡sigue así!",
                 "Confía en tu proceso. Estás construyendo algo grandioso.",
                 "Cada paso que das te acerca a tu meta. ¡No te detengas!",
                 "Tu energía es contagiosa. ¡Ilumina el mundo!",
-                "Puedes con todo y más. ¡Cree en ti!"
+                "Puedes con todo y más. ¡Cree en ti!",
+                "El éxito es la suma de pequeños esfuerzos repetidos día tras día.",
+                "No esperes el momento perfecto, toma el momento y hazlo perfecto.",
+                "Cada pequeño paso te acerca a tu meta. ¡Sigue avanzando!",
+                "Tu actitud determina tu dirección. ¡Elige ser positivo!",
+                "Convierte los obstáculos en oportunidades. ¡Tienes la fuerza!",
+                "La persistencia es el camino al éxito. ¡No te rindas jamás!"
             ];
-            const MOTIVATION_BUTTON_TEXTS = ["¡Listo!", "¡Vamos a darle!", "¡Perfecto!", "¡Sí, yo puedo!", "¡Vamos!"];
+            const MOTIVATION_BUTTON_TEXTS = [
+                "¡Entendido!", "¡Vamos a darle!", "¡Perfecto!", "¡Sí, yo puedo!", "¡Vamos!",
+                "¡A por ello!", "¡Manos a la obra!", "¡Con toda la actitud!", "¡Así se hace!", "¡Dale con todo!"
+            ];
 
             const COSTS = { 
                 GENERAL: 1, 
@@ -2382,7 +2500,15 @@
             let chatsToDelete = new Set();
             let currentNoteId = null;
             let goatXProUsage = 0; // Daily usage counter for GPT-4o
-            const GOAT_X_PRO_DAILY_LIMIT = 10; // Daily limit for GPT-4o
+
+            // Daily limit for GPT-4o, if not logged in or on free plan, it's 0 (effectively unlimited for paid plans)
+            const getGoatXProDailyLimit = () => {
+                if (currentUser && (currentUser.app_metadata?.plan === 'boost' || currentUser.app_metadata?.plan === 'pro')) {
+                    return Infinity; // Unlimited for paid plans
+                }
+                return 10; // 10 uses per day for free users
+            };
+
 
             let notificationsEnabled = localStorage.getItem('goatify-notifications-enabled') === null ? true : localStorage.getItem('goatify-notifications-enabled') === 'true';
             let motivationEnabled = localStorage.getItem('goatify-motivation-enabled') === null ? true : localStorage.getItem('goatify-motivation-enabled') === 'true';
@@ -2454,6 +2580,8 @@
                 inAppNotificationTitle: document.getElementById('in-app-notification-title'),
                 inAppNotificationBody: document.getElementById('in-app-notification-body'),
                 inAppNotificationClose: document.getElementById('in-app-notification-close'),
+                notificationDoneBtn: document.getElementById('notification-done-btn'),
+                notificationSnoozeBtn: document.getElementById('notification-snooze-btn'),
                 monthViewContainer: document.getElementById('month-view-container'), weekViewContainer: document.getElementById('week-view-container'),
                 dayViewContainer: document.getElementById('day-view-container'),
                 monthViewBtn: document.getElementById('month-view-btn'), weekViewBtn: document.getElementById('week-view-btn'), dayViewBtn: document.getElementById('day-view-btn'),
@@ -2527,8 +2655,11 @@
                 notepadMsgInput: document.getElementById('notepad-msg'),
                 notepadSendBtn: document.getElementById('notepad-send'),
                 notesListToggle: document.getElementById('notes-list-toggle'),
-                planCreditsDisplay: document.getElementById('plan-credits-display'), // New element for plan credits
-                rewardCreditsDisplay: document.getElementById('reward-credits-display'), // New element for reward credits
+                planCreditsDisplay: document.getElementById('plan-credits-display'),
+                rewardCreditsDisplay: document.getElementById('reward-credits-display'),
+                planCreditsInfoModal: document.getElementById('plan-credits-info-modal'),
+                closePlanCreditsInfoModal: document.getElementById('close-plan-credits-info-modal'),
+                foldersList: document.getElementById('folders-list'),
             };
             Object.assign(dom, fullDom);
 
@@ -2560,21 +2691,28 @@
                 document.querySelectorAll('[data-translate-key]').forEach(el => {
                     const key = el.dataset.translateKey;
                     if (translationData[key]) {
+                        // For textareas and inputs, update placeholder
                         if (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT') {
                              if(el.placeholder) el.placeholder = translationData[key];
-                        } else {
-                             const icon = el.querySelector('i');
-                            if (icon && el.childNodes.length > 1 && !el.classList.contains('notification-bell-icon')) {
-                                const textNode = document.createTextNode(' ' + translationData[key]);
-                                el.innerHTML = '';
-                                el.appendChild(icon);
-                                el.appendChild(textNode);
-                             } else {
+                        } else if (el.classList.contains('fa-solid') || el.classList.contains('fa-regular')) { // Check for solid or regular font awesome icons
+                            // For icons that might have text next to them, like sidebar menu items
+                            const textSpan = el.closest('button, span')?.querySelector('span:not(.notification-badge):not([id*="-credits-display"])'); // Target actual text span
+                            if (textSpan) {
+                                textSpan.textContent = translationData[key];
+                            } else {
+                                // Fallback for elements without a direct text span next to icon
                                 el.textContent = translationData[key];
                             }
                         }
+                        else {
+                             el.textContent = translationData[key];
+                        }
                      }
                 });
+                // Manually update specific non-data-translate-key elements that need translation
+                document.getElementById('add-new-note-btn').querySelector('span').textContent = translations[lang].new_note_btn || 'Nueva Nota';
+                document.getElementById('add-new-drawing-btn').title = translations[lang].new_drawing_title || 'Nuevo Dibujo';
+
                 document.documentElement.lang = lang;
                 localStorage.setItem('goatify-lang', lang);
                 renderCalendarView();
@@ -2587,15 +2725,15 @@
                     'persuasive-copy': 'Modo Copywriter: Dime qué vendes y para dónde es el texto.',
                     'brand-strategy': 'Modo Estratega: Dime el nombre y rubro de tu negocio para empezar.',
                      'competitor-analysis': 'Modo Analista: Pega la URL de tu competencia para investigarla.',
-                    'sales-assistant': 'Modo Asistente de Ventas: Pega el mensaje de tu cliente para responder.',
-                    'english-teacher-practice': 'Practice mode: Let\'s talk. How was your day?',
+                    'sales-assistant': 'Modo Ventas para tu Negocio: Pega el mensaje de tu cliente para responder.', /* Updated text */
+                    'english-teacher-practice': 'Practice mode: Let\'s talk. How was your day.',
                     'design-web': 'Modo Diseñador Web: Describe el componente visual y lo crearé en HTML.',
                     'project-management': 'Modo Director de Proyectos: Describe tu proyecto para crear tareas en el tablero.',
                     'conflict-resolution': 'Modo Mediador: Describe la situación de conflicto para encontrar una solución.',
                     'decision-lab': 'Modo Estratega: Describe la decisión que enfrentas y tus opciones.',
                     'financial-assistant': 'Modo Financiero: Usa la tabla para registrar transacciones. Pídeme análisis en el chat.',
                     'notepad-app': 'Bloc de Notas: Organiza tus ideas. Todo se guarda automáticamente.',
-                    'notepad-assistant': 'Asistente de Redacción: Pide ideas, resúmenes o ayuda para mejorar tu texto actual.',
+                    'notepad-assistant': 'Asistente de Redacción: Pide ideas, resúmenes o ayuda para mejorar tu texto actual. También puedo corregir tu ortografía y gramática.', /* Updated text */
                 };
                 const currentChat = state.chats[currentChatId];
                 const key = workflowKey || (currentChat ? currentChat.workflow : (currentChatId === 'notepad-app' ? 'notepad-app' : null));
@@ -2699,39 +2837,105 @@
                 dom.settingsModal.classList.remove('flex');
             }
 
-            function showInAppNotification(title, body, duration = null) { 
+            function showInAppNotification(title, body, duration = null, taskId = null) { /* Added taskId parameter */
                 dom.inAppNotificationTitle.innerHTML = title;
                 dom.inAppNotificationBody.innerHTML = body;
                 dom.inAppNotification.classList.add('show');
-            
+                
+                const notificationButtons = document.getElementById('in-app-notification-buttons');
+                const notificationDoneBtn = document.getElementById('notification-done-btn');
+                const notificationSnoozeBtn = document.getElementById('notification-snooze-btn');
+
                 let timer;
-            
+
                 const closeNotification = (event) => {
-                    if (event && event.target.closest('button, a')) {
-                        return;
-                    }
+                    // This function should be callable externally and internally without relying on event.target.closest
                     if(timer) clearTimeout(timer);
                     dom.inAppNotification.classList.remove('show');
-                    dom.inAppNotification.removeEventListener('click', closeNotification);
+                    // Remove listeners to prevent memory leaks and multiple calls
+                    notificationDoneBtn.removeEventListener('click', handleNotificationDone);
+                    notificationSnoozeBtn.removeEventListener('click', handleNotificationSnooze);
                     dom.inAppNotificationClose.removeEventListener('click', closeFromX);
+                    // Crucially, remove the overlay click listener if it was set
+                    dom.inAppNotification.removeEventListener('click', closeNotification); 
                 };
             
                 const closeFromX = (event) => {
-                    event.stopPropagation();
+                    event.stopPropagation(); // Prevent event from bubbling up to the notification overlay
                     closeNotification();
                 };
 
-                dom.inAppNotification.addEventListener('click', closeNotification, { once: true });
-                dom.inAppNotificationClose.addEventListener('click', closeFromX, { once: true });
+                const handleNotificationDone = () => {
+                    if (taskId) {
+                        updateTaskStatus(taskId, { completed: true });
+                    }
+                    closeNotification();
+                };
+
+                const handleNotificationSnooze = async () => {
+                    const snoozeOptions = [
+                        { label: '5 minutos', value: 5 },
+                        { label: '15 minutos', value: 15 },
+                        { label: '30 minutos', value: 30 },
+                        { label: '1 hora', value: 60 },
+                        { label: 'Mañana por la mañana', value: 'tomorrow_morning' }
+                    ];
+
+                    const optionsHtml = snoozeOptions.map(opt => 
+                        `<option value="${opt.value}">${opt.label}</option>`
+                    ).join('');
+
+                    const result = await showModal({
+                        title: 'Aplazar Tarea',
+                        body: `<p>¿Por cuánto tiempo quieres aplazar esta tarea?</p>
+                               <select id="snooze-duration" class="w-full p-2 rounded bg-input border border-themed mt-2">${optionsHtml}</select>`,
+                        confirmText: 'Aplazar',
+                        cancelText: 'Cancelar'
+                    });
+
+                    if (result.confirmed && taskId) {
+                        const snoozeDuration = result.data['snooze-duration'];
+                        let newTime, newDate;
+                        const task = findTask(taskId)?.task;
+
+                        if (snoozeDuration === 'tomorrow_morning') {
+                            newDate = dayjs().add(1, 'day').format('YYYY-MM-DD');
+                            newTime = '08:00'; // Default morning time
+                        } else {
+                            const minutesToAdd = parseInt(snoozeDuration);
+                            const currentDateTime = dayjs(`${task.date}T${task.time || '00:00'}`); // Use task.date and task.time
+                            const newDateTime = currentDateTime.add(minutesToAdd, 'minute');
+                            newDate = newDateTime.format('YYYY-MM-DD');
+                            newTime = newDateTime.format('HH:mm');
+                        }
+                        updateTaskStatus(taskId, { date: newDate, time: newTime, notifiedThisMinute: false });
+                        closeNotification();
+                    } else {
+                        // If snooze is cancelled, don't close the original notification immediately
+                    }
+                };
+
+                // Attach event listeners for notification action buttons
+                notificationDoneBtn.addEventListener('click', handleNotificationDone);
+                notificationSnoozeBtn.addEventListener('click', handleNotificationSnooze);
+                dom.inAppNotificationClose.addEventListener('click', closeFromX);
             
-                if(duration) {
+                // For regular pop-ups (non-task notifications), duration is applied
+                if (duration) {
+                    notificationButtons.classList.add('hidden'); // Hide buttons for short-lived popups
                     timer = setTimeout(closeNotification, duration);
+                    dom.inAppNotification.removeEventListener('click', closeNotification); // Remove outer click listener if it's auto-dismissed
+                } else {
+                    notificationButtons.classList.remove('hidden'); // Show buttons for persistent notifications
+                    // Add click listener to notification overlay itself for dismissal (if it has buttons)
+                    dom.inAppNotification.addEventListener('click', closeNotification, { once: true });
                 }
             }
 
             function showCalendarModal() {
                 dom.calendarModalOverlay.classList.remove('hidden');
                 dom.calendarModalOverlay.classList.add('flex');
+                // The calendar modal position is controlled by CSS, so it appears centered.
                 if (!currentCalendarView) currentCalendarView = 'month'; 
                 renderCalendarView();
             }
@@ -2808,7 +3012,7 @@
                 const endOfWeek = startOfWeek.add(6, 'day');
                 dom.currentWeekRange.textContent = `${startOfWeek.format('D MMM')} - ${endOfWeek.format('D MMM,YYYY')}`;
 
-            for (let i = 0; i < 7; i++) {
+                for (let i = 0; i < 7; i++) {
                     const day = startOfWeek.add(i, 'day');
                     const dayKey = day.format('YYYY-MM-DD');
                     const tasks = getTasksForDay(dayKey);
@@ -2891,16 +3095,14 @@
                     hourEl.innerHTML = `
                         <div class="day-view-hour-label">${hourLabel}</div>
                         <div class="day-view-hour-content" data-time="${hourLabel}" data-date="${selectedCalendarDate.format('YYYY-MM-DD')}">
-                            ${tasksInHour.map(task => {
-                                return `
-                                 <div class="task-item flex items-center gap-2 p-1 rounded-md ${task.completed ? 'bg-green-900/50 text-gray-400 line-through' : 'bg-input'} text-sm" 
-                                    draggable="true" data-task-id="${task.id}" data-task-source="${task.source}">
+                            ${tasksInHour.map((task) => `
+                                <div class="task-item flex items-center gap-2 p-1 rounded-md ${task.completed ? 'bg-green-900/50 text-gray-400 line-through' : 'bg-input'} text-sm" 
+                                     draggable="true" data-task-id="${task.id}" data-task-source="${task.source}">
                                     <input type="checkbox" class="task-checkbox flex-shrink-0" data-task-id="${task.id}" ${task.completed ? 'checked' : ''}>
                                      <span class="flex-grow cursor-pointer"><strong>${task.time}:</strong> ${task.text} <span class="text-xs text-primary">(${task.source})</span></span>
-                                    <button class="delete-task-icon text-text-medium hover:text-danger-color text-xs p-1"><i class="fas fa-trash-alt"></i></button>
+                                     <button class="delete-task-icon text-text-medium hover:text-danger-color text-xs p-1"><i class="fas fa-trash-alt"></i></button>
                                 </div>
-                                `
-                            }).join('')}
+                            `).join('')}
                              <button class="add-task-to-time-btn text-lg hover:text-primary" data-date="${selectedCalendarDate.format('YYYY-MM-DD')}" data-time="${hourLabel}">+</button>
                         </div>
                     `;
@@ -3199,6 +3401,43 @@
                 }
             }
 
+            // Function to request and handle push notifications outside the browser
+            function requestPushNotificationPermission() {
+                if ('Notification' in window && Notification.permission !== "granted" && Notification.permission !== "denied" && 'serviceWorker' in navigator) {
+                    Notification.requestPermission().then(permission => {
+                        if (permission === "granted") {
+                            navigator.serviceWorker.ready.then(registration => {
+                                registration.pushManager.subscribe({
+                                    userVisibleOnly: true,
+                                    applicationServerKey: urlBase64ToUint8Array('YOUR_PUBLIC_VAPID_KEY') // Replace with your VAPID key
+                                }).then(subscription => {
+                                    console.log('Push notification subscribed:', subscription);
+                                    // Send subscription to your server to save it
+                                }).catch(error => {
+                                    console.error('Push subscription failed:', error);
+                                });
+                            });
+                        }
+                    });
+                }
+            }
+
+            function urlBase64ToUint8Array(base64String) {
+                const padding = '='.repeat((4 - base64String.length % 4) % 4);
+                const base64 = (base64String + padding)
+                    .replace(/\-/g, '+')
+                    .replace(/_/g, '/');
+
+                const rawData = window.atob(base64);
+                const outputArray = new Uint8Array(rawData.length);
+
+                for (let i = 0; i < rawData.length; ++i) {
+                    outputArray[i] = rawData.charCodeAt(i);
+                }
+                return outputArray;
+            }
+
+
             function checkAndNotifyTasks() {
                 if (!notificationsEnabled) return;
                 const now = dayjs();
@@ -3209,17 +3448,25 @@
                     if (!task.completed && task.time === currentHourMinute && !task.notifiedThisMinute) {
                         const lang = localStorage.getItem('goatify-lang') || 'es';
                         const notificationTitle = translations[lang].notification_title;
-                        const notificationBody = `${translations[lang].notification_task_due} ${task.text} (${task.time})`;
+                        const notificationBody = `<p class="glowing-text text-xl">${translations[lang].notification_task_due} ${task.text} (${task.time})</p>`;
                         
                         showInAppNotification(
                             `<i class="fas fa-bell animate-tada text-yellow-400 mr-2"></i> ${notificationTitle}`,
-                            `<p class="text-md">${notificationBody}</p>`
+                            notificationBody,
+                            null, // Keep on screen until dismissed by user
+                            task.id // Pass task ID for snooze/done functionality
                         );
 
+                        // Also send native push notification if permission granted
                         if (Notification.permission === "granted") {
-                            new Notification(notificationTitle, {
-                                 body: notificationBody,
-                                icon: './Logos HD.png'
+                            // Ensure service worker is registered for push notifications
+                            navigator.serviceWorker.ready.then(registration => {
+                                registration.showNotification(notificationTitle, {
+                                    body: `${translations[lang].notification_task_due} ${task.text} (${task.time})`,
+                                    icon: './Logos HD.png',
+                                    vibrate: [200, 100, 200],
+                                    tag: task.id // Tag to replace existing notifications for this task
+                                });
                             });
                         }
                         
@@ -3227,6 +3474,7 @@
                     }
                 });
                 allTasksToday.forEach(task => {
+                    // Reset notifiedThisMinute flag if time has passed
                     if (task.notifiedThisMinute && task.time !== currentHourMinute) {
                         updateTaskNotifiedFlag(task.id, false);
                     }
@@ -3257,6 +3505,7 @@
                 if (currentCalendarView === 'month') renderMonthView();
             }
 
+            // Check for notifications every 10 seconds
             setInterval(checkAndNotifyTasks, 10 * 1000);
 
             function setupNotifications() {
@@ -3265,8 +3514,13 @@
                         Notification.requestPermission().then(permission => {
                             if (permission === "denied") {
                                 console.warn("El usuario ha denegado los permisos de notificación.");
+                            } else if (permission === "granted") {
+                                // Also attempt to register for Push API if supported
+                                requestPushNotificationPermission();
                             }
                         });
+                    } else if (Notification.permission === "granted") {
+                        requestPushNotificationPermission(); // Ensure push is enabled if already granted
                     } else if (Notification.permission === "denied") {
                          console.warn("Los permisos de notificación fueron denegados previamente.");
                     }
@@ -3358,8 +3612,22 @@
                 if (hasFile) return "gpt-4o-mini"; 
                 
                 const selectedModel = selector.value;
-                if (selectedModel === 'gpt-4o' && (!currentUser || (currentUser.app_metadata?.plan || 'free') === 'free')) { // Check if user is logged in AND not on free plan
-                     showInAppNotification("Acceso Restringido", "El modelo GOAT X PRO está disponible solo para usuarios con un plan de pago.", 3000); // Updated message
+                const currentGoatXProLimit = getGoatXProDailyLimit(); // Get dynamic limit
+
+                if (selectedModel === 'gpt-4o' && currentGoatXProLimit !== Infinity && goatXProUsage >= currentGoatXProLimit) {
+                    showModal({
+                        title: 'Límite de Uso Alcanzado para GOAT X PRO',
+                        body: `Has alcanzado el límite de ${currentGoatXProLimit} usos diarios para el modelo GOAT X PRO. Por favor, usa el modelo GOAT X (General) o espera hasta mañana para volver a usar GOAT X PRO.`,
+                        confirmText: 'Entendido',
+                        showCancel: false
+                    }).then(() => {
+                        selector.value = 'gpt-3.5-turbo-1106'; 
+                    });
+                    return 'gpt-3.5-turbo-1106'; // Force switch to default model
+                }
+
+                if (selectedModel === 'gpt-4o' && (!currentUser || (currentUser.app_metadata?.plan || 'free') === 'free')) { 
+                     showInAppNotification("Acceso Restringido", "El modelo GOAT X PRO está disponible solo para usuarios con un plan de pago.", 3000); 
                      selector.value = 'gpt-3.5-turbo-1106'; 
                      return 'gpt-3.5-turbo-1106';
                 }
@@ -3423,16 +3691,18 @@
             }
 
             function spendCredits(cost, modelUsed) {
+                const currentGoatXProLimit = getGoatXProDailyLimit(); // Get dynamic limit
+
                 // Check daily GOAT X PRO limit first
-                if (modelUsed === 'gpt-4o') {
+                if (modelUsed === 'gpt-4o' && currentGoatXProLimit !== Infinity) {
                     const today = dayjs().format('YYYY-MM-DD');
                     const proUsageKey = `goat_x_pro_usage_${currentUser?.id || 'guest'}_${today}`;
                     goatXProUsage = parseInt(localStorage.getItem(proUsageKey) || '0');
 
-                    if (goatXProUsage >= GOAT_X_PRO_DAILY_LIMIT) {
+                    if (goatXProUsage >= currentGoatXProLimit) {
                         showModal({
                             title: 'Límite de Uso Alcanzado para GOAT X PRO',
-                            body: `Has alcanzado el límite de ${GOAT_X_PRO_DAILY_LIMIT} usos diarios para el modelo GOAT X PRO. Por favor, usa el modelo GOAT X (General) o espera hasta mañana para volver a usar GOAT X PRO.`,
+                            body: `Has alcanzado el límite de ${currentGoatXProLimit} usos diarios para el modelo GOAT X PRO. Por favor, usa el modelo GOAT X (General) o espera hasta mañana para volver a usar GOAT X PRO.`,
                             confirmText: 'Entendido',
                             showCancel: false
                         }).then(() => {
@@ -3451,9 +3721,9 @@
                     gamificationState.credits -= cost;
                     saveGamificationState();
                     updateCreditCounter();
-                    showInAppNotification("Crédito de Recompensa Usado", `Se ha utilizado un crédito de recompensa. Te quedan ${gamificationState.credits}.`, 2000);
+                    showInAppNotification("Crédito de Recompensa Usado", `Se ha utilizado un crédito de recompensa. Te quedan ${gamificationState.credits}.`, 500); // Shorter duration
                     
-                    if (modelUsed === 'gpt-4o') {
+                    if (modelUsed === 'gpt-4o' && currentGoatXProLimit !== Infinity) { // Only increment if not unlimited
                         const today = dayjs().format('YYYY-MM-DD');
                         const proUsageKey = `goat_x_pro_usage_${currentUser?.id || 'guest'}_${today}`;
                         goatXProUsage++;
@@ -3488,7 +3758,7 @@
                     localStorage.setItem(usageKey, JSON.stringify(usageData));
                     updateCreditCounter();
 
-                    if (modelUsed === 'gpt-4o') {
+                    if (modelUsed === 'gpt-4o' && currentGoatXProLimit !== Infinity) { // Only increment if not unlimited
                         const today = dayjs().format('YYYY-MM-DD');
                         const proUsageKey = `goat_x_pro_usage_${currentUser?.id || 'guest'}_${today}`;
                         goatXProUsage++;
@@ -3520,7 +3790,7 @@
                 localStorage.setItem(usageKey, JSON.stringify(usageData));
                 updateCreditCounter();
 
-                if (modelUsed === 'gpt-4o') {
+                if (modelUsed === 'gpt-4o' && currentGoatXProLimit !== Infinity) { // Only increment if not unlimited
                     const today = dayjs().format('YYYY-MM-DD');
                     const proUsageKey = `goat_x_pro_usage_${currentUser?.id || 'guest'}_${today}`;
                     goatXProUsage++;
@@ -3569,7 +3839,7 @@
                     state.chats['notepad-assistant-chat'] = {
                         id: 'notepad-assistant-chat',
                         title: 'Asistente de Redacción',
-                        messages: [{ role: 'assistant', content: '¡Hola! Soy tu asistente de redacción. Pega tu texto aquí o pídeme ideas para empezar.' }],
+                        messages: [{ role: 'assistant', content: '¡Hola! Soy tu asistente de redacción. Pega tu texto aquí o pídeme ideas para empezar. También puedo corregir tu ortografía y gramática.' }], /* Updated message */
                         workflow: 'notepad-assistant',
                         isDeletable: false,
                     };
@@ -3633,10 +3903,17 @@
                 let displayLimit = limit === Infinity ? '∞' : limit;
 
                 // Update individual spans for plan and reward credits
-                dom.planCreditsDisplay.textContent = `${remaining}/${displayLimit}`;
-                dom.rewardCreditsDisplay.textContent = `${gamCredits}`;
+                if (dom.planCreditsDisplay) dom.planCreditsDisplay.textContent = `${remaining}/${displayLimit}`;
+                if (dom.rewardCreditsDisplay) dom.rewardCreditsDisplay.textContent = `${gamCredits}`;
                 
-                dom.messageCounterEl.classList.remove('hidden'); // Ensure the counter is visible
+                // Ensure the counter is visible on desktop
+                if (dom.messageCounterEl) {
+                    if (window.innerWidth >= 768) { // Only show on desktop
+                        dom.messageCounterEl.style.display = 'block';
+                    } else {
+                        dom.messageCounterEl.style.display = 'none';
+                    }
+                }
             }
 
             function setTheme(isDark) { 
@@ -3705,7 +3982,7 @@
                 if (window.innerWidth < 768) toggleSidebar(false);
                 
                 const chatType = options.title || 'chat';
-                showInAppNotification("Éxito", `Has creado un nuevo ${chatType}.`, 2000);
+                showInAppNotification("Éxito", `Has creado un nuevo ${chatType}.`, 500); // Shorter duration
 
                 return id;
             }
@@ -3721,11 +3998,11 @@
                     return; 
                 } 
                 
-                // Keep notes panel collapsed when opening other sections unless it's the notes app itself
-                if (chatId !== 'notepad-app' && !dom.notesListPanel.classList.contains('collapsed')) {
-                    dom.notesListPanel.classList.add('collapsed');
-                    dom.notesListToggle.querySelector('i').classList.replace('fa-chevron-left', 'fa-chevron-right'); // Ensure arrow points right
-                }
+                // Keep notes panel always expanded, no need to toggle classes based on selection
+                // if (chatId !== 'notepad-app' && !dom.notesListPanel.classList.contains('collapsed')) {
+                //     dom.notesListPanel.classList.add('collapsed');
+                //     dom.notesListToggle.querySelector('i').classList.replace('fa-chevron-left', 'fa-chevron-right'); // Ensure arrow points right
+                // }
 
 
                 dom.chatMessages.style.display = 'none';
@@ -3738,9 +4015,8 @@
                     dom.chatTitle.textContent = "Bloc de Notas";
                     dom.mobileChatTitle.textContent = "Bloc de Notas";
                     showNotepadView();
-                    // When notepad is selected, make sure the notepad panel is expanded
-                    dom.notesListPanel.classList.remove('collapsed');
-                    dom.notesListToggle.querySelector('i').classList.replace('fa-chevron-right', 'fa-chevron-left');
+                    // Ensure notepad panel is always expanded visually
+                    dom.notesListPanel.classList.remove('collapsed'); 
 
                     if (chatId.startsWith('note-')) { 
                         selectNote(chatId);
@@ -3795,9 +4071,8 @@
                 updateActiveChatHighlight(); 
                 dom.modelSelector.value = 'gpt-3.5-turbo-1106';
                 updateContextualFooter(null);
-                // Ensure notepad panel is collapsed when navigating away
-                dom.notesListPanel.classList.add('collapsed');
-                dom.notesListToggle.querySelector('i').classList.replace('fa-chevron-left', 'fa-chevron-right');
+                // Ensure notepad panel is always expanded visually
+                dom.notesListPanel.classList.remove('collapsed');
             }
 
             function addMessageToUI(role, content, imageSrc, messageIndex, container) {
@@ -3827,6 +4102,15 @@
                     wrapper.insertBefore(editBtn, wrapper.firstChild);
                 }
                 
+                if (role === 'assistant') { // Add speaker icon for AI responses
+                    const speakerBtn = document.createElement('button');
+                    speakerBtn.className = 'p-1 text-text-medium opacity-100 transition-opacity ml-2';
+                    speakerBtn.innerHTML = '<i class="fas fa-volume-up fa-xs"></i>';
+                    speakerBtn.title = 'Leer mensaje';
+                    speakerBtn.onclick = (e) => { e.stopPropagation(); speak(content); }; // Read this specific message
+                    bubble.appendChild(speakerBtn); // Append to the bubble itself
+                }
+
                 if (role === 'assistant' && /<\/?[a-z][\s\S]*>/i.test(content)) {
                     const previewButton = document.createElement('button');
                     previewButton.innerHTML = '<i class="fas fa-eye mr-2"></i>Vista Previa';
@@ -3877,7 +4161,7 @@
                 
                 const itemMap = new Map();
                 // Filter out notepad-assistant-chat from the main chat list
-                Object.values(state.chats).filter(chat => chat.isDeletable !== false).forEach(chat => itemMap.set(chat.id, { type: 'chat', data: chat })); // Filter out non-deletable chats like notepad-assistant
+                Object.values(state.chats).filter(chat => chat.isDeletable !== false).forEach(chat => itemMap.set(chat.id, { type: 'chat', data: chat })); 
                 Object.values(state.notes).forEach(note => itemMap.set(note.id, { type: 'note', data: note }));
                 Object.values(state.projects).forEach(proj => itemMap.set(proj.id, { type: 'project', data: proj }));
 
@@ -3887,16 +4171,49 @@
                         if (!item) return;
 
                         if(item.type === 'chat') frag.appendChild(createChatItemElement(id, isSubItem));
-                        if(item.type === 'note') frag.appendChild(createNoteItemElement(id, isSubItem));
-                        if(item.type === 'project') {
+                        else if(item.type === 'note') frag.appendChild(createNoteItemElement(id, isSubItem));
+                        else if(item.type === 'project') {
                             const projectEl = createProjectElement(id);
                             frag.appendChild(projectEl);
                         }
                     });
                 };
                 
-                renderStructure(state.structure);
-                
+                // Render folders first
+                const foldersCategory = document.createElement('div');
+                foldersCategory.className = 'folders-category border-t border-themed pt-4 default-open';
+                foldersCategory.innerHTML = `
+                    <div class="folder-header flex items-center p-2 rounded-md cursor-pointer hover:bg-light">
+                        <i class="fas fa-chevron-right folder-arrow mr-2 transition-transform text-xs"></i>
+                        <i class="fas fa-folder-open mr-2 text-yellow-500"></i>
+                        <span class="text-sm font-bold" data-translate-key="my_folders">Mis Carpetas</span>
+                    </div>
+                    <div class="folders-content pl-4 pt-1 space-y-1">
+                        <button id="new-folder-btn" class="flex items-center justify-center font-semibold p-3 rounded-lg bg-input w-full"><i class="fas fa-folder-plus mr-2"></i><span data-translate-key="new_folder">Nueva Carpeta</span></button>
+                        <div id="folders-list" class="space-y-1"></div>
+                    </div>
+                `;
+                frag.appendChild(foldersCategory);
+                const foldersListEl = foldersCategory.querySelector('#folders-list');
+
+                const folderIds = state.structure.filter(id => id.startsWith('project-'));
+                folderIds.forEach(folderId => {
+                    foldersListEl.appendChild(createProjectElement(folderId));
+                });
+                // Then render other items (chats and notes) directly below the folders category or workflows.
+                // Filter out projects from the main structure rendering to avoid duplication.
+                const nonFolderItems = state.structure.filter(id => !id.startsWith('project-'));
+                nonFolderItems.forEach(id => {
+                    const item = itemMap.get(id);
+                    if (item && item.data.isDeletable !== false) { // Ensure notepad-assistant-chat is not duplicated and is only in workflows
+                        if (item.type === 'chat') {
+                            frag.appendChild(createChatItemElement(id));
+                        } else if (item.type === 'note') {
+                            frag.appendChild(createNoteItemElement(id));
+                        }
+                    }
+                });
+
                 dom.sidebarContent.appendChild(frag); 
                 updateActiveChatHighlight(); 
             }
@@ -3952,7 +4269,8 @@
                 if (!note) return document.createDocumentFragment();
 
                 const item = document.createElement('div');
-                item.className = 'note-item flex items-center gap-3'; // Changed from chat-item to note-item for specific styling
+                // Use a class for general sidebar items but specific styles for notes
+                item.className = `chat-item group flex items-center justify-between p-2 rounded-md cursor-pointer ${isSubItem ? 'pl-8' : ''}`; 
                 item.dataset.id = note.id;
                 item.dataset.type = 'note';
 
@@ -3978,9 +4296,10 @@
                     });
                 } else {
                     item.draggable = true;
+                    // Adjusted text-sm and font-medium for notes to match other sidebar items, no specific "note-item" class for thickness
                     item.innerHTML = `
                         <i class="fas ${note.type === 'drawing' ? 'fa-paint-brush' : 'fa-file-alt'} mr-2"></i>
-                        <span class="flex-grow truncate text-sm font-medium">${note.title}</span>
+                        <span class="flex-grow truncate text-sm font-medium">${note.title}</span> 
                         <div class="chat-item-actions flex-shrink-0 ${actionsOpacityClass} transition-opacity">
                             <button class="move-btn text-text-medium hover:text-primary p-1" title="Mover a carpeta"><i class="fas fa-folder-open fa-xs"></i></button>
                             <button class="rename-btn text-text-medium hover:text-primary p-1" title="Renombrar"><i class="fas fa-pencil-alt fa-xs"></i></button>
@@ -4006,15 +4325,15 @@
             function createProjectElement(id) {
                 const project = state.projects[id];
                 if (!project) return document.createDocumentFragment();
-                const div = document.createElement('div'); div.className = 'project'; div.dataset.id = id;
+                const div = document.createElement('div'); div.className = 'project folders-category'; div.dataset.id = id; // Changed class to folders-category
                 const header = document.createElement('div');
-                header.className = 'project-header group flex items-center p-2 rounded-md cursor-pointer';
+                header.className = 'folder-header group flex items-center p-2 rounded-md cursor-pointer';
 
                 const isMobileView = window.innerWidth < 768;
                 const actionsOpacityClass = isMobileView ? 'opacity-100' : 'opacity-0 group-hover:opacity-100';
 
-                header.innerHTML = `<i class="fas fa-chevron-right project-arrow mr-2 transition-transform"></i><i class="fas fa-folder mr-2 text-yellow-500"></i><span class="flex-grow truncate text-sm font-bold">${project.title}</span><div class="chat-item-actions flex-shrink-0 ${actionsOpacityClass} transition-opacity"><button class="rename-btn text-text-medium hover:text-primary p-1" title="Renombrar"><i class="fas fa-pencil-alt fa-xs"></i></button><button class="delete-btn text-text-medium hover:text-red-500 p-1" title="Eliminar"><i class="fas fa-trash-alt fa-xs"></i></button></div>`;
-                const content = document.createElement('div'); content.className = 'project-content pt-1 space-y-1';
+                header.innerHTML = `<i class="fas fa-chevron-right folder-arrow mr-2 transition-transform"></i><i class="fas fa-folder mr-2 text-yellow-500"></i><span class="flex-grow truncate text-sm font-bold">${project.title}</span><div class="chat-item-actions flex-shrink-0 ${actionsOpacityClass} transition-opacity"><button class="rename-btn text-text-medium hover:text-primary p-1" title="Renombrar"><i class="fas fa-pencil-alt fa-xs"></i></button><button class="delete-btn text-text-medium hover:text-red-500 p-1" title="Eliminar"><i class="fas fa-trash-alt fa-xs"></i></button></div>`;
+                const content = document.createElement('div'); content.className = 'folders-content pt-1 space-y-1 pl-4'; // Changed class to folders-content
                 (project.itemIds || []).forEach(itemId => {
                     // Filter out notepad-assistant-chat from project folders
                     if (itemId.startsWith('chat-') && itemId !== 'notepad-assistant-chat') content.appendChild(createChatItemElement(itemId, true));
@@ -4047,21 +4366,44 @@
             }
 
             function moveItemToProject(itemId, targetProjectId = null) {
-                // Remove from old location
-                state.structure = state.structure.filter(id => id !== itemId); 
-                Object.values(state.projects).forEach(p => { if(p.itemIds) p.itemIds = p.itemIds.filter(id => id !== itemId) });
+                // Determine the item's current type
+                let itemType;
+                if (itemId.startsWith('chat-')) itemType = 'chat';
+                else if (itemId.startsWith('note-')) itemType = 'note';
+                else if (itemId.startsWith('project-')) itemType = 'project';
+                else return; // Unknown item type
+
+                // Find the item's current location in the structure (if not in a project already)
+                const currentStructureIndex = state.structure.findIndex(id => id === itemId);
+                if (currentStructureIndex !== -1) {
+                    state.structure.splice(currentStructureIndex, 1);
+                } else {
+                    // Check if it's currently in a project and remove it
+                    Object.values(state.projects).forEach(p => {
+                        if (p.itemIds) {
+                            p.itemIds = p.itemIds.filter(id => id !== itemId);
+                        }
+                    });
+                }
 
                 // Add to new project (or root if targetProjectId is null)
                 if(targetProjectId && state.projects[targetProjectId]){ 
                     if(!state.projects[targetProjectId].itemIds) state.projects[targetProjectId].itemIds = [];
                     state.projects[targetProjectId].itemIds.unshift(itemId); 
                 } else {
-                    state.structure.unshift(itemId);
+                    // If moving to root, add to the top of the structure (after existing folders)
+                    let insertIndex = 0;
+                    for (let i = 0; i < state.structure.length; i++) {
+                        if (state.structure[i].startsWith('project-')) {
+                            insertIndex = i + 1;
+                        }
+                    }
+                    state.structure.splice(insertIndex, 0, itemId);
                 }
                 
                 saveState(); 
                 renderSidebar(); 
-                // If a chat was moved, re-select it to update the view
+                // If the currently viewed chat/note was moved, re-select it to update the view
                 if (currentChatId === itemId) {
                     selectChat(currentChatId);
                 }
@@ -4182,7 +4524,7 @@
                         inputEl = dom.notepadMsgInput;
                         messageContainer = dom.notepadChatMessages;
                         chatIdToUpdate = 'notepad-assistant-chat';
-                        noteContent = dom.noteContentEditor.innerText;
+                        noteContent = dom.noteContentEditor.innerHTML; // Get HTML content for notepad assistant
                         modelToUse = getModelForRequest(state.chats[chatIdToUpdate]?.workflow, false, 'notepad');
                         break;
                     default: // main
@@ -4337,23 +4679,56 @@
                 Object.values(state.notes).forEach(note => itemMap.set(note.id, { type: 'note', data: note }));
                 Object.values(state.projects).forEach(proj => itemMap.set(proj.id, { type: 'project', data: proj }));
 
-                const renderStructureRecursive = (structure, parentElement, isSubItem = false) => {
+                const renderStructure = (structure, isSubItem = false) => {
                     structure.forEach(id => {
                         const item = itemMap.get(id);
                         if (!item) return;
 
-                        if (item.type === 'chat') {
-                            parentElement.appendChild(createChatItemElement(id, isSubItem));
-                        } else if (item.type === 'note') {
-                            parentElement.appendChild(createNoteItemElement(id, isSubItem));
-                        } else if (item.type === 'project') {
+                        if(item.type === 'chat') frag.appendChild(createChatItemElement(id, isSubItem));
+                        else if(item.type === 'note') frag.appendChild(createNoteItemElement(id, isSubItem));
+                        else if(item.type === 'project') {
                             const projectEl = createProjectElement(id);
-                            parentElement.appendChild(projectEl);
+                            frag.appendChild(projectEl);
                         }
                     });
                 };
-                renderStructureRecursive(state.structure, dom.sidebarContent);
+                
+                // Render folders first
+                const foldersCategory = document.createElement('div');
+                foldersCategory.className = 'folders-category border-t border-themed pt-4 default-open';
+                foldersCategory.innerHTML = `
+                    <div class="folder-header flex items-center p-2 rounded-md cursor-pointer hover:bg-light">
+                        <i class="fas fa-chevron-right folder-arrow mr-2 transition-transform text-xs"></i>
+                        <i class="fas fa-folder-open mr-2 text-yellow-500"></i>
+                        <span class="text-sm font-bold" data-translate-key="my_folders">Mis Carpetas</span>
+                    </div>
+                    <div class="folders-content pl-4 pt-1 space-y-1">
+                        <button id="new-folder-btn" class="flex items-center justify-center font-semibold p-3 rounded-lg bg-input w-full"><i class="fas fa-folder-plus mr-2"></i><span data-translate-key="new_folder">Nueva Carpeta</span></button>
+                        <div id="folders-list" class="space-y-1"></div>
+                    </div>
+                `;
+                frag.appendChild(foldersCategory);
+                const foldersListEl = foldersCategory.querySelector('#folders-list');
 
+                const folderIds = state.structure.filter(id => id.startsWith('project-'));
+                folderIds.forEach(folderId => {
+                    foldersListEl.appendChild(createProjectElement(folderId));
+                });
+                // Then render other items (chats and notes) directly below the folders category or workflows.
+                // Filter out projects from the main structure rendering to avoid duplication.
+                const nonFolderItems = state.structure.filter(id => !id.startsWith('project-'));
+                nonFolderItems.forEach(id => {
+                    const item = itemMap.get(id);
+                    if (item && item.data.isDeletable !== false) { // Ensure notepad-assistant-chat is not duplicated and is only in workflows
+                        if (item.type === 'chat') {
+                            frag.appendChild(createChatItemElement(id));
+                        } else if (item.type === 'note') {
+                            frag.appendChild(createNoteItemElement(id));
+                        }
+                    }
+                });
+
+                dom.sidebarContent.appendChild(frag); 
                 updateActiveChatHighlight(); 
             }
 
@@ -4389,7 +4764,7 @@
                 if (window.innerWidth < 768) {
                     dom.notepadViewContainer.classList.add('mobile-editor-active');
                 }
-                showInAppNotification("Éxito", `Se ha creado: "${newNote.title}"`, 2000);
+                showInAppNotification("Éxito", `Se ha creado: "${newNote.title}"`, 500); // Shorter duration
             }
 
             function loadNoteIntoEditor(noteId) {
@@ -4540,7 +4915,7 @@
 
                 if (result.confirmed && result.data['share-email-input']) {
                     console.log(`(DEMO) Sharing note ${currentNoteId} with ${result.data['share-email-input']}. Backend implementation needed.`);
-                    showInAppNotification("Función en Desarrollo", "La colaboración en tiempo real estará disponible pronto.");
+                    showInAppNotification("Función en Desarrollo", "La colaboración en tiempo real estará disponible pronto.", 500); // Shorter duration
                 }
             }
 
@@ -4550,6 +4925,7 @@
             function setupModalClickOutside(modalElement, hideFunction) {
                 if (!modalElement) return;
                 modalElement.addEventListener('click', (e) => {
+                    // Only hide if the click is directly on the overlay, not on the content itself
                     if (e.target === modalElement) {
                         hideFunction();
                     }
@@ -4589,29 +4965,20 @@
                 if (motivationInterval) clearInterval(motivationInterval);
                 if (!motivationEnabled) return;
 
-                const notificationTimes = ['08:00', '11:00', '14:00', '17:00'];
-                let lastNotifiedHour = -1;
-
+                // Send every 30 minutes
                 motivationInterval = setInterval(() => {
                     if (!motivationEnabled) {
                         clearInterval(motivationInterval);
                         return;
                     }
-                    const now = dayjs();
-                    const currentTime = now.format('HH:mm');
-                    const currentHour = now.hour();
-
-                    if (notificationTimes.includes(currentTime) && currentHour !== lastNotifiedHour) {
-                        lastNotifiedHour = currentHour;
-                        const randomIndex = Math.floor(Math.random() * MOTIVATIONAL_MESSAGES.length);
-                        const message = MOTIVATIONAL_MESSAGES[randomIndex];
-                        showInAppNotification(
-                            `<i class="fas fa-lightbulb text-yellow-400 mr-2"></i> ¡Dosis de Motivación!`,
-                            `<p class="text-md">${message}</p>`,
-                            4000
-                        );
-                    }
-                }, 60000); 
+                    const randomIndex = Math.floor(Math.random() * MOTIVATIONAL_MESSAGES.length);
+                    const message = MOTIVATIONAL_MESSAGES[randomIndex];
+                    showInAppNotification(
+                        `<i class="fas fa-lightbulb text-yellow-400 mr-2"></i> ¡Dosis de Motivación!`,
+                        `<p class="text-md">${message}</p>`,
+                        4000 // Short duration for motivation popups
+                    );
+                }, 30 * 60 * 1000); // Every 30 minutes
             }
 
             function setupEventListeners() {
@@ -4619,12 +4986,26 @@
                     e.stopPropagation();
                     dom.inAppNotification.classList.remove('show');
                 });
+                dom.notificationDoneBtn?.addEventListener('click', () => {
+                    // Handled by showInAppNotification
+                });
+                dom.notificationSnoozeBtn?.addEventListener('click', () => {
+                    // Handled by showInAppNotification
+                });
+
 
                 const motivationClickHandler = () => showMotivationModal();
                 dom.motivationBtnHeader?.addEventListener('click', motivationClickHandler);
                 dom.motivationBtnMobile?.addEventListener('click', motivationClickHandler);
 
                 dom.closeMotivationModal?.addEventListener('click', hideMotivationModal);
+                // Close motivation modal on outside click
+                dom.motivationModal.addEventListener('click', (e) => {
+                    if (e.target === dom.motivationModal) {
+                        hideMotivationModal();
+                    }
+                });
+
                 dom.motivationToggle?.addEventListener('change', () => {
                     motivationEnabled = dom.motivationToggle.checked;
                     localStorage.setItem('goatify-motivation-enabled', motivationEnabled);
@@ -4680,10 +5061,12 @@
                     if (result.confirmed && result.data['project-name'].trim()) { 
                         const id = 'project-' + crypto.randomUUID(); 
                         state.projects[id] = { id, title: result.data['project-name'].trim(), itemIds: [] }; 
-                        state.structure.unshift(id); 
+                        // Folders now go specifically into the folders-list, which is part of sidebarContent
+                        // No need to directly manage 'state.structure' here for folders anymore, as renderSidebar will handle it
+                        // by looking at state.projects.
                         saveState(); 
                         renderSidebar(); 
-                        showInAppNotification("Éxito", `Carpeta "${result.data['project-name'].trim()}" creada.`, 2000);
+                        showInAppNotification("Éxito", `Carpeta "${result.data['project-name'].trim()}" creada.`, 500); // Shorter duration
                     } 
                 });
 
@@ -4738,11 +5121,8 @@
                  });
 
                 dom.modelSelector?.addEventListener('change', () => {
-                    const selectedValue = dom.modelSelector.value;
-                    if (selectedValue === 'gpt-4o' && (!currentUser || (currentUser.app_metadata?.plan || 'free') === 'free')) { // Re-check on change
-                        showInAppNotification("Acceso Restringido", "El modelo GOAT X PRO está disponible solo para usuarios con un plan de pago.", 3000);
-                        dom.modelSelector.value = 'gpt-3.5-turbo-1106';
-                    }
+                    // Re-run the model selection logic to check for limits/plans
+                    getModelForRequest(state.chats[currentChatId]?.workflow, hasFile(), 'main'); 
                 });
                 
                 dom.clearImageBtn?.addEventListener('click', clearImageData);
@@ -4771,18 +5151,18 @@
                     }
                 });
 
-                // Notepad list toggle for desktop
-                dom.notesListToggle?.addEventListener('click', () => { 
-                    dom.notesListPanel.classList.toggle('collapsed');
-                    // Toggle visibility of the notes list based on panel collapse state
-                    if (dom.notesListPanel.classList.contains('collapsed')) {
-                        dom.notesList.style.display = 'none'; // Hide list when panel collapses
-                        dom.notesListToggle.querySelector('i').classList.replace('fa-chevron-left', 'fa-chevron-right');
-                    } else {
-                        dom.notesList.style.display = 'flex'; // Show list when panel expands
-                        dom.notesListToggle.querySelector('i').classList.replace('fa-chevron-right', 'fa-chevron-left');
-                    }
-                });
+                // Notepad list toggle for desktop - this button is removed from Notepad UI
+                // dom.notesListToggle?.addEventListener('click', () => { 
+                //     dom.notesListPanel.classList.toggle('collapsed');
+                //     // Toggle visibility of the notes list based on panel collapse state
+                //     if (dom.notesListPanel.classList.contains('collapsed')) {
+                //         dom.notesList.style.display = 'none'; // Hide list when panel collapses
+                //         dom.notesListToggle.querySelector('i').classList.replace('fa-chevron-left', 'fa-chevron-right');
+                //     } else {
+                //         dom.notesList.style.display = 'flex'; // Show list when panel expands
+                //         dom.notesListToggle.querySelector('i').classList.replace('fa-chevron-right', 'fa-chevron-left');
+                //     }
+                // });
                 
                 dom.userMenuBtn?.addEventListener('click', (e) => { e.stopPropagation(); dom.userMenuPopup.classList.toggle('hidden'); });
                 dom.logoutBtn?.addEventListener('click', () => { netlifyIdentity.logout(); dom.userMenuPopup.classList.add('hidden');});
@@ -4798,8 +5178,8 @@
                     'competitor-analysis': { title: "Análisis de Competencia", workflow: 'competitor-analysis', model: 'sonar', initialMessages: [{ role: 'assistant', content: "Estoy listo para analizar a tu competencia usando el buscador web. Por favor, pega la URL (dirección web) de la página que quieres que investigue para entregarte un análisis DAFO simplificado." }] },
                     'buyer-persona': { title: "Cliente Ideal", workflow: 'buyer-persona', initialMessages: [{ role: 'assistant', content: "Vamos a definir a tu cliente ideal (Buyer Persona). Describe tu producto o servicio, y te haré preguntas para construir el perfil detallado paso a paso." }] },
                     'brand-names': { title: "Nombres para Marca", workflow: 'brand-names', initialMessages: [{ role: 'assistant', content: "¡Excelente! Busquemos un nombre increíble. Describe brevemente tu idea de negocio, tu público y el estilo que buscas (ej. moderno, clásico, divertido) para generar nombres y slogans." }] },
-                    'sales-assistant': { title: "Asistente de Ventas", workflow: 'sales-assistant', initialMessages: [{ role: 'assistant', content: 'Para ayudarte a cerrar esa venta, pega aquí el mensaje de tu cliente.' }] },
-                    'email-writing': { title: "Redactor de Emails", workflow: 'email-writing', initialMessages: [{ role: 'assistant', content: 'Creemos un email que convierta. ¿Cuál es el objetivo principal de este correo?' }] },
+                    'sales-assistant': { title: "Ventas para tu Negocio", workflow: 'sales-assistant', initialMessages: [{ role: 'assistant', content: 'Para ayudarte a cerrar esa venta, pega aquí el mensaje de tu cliente.' }] }, /* Updated text */
+                    'email-writing': { title: "Redacción de Email", workflow: 'email-writing', initialMessages: [{ role: 'assistant', content: 'Creemos un email que convierta. ¿Cuál es el objetivo principal de este correo?' }] },
                     'english-teacher-translate': { title: "Traductor de Inglés", workflow: 'english-teacher-translate', initialMessages: [{ role: 'assistant', content: 'Of course! Please provide the text you want me to translate or correct.' }] },
                     'english-teacher-vocabulary': { title: "Creador de Vocabulario", workflow: 'english-teacher-vocabulary', initialMessages: [{ role: 'assistant', content: 'Excellent! Let\'s learn some new vocabulary. What topic are you interested in? (e.g., "business negotiations", "travel")' }] },
                     'english-teacher-practice': { title: "Práctica de Inglés", workflow: 'english-teacher-practice', initialMessages: [{ role: 'assistant', content: 'Great! Let\'s practice our conversation. So, tell me about your day.' }] },
@@ -4818,6 +5198,10 @@
                     const actionsHeader = e.target.closest('.actions-header');
                     if(actionsHeader) {
                         actionsHeader.closest('.actions-category').classList.toggle('open');
+                    }
+                    const folderHeader = e.target.closest('.folder-header'); // New: for folders category
+                    if(folderHeader) {
+                        folderHeader.closest('.folders-category').classList.toggle('open');
                     }
 
                     const workflowButton = e.target.closest('[data-workflow]');
@@ -4887,9 +5271,9 @@
                 dom.closeSettingsModal?.addEventListener('click', hideSettingsModal);
                 dom.settingsUpgradePlanBtn?.addEventListener('click', () => { hideSettingsModal(); showPricingModal(); });
                 dom.fontSizeSlider?.addEventListener('input', (e) => {
-                    const fontSize = e.target.value;
-                    document.body.style.setProperty('--base-font-size', `${fontSize}px`);
-                    dom.fontSizeValue.textContent = `${fontSize}px`;
+                    // Update CSS variable directly
+                    document.documentElement.style.setProperty('--base-font-size', `${e.target.value}px`);
+                    dom.fontSizeValue.textContent = `${e.target.value}px`;
                 });
                 dom.settingsThemeToggle?.addEventListener('click', () => {
                     setTheme(!document.body.classList.contains('dark-theme'));
@@ -4988,48 +5372,43 @@
                     }
                 });
                 dom.addChecklistItemBtn?.addEventListener('click', () => {
-                    // Get the current selection or cursor position
                     const selection = window.getSelection();
                     const range = selection.getRangeAt(0);
                     const currentContainer = selection.focusNode?.parentElement?.closest('#note-content-editor, .checklist-item-text');
 
-                    if (!currentContainer) {
-                         // If no selection or not in editor, append at the end
-                        dom.noteContentEditor.innerHTML += `<div class="checklist-item"><input type="checkbox" class="checklist-item-checkbox"><span contenteditable="true" class="checklist-item-text"></span></div>`;
-                        const newChecklistItem = dom.noteContentEditor.lastElementChild;
-                        const newTextSpan = newChecklistItem.querySelector('.checklist-item-text');
+                    // Create the checklist item HTML structure with proper spacing and checkbox position
+                    const newChecklistItemHTML = `<div class="checklist-item"><input type="checkbox" class="checklist-item-checkbox"><span contenteditable="true" class="checklist-item-text"></span></div>`;
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = newChecklistItemHTML;
+                    const newChecklistItemNode = tempDiv.firstChild;
+
+                    if (currentContainer && dom.noteContentEditor.contains(currentContainer)) {
+                        range.deleteContents(); // Remove any selected text
+
+                        if (currentContainer.classList.contains('checklist-item-text')) {
+                            // If cursor is within a checklist item, insert the new item after its parent
+                            const parentChecklistItem = currentContainer.closest('.checklist-item');
+                            parentChecklistItem.parentNode.insertBefore(newChecklistItemNode, parentChecklistItem.nextSibling);
+                        } else {
+                            // If cursor is in the main editor, insert at the current range
+                            range.insertNode(newChecklistItemNode);
+                        }
+                        
+                        // Set cursor to the new text span and focus
+                        const newTextSpan = newChecklistItemNode.querySelector('.checklist-item-text');
                         if (newTextSpan) {
+                            range.setStart(newTextSpan, 0);
+                            range.setEnd(newTextSpan, 0);
+                            selection.removeAllRanges();
+                            selection.addRange(range);
                             newTextSpan.focus();
                         }
                     } else {
-                        const tempDiv = document.createElement('div');
-                        tempDiv.innerHTML = `<input type="checkbox" class="checklist-item-checkbox"><span contenteditable="true" class="checklist-item-text"></span>`;
-                        const newChecklistItemContent = tempDiv.firstChild;
-                        const newTextSpan = newChecklistItemContent.nextElementSibling;
-
-                        if (currentContainer.classList.contains('checklist-item-text')) {
-                            // If inside an existing checklist item text, create a new checklist item below
-                            const parentChecklistItem = currentContainer.closest('.checklist-item');
-                            const newChecklistItemWrapper = document.createElement('div');
-                            newChecklistItemWrapper.className = 'checklist-item';
-                            newChecklistItemWrapper.appendChild(newChecklistItemContent);
-                            newChecklistItemWrapper.appendChild(newTextSpan); // Append the span element
-
-                            parentChecklistItem.parentNode.insertBefore(newChecklistItemWrapper, parentChecklistItem.nextSibling);
-                            newTextSpan.focus();
-                        } else {
-                            // If in the main editor, insert at current cursor position
-                            range.deleteContents(); // Remove any selected text
-                            const wrapper = document.createElement('div');
-                            wrapper.className = 'checklist-item';
-                            wrapper.appendChild(newChecklistItemContent);
-                            wrapper.appendChild(newTextSpan); // Append the span element
-
-                            range.insertNode(wrapper);
-                            range.setStartAfter(wrapper);
-                            range.setEndAfter(wrapper);
-                            selection.removeAllRanges();
-                            selection.addRange(range);
+                        // Fallback to appending if no selection or not in editor
+                        dom.noteContentEditor.innerHTML += newChecklistItemHTML;
+                        const newChecklistItem = dom.noteContentEditor.lastElementChild;
+                        const newTextSpan = newChecklistItem.querySelector('.checklist-item-text');
+                        if (newTextSpan) {
                             newTextSpan.focus();
                         }
                     }
@@ -5086,7 +5465,8 @@
                 setupModalClickOutside(dom.genericModal, ()=>hideModal({confirmed: false}));
                 setupModalClickOutside(dom.pricingModal, hidePricingModal);
                 setupModalClickOutside(dom.settingsModal, hideSettingsModal);
-                setupModalClickOutside(dom.calendarModalOverlay, hideCalendarModal);
+                // Calendar modal is now positioned in the center, so no need for specific positioning logic
+                setupModalClickOutside(dom.calendarModalOverlay, hideCalendarModal); 
                 setupModalClickOutside(dom.motivationModal, hideMotivationModal);
                 setupModalClickOutside(dom.htmlPreviewModal, () => {
                     dom.htmlPreviewModal.classList.add('hidden');
@@ -5146,6 +5526,19 @@
                             }
                         }
                     }
+                });
+
+                dom.planCreditsBtn?.addEventListener('click', () => {
+                    dom.planCreditsInfoModal.classList.remove('hidden');
+                    dom.planCreditsInfoModal.classList.add('flex');
+                });
+                dom.closePlanCreditsInfoModal?.addEventListener('click', () => {
+                    dom.planCreditsInfoModal.classList.add('hidden');
+                    dom.planCreditsInfoModal.classList.remove('flex');
+                });
+                setupModalClickOutside(dom.planCreditsInfoModal, () => {
+                    dom.planCreditsInfoModal.classList.add('hidden');
+                    dom.planCreditsInfoModal.classList.remove('flex');
                 });
             }
 
@@ -5331,8 +5724,9 @@
                         
                         const labelsHtml = (task.labels || []).map(label => `<span class="task-label" style="background-color: ${getLabelColor(label)}; color: white;">${label}</span>`).join('');
                         
+                        // Use a contenteditable span instead of a read-only one for direct editing
                         taskEl.innerHTML = `
-                            <span class="truncate task-content-list ${task.urgent ? 'urgent' : ''}" data-task-id="${task.id}">${task.content}</span>
+                            <span contenteditable="true" class="truncate task-content-list ${task.urgent ? 'urgent' : ''}" data-task-id="${task.id}">${task.content}</span>
                             <span class="text-sm truncate flex items-center gap-2">
                                 <input type="date" class="task-date-input" value="${task.dueDate || ''}" data-task-id="${task.id}">
                                 <input type="time" class="task-time-input" value="${task.time || ''}" data-task-id="${task.id}">
@@ -5366,8 +5760,20 @@
                 dom.listView.appendChild(listContent);
                 
                 dom.listView.querySelectorAll('.task-content-list').forEach(span => {
-                    span.addEventListener('dblclick', (e) => {
-                        makeEditable(e.currentTarget, 'content');
+                    // Re-attaching event listeners for direct editing on span
+                    span.addEventListener('input', (e) => {
+                        const taskId = e.currentTarget.dataset.taskId;
+                        updateTaskStatus(taskId, { content: e.currentTarget.textContent.trim() });
+                    });
+                    span.addEventListener('blur', (e) => {
+                        const taskId = e.currentTarget.dataset.taskId;
+                        updateTaskStatus(taskId, { content: e.currentTarget.textContent.trim() });
+                    });
+                    span.addEventListener('keydown', (e) => {
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+                            e.currentTarget.blur(); // Save changes and unfocus
+                        }
                     });
                 });
                  dom.listView.querySelectorAll('.task-date-input, .task-time-input').forEach(input => {
@@ -5418,9 +5824,10 @@
                         
                         const labelsHtml = (task.labels || []).map(label => `<span class="task-label" style="background-color: ${getLabelColor(label)}; color: white;">${label}</span>`).join('');
 
+                        // Use a contenteditable span for direct editing
                         taskEl.innerHTML = `
                             <div class="list-view-task-mobile-header">
-                                <span class="task-content-list flex-grow ${task.urgent ? 'urgent' : ''}" data-task-id="${task.id}">${task.content}</span>
+                                <span contenteditable="true" class="task-content-list flex-grow ${task.urgent ? 'urgent' : ''}" data-task-id="${task.id}">${task.content}</span>
                                 <button class="delete-task-icon text-text-medium hover:text-danger-color text-xs p-1 flex-shrink-0" data-task-id="${task.id}"><i class="fas fa-trash-alt"></i></button>
                             </div>
                             <div class="list-view-task-mobile-footer">
@@ -5458,8 +5865,20 @@
                 });
 
                 dom.listViewMobile.querySelectorAll('.task-content-list').forEach(span => {
-                    span.addEventListener('click', (e) => {
-                        makeEditable(e.currentTarget, 'content');
+                    // Re-attaching event listeners for direct editing on span
+                    span.addEventListener('input', (e) => {
+                        const taskId = e.currentTarget.dataset.taskId;
+                        updateTaskStatus(taskId, { content: e.currentTarget.textContent.trim() });
+                    });
+                    span.addEventListener('blur', (e) => {
+                        const taskId = e.currentTarget.dataset.taskId;
+                        updateTaskStatus(taskId, { content: e.currentTarget.textContent.trim() });
+                    });
+                    span.addEventListener('keydown', (e) => {
+                        if (e.key === 'Enter') {
+                            e.preventDefault();
+                            e.currentTarget.blur(); // Save changes and unfocus
+                        }
                     });
                 });
                 dom.listViewMobile.querySelectorAll('.task-date-input, .task-time-input').forEach(input => {
@@ -5478,22 +5897,39 @@
             }
 
             function makeEditable(element, field) {
+                // This function is now mainly for text content that is NOT input elements
+                // For date/time/priority, direct input/button clicks are handled
+                if (element.contentEditable === 'true') {
+                    // It's already contenteditable, just ensure focus if needed
+                    element.focus();
+                    return;
+                }
+
                 const taskId = element.dataset.taskId;
                 const originalText = element.textContent;
-                const input = document.createElement('input');
-                input.type = 'text';
-                input.value = originalText;
-                input.className = 'w-full bg-input p-1 rounded';
-                element.replaceWith(input);
-                input.focus();
+                
+                element.contentEditable = 'true';
+                element.focus();
+                // Select all text when it becomes editable
+                const range = document.createRange();
+                range.selectNodeContents(element);
+                const selection = window.getSelection();
+                selection.removeAllRanges();
+                selection.addRange(range);
 
                 const save = () => {
-                    const newText = input.value.trim() || originalText;
+                    element.contentEditable = 'false';
+                    const newText = element.textContent.trim() || originalText;
                     updateTaskStatus(taskId, { [field]: newText });
                 };
                 
-                input.addEventListener('blur', save);
-                input.addEventListener('keydown', (ev) => { if(ev.key === 'Enter') save(); });
+                element.addEventListener('blur', save, { once: true });
+                element.addEventListener('keydown', (ev) => { 
+                    if(ev.key === 'Enter') {
+                        ev.preventDefault(); // Prevent new line
+                        save(); 
+                    }
+                }, { once: true });
             }
 
             async function deleteTask(taskId, chatId) {
@@ -5776,8 +6212,7 @@
                                         <label for="financial-model-selector" class="font-medium text-xs text-text-medium pl-2 pr-1">Modelo:</label>
                                         <div class="model-selector-wrapper">
                                             <select id="financial-model-selector" class="rounded-md py-1 pl-1.5 focus:outline-none focus:ring-2 focus:ring-primary text-sm bg-transparent text-text-light">
-                                                 <option value="gpt-3.5-turbo-1106">General (Turbo)</option>
-                                                 <option value="sonar">Búsqueda Web</option>
+                                                 <option value="gpt-3.5-turbo-1106">GOAT X</option> <option value="sonar">Búsqueda Web</option>
                                                  <option value="gpt-4o" class="goat-x-pro-model">GOAT X PRO</option>
                                              </select>
                                               <i class="fas fa-chevron-down text-xs"></i>
@@ -5899,7 +6334,7 @@
                             if (!category.items) category.items = [];
                             category.items.push({ id: `fin-${crypto.randomUUID()}`, description: '', amount: 0 });
                             renderFinancialData(chatId);
-                            attachFinancialListeners(chatId); 
+                            attachFinancialListeners(chatId);
                             saveState();
                         }
                         return;
@@ -5946,7 +6381,7 @@
                         });
                         if (result.confirmed && result.data['share-email-input']) {
                             console.log(`(DEMO) Sharing income data for chat ${chatId} with ${result.data['share-email-input']}. Backend needed.`);
-                            showInAppNotification("Función en Desarrollo", `Datos de ingresos serán compartidos con ${result.data['share-email-input']}.`);
+                            showInAppNotification("Función en Desarrollo", `Datos de ingresos serán compartidos con ${result.data['share-email-input']}.`, 500); // Shorter duration
                         }
                         return;
                     }
@@ -5963,7 +6398,7 @@
                         });
                         if (result.confirmed && result.data['share-email-input']) {
                             console.log(`(DEMO) Sharing expense data for chat ${chatId} with ${result.data['share-email-input']}. Backend needed.`);
-                            showInAppNotification("Función en Desarrollo", `Datos de gastos serán compartidos con ${result.data['share-email-input']}.`);
+                            showInAppNotification("Función en Desarrollo", `Datos de gastos serán compartidos con ${result.data['share-email-input']}.`, 500); // Shorter duration
                         }
                         return;
                     }
@@ -6208,7 +6643,9 @@
                 const xpForCurrentLevel = XP_FOR_LEVEL[level - 1];
                 const xpForNextLevel = XP_FOR_LEVEL[level];
                 dom.gamificationLevelName.textContent = `Nivel ${level}: ${LEVEL_NAMES[level - 1]}`;
-                dom.gamificationCredits.innerHTML = `<i class="fas fa-coins mr-1"></i>${gamificationState.credits} Créditos`;
+                // Sum all credits for total display in gamification modal
+                const totalCredits = getCreditCount().remaining + gamificationState.credits; 
+                dom.gamificationCredits.innerHTML = `<i class="fas fa-coins mr-1"></i>${totalCredits} Créditos (Plan + Recompensa)`; // Display combined credits
                 if (level < LEVEL_NAMES.length) {
                     const progress = ((currentXp - xpForCurrentLevel) / (xpForNextLevel - xpForCurrentLevel)) * 100;
                     dom.gamificationXp.textContent = `${currentXp} / ${xpForNextLevel} XP`;
@@ -6312,6 +6749,13 @@
             const savedLang = localStorage.getItem('goatify-lang') || 'es';
             setLanguage(savedLang);
             setTheme(localStorage.getItem('theme') === 'dark' || (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches));
+
+            // Set initial font size from local storage or default
+            const savedFontSize = localStorage.getItem('goatify-font-size');
+            if (savedFontSize) {
+                document.documentElement.style.setProperty('--base-font-size', `${savedFontSize}px`);
+            }
+
 
             const unlockAudio = () => {
                 const silence = new SpeechSynthesisUtterance('');
