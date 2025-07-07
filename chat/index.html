@@ -85,13 +85,39 @@
             color: var(--light-text-dark);
         }
         
-        #sidebar { background-color: var(--current-bg-dark); border-right: 1px solid var(--current-border-color); height: 100vh; transition: transform 0.3s ease; z-index: 40; }
-        #sidebar.collapsed { width: 0; padding: 0; overflow: hidden; border-right: none;}
-        #sidebar.collapsed > * { display: none; }
+        #sidebar { background-color: var(--current-bg-dark); border-right: 1px solid var(--current-border-color); height: 100vh; transition: transform 0.3s ease, width 0.3s ease; z-index: 40; }
+        #sidebar.collapsed { width: 48px; padding: 0; overflow: hidden; border-right: none;}
+        #sidebar.collapsed #sidebar-header { border-bottom: none; }
+        #sidebar.collapsed #sidebar-header #logo-space { margin: 0 auto; padding: 0.5rem 0;}
+        #sidebar.collapsed #sidebar-header #logo-space img { display: block; }
+        #sidebar.collapsed #sidebar-header .sidebar-toggle-button { opacity: 1; }
+        #sidebar.collapsed > *:not(#sidebar-header):not(#sidebar-bottom-fixed):not(#sidebar-scrollable-content) { display: none; }
+        #sidebar.collapsed #sidebar-top-actions,
+        #sidebar.collapsed .workflow-category,
+        #sidebar.collapsed .actions-category,
+        #sidebar.collapsed #select-chats-btn,
+        #sidebar.collapsed #delete-mode-controls,
+        #sidebar.collapsed #sidebar-content,
+        #sidebar.collapsed #sidebar-footer .flex-col,
+        #sidebar.collapsed #user-section { display: none !important; }
+        #sidebar.collapsed #sidebar-bottom-fixed #user-menu-view {
+            padding: 0.5rem;
+            display: flex;
+            justify-content: center;
+        }
+        #sidebar.collapsed #sidebar-bottom-fixed #user-menu-btn {
+            padding: 0;
+            display: flex;
+            justify-content: center;
+        }
+        #sidebar.collapsed #user-menu-view span { display: none; }
+        #sidebar.collapsed #user-menu-view .fa-ellipsis-h { display: none; }
+        #sidebar.collapsed #sidebar-bottom-fixed #login-btn { padding: 0.5rem 0; font-size: 0.75rem; text-align: center; }
         
-        #sidebar-header, #sidebar-bottom-fixed {
+        #sidebar-header {
             flex-shrink: 0;
             padding: 0.75rem;
+            position: relative; /* For toggle button */
         }
         #sidebar-header { border-bottom: 1px solid var(--current-border-color); }
         #sidebar-bottom-fixed { border-top: 1px solid var(--current-border-color); }
@@ -113,6 +139,24 @@
             padding-top: 1rem;
         }
 
+        .sidebar-toggle-button {
+            position: absolute;
+            top: 50%;
+            right: -12px; /* Half of width to position it outside */
+            transform: translateY(-50%);
+            background-color: var(--current-bg-dark);
+            border: 1px solid var(--current-border-color);
+            border-radius: 50%;
+            padding: 4px;
+            cursor: pointer;
+            z-index: 10;
+            transition: transform 0.3s ease;
+            display: none; /* Hidden by default, shown by JS/media queries */
+        }
+        @media (min-width: 768px) {
+            .sidebar-toggle-button { display: block; }
+            #sidebar.collapsed .sidebar-toggle-button { transform: translateY(-50%) rotate(180deg); }
+        }
 
         @media (max-width: 767px) {
             #sidebar {
@@ -926,6 +970,7 @@
             padding: 0.75rem;
             gap: 0.75rem;
             position: relative; /* For toggle button positioning */
+            transition: width 0.3s ease, padding 0.3s ease;
         }
         #notes-list {
             flex-grow: 1;
@@ -1066,6 +1111,7 @@
             cursor: pointer;
             z-index: 10;
             transition: transform 0.3s ease;
+            display: none; /* Hidden by default, shown by JS/media queries */
         }
         #notes-list-panel.collapsed #notes-list-toggle {
             transform: translateY(-50%) rotate(180deg);
@@ -1077,25 +1123,25 @@
             position: fixed;
             top: 20px;
             left: 50%;
-            transform: translateX(-50%) translateY(-200%);
+            transform: translateX(-50%) translateY(0); /* Notification fixed on screen */
             background-color: var(--current-bg-light);
             color: var(--current-text-light);
             padding: 1rem;
             border-radius: 0.75rem;
             z-index: 100;
             box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-            transition: transform 0.2s ease-in-out, opacity 0.2s ease-in-out; /* Reduced duration */
+            transition: transform 0.2s ease-in-out, opacity 0.2s ease-in-out; 
             border: 1px solid var(--current-border-color);
             max-width: 90%;
             width: 400px;
-            opacity: 0;
-            pointer-events: none;
+            opacity: 1; /* Always visible until dismissed */
+            pointer-events: auto;
             cursor: pointer;
         }
-        #in-app-notification.show {
-            transform: translateX(-50%) translateY(0);
-            opacity: 1;
-            pointer-events: auto;
+        #in-app-notification.hidden-notification { /* New class for hiding */
+            transform: translateX(-50%) translateY(-200%);
+            opacity: 0;
+            pointer-events: none;
         }
         #in-app-notification-header {
             display: flex;
@@ -1132,7 +1178,7 @@
                 transition: width 0.3s ease, padding 0.3s ease;
             }
             #notes-list-toggle {
-                display: none; /* Hide toggle on desktop */
+                display: block; /* Show toggle on desktop */
             }
 
 
@@ -1260,7 +1306,7 @@
                 border-top: 1px solid var(--current-border-color);
                 z-index: 10;
                 transition: height 0.3s ease;
-                max-height: calc(100vh - 120px); 
+                max-height: calc(100vh - 120px - 50px); /* Reduced height for mobile */
             }
             #project-chat-container:not(.collapsed),
             #financial-chat-container:not(.collapsed),
@@ -1389,6 +1435,8 @@
             .chat-item .chat-item-actions {
                 opacity: 1 !important;
             }
+            #sidebar.collapsed { width: 0; padding: 0; } /* Fully collapse sidebar on mobile */
+            #sidebar.collapsed .sidebar-toggle-button { display: none; }
         }
         
         /* Mobile Landscape */
@@ -1461,6 +1509,7 @@
                 <div id="logo-space" class="w-16 h-16 rounded-lg mx-auto flex-shrink-0 flex items-center justify-center overflow-hidden">
                     <img src="./Logos HD.png" alt="Goatify Logo" class="w-full h-full object-contain" onerror="this.onerror=null;this.src='https://placehold.co/64x64/2c2c2c/e0e0e0?text=LOGO';">
                 </div>
+                <button class="sidebar-toggle-button" title="Contraer/Expandir Menú"><i class="fas fa-chevron-left"></i></button>
             </div>
 
             <div class="flex-shrink-0 px-4 pt-2 pb-4 border-b border-themed">
@@ -1716,6 +1765,19 @@
                             <div class="notepad-chat-body">
                                 <div id="notepad-chat-messages" class="chat-bubble-bot"></div>
                                 <div class="mt-auto pt-2">
+                                    <div class="pro-controls-bg rounded-lg p-1.5 mb-2">
+                                        <div class="flex items-center space-x-2">
+                                            <label for="notepad-model-selector" class="font-medium text-xs text-text-medium pl-2 pr-1">Modelo:</label>
+                                            <div class="model-selector-wrapper">
+                                                <select id="notepad-model-selector" class="rounded-md py-1 pl-1.5 focus:outline-none focus:ring-2 focus:ring-primary text-sm bg-transparent text-text-light">
+                                                    <option value="gpt-4o-mini">GOAT X</option>
+                                                    <option value="gpt-3.5-turbo-1106">General (Turbo)</option>
+                                                    <option value="gpt-4o" class="goat-x-pro-model">GOAT X PRO</option>
+                                                </select>
+                                                <i class="fas fa-chevron-down text-xs"></i>
+                                            </div>
+                                        </div>
+                                    </div>
                                     <div class="relative rounded-xl flex items-center bg-input p-1 sm:p-2 input-wrapper">
                                         <textarea id="notepad-msg" placeholder="Pide ideas, resúmenes, etc..." class="flex-1 bg-transparent p-2 h-10 max-h-28 resize-none outline-none placeholder-themed text-sm"></textarea>
                                         <button id="notepad-send" title="Enviar" class="p-2 sm:p-3 disabled:opacity-50 disabled:cursor-not-allowed text-primary"><i class="fa fa-paper-plane text-lg"></i></button>
@@ -1764,10 +1826,10 @@
                                         <label for="project-model-selector" class="font-medium text-xs text-text-medium pl-2 pr-1">Modelo:</label>
                                          <div class="model-selector-wrapper">
                                             <select id="project-model-selector" class="rounded-md py-1 pl-1.5 focus:outline-none focus:ring-2 focus:ring-primary text-sm bg-transparent text-text-light">
-                                                 <option value="gpt-4o-mini">Asistente de Proyectos</option>
+                                                 <option value="gpt-4o-mini">GOAT X</option>
                                                 <option value="gpt-3.5-turbo-1106">General (Turbo)</option>
                                                 <option value="sonar">Búsqueda Web</option>
-                                                <option value="gpt-4o" class="goat-x-pro-model">GOAT X PRO (4O)</option>
+                                                <option value="gpt-4o" class="goat-x-pro-model">GOAT X PRO</option>
                                              </select>
                                               <i class="fas fa-chevron-down text-xs"></i>
                                         </div>
@@ -1804,9 +1866,9 @@
                         <label for="model-selector" class="font-medium text-xs text-text-medium pl-2 pr-1" data-translate-key="model">Modelo:</label>
                         <div class="model-selector-wrapper">
                             <select id="model-selector" class="rounded-md py-1 pl-1.5 focus:outline-none focus:ring-2 focus:ring-primary text-sm bg-transparent text-text-light">
-                                <option value="gpt-3.5-turbo-1106" data-translate-key="model_general">Chat</option>
+                                <option value="gpt-3.5-turbo-1106" data-translate-key="model_general">GOAT X</option>
                                 <option value="sonar" data-translate-key="model_web">Búsqueda Web</option>
-                                <option value="gpt-4o" class="goat-x-pro-model">GOAT X PRO (4O)</option>
+                                <option value="gpt-4o" class="goat-x-pro-model">GOAT X PRO</option>
                             </select>
                             <i class="fas fa-chevron-down text-xs"></i>
                         </div>
@@ -1837,8 +1899,7 @@
         </main>
     </div>
 
-    <div id="in-app-notification">
-        <div id="in-app-notification-header">
+    <div id="in-app-notification" class="hidden-notification"> <div id="in-app-notification-header">
             <h4 id="in-app-notification-title"></h4>
             <button id="in-app-notification-close" class="text-text-medium hover:text-text-light text-2xl leading-none">&times;</button>
         </div>
@@ -1887,7 +1948,8 @@
                         <p class="text-5xl font-extrabold my-3">$0</p>
                         <p class="text-sm text-text-medium mb-4" data-translate-key="plan_free_sub">Para Siempre</p>
                          <ul class="text-sm space-y-2 mb-4 text-left">
-                            <li><i class="fas fa-check-circle mr-2"></i>15 Créditos/día</li>
+                            <li><i class="fas fa-check-circle mr-2"></i>5 Créditos/mes (Invitado)</li>
+                            <li><i class="fas fa-check-circle mr-2"></i>50 Créditos/mes (Logueado)</li>
                             <li><i class="fas fa-check-circle mr-2"></i>Acceso a Modelos Básicos</li>
                              <li><i class="fas fa-check-circle mr-2"></i>Workflows Limitados</li>
                         </ul>
@@ -1899,7 +1961,7 @@
                         <button class="w-full p-2 text-sm rounded-lg font-semibold border border-primary text-primary hover:bg-primary hover:text-white transition-colors mb-4 plan-details-toggle">Ver Detalles</button>
                         <div class="plan-details text-sm text-left">
                              <ul class="space-y-2 mb-4 plan-feature-list">
-                                <li><i class="fas fa-check-circle mr-2"></i><strong>100 Créditos/día</strong></li>
+                                <li><i class="fas fa-check-circle mr-2"></i><strong>500 Créditos/mes</strong></li>
                                 <li><i class="fas fa-check-circle mr-2"></i>Acceso a <strong>todos los modelos de IA</strong></li>
                                  <li><i class="fas fa-check-circle mr-2"></i>Acceso a <strong>todos los Workflows</strong></li>
                                 <li><i class="fas fa-check-circle mr-2"></i>Soporte Prioritario</li>
@@ -1913,7 +1975,7 @@
                          <button class="w-full p-2 text-sm rounded-lg font-semibold border border-primary text-primary hover:bg-primary hover:text-white transition-colors mb-4 plan-details-toggle">Ver Detalles</button>
                         <div class="plan-details text-sm text-left">
                             <ul class="space-y-2 mb-4 plan-feature-list">
-                                 <li><i class="fas fa-check-circle mr-2"></i><strong>Créditos Ilimitados</strong></li>
+                                 <li><i class="fas fa-check-circle mr-2"></i><strong>2000 Créditos/mes</strong></li>
                                 <li><i class="fas fa-check-circle mr-2"></i>Todo lo del plan BOOST</li>
                                 <li><i class="fas fa-check-circle mr-2 text-gold"></i><strong>¡Te construimos tu Página Web!</strong></li>
                                  <li><i class="fas fa-check-circle mr-2"></i>Consultoría de IA</li>
@@ -2160,7 +2222,7 @@
                     ally_desc: "Goatify no es solo un chat. Somos una IA personalizada con un equipo de expertos listos para ayudarte a escalar tu negocio.",
                     welcome_user: "¡Hola, ", welcome_user_2: "! Hoy es un gran día para crear algo increíble.",
                     welcome_guest: "¿Cómo puedo ayudarte hoy?", model: "Modelo:", model_general: "GOAT X",
-                    model_web: "Búsqueda Web", voice: "Voz:", placeholder_main: "Escribe tu mensaje...", cancel: "Cancelar",
+                    model_web: "Búsqueda Web", model_pro: "GOAT X PRO", voice: "Voz:", placeholder_main: "Escribe tu mensaje...", cancel: "Cancelar",
                     confirm: "Confirm", plans_title: "Planes Goatify", plan_free_sub: "Para Siempre", plan_free_cta: "Empezar Gratis",
                      plan_boost_cta: "Obtener Boost", plan_pro_cta: "Quiero mi Plan Pro + Web",
                     preview: "Vista Previa", settings_email: "Correo Electrónico:", settings_plan: "Plan de Suscripción:",
@@ -2203,7 +2265,7 @@
                     ally_desc: "Goatify is not just a chat. We are a custom IA with a team of experts ready to help you scale your business.",
                     welcome_user: "Hello, ", welcome_user_2: "! Today is a great day to create something amazing.",
                     welcome_guest: "How can I help you today?", model: "Model:", model_general: "GOAT X",
-                    model_web: "Web Search", voice: "Voice:", placeholder_main: "Type your message...", cancel: "Cancel",
+                    model_web: "Web Search", model_pro: "GOAT X PRO", voice: "Voice:", placeholder_main: "Type your message...", cancel: "Cancel",
                     confirm: "Confirm", plans_title: "Goatify Plans", plan_free_sub: "Forever", plan_free_cta: "Get Started for Free",
                     plan_boost_cta: "Get Boost", plan_pro_cta: "Get Pro Plan + Web",
                     preview: "Preview", settings_email: "Email Address:", settings_plan: "Subscription Plan:",
@@ -2230,9 +2292,11 @@
                     share_financial_data_info: "Note: This functionality requires both users to have a Pro plan and is under development. For now, this is a demonstration.",
                 }
             };
-            const GUEST_CREDIT_LIMIT = 15;
-            const FREE_PLAN_CREDIT_LIMIT = 15;
-            const BOOST_PLAN_CREDIT_LIMIT = 100;
+            const GUEST_CREDIT_LIMIT = 5; // 5 credits for guest
+            const FREE_PLAN_CREDIT_LIMIT = 50; // 50 credits for logged in free users per month
+            const BOOST_PLAN_CREDIT_LIMIT = 500; // 500 credits for Boost plan per month
+            const PRO_PLAN_CREDIT_LIMIT = 2000; // 2000 credits for Pro plan per month
+
             const MOTIVATIONAL_MESSAGES = [
                 "Eres una persona increíble, ¡nunca lo dudes!",
                 "Hoy es tu día para brillar. ¡Ve por ello!",
@@ -2245,7 +2309,13 @@
             ];
             const MOTIVATION_BUTTON_TEXTS = ["¡Listo!", "¡Vamos a darle!", "¡Perfecto!", "¡Sí, yo puedo!", "¡Vamos!"];
 
-            const COSTS = { GENERAL: 1, SEARCH: 1, NEBULA: 2, COPYWRITING: 2, IMAGE: 5 };
+            const COSTS = { 
+                GENERAL: 1, // General chat message
+                SEARCH: 2, // Web search message
+                IMAGE_GEN: 5, // Image generation
+                FILE_ANALYSIS: 2, // PDF/Image analysis
+                WORKFLOW_MESSAGE: 2 // Message within a workflow assistant
+            };
             let state = { chats: {}, projects: {}, structure: [], calendar: {}, notes: [] };
             let gamificationState = {};
             let currentChatId = null, currentUser = null, speechOn = false, availableVoices = [], selectedVoice = null, isRecognizing = false, selectedImageBase64 = null, selectedPdfText = null;
@@ -2396,6 +2466,7 @@
                 notepadMsgInput: document.getElementById('notepad-msg'),
                 notepadSendBtn: document.getElementById('notepad-send'),
                 notesListToggle: document.getElementById('notes-list-toggle'), // New: Notepad list toggle
+                sidebarToggleButton: document.querySelector('.sidebar-toggle-button'), // New: Sidebar toggle button
             };
             Object.assign(dom, fullDom);
 
@@ -2566,19 +2637,20 @@
                 dom.settingsModal.classList.remove('flex');
             }
 
-            function showInAppNotification(title, body, duration = 1000) { // Changed duration to 1000ms (1 sec)
+            function showInAppNotification(title, body, duration = 1000, fixed = false) { 
                 dom.inAppNotificationTitle.innerHTML = title;
                 dom.inAppNotificationBody.innerHTML = body;
+                dom.inAppNotification.classList.remove('hidden-notification');
                 dom.inAppNotification.classList.add('show');
             
                 let timer;
             
                 const closeNotification = (event) => {
-                    if (event && event.target.closest('button, a')) {
+                    if (event && event.target.closest('button, a')) { // Allow clicks on buttons/links inside notification
                         return;
                     }
                     clearTimeout(timer);
-                    dom.inAppNotification.classList.remove('show');
+                    dom.inAppNotification.classList.add('hidden-notification');
                     dom.inAppNotification.removeEventListener('click', closeNotification);
                     dom.inAppNotificationClose.removeEventListener('click', closeFromX);
                 };
@@ -2588,10 +2660,18 @@
                     closeNotification();
                 };
 
+                // Add event listeners for closing
                 dom.inAppNotification.addEventListener('click', closeNotification, { once: true });
                 dom.inAppNotificationClose.addEventListener('click', closeFromX, { once: true });
-            
-                timer = setTimeout(closeNotification, duration);
+                
+                // If not fixed, set a timeout to hide
+                if (!fixed) {
+                    timer = setTimeout(closeNotification, duration);
+                } else {
+                    // If fixed, do not set a timeout, keep it visible until user clicks
+                    dom.inAppNotification.removeEventListener('click', closeNotification); // Remove once: true behavior for fixed notifications
+                    dom.inAppNotification.addEventListener('click', closeNotification);
+                }
             }
 
             function showCalendarModal() {
@@ -2608,7 +2688,7 @@
 
             function renderMonthView() {
                 dom.calendarDaysGrid.innerHTML = '';
-                dom.currentMonthYear.textContent = selectedCalendarDate.format('MMMMYYYY'); // Fix for format 'MMMMYYYY' instead of 'MMMMবারে'
+                dom.currentMonthYear.textContent = selectedCalendarDate.format('MMMM YYYY'); 
                 const startDay = selectedCalendarDate.startOf('month').startOf('isoWeek');
 
                 for (let i = 0; i < 42; i++) {
@@ -2671,7 +2751,7 @@
                 let startOfWeek = selectedCalendarDate.startOf('isoWeek');
 
                 const endOfWeek = startOfWeek.add(6, 'day');
-                dom.currentWeekRange.textContent = `${startOfWeek.format('D MMM')} - ${endOfWeek.format('D MMM,YYYY')}`; // Fix for format 'YYYY' instead of 'বারে'
+                dom.currentWeekRange.textContent = `${startOfWeek.format('D MMM')} - ${endOfWeek.format('D MMM, YYYY')}`; 
 
                 for (let i = 0; i < 7; i++) {
                     const day = startOfWeek.add(i, 'day');
@@ -3078,7 +3158,9 @@
                         
                         showInAppNotification(
                             `<i class="fas fa-bell animate-tada text-yellow-400 mr-2"></i> ${notificationTitle}`,
-                            `<p class="text-md">${notificationBody}</p>`
+                            `<p class="text-md">${notificationBody}</p>`,
+                            0, // Duration 0 means fixed
+                            true // Fixed notification
                         );
 
                         if (Notification.permission === "granted") {
@@ -3140,13 +3222,13 @@
                 }
             }
 
-            function speak(text) { 
+            function speak(text) {
                 if (!speechOn || !('speechSynthesis' in window) || !text) return;
                 speechSynthesis.cancel();
                 micWasOnBeforeSpeaking = isRecognizing;
                 if (isRecognizing) { recognition.stop(); }
                 const cleanText = text.replace(/<[^>]*>/g, '').replace(/[*_`#~[\]()🔍]|(-{3,})/g, '');
-                const utterance = new SpeechSynthesisUtterance(cleanText); 
+                const utterance = new SpeechSynthesisUtterance(cleanText);
                 if (selectedVoice) { utterance.voice = selectedVoice;
                 }
                 utterance.rate = 1.15;
@@ -3204,27 +3286,46 @@
             }
 
             function getModelForRequest(workflow, hasFile, isProjectChat, isFinancialChat, isNotepadChat) {
+                let modelSelectorEl;
+
                 if (isProjectChat) {
-                    return document.getElementById('project-model-selector').value;
+                    modelSelectorEl = document.getElementById('project-model-selector');
+                } else if (isFinancialChat) {
+                    modelSelectorEl = document.getElementById('financial-model-selector');
+                } else if (isNotepadChat) {
+                    modelSelectorEl = document.getElementById('notepad-model-selector');
+                } else {
+                    modelSelectorEl = dom.modelSelector;
                 }
-                 if (isFinancialChat || isNotepadChat) {
-                    // For financial and notepad assistants, allow GOAT X PRO if logged in, otherwise default
-                    if (currentUser && currentUser.app_metadata?.plan && currentUser.app_metadata.plan !== 'free') {
-                        return 'gpt-4o'; // GOAT X PRO
-                    }
-                    return 'gpt-4o-mini'; 
+
+                if (!modelSelectorEl) { // Fallback in case element is not found
+                    return 'gpt-3.5-turbo-1106';
                 }
-                if (workflow === "design-web") return "gpt-4o-mini";
-                if (hasFile) return "gpt-4o-mini";
                 
-                // For main chat, handle GOAT X PRO logic
-                const selectedModel = dom.modelSelector.value;
+                let selectedModel = modelSelectorEl.value;
+
+                // Check if GOAT X PRO is selected and user is not logged in or on free plan
                 if (selectedModel === 'gpt-4o' && (!currentUser || currentUser.app_metadata?.plan === 'free')) {
-                     // If user is not logged in or on free plan, prevent selecting GOAT X PRO
-                     dom.modelSelector.value = 'gpt-3.5-turbo-1106'; // Revert to default
-                     showInAppNotification("Acceso Restringido", "El modelo GOAT X PRO (4O) está disponible solo para usuarios logueados con planes de pago.", 3000);
-                     return 'gpt-3.5-turbo-1106';
+                     showInAppNotification("Acceso Restringido", "El modelo GOAT X PRO está disponible solo para usuarios logueados con planes de pago.", 3000);
+                     // Revert selector to a non-pro model
+                     if(isProjectChat || isFinancialChat || isNotepadChat) { // For specific assistants, revert to their default
+                         modelSelectorEl.value = 'gpt-4o-mini';
+                         return 'gpt-4o-mini';
+                     } else { // For main chat, revert to general chat
+                         modelSelectorEl.value = 'gpt-3.5-turbo-1106';
+                         return 'gpt-3.5-turbo-1106';
+                     }
                 }
+
+                // If no specific workflow, prioritize file analysis or web search
+                if (!workflow) {
+                    if (hasFile()) return "gpt-4o-mini"; // Use a multi-modal model for files
+                    const userMessage = (isProjectChat ? dom.projectMsgInput.value : isFinancialChat ? document.getElementById('financial-msg').value : isNotepadChat ? dom.notepadMsgInput.value : dom.msgInput.value).trim();
+                    const webSearchTriggers = ['busca', 'investiga', 'en internet', 'tiempo real', 'qué día es hoy', 'qué fecha es hoy', 'cuál es el precio de', 'quién es', 'qué es', 'noticias sobre'];
+                    const requiresWebSearch = webSearchTriggers.some(trigger => userMessage.toLowerCase().startsWith(trigger));
+                    if (requiresWebSearch) return 'sonar';
+                }
+
                 return selectedModel;
             }
 
@@ -3260,15 +3361,21 @@
             
             function getCreditCount() {
                 const plan = currentUser?.app_metadata?.plan || 'free';
-                let limit = GUEST_CREDIT_LIMIT;
-                if (plan === 'free') limit = FREE_PLAN_CREDIT_LIMIT;
-                if (plan === 'boost') limit = BOOST_PLAN_CREDIT_LIMIT;
-                if (plan === 'pro') limit = Infinity;
+                let limit;
+                if (!currentUser) { // Guest user
+                    limit = GUEST_CREDIT_LIMIT;
+                } else if (plan === 'free') {
+                    limit = FREE_PLAN_CREDIT_LIMIT;
+                } else if (plan === 'boost') {
+                    limit = BOOST_PLAN_CREDIT_LIMIT;
+                } else if (plan === 'pro') {
+                    limit = PRO_PLAN_CREDIT_LIMIT;
+                }
 
-                const usageData = JSON.parse(localStorage.getItem(`usage_${currentUser?.id || 'guest'}`)) || { count: 0, date: '' };
-                const today = dayjs().format('YYYY-MM-DD');
+                const usageData = JSON.parse(localStorage.getItem(`usage_${currentUser?.id || 'guest'}`)) || { count: 0, month: '' };
+                const currentMonth = dayjs().format('YYYY-MM');
 
-                if (usageData.date !== today) {
+                if (usageData.month !== currentMonth) {
                     return { remaining: limit, limit: limit }; 
                 }
                 
@@ -3277,18 +3384,42 @@
             
             function spendCredits(cost) {
                 const plan = currentUser?.app_metadata?.plan || 'free';
-                if (plan === 'pro') return true; 
+                
+                // For Pro plan, credits are effectively unlimited within the allocated monthly cap
+                if (plan === 'pro') { 
+                    const { remaining } = getCreditCount();
+                    if (remaining < cost) {
+                        showModal({
+                            title: 'Límite de Créditos Mensuales Alcanzado',
+                            body: `Has alcanzado el límite de ${PRO_PLAN_CREDIT_LIMIT} créditos para tu plan PRO este mes. Tus mensajes adicionales pueden tener un coste extra o la calidad puede verse reducida. Contacta con soporte para más opciones.`,
+                            confirmText: 'Entendido'
+                        });
+                        return false; // Still allow sending, but notify
+                    }
+                }
 
                 const usageKey = `usage_${currentUser?.id || 'guest'}`;
-                const today = dayjs().format('YYYY-MM-DD');
-                let usageData = JSON.parse(localStorage.getItem(usageKey)) || { count: 0, date: '' };
+                const currentMonth = dayjs().format('YYYY-MM');
+                let usageData = JSON.parse(localStorage.getItem(usageKey)) || { count: 0, month: '' };
 
-                if (usageData.date !== today) {
-                    usageData = { count: 0, date: today };
+                if (usageData.month !== currentMonth) {
+                    usageData = { count: 0, month: currentMonth };
                 }
 
                 const { remaining } = getCreditCount();
 
+                // If not enough "plan" credits, check "gamification" credits
+                if (remaining < cost) {
+                    if (gamificationState.credits >= cost && currentUser) { // Only allow spending gamification credits if logged in
+                        gamificationState.credits -= cost;
+                        saveGamificationState();
+                        usageData.count += cost; // Still track usage against plan to avoid overspending
+                        localStorage.setItem(usageKey, JSON.stringify(usageData));
+                        updateCreditCounter();
+                        return true;
+                    }
+                }
+                
                 if (remaining >= cost) {
                     usageData.count += cost;
                     localStorage.setItem(usageKey, JSON.stringify(usageData));
@@ -3296,17 +3427,12 @@
                     return true;
                 }
 
-                if (gamificationState.credits >= cost) {
-                    gamificationState.credits -= cost;
-                    saveGamificationState();
-                    updateCreditCounter();
-                    return true;
-                }
-                
+
+                // If guest user and out of credits
                 if (!currentUser) {
                     showModal({
                         title: 'Créditos de Invitado Agotados',
-                        body: 'Has utilizado todos tus créditos de invitado. <strong>Inicia sesión para obtener 15 créditos diarios más, ¡gratis!</strong>',
+                        body: 'Has utilizado todos tus créditos de invitado. <strong>Inicia sesión para obtener 50 créditos diarios gratis al mes, ¡gratis!</strong>',
                         confirmText: 'Iniciar Sesión',
                         cancelText: 'Más Tarde'
                     }).then(res => {
@@ -3314,7 +3440,7 @@
                             netlifyIdentity.open('login');
                         }
                     });
-                } else { 
+                } else { // Logged in user out of plan credits and gamification credits
                     showModal({
                         title: 'Créditos Insuficientes',
                         body: 'No tienes suficientes créditos de tu plan ni créditos de recompensa. Mejora tu plan para continuar.',
@@ -3370,6 +3496,7 @@
                         workflow: 'notepad-assistant',
                         isDeletable: false,
                     };
+                    state.structure.push('notepad-assistant-chat'); // Ensure it's in structure
                 }
 
                 loadGamificationState();
@@ -3428,7 +3555,8 @@
 
             function updateCreditCounter() {
                 const { remaining, limit } = getCreditCount();
-                const gamCredits = gamificationState.credits || 0;
+                // Gamification credits are only visible and usable if logged in
+                const gamCredits = currentUser ? (gamificationState.credits || 0) : 0; 
                 let displayLimit = limit === Infinity ? '∞' : limit;
                 dom.messageCounterEl.innerHTML = `
                     <span class="font-semibold">${remaining}/${displayLimit}</span>
@@ -3452,7 +3580,11 @@
                     sidebar.classList.remove('collapsed'); // Ensure it's not collapsed when opening
                     dom.sidebarOverlay.classList.remove('opacity-0', 'pointer-events-none');
                 } else {
-                    sidebar.classList.remove('is-open');
+                    if (window.innerWidth < 768) { // On mobile, completely hide
+                        sidebar.classList.remove('is-open');
+                    } else { // On desktop, collapse
+                        sidebar.classList.add('collapsed');
+                    }
                     dom.sidebarOverlay.classList.add('opacity-0', 'pointer-events-none');
                 }
             }
@@ -3511,13 +3643,8 @@
 
                 dom.notepadViewContainer.classList.remove('mobile-editor-active'); // Reset mobile note view
 
-                if (!chatId || (!state.chats[chatId] && !chatId.startsWith('note-') && chatId !== 'notepad-app')) { 
-                    resetChatView(); 
-                    return; 
-                } 
-                
                 // Collapse notepad list panel if not currently in notepad view and it's open
-                if (chatId !== 'notepad-app' && !dom.notesListPanel.classList.contains('collapsed')) {
+                if (!chatId.startsWith('note-') && chatId !== 'notepad-app' && !dom.notesListPanel.classList.contains('collapsed')) {
                     dom.notesListPanel.classList.add('collapsed');
                 }
 
@@ -3662,29 +3789,51 @@
                 dom.sidebarContent.innerHTML = '';
                 const frag = document.createDocumentFragment(); 
                 
-                // Add notes and drawings to the sidebar structure
-                const notesAndDrawings = state.notes.map(note => ({
-                    id: note.id,
-                    title: note.title,
-                    isNote: true, // Custom flag to identify notes/drawings
-                    type: note.type
-                }));
+                // Collect all items for rendering in the sidebar, preserving order
+                const allItems = [];
+                const processedIds = new Set(); // To avoid duplicates and control order
 
-                const combinedStructure = [...state.structure];
-                notesAndDrawings.forEach(item => {
-                    if (!combinedStructure.includes(item.id)) {
-                        combinedStructure.unshift(item.id); // Add notes/drawings to the top if not already there
+                // Add main workflows (if not project/financial/notepad specific) and other chats
+                state.structure.forEach(id => {
+                    if (id.startsWith('chat-')) {
+                        const chat = state.chats[id];
+                        if (chat && chat.isDeletable !== false && chat.workflow !== 'project-management' && chat.workflow !== 'financial-assistant' && chat.workflow !== 'notepad-assistant') {
+                            if (!processedIds.has(id)) {
+                                allItems.push({ type: 'chat', id: id, data: chat });
+                                processedIds.add(id);
+                            }
+                        }
+                    } else if (id.startsWith('project-')) {
+                         const project = state.projects[id];
+                         if (project && !processedIds.has(id)) {
+                            allItems.push({ type: 'project', id: id, data: project });
+                            processedIds.add(id);
+                         }
+                    } else if (id.startsWith('note-')) {
+                        const note = state.notes.find(n => n.id === id);
+                        if (note && !processedIds.has(id)) {
+                            allItems.push({ type: 'note', id: id, data: note });
+                            processedIds.add(id);
+                        }
+                    }
+                });
+
+                // Add notes and drawings to the sidebar structure if not already added via 'structure'
+                state.notes.forEach(note => {
+                    if (!processedIds.has(note.id)) {
+                        allItems.push({ type: 'note', id: note.id, data: note });
+                        processedIds.add(note.id);
                     }
                 });
 
 
-                combinedStructure.forEach(id => { 
-                    if (id.startsWith('project-')) {
-                        frag.appendChild(createProjectElement(id));
-                    } else if (id.startsWith('chat-')) {
-                          frag.appendChild(createChatItemElement(id));
-                    } else if (id.startsWith('note-')) { // Handle notes/drawings
-                        frag.appendChild(createNoteItemElement(id));
+                allItems.forEach(item => {
+                    if (item.type === 'project') {
+                        frag.appendChild(createProjectElement(item.id));
+                    } else if (item.type === 'chat') {
+                          frag.appendChild(createChatItemElement(item.id));
+                    } else if (item.type === 'note') {
+                        frag.appendChild(createNoteItemElement(item.id));
                     }
                 });
                 dom.sidebarContent.appendChild(frag); 
@@ -3729,7 +3878,7 @@
                     </div>`;
                     item.addEventListener('click', e => { if (!e.target.closest('.chat-item-actions')) selectChat(id); }); 
                     item.addEventListener('dragstart', e => handleDragStart(e, id));
-                    item.querySelector('.move-btn').addEventListener('click', (e) => { e.stopPropagation(); moveChatToProject(id); });
+                    item.querySelector('.move-btn').addEventListener('click', (e) => { e.stopPropagation(); moveItemToProject(id, 'chat'); });
                     item.querySelector('.rename-btn').addEventListener('click', (e) => { e.stopPropagation(); renameItem('chat', id); });
                     item.querySelector('.delete-btn').addEventListener('click', (e) => { e.stopPropagation(); deleteItem('chat', id); });
                 }
@@ -3751,6 +3900,7 @@
                     <i class="fas ${note.type === 'drawing' ? 'fa-paint-brush' : 'fa-file-alt'} mr-2"></i>
                     <span class="flex-grow truncate text-sm font-medium">${note.title}</span>
                     <div class="chat-item-actions flex-shrink-0 ${actionsOpacityClass} transition-opacity">
+                        <button class="move-btn text-text-medium hover:text-primary p-1" title="Mover a carpeta"><i class="fas fa-folder-open fa-xs"></i></button>
                         <button class="rename-btn text-text-medium hover:text-primary p-1" title="Renombrar"><i class="fas fa-pencil-alt fa-xs"></i></button>
                         <button class="delete-btn text-text-medium hover:text-red-500 p-1" title="Eliminar"><i class="fas fa-trash-alt fa-xs"></i></button>
                     </div>
@@ -3763,6 +3913,7 @@
                         }
                     }
                 });
+                item.querySelector('.move-btn').addEventListener('click', (e) => { e.stopPropagation(); moveItemToProject(id, 'note'); });
                 item.querySelector('.rename-btn').addEventListener('click', (e) => { e.stopPropagation(); renameItem('note', id); });
                 item.querySelector('.delete-btn').addEventListener('click', (e) => { e.stopPropagation(); deleteNote(id); });
                 return item;
@@ -3782,6 +3933,9 @@
                 header.innerHTML = `<i class="fas fa-chevron-right project-arrow mr-2 transition-transform"></i><i class="fas fa-folder mr-2 text-yellow-500"></i><span class="flex-grow truncate text-sm font-bold">${project.title}</span><div class="chat-item-actions flex-shrink-0 ${actionsOpacityClass} transition-opacity"><button class="rename-btn text-text-medium hover:text-primary p-1" title="Renombrar"><i class="fas fa-pencil-alt fa-xs"></i></button><button class="delete-btn text-text-medium hover:text-red-500 p-1" title="Eliminar"><i class="fas fa-trash-alt fa-xs"></i></button></div>`;
                 const content = document.createElement('div'); content.className = 'project-content pl-2 pt-1 space-y-1';
                 (project.chatIds || []).forEach(chatId => content.appendChild(createChatItemElement(chatId, true)));
+                // Add notes assigned to this project to its content
+                (project.noteIds || []).forEach(noteId => content.appendChild(createNoteItemElement(noteId)));
+
                 div.append(header, content);
                 header.addEventListener('click', e => { if (!e.target.closest('.chat-item-actions')) div.classList.toggle('open'); });
                 header.addEventListener('dragover', e => handleDragOver(e, header));
@@ -3792,30 +3946,48 @@
                 return div;
             }
             let draggedItemId = null;
-            function handleDragStart(e, id) { draggedItemId = id; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', id); } function handleDragOver(e, el) { e.preventDefault(); el.classList.add('drag-over');
-            } function handleDragLeave(e, el) { el.classList.remove('drag-over'); }
+            let draggedItemType = null; // 'chat' or 'note'
+            function handleDragStart(e, id, type) { 
+                draggedItemId = id; 
+                draggedItemType = type;
+                e.dataTransfer.effectAllowed = 'move'; 
+                e.dataTransfer.setData('text/plain', id); 
+                e.dataTransfer.setData('text/item-type', type); // Store type in dataTransfer
+            } 
+            function handleDragOver(e, el) { e.preventDefault(); el.classList.add('drag-over'); } 
+            function handleDragLeave(e, el) { el.classList.remove('drag-over'); }
             function handleDrop(e, targetProjectId, targetElement) {
                 e.preventDefault();
                 if (targetElement) targetElement.classList.remove('drag-over');
-                const sourceChatId = e.dataTransfer.getData('text/plain');
-                if (!sourceChatId || !sourceChatId.startsWith('chat-') || targetProjectId === sourceChatId) return;
+                const sourceItemId = e.dataTransfer.getData('text/plain');
+                const sourceItemType = e.dataTransfer.getData('text/item-type');
+
+                if (!sourceItemId || targetProjectId === sourceItemId) return;
                 
                 // Remove from old location
-                state.structure = state.structure.filter(id => id !== sourceChatId); 
-                Object.values(state.projects).forEach(p => { if(p.chatIds) p.chatIds = p.chatIds.filter(id => id !== sourceChatId) });
+                state.structure = state.structure.filter(id => id !== sourceItemId); 
+                Object.values(state.projects).forEach(p => { 
+                    if(p.chatIds) p.chatIds = p.chatIds.filter(id => id !== sourceItemId);
+                    if(p.noteIds) p.noteIds = p.noteIds.filter(id => id !== sourceItemId);
+                });
 
                 // Add to new project
                 if(state.projects[targetProjectId]){ 
-                    if(!state.projects[targetProjectId].chatIds) state.projects[targetProjectId].chatIds = [];
-                    state.projects[targetProjectId].chatIds.unshift(sourceChatId); 
+                    if (sourceItemType === 'chat') {
+                        if(!state.projects[targetProjectId].chatIds) state.projects[targetProjectId].chatIds = [];
+                        state.projects[targetProjectId].chatIds.unshift(sourceItemId); 
+                    } else if (sourceItemType === 'note') {
+                        if(!state.projects[targetProjectId].noteIds) state.projects[targetProjectId].noteIds = [];
+                        state.projects[targetProjectId].noteIds.unshift(sourceItemId); 
+                    }
                 } 
                 saveState(); renderSidebar();
             }
 
-            async function moveChatToProject(chatId) {
+            async function moveItemToProject(itemId, itemType) {
                 const projects = Object.values(state.projects);
                 if (projects.length === 0) {
-                    showModal({ title: 'No hay carpetas', body: 'Primero necesitas crear una carpeta de proyecto para poder mover este chat.', confirmText: 'Entendido', showCancel: false });
+                    showModal({ title: 'No hay carpetas', body: 'Primero necesitas crear una carpeta de proyecto para poder mover este chat/nota.', confirmText: 'Entendido', showCancel: false });
                     return;
                 }
                 
@@ -3826,25 +3998,32 @@
                 modalBody += '</div>';
 
                 const result = await showModal({
-                    title: 'Mover Chat a Carpeta',
+                    title: `Mover ${itemType === 'chat' ? 'Conversación' : 'Nota'} a Carpeta`,
                     body: modalBody,
                     showConfirm: false,
                     showCancel: true
                 });
 
-                // This modal requires custom event handling, so we'll add it after showing.
                 document.querySelectorAll('.move-to-project-btn').forEach(button => {
                     button.addEventListener('click', () => {
                         const targetProjectId = button.dataset.projectId;
                         
                         // Remove from old location
-                        state.structure = state.structure.filter(id => id !== chatId); 
-                        Object.values(state.projects).forEach(p => { if(p.chatIds) p.chatIds = p.chatIds.filter(id => id !== chatId) });
+                        state.structure = state.structure.filter(id => id !== itemId); 
+                        Object.values(state.projects).forEach(p => { 
+                            if(p.chatIds) p.chatIds = p.chatIds.filter(id => id !== itemId);
+                            if(p.noteIds) p.noteIds = p.noteIds.filter(id => id !== itemId);
+                        });
 
                         // Add to new project
                         if(state.projects[targetProjectId]){ 
-                            if(!state.projects[targetProjectId].chatIds) state.projects[targetProjectId].chatIds = [];
-                            state.projects[targetProjectId].chatIds.unshift(chatId); 
+                            if (itemType === 'chat') {
+                                if(!state.projects[targetProjectId].chatIds) state.projects[targetProjectId].chatIds = [];
+                                state.projects[targetProjectId].chatIds.unshift(itemId); 
+                            } else if (itemType === 'note') {
+                                if(!state.projects[targetProjectId].noteIds) state.projects[targetProjectId].noteIds = [];
+                                state.projects[targetProjectId].noteIds.unshift(itemId); 
+                            }
                         }
                         
                         saveState();
@@ -3855,8 +4034,14 @@
             }
 
             async function renameItem(type, id) {
-                const item = type === 'chat' ? state.chats[id] : state.projects[id];
-                if(type === 'note') item = state.notes.find(n => n.id === id); // Find note by ID
+                let item;
+                if (type === 'chat') {
+                    item = state.chats[id];
+                } else if (type === 'project') {
+                    item = state.projects[id];
+                } else if (type === 'note') {
+                    item = state.notes.find(n => n.id === id);
+                }
                 if(!item) return;
                 const result = await showModal({ 
                     title: `Renombrar ${type === 'chat' ? 'Conversación' : (type === 'project' ? 'Proyecto' : 'Nota')}`, 
@@ -3880,8 +4065,14 @@
                 }
             }
             async function deleteItem(type, id) { 
-                const item = type === 'chat' ? state.chats[id] : state.projects[id]; 
-                if(type === 'note') item = state.notes.find(n => n.id === id);
+                let item;
+                if (type === 'chat') {
+                    item = state.chats[id];
+                } else if (type === 'project') {
+                    item = state.projects[id];
+                } else if (type === 'note') {
+                    item = state.notes.find(n => n.id === id);
+                }
                 if(!item) return;
 
                 const confResult = await showModal({ 
@@ -3895,19 +4086,32 @@
                     state.structure = state.structure.filter(i => i !== id);
                     if (type === 'project') { 
                         (item.chatIds || []).forEach(cid => delete state.chats[cid]); 
+                        (item.noteIds || []).forEach(nid => { // Delete associated notes as well
+                            state.notes = state.notes.filter(n => n.id !== nid);
+                            if (currentNoteId === nid) {
+                                currentNoteId = null;
+                                dom.noteEditorPanel.classList.add('hidden');
+                            }
+                        });
                         delete state.projects[id]; 
                     } else if (type === 'chat') { 
                         delete state.chats[id];
                         Object.values(state.projects).forEach(p => { if(p.chatIds) p.chatIds = p.chatIds.filter(cid => cid !== id)});
                     } else if (type === 'note') {
                         state.notes = state.notes.filter(n => n.id !== id);
+                        Object.values(state.projects).forEach(p => { if(p.noteIds) p.noteIds = p.noteIds.filter(nid => nid !== id)});
                         if (currentNoteId === id) {
                             currentNoteId = null;
                             dom.noteEditorPanel.classList.add('hidden');
                         }
                     }
 
-                    if(currentChatId === id || (type === 'project' && (item.chatIds || []).includes(currentChatId))) resetChatView(); 
+                    if(currentChatId === id || 
+                        (type === 'project' && ((item.chatIds && item.chatIds.includes(currentChatId)) || (item.noteIds && item.noteIds.includes(currentChatId)))) ||
+                        (type === 'note' && currentNoteId === id)
+                    ) {
+                        resetChatView(); 
+                    }
                     saveState(); 
                     renderSidebar();
                 } 
@@ -3956,7 +4160,7 @@
                 else {
                     inputEl = dom.msgInput;
                     messageContainer = dom.chatMessages;
-                    if (!chatIdToUpdate) {
+                    if (!chatIdToUpdate || !state.chats[chatIdToUpdate]) { // Ensure a valid chat is selected or create a new one
                          chatIdToUpdate = createNewChat({});
                     }
                 }
@@ -3965,20 +4169,26 @@
                 if (!userMessage && !selectedImageBase64 && !selectedPdfText) return;
                 
                 const currentChat = state.chats[chatIdToUpdate];
-                if (!currentChat) return;
-                
+                if (!currentChat) return; // Should not happen with new chat creation logic
+
+                // Determine model and cost
                 let modelToUse = getModelForRequest(currentChat.workflow, hasFile(), isProjectChat, isFinancialChat, isNotepadChat);
-                const webSearchTriggers = ['busca', 'investiga', 'en internet', 'tiempo real', 'qué día es hoy', 'qué fecha es hoy', 'cuál es el precio de', 'quién es', 'qué es', 'noticias sobre'];
-                const requiresWebSearch = webSearchTriggers.some(trigger => userMessage.toLowerCase().startsWith(trigger));
-                if (requiresWebSearch && !hasFile() && !currentChat.workflow) { modelToUse = 'sonar';
+                let cost = COSTS.GENERAL;
+
+                if (modelToUse === 'sonar') {
+                    cost = COSTS.SEARCH;
+                } else if (hasFile()) {
+                    cost = COSTS.FILE_ANALYSIS;
+                } else if (currentChat.workflow && currentChat.workflow !== 'notepad-assistant') {
+                    cost = COSTS.WORKFLOW_MESSAGE;
+                } else if (isNotepadChat) {
+                    cost = COSTS.WORKFLOW_MESSAGE; // Notepad assistant messages
                 }
                 
-                let cost = COSTS.GENERAL;
-                if(currentChat.workflow) cost = COSTS.COPYWRITING;
-                if(modelToUse === 'sonar') cost = COSTS.SEARCH;
-                if(hasFile()) cost = COSTS.NEBULA;
-                if(isNotepadChat) cost = COSTS.COPYWRITING;
-                if(modelToUse === 'gpt-4o') cost = 3; // Example cost for GOAT X PRO (4O)
+                // If GOAT X PRO model is selected, and it's not the default for file/web, then it has a specific cost
+                if (modelToUse === 'gpt-4o' && !hasFile() && modelToUse !== 'sonar') {
+                    cost = 2; // Specific cost for GOAT X PRO text messages
+                }
 
                 if (!spendCredits(cost)) {
                     return;
@@ -4033,7 +4243,7 @@
                 const result = await showModal({ title: 'Crear Imagen', body: 'Describe la imagen que quieres crear:<br><input type="text" id="img-prompt" class="w-full p-2 rounded bg-input border border-themed mt-2" placeholder="Ej: Un astronauta en un caballo cósmico">', confirmText: 'Generar' });
                 if (!result.confirmed || !result.data['img-prompt']) return;
                 
-                if (!spendCredits(COSTS.IMAGE)) {
+                if (!spendCredits(COSTS.IMAGE_GEN)) { // Use specific cost for image generation
                     return;
                 }
                 
@@ -4090,14 +4300,20 @@
                 } else {
                     selectNote(currentNoteId);
                 }
-                // Ensure notepad assistant chat model is set correctly
-                const notepadModelSelector = document.createElement('select'); // A dummy element to hold options
-                notepadModelSelector.innerHTML = `
-                    <option value="gpt-4o-mini">Asistente de Redacción</option>
-                    ${currentUser && currentUser.app_metadata?.plan && currentUser.app_metadata.plan !== 'free' ? '<option value="gpt-4o" class="goat-x-pro-model">GOAT X PRO (4O)</option>' : ''}
-                `;
-                // Dynamically update the model value for the notepad assistant chat in state
-                state.chats['notepad-assistant-chat'].model = getModelForRequest('notepad-assistant', false, false, false, true);
+                // Dynamically update the model value for the notepad assistant chat in state and selector
+                const notepadModelSelector = document.getElementById('notepad-model-selector');
+                if (notepadModelSelector) {
+                    if (currentUser && currentUser.app_metadata?.plan && currentUser.app_metadata.plan !== 'free') {
+                        notepadModelSelector.value = 'gpt-4o'; // Default to GOAT X PRO for paid users
+                    } else {
+                        notepadModelSelector.value = 'gpt-4o-mini';
+                    }
+                    const goatXProOption = notepadModelSelector.querySelector('option[value="gpt-4o"]');
+                    if (goatXProOption) {
+                        goatXProOption.disabled = !(currentUser && currentUser.app_metadata?.plan && currentUser.app_metadata.plan !== 'free');
+                    }
+                    state.chats['notepad-assistant-chat'].model = notepadModelSelector.value;
+                }
             }
             
             function renderNotesList() {
@@ -4161,6 +4377,7 @@
                 if (window.innerWidth < 768) {
                     dom.notepadViewContainer.classList.add('mobile-editor-active');
                 }
+                showInAppNotification("Éxito", `"${newNote.title}" creado.`, 1000); // 1 sec duration
             }
 
             async function deleteNote(noteId) {
@@ -4174,6 +4391,7 @@
                 if(result.confirmed) {
                     state.notes = state.notes.filter(n => n.id !== noteId);
                     state.structure = state.structure.filter(id => id !== noteId); // Remove from structure
+                    Object.values(state.projects).forEach(p => { if(p.noteIds) p.noteIds = p.noteIds.filter(nid => nid !== noteId)});
                     if (currentNoteId === noteId) {
                         currentNoteId = null;
                     }
@@ -4200,6 +4418,7 @@
                     dom.noteCanvas.style.display = 'none';
                     dom.textTools.style.display = 'flex';
                     dom.drawingTools.style.display = 'none';
+                    dom.noteContentEditor.focus();
                 } else { // 'drawing'
                     dom.noteContentEditor.style.display = 'none';
                     dom.noteCanvas.style.display = 'block';
@@ -4227,7 +4446,7 @@
                 if (note.content) {
                     const img = new Image();
                     img.onload = () => {
-                        ctx.drawImage(img, 0, 0);
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height); // Scale to fit canvas
                     }
                     img.src = note.content;
                 } else {
@@ -4235,19 +4454,28 @@
                 }
 
                 const getCoords = (e) => {
-                    const event = e.touches ? e.touches[0] : e;
                     const canvasRect = canvas.getBoundingClientRect();
-                    return [event.clientX - canvasRect.left, event.clientY - canvasRect.top];
+                    let clientX, clientY;
+
+                    if (e.touches && e.touches.length > 0) {
+                        clientX = e.touches[0].clientX;
+                        clientY = e.touches[0].clientY;
+                    } else {
+                        clientX = e.clientX;
+                        clientY = e.clientY;
+                    }
+                    return [clientX - canvasRect.left, clientY - canvasRect.top];
                 }
 
                 const startDrawing = (e) => {
+                    e.preventDefault(); // Prevent scrolling on touch devices
                     isDrawing = true;
                     [lastX, lastY] = getCoords(e);
                 };
 
                 const draw = (e) => {
                     if (!isDrawing) return;
-                    e.preventDefault();
+                    e.preventDefault(); // Prevent scrolling on touch devices
                     
                     ctx.beginPath();
                     ctx.moveTo(lastX, lastY);
@@ -4278,14 +4506,15 @@
                 };
 
                 // Event listeners for both mouse and touch
-                canvas.onmousedown = startDrawing;
-                canvas.onmousemove = draw;
-                canvas.onmouseup = stopDrawing;
-                canvas.onmouseout = stopDrawing;
+                canvas.addEventListener('mousedown', startDrawing);
+                canvas.addEventListener('mousemove', draw);
+                canvas.addEventListener('mouseup', stopDrawing);
+                canvas.addEventListener('mouseout', stopDrawing); // For mouse leaving canvas area
 
-                canvas.ontouchstart = startDrawing;
-                canvas.ontouchmove = draw;
-                canvas.ontouchend = stopDrawing;
+                canvas.addEventListener('touchstart', startDrawing, { passive: false });
+                canvas.addEventListener('touchmove', draw, { passive: false });
+                canvas.addEventListener('touchend', stopDrawing);
+                canvas.addEventListener('touchcancel', stopDrawing); // In case touch is interrupted
                 
                 toolbar.querySelector('#tool-pencil').onclick = () => { currentTool = 'pencil'; setActiveTool('tool-pencil'); };
                 toolbar.querySelector('#tool-eraser').onclick = () => { currentTool = 'eraser'; setActiveTool('tool-eraser'); };
@@ -4403,7 +4632,7 @@
             function setupEventListeners() {
                 dom.inAppNotificationClose?.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    dom.inAppNotification.classList.remove('show');
+                    dom.inAppNotification.classList.add('hidden-notification');
                 });
 
                 const motivationClickHandler = () => showMotivationModal();
@@ -4469,7 +4698,7 @@
                     }); 
                     if (result.confirmed && result.data['project-name'].trim()) { 
                         const id = 'project-' + crypto.randomUUID(); 
-                        state.projects[id] = { id, title: result.data['project-name'].trim(), chatIds: [] }; 
+                        state.projects[id] = { id, title: result.data['project-name'].trim(), chatIds: [], noteIds: [] }; // Added noteIds for projects
                         state.structure.unshift(id); 
                         saveState(); 
                         renderSidebar(); 
@@ -4482,8 +4711,8 @@
                 dom.themeToggle?.addEventListener('click', () => setTheme(!document.body.classList.contains('dark-theme')));
                 dom.loginBtn?.addEventListener('click', () => netlifyIdentity.open('login'));
                 
-                dom.desktopChatTitleWrapper?.addEventListener('click', (e) => { if(!e.target.closest('#motivation-btn-header') && currentChatId && currentChatId !== 'notepad-app') renameItem('chat', currentChatId); });
-                dom.mobileChatTitleWrapper?.addEventListener('click', (e) => { if(!e.target.closest('#motivation-btn-mobile') && currentChatId && currentChatId !== 'notepad-app') renameItem('chat', currentChatId); });
+                dom.desktopChatTitleWrapper?.addEventListener('click', (e) => { if(!e.target.closest('#motivation-btn-header') && currentChatId && currentChatId !== 'notepad-app' && !currentChatId.startsWith('note-')) renameItem('chat', currentChatId); });
+                dom.mobileChatTitleWrapper?.addEventListener('click', (e) => { if(!e.target.closest('#motivation-btn-mobile') && currentChatId && currentChatId !== 'notepad-app' && !currentChatId.startsWith('note-')) renameItem('chat', currentChatId); });
                 dom.imageGenBtn?.addEventListener('click', generateImage);
                 dom.pdfUploadBtn?.addEventListener('click', () => dom.pdfUploadInput.click());
                 dom.imageUploadBtn?.addEventListener('click', () => dom.imageUploadInput.click());
@@ -4532,7 +4761,7 @@
                 dom.modelSelector?.addEventListener('change', () => {
                     const selectedValue = dom.modelSelector.value;
                     if (selectedValue === 'gpt-4o' && (!currentUser || currentUser.app_metadata?.plan === 'free')) {
-                        showInAppNotification("Acceso Restringido", "El modelo GOAT X PRO (4O) está disponible solo para usuarios logueados con planes de pago.", 3000);
+                        showInAppNotification("Acceso Restringido", "El modelo GOAT X PRO está disponible solo para usuarios logueados con planes de pago.", 3000);
                         dom.modelSelector.value = 'gpt-3.5-turbo-1106'; // Revert to previous valid selection or default
                     }
                 });
@@ -4544,24 +4773,20 @@
                 dom.menuToggle?.addEventListener('click', (e) => { e.stopPropagation(); toggleSidebar(true); });
                 dom.sidebarOverlay?.addEventListener('click', () => toggleSidebar(false));
 
-                dom.notesListToggle?.addEventListener('click', () => { // New: Notepad list toggle handler
+                dom.notesListToggle?.addEventListener('click', () => { // Notepad list toggle handler
                     dom.notesListPanel.classList.toggle('collapsed');
                 });
-                dom.sidebar.addEventListener('click', (e) => { // New: Sidebar collapse toggle
-                    if (e.target.closest('#sidebar-header') || e.target.closest('#logo-space')) {
-                        if (window.innerWidth >= 768) { // Only collapse on desktop
-                            dom.sidebar.classList.toggle('collapsed');
-                        }
-                    }
+                dom.sidebarToggleButton?.addEventListener('click', () => { // Sidebar collapse toggle
+                    toggleSidebar(!dom.sidebar.classList.contains('collapsed'));
                 });
 
                 dom.userMenuBtn?.addEventListener('click', (e) => { e.stopPropagation(); dom.userMenuPopup.classList.toggle('hidden'); });
                 dom.logoutBtn?.addEventListener('click', () => { netlifyIdentity.logout(); dom.userMenuPopup.classList.add('hidden');});
                 
                 const workflowConfigs = {
-                    'project-management': { title: "Asistente de Proyectos", workflow: 'project-management', initialMessages: [{ role: 'assistant', content: '¡Excelente! Vamos a estructurar este proyecto como un profesional. Para empezar, **¿cuál es el objetivo final y medible que quieres alcanzar con este proyecto?** Descríbelo y luego definiremos los entregables clave.' }] },
-                    'financial-assistant': { title: "Asistente Financiero", workflow: 'financial-assistant', initialMessages: [{ role: 'assistant', content: '¡Vamos a organizar tus finanzas! Utiliza la tabla de arriba para añadir tus ingresos y gastos. Luego, puedes hacerme preguntas aquí sobre tus finanzas, como por ejemplo: "¿En qué categoría estoy gastando más?" o "Proyecta mis ahorros para los próximos 6 meses".' }] },
-                    'notepad-app': { title: "Bloc de Notas", workflow: 'notepad-app' },
+                    'project-management': { title: "Asistente de Proyectos", workflow: 'project-management', initialMessages: [{ role: 'assistant', content: '¡Excelente! Vamos a estructurar este proyecto como un profesional. Para empezar, **¿cuál es el objetivo final y medible que quieres alcanzar con este proyecto?** Descríbelo y luego definiremos los entregables clave.' }], models: ['gpt-4o-mini', 'gpt-3.5-turbo-1106', 'sonar', 'gpt-4o']},
+                    'financial-assistant': { title: "Asistente Financiero", workflow: 'financial-assistant', initialMessages: [{ role: 'assistant', content: '¡Vamos a organizar tus finanzas! Utiliza la tabla de arriba para añadir tus ingresos y gastos. Luego, puedes hacerme preguntas aquí sobre tus finanzas, como por ejemplo: "¿En qué categoría estoy gastando más?" o "Proyecta mis ahorros para los próximos 6 meses".' }], models: ['gpt-4o-mini', 'gpt-3.5-turbo-1106', 'gpt-4o']},
+                    'notepad-app': { title: "Bloc de Notas", workflow: 'notepad-app' }, // No models here, models are for its chat assistant
                     'create-full-post': { title: "Post para Redes", workflow: 'create-full-post', initialMessages: [{ role: 'assistant', content: '¡Claro! Vamos a crear un post increíble. ¿Para qué red social lo necesitas (Instagram, Facebook, LinkedIn, etc.)?' }] },
                     'persuasive-copy': { title: "Copy Persuasivo", workflow: 'persuasive-copy', initialMessages: [{ role: 'assistant', content: 'Estoy listo para redactar textos que vendan. ¿Para qué necesitas este copy? (ej: Anuncio de Facebook, Post de Venta, Descripción de Producto)' }] },
                     'post-ideas': { title: "Lluvia de Ideas", workflow: 'post-ideas', initialMessages: [{ role: 'assistant', content: '¡Acabemos con el bloqueo creativo! Dime un tema y te daré 7 ideas de contenido excelentes.' }] },
@@ -4648,7 +4873,19 @@
                     dom.servicesMenu.classList.toggle('show');
                 });
 
-                const setAppHeight = () => { const app = document.getElementById('app-container'); if(app) app.style.height = `${window.innerHeight}px`; };
+                const setAppHeight = () => { 
+                    const app = document.getElementById('app-container'); 
+                    if(app) {
+                        // Subtract a bit to ensure it fits better on mobile landscape and avoid bottom bar issues
+                        app.style.height = `${window.innerHeight}px`; 
+                        if (window.innerWidth < 768) { // Only adjust for mobile
+                            const headerHeight = dom.mainHeaderContent?.offsetHeight || 0;
+                            const inputAreaHeight = dom.inputArea?.offsetHeight || 0;
+                            // Small buffer for mobile UI elements that might overlay
+                            app.style.height = `calc(100vh - ${headerHeight}px - ${inputAreaHeight}px - 20px)`; 
+                        }
+                    }
+                };
                 setAppHeight();
                 window.addEventListener('resize', setAppHeight);
                 dom.selectChatsBtn?.addEventListener('click', () => toggleSelectMode(true));
@@ -4867,8 +5104,15 @@
                 // Update Project model selector
                 const projectModelSelector = document.getElementById('project-model-selector');
                 if (projectModelSelector) {
-                    const currentModel = chat.model || 'gpt-4o-mini';
-                    projectModelSelector.value = currentModel;
+                    // Populate with all options
+                    projectModelSelector.innerHTML = `
+                        <option value="gpt-4o-mini">GOAT X</option>
+                        <option value="gpt-3.5-turbo-1106">General (Turbo)</option>
+                        <option value="sonar">Búsqueda Web</option>
+                        <option value="gpt-4o" class="goat-x-pro-model">GOAT X PRO</option>
+                    `;
+                    // Set current value
+                    projectModelSelector.value = chat.model || 'gpt-4o-mini';
                     // Ensure GOAT X PRO option is enabled/disabled based on user plan
                     const goatXProOption = projectModelSelector.querySelector('option[value="gpt-4o"]');
                     if (goatXProOption) {
@@ -5245,6 +5489,7 @@
                             const emailInput = bodyEl.querySelector('#share-project-task-email');
                             const email = emailInput.value.trim();
                             if (email) {
+                                // Add logic for sharing project task with specific user
                                 console.log(`(DEMO) Sharing project task ${taskId} with ${email}. Backend needed.`);
                                 showInAppNotification("Función en Desarrollo", `La tarea será compartida con ${email}.`);
                             } else {
@@ -5299,7 +5544,7 @@
 
                         if(projResult.confirmed && projResult.data['new-proj-name']) {
                             const newProjectId = 'project-' + crypto.randomUUID();
-                            state.projects[newProjectId] = { id: newProjectId, title: projResult.data['new-proj-name'], chatIds: [] };
+                            state.projects[newProjectId] = { id: newProjectId, title: projResult.data['new-proj-name'], chatIds: [], noteIds: [] }; // Added noteIds for new projects
                             state.structure.unshift(newProjectId);
                             
                             const newTaskChatId = createNewChat({title: projResult.data['new-proj-name'], workflow: 'project-management'});
@@ -5488,11 +5733,12 @@
                             <div id="financial-input-area" class="mt-auto pt-2 p-2">
                                 <div class="pro-controls-bg rounded-lg p-1.5 mb-2">
                                      <div class="flex items-center space-x-2">
-                                        <label class="font-medium text-xs text-text-medium pl-2 pr-1">Modelo:</label>
+                                        <label for="financial-model-selector" class="font-medium text-xs text-text-medium pl-2 pr-1">Modelo:</label>
                                         <div class="model-selector-wrapper">
                                             <select id="financial-model-selector" class="rounded-md py-1 pl-1.5 focus:outline-none focus:ring-2 focus:ring-primary text-sm bg-transparent text-text-light">
-                                                 <option value="gpt-4o-mini">GOAT Finanzas</option>
-                                                <option value="gpt-4o" class="goat-x-pro-model">GOAT X PRO (4O)</option>
+                                                 <option value="gpt-4o-mini">GOAT X</option>
+                                                 <option value="gpt-3.5-turbo-1106">General (Turbo)</option>
+                                                <option value="gpt-4o" class="goat-x-pro-model">GOAT X PRO</option>
                                              </select>
                                               <i class="fas fa-chevron-down text-xs"></i>
                                         </div>
@@ -5516,13 +5762,11 @@
                 // Set initial model for financial assistant
                 const financialModelSelector = document.getElementById('financial-model-selector');
                 if (financialModelSelector) {
-                    if (currentUser && currentUser.app_metadata?.plan && currentUser.app_metadata.plan !== 'free') {
-                        financialModelSelector.value = 'gpt-4o'; // Default to GOAT X PRO for paid users
-                    } else {
-                        financialModelSelector.value = 'gpt-4o-mini';
-                    }
+                    // Set current value
+                    financialModelSelector.value = chat.model || 'gpt-4o-mini';
+                    // Ensure GOAT X PRO option is enabled/disabled based on user plan
                     const goatXProOption = financialModelSelector.querySelector('option[value="gpt-4o"]');
-                    if (goatXProOption) { // Ensure correct state for GOAT X PRO option
+                    if (goatXProOption) { 
                         goatXProOption.disabled = ! (currentUser && currentUser.app_metadata?.plan && currentUser.app_metadata.plan !== 'free');
                     }
                 }
@@ -5667,6 +5911,7 @@
                             confirmText: translations[lang].share_note_button
                         });
                         if (result.confirmed && result.data['share-email-input']) {
+                            // Logic to share financial data (income) with the specified email
                             console.log(`(DEMO) Sharing income data for chat ${chatId} with ${result.data['share-email-input']}. Backend needed.`);
                             showInAppNotification("Función en Desarrollo", `Datos de ingresos serán compartidos con ${result.data['share-email-input']}.`);
                         }
@@ -5684,6 +5929,7 @@
                             confirmText: translations[lang].share_note_button
                         });
                         if (result.confirmed && result.data['share-email-input']) {
+                            // Logic to share financial data (expenses) with the specified email
                             console.log(`(DEMO) Sharing expense data for chat ${chatId} with ${result.data['share-email-input']}. Backend needed.`);
                             showInAppNotification("Función en Desarrollo", `Datos de gastos serán compartidos con ${result.data['share-email-input']}.`);
                         }
@@ -5721,9 +5967,12 @@
                     financialModelSelector.addEventListener('change', () => {
                         const selectedValue = financialModelSelector.value;
                         if (selectedValue === 'gpt-4o' && (!currentUser || currentUser.app_metadata?.plan === 'free')) {
-                            showInAppNotification("Acceso Restringido", "El modelo GOAT X PRO (4O) está disponible solo para usuarios logueados con planes de pago.", 3000);
+                            showInAppNotification("Acceso Restringido", "El modelo GOAT X PRO está disponible solo para usuarios logueados con planes de pago.", 3000);
                             financialModelSelector.value = 'gpt-4o-mini'; // Revert to default
                         }
+                        // Update the chat's model in state
+                        state.chats[chatId].model = financialModelSelector.value;
+                        saveState();
                     });
                 }
             }
@@ -5777,20 +6026,28 @@
             }
 
             function loadGamificationState() {
-                const key = currentUser ? `gamificationState_${currentUser.id}` : 'gamificationState_guest';
-                const savedState = localStorage.getItem(key);
-                gamificationState = savedState ? JSON.parse(savedState) : getDefaultGamificationState();
-                checkDailyStreak();
+                // Gamification state is only for logged-in users. Guests don't accumulate points.
+                const key = currentUser ? `gamificationState_${currentUser.id}` : null;
+                if (key) {
+                    const savedState = localStorage.getItem(key);
+                    gamificationState = savedState ? JSON.parse(savedState) : getDefaultGamificationState();
+                    checkDailyStreak();
+                } else {
+                    gamificationState = getDefaultGamificationState(); // Reset for guest
+                }
             }
 
             function saveGamificationState() {
-                const key = currentUser ? `gamificationState_${currentUser.id}` : 'gamificationState_guest';
-                localStorage.setItem(key, JSON.stringify(gamificationState));
-                renderGamificationModal();
-                updateCreditCounter();
+                const key = currentUser ? `gamificationState_${currentUser.id}` : null;
+                if (key) {
+                    localStorage.setItem(key, JSON.stringify(gamificationState));
+                    renderGamificationModal();
+                    updateCreditCounter();
+                }
             }
 
             function addXp(amount) {
+                if (!currentUser) return; // Guests don't earn XP
                 gamificationState.xp += amount;
                 const currentLevel = gamificationState.level;
                 if (currentLevel >= LEVEL_NAMES.length) return; 
@@ -5815,11 +6072,13 @@
             }
 
             function addCredits(amount) {
+                if (!currentUser) return; // Guests don't earn credits
                 gamificationState.credits += amount;
                 saveGamificationState();
             }
 
             function checkDailyStreak() {
+                if (!currentUser) return; // Guests don't have streaks
                 const today = dayjs().format('YYYY-MM-DD');
                 const lastLogin = gamificationState.lastLogin;
 
@@ -5882,6 +6141,7 @@
             }
 
             function completeMission(missionId, contextId = null) {
+                if (!currentUser) return; // Guests don't complete missions
                 if (gamificationState.completedMissions.includes(missionId)) return;
                 const mission = MISSIONS[missionId];
                 if (!mission) return;
@@ -5911,6 +6171,7 @@
             }
             
             function unlockAchievement(achievementId) {
+                if (!currentUser) return; // Guests don't unlock achievements
                 if (gamificationState.unlockedAchievements.includes(achievementId)) return;
                 const achievement = ACHIEVEMENTS[achievementId];
                 if (!achievement) return;
