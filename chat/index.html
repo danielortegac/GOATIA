@@ -85,9 +85,23 @@
             color: var(--light-text-dark);
         }
         
-        #sidebar { background-color: var(--current-bg-dark); border-right: 1px solid var(--current-border-color); height: 100vh; transition: transform 0.3s ease; z-index: 40; }
-        #sidebar.collapsed { width: 0; padding: 0; overflow: hidden; border-right: none;}
-        #sidebar.collapsed > * { display: none; }
+        #sidebar { 
+            background-color: var(--current-bg-dark); 
+            border-right: 1px solid var(--current-border-color); 
+            height: 100vh; 
+            transition: width 0.3s ease, padding 0.3s ease; 
+            z-index: 40; 
+            width: 288px;
+        }
+        #sidebar.collapsed { 
+            width: 0; 
+            padding: 0; 
+            overflow: hidden; 
+            border-right: none;
+        }
+        #sidebar.collapsed > * { 
+            display: none; 
+        }
         
         #sidebar-header, #sidebar-bottom-fixed {
             flex-shrink: 0;
@@ -121,6 +135,11 @@
                 top: 0;
                 left: 0;
                 width: 288px;
+                transition: transform 0.3s ease; /* Ensure transition is for transform */
+            }
+            #sidebar.collapsed {
+                transform: translateX(-100%);
+                width: 288px; /* Restore width when not collapsed, for opening animation */
             }
             #sidebar.is-open {
                 transform: translateX(0);
@@ -273,6 +292,22 @@
         }
 
         .btn-disabled { background-color: #3a3a3a !important; color: #888 !important; cursor: not-allowed !important; border-color: #3a3a3a !important;}
+
+        .chat-bubble-wrapper .speak-message-btn {
+            background: none;
+            border: none;
+            color: var(--current-text-medium);
+            cursor: pointer;
+            opacity: 0.3;
+            transition: opacity 0.2s ease;
+            padding: 4px;
+        }
+        .chat-bubble-wrapper:hover .speak-message-btn {
+            opacity: 1;
+        }
+        .chat-bubble-wrapper .speak-message-btn:hover {
+            color: var(--current-primary);
+        }
 
         .chat-item.selected-chat {
             background-color: var(--current-primary);
@@ -892,8 +927,15 @@
         /* Notepad View */
         #notepad-view-container {
             display: none; /* Hidden by default */
-            padding: 0; /* No padding on main container */
+            padding: 0; 
+            flex-direction: row; /* Desktop layout */
         }
+        #notepad-view-container.notes-list-collapsed #notes-list-panel {
+            width: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+
         #notepad-editor-and-chat-container {
             display: flex;
             flex-direction: row;
@@ -911,6 +953,7 @@
             flex-direction: column;
             padding: 0.75rem;
             gap: 0.75rem;
+            transition: width 0.3s ease, padding 0.3s ease;
         }
         #notes-list {
             flex-grow: 1;
@@ -979,7 +1022,6 @@
              height: 36px;
         }
         #note-title-input {
-            flex-grow: 1;
             background: transparent;
             border: none;
             outline: none;
@@ -987,6 +1029,7 @@
             font-weight: bold;
             padding: 0.5rem 0.75rem; /* Reduced padding */
             border-bottom: 1px solid var(--current-border-color);
+            flex-shrink: 0;
         }
         #note-content-area {
             position: relative;
@@ -1575,6 +1618,7 @@
                     <div class="flex items-center flex-shrink-0 header-left-icons">
                         <button id="menu-toggle" class="md:hidden text-xl p-2"><i class="fas fa-bars"></i></button>
                         <button id="new-chat-icon-btn" title="Nuevo Chat" class="text-xl p-2 hover:opacity-80 transition-opacity"><i class="fas fa-plus-circle text-primary"></i></button>
+                        <button id="new-folder-icon-btn" title="Nueva Carpeta" class="text-xl p-2 hover:opacity-80 transition-opacity"><i class="fas fa-folder-plus text-primary"></i></button>
                     </div>
                     
                     <div id="desktop-chat-title-wrapper" class="hidden sm:flex items-center justify-center group cursor-pointer mx-2 flex-1 min-w-0" title="Renombrar Chat">
@@ -1588,10 +1632,10 @@
                             <i class="fas fa-calendar-days text-xl"></i>
                             <span id="notification-badge" class="notification-badge hidden">0</span>
                         </button>
-                        <div id="message-counter" class="text-xs font-mono whitespace-nowrap block mx-2"></div>
                         <button id="gamification-btn" title="Mi Ascensión" class="text-xl p-2 hover:opacity-80 transition-opacity text-gold">
                             <i class="fas fa-trophy"></i>
                         </button>
+                        <div id="message-counter" class="text-xs font-mono whitespace-nowrap block mx-2"></div>
                         <button id="services-menu-btn" title="Potenciar mi Negocio" class="relative text-xl p-2 hover:opacity-80 transition-opacity flex items-center gap-2">
                             <i class="fas fa-rocket text-primary"></i>
                             <span class="text-sm font-semibold text-primary hidden md:inline" data-translate-key="solutions">Soluciones</span>
@@ -1631,30 +1675,34 @@
                 </div>
 
                 <div id="notepad-view-container" class="hidden">
+                    <button id="notes-list-toggle-btn" title="Alternar lista de notas" class="absolute top-2 left-2 z-10 p-2 bg-input rounded-md hidden md:block"><i class="fas fa-bars"></i></button>
                     <div id="notes-list-panel">
-                        <div class="flex items-center gap-2">
-                            <button id="add-new-note-btn" class="w-full btn-primary text-sm flex items-center justify-center gap-2"><i class="fas fa-file-alt"></i>Nueva Nota</button>
-                            <button id="add-new-drawing-btn" class="p-2 bg-input rounded-md" title="Nuevo Dibujo"><i class="fas fa-paint-brush"></i></button>
-                        </div>
+                         <div class="flex items-center gap-2 p-2 border-b border-themed">
+                             <h3 class="font-bold flex-grow">Mis Notas</h3>
+                             <button id="add-new-note-btn" class="p-2 bg-input rounded-md" title="Nueva Nota de Texto"><i class="fas fa-file-alt"></i></button>
+                             <button id="add-new-drawing-btn" class="p-2 bg-input rounded-md" title="Nuevo Dibujo"><i class="fas fa-paint-brush"></i></button>
+                         </div>
                         <div id="notes-list">
                             </div>
                     </div>
                     <div id="notepad-editor-and-chat-container">
                         <div id="note-editor-panel">
-                             <div id="note-editor-toolbar">
+                             <div class="flex items-center p-2 border-b border-themed">
                                 <button id="note-back-btn" title="Volver a la lista" class="p-2 hidden mr-2"><i class="fas fa-arrow-left"></i></button>
-                                <input id="note-title-input" type="text" placeholder="Título de la nota...">
-                                <div id="text-tools" class="flex items-center gap-2 ml-auto">
+                                <input id="note-title-input" type="text" placeholder="Título de la nota..." class="w-full">
+                            </div>
+                            <div id="note-editor-toolbar">
+                                <div id="text-tools" class="flex items-center gap-2">
                                     <button id="add-checklist-item-btn" title="Añadir Checklist" class="p-2"><i class="fas fa-check-square"></i></button>
                                 </div>
                                 <div id="drawing-tools" class="hidden items-center gap-2">
                                     <button id="tool-pencil" class="drawing-tool active" title="Lápiz"><i class="fas fa-pencil-alt"></i></button>
                                     <button id="tool-eraser" class="drawing-tool" title="Borrador"><i class="fas fa-eraser"></i></button>
-                                    <input type="color" id="drawing-color" class="drawing-tool" title="Color" value="#ffffff">
+                                    <input type="color" id="drawing-color" class="drawing-tool" title="Color" value="#000000">
                                     <input type="range" id="drawing-line-width" class="drawing-tool" min="1" max="50" value="3" title="Grosor">
                                     <button id="clear-canvas-btn" class="drawing-tool" title="Limpiar todo"><i class="fas fa-trash-alt"></i></button>
                                 </div>
-                                <button id="share-note-btn" title="Compartir / Colaborar" class="p-2 ml-2"><i class="fas fa-user-plus"></i></button>
+                                <button id="share-note-btn" title="Compartir / Colaborar" class="p-2 ml-auto"><i class="fas fa-user-plus"></i></button>
                                 <button id="delete-note-btn" title="Eliminar Nota" class="p-2 text-red-500 hover:text-red-400 transition-colors"><i class="fas fa-trash-alt"></i></button>
                             </div>
                             <div id="note-content-area" class="relative flex-grow">
@@ -1669,7 +1717,16 @@
                             </div>
                             <div class="notepad-chat-body">
                                 <div id="notepad-chat-messages" class="chat-bubble-bot"></div>
-                                <div class="mt-auto pt-2">
+                                <div class="mt-auto pt-2 p-2">
+                                    <div class="pro-controls-bg rounded-lg p-1.5 mb-2">
+                                         <div class="model-selector-wrapper">
+                                            <select id="notepad-model-selector" class="rounded-md py-1 pl-1.5 focus:outline-none focus:ring-2 focus:ring-primary text-sm bg-transparent text-text-light">
+                                                <option value="gpt-4o-mini">GOAT X</option>
+                                                <option value="gpt-4o" id="notepad-goat-x-pro-option" class="hidden">Goat X Pro</option>
+                                            </select>
+                                            <i class="fas fa-chevron-down text-xs"></i>
+                                        </div>
+                                    </div>
                                     <div class="relative rounded-xl flex items-center bg-input p-1 sm:p-2 input-wrapper">
                                         <textarea id="notepad-msg" placeholder="Pide ideas, resúmenes, etc..." class="flex-1 bg-transparent p-2 h-10 max-h-28 resize-none outline-none placeholder-themed text-sm"></textarea>
                                         <button id="notepad-send" title="Enviar" class="p-2 sm:p-3 disabled:opacity-50 disabled:cursor-not-allowed text-primary"><i class="fa fa-paper-plane text-lg"></i></button>
@@ -1685,7 +1742,10 @@
                 <div id="project-management-view" class="hidden p-4 h-full">
                     <div id="project-board-container" class="flex flex-col h-full">
                         <div class="flex flex-wrap justify-between items-center mb-4 flex-shrink-0 gap-2">
-                            <h2 id="project-view-title" class="text-2xl font-bold">Nombre del Proyecto</h2>
+                            <div class="flex items-center gap-4">
+                               <h2 id="project-view-title" class="text-2xl font-bold">Nombre del Proyecto</h2>
+                               <button id="share-project-btn" class="p-2 rounded-md bg-input text-sm" title="Compartir Proyecto"><i class="fas fa-user-plus"></i> Compartir</button>
+                            </div>
                              <div id="project-tag-filter-container" class="relative">
                                 <button id="tag-filter-btn" class="p-2 rounded-md bg-input text-sm"><i class="fas fa-tag mr-1"></i> Filtrar</button>
                                 <div id="tag-filter-dropdown" class="hidden absolute right-0 mt-1 p-2 rounded-md shadow-lg w-48"></div>
@@ -1718,8 +1778,8 @@
                                         <label for="project-model-selector" class="font-medium text-xs text-text-medium pl-2 pr-1">Modelo:</label>
                                          <div class="model-selector-wrapper">
                                             <select id="project-model-selector" class="rounded-md py-1 pl-1.5 focus:outline-none focus:ring-2 focus:ring-primary text-sm bg-transparent text-text-light">
-                                                 <option value="gpt-4o-mini">Asistente de Proyectos</option>
-                                                <option value="gpt-3.5-turbo-1106">General (Turbo)</option>
+                                                <option value="gpt-4o-mini">Asistente de Proyectos</option>
+                                                <option value="gpt-4o" id="project-goat-x-pro-option" class="hidden">Goat X Pro</option>
                                                 <option value="sonar">Búsqueda Web</option>
                                              </select>
                                               <i class="fas fa-chevron-down text-xs"></i>
@@ -1757,7 +1817,8 @@
                         <label for="model-selector" class="font-medium text-xs text-text-medium pl-2 pr-1" data-translate-key="model">Modelo:</label>
                         <div class="model-selector-wrapper">
                             <select id="model-selector" class="rounded-md py-1 pl-1.5 focus:outline-none focus:ring-2 focus:ring-primary text-sm bg-transparent text-text-light">
-                                <option value="gpt-3.5-turbo-1106" data-translate-key="model_general">Chat</option>
+                                <option value="gpt-4o-mini" data-translate-key="model_general">GOAT X</option>
+                                <option value="gpt-4o" data-translate-key="model_pro" id="goat-x-pro-option" class="hidden">Goat X Pro</option>
                                 <option value="sonar" data-translate-key="model_web">Búsqueda Web</option>
                             </select>
                             <i class="fas fa-chevron-down text-xs"></i>
@@ -2111,7 +2172,7 @@
                      solutions: "Soluciones", ally_title: "Somos tu Aliado Estratégico",
                     ally_desc: "Goatify no es solo un chat. Somos una IA personalizada con un equipo de expertos listos para ayudarte a escalar tu negocio.",
                     welcome_user: "¡Hola, ", welcome_user_2: "! Hoy es un gran día para crear algo increíble.",
-                    welcome_guest: "¿Cómo puedo ayudarte hoy?", model: "Modelo:", model_general: "GOAT X",
+                    welcome_guest: "¿Cómo puedo ayudarte hoy?", model: "Modelo:", model_general: "GOAT X", model_pro: "Goat X Pro",
                     model_web: "Búsqueda Web", voice: "Voz:", placeholder_main: "Escribe tu mensaje...", cancel: "Cancelar",
                     confirm: "Confirmar", plans_title: "Planes Goatify", plan_free_sub: "Para Siempre", plan_free_cta: "Empezar Gratis",
                      plan_boost_cta: "Obtener Boost", plan_pro_cta: "Quiero mi Plan Pro + Web",
@@ -2146,7 +2207,7 @@
                     solutions: "Solutions", ally_title: "We are your Strategic Ally",
                     ally_desc: "Goatify is not just a chat. We are a custom IA with a team of experts ready to help you scale your business.",
                     welcome_user: "Hello, ", welcome_user_2: "! Today is a great day to create something amazing.",
-                    welcome_guest: "How can I help you today?", model: "Model:", model_general: "GOAT X",
+                    welcome_guest: "How can I help you today?", model: "Model:", model_general: "GOAT X", model_pro: "Goat X Pro",
                     model_web: "Web Search", voice: "Voice:", placeholder_main: "Type your message...", cancel: "Cancel",
                     confirm: "Confirm", plans_title: "Goatify Plans", plan_free_sub: "Forever", plan_free_cta: "Get Started for Free",
                     plan_boost_cta: "Get Boost", plan_pro_cta: "Get Pro Plan + Web",
@@ -2170,16 +2231,18 @@
             const FREE_PLAN_CREDIT_LIMIT = 15;
             const BOOST_PLAN_CREDIT_LIMIT = 100;
             const MOTIVATIONAL_MESSAGES = [
-                "Eres una persona increíble, ¡nunca lo dudes!",
-                "Hoy es tu día para brillar. ¡Ve por ello!",
-                "Tu potencial es infinito. ¡Puedes lograr lo que te propongas!",
-                "La rompes todos los días, ¡sigue así!",
-                "Confía en tu proceso. Estás construyendo algo grandioso.",
-                "Cada paso que das te acerca a tu meta. ¡No te detengas!",
-                "Tu energía es contagiosa. ¡Ilumina el mundo!",
-                "Puedes con todo y más. ¡Cree en ti!"
+                "La única forma de hacer un gran trabajo es amar lo que haces. ¡Sigue con esa pasión!",
+                "El éxito no es definitivo, el fracaso no es fatal: es el coraje para continuar lo que cuenta.",
+                "Cree que puedes y ya estás a medio camino. ¡Hoy darás otro gran paso!",
+                "La vida es como andar en bicicleta. Para mantener el equilibrio, debes seguir moviéndote.",
+                "Tu actitud, no tu aptitud, determinará tu altitud. ¡Apunta alto!",
+                "El futuro pertenece a quienes creen en la belleza de sus sueños. ¡Sigue soñando y construyendo!",
+                "No mires el reloj; haz lo que él hace. Sigue adelante.",
+                "La disciplina es el puente entre las metas y los logros. ¡Tu constancia es tu mayor activo!",
+                "No se trata de si te derriban, se trata de si te levantas.",
+                "Cada día es una nueva oportunidad para cambiar tu vida. ¡Aprovecha la tuya!"
             ];
-            const MOTIVATION_BUTTON_TEXTS = ["¡Listo!", "¡Vamos a darle!", "¡Perfecto!", "¡Sí, yo puedo!", "¡Vamos!"];
+            const MOTIVATION_BUTTON_TEXTS = ["¡Entendido!", "¡A por ello!", "¡Claro que sí!", "¡Con toda la energía!", "¡Gracias!", "¡Lo haré!"];
 
             const COSTS = { GENERAL: 1, SEARCH: 1, NEBULA: 2, COPYWRITING: 2, IMAGE: 5 };
             let state = { chats: {}, projects: {}, structure: [], calendar: {}, notes: [] };
@@ -2239,6 +2302,7 @@
                 imageGenBtn: document.getElementById('image-gen-btn'), servicesMenuBtn: document.getElementById('services-menu-btn'), servicesMenu: document.getElementById('services-menu'),
                 contextualFooter: document.getElementById('contextual-footer'),
                 newChatIconBtn: document.getElementById('new-chat-icon-btn'),
+                newFolderIconBtn: document.getElementById('new-folder-icon-btn'),
                 settingsBtn: document.getElementById('settings-btn'),
                 settingsModal: document.getElementById('settings-modal'), closeSettingsModal: document.getElementById('close-settings-modal'),
                 settingsUserEmail: document.getElementById('settings-user-email'), settingsUserPlan: document.getElementById('settings-user-plan'),
@@ -2309,6 +2373,7 @@
                 
                 // Notepad DOM elements
                 notesListPanel: document.getElementById('notes-list-panel'),
+                notesListToggleBtn: document.getElementById('notes-list-toggle-btn'),
                 notesList: document.getElementById('notes-list'),
                 noteEditorPanel: document.getElementById('note-editor-panel'),
                 noteTitleInput: document.getElementById('note-title-input'),
@@ -2330,6 +2395,16 @@
                 notepadChatMessages: document.getElementById('notepad-chat-messages'),
                 notepadMsgInput: document.getElementById('notepad-msg'),
                 notepadSendBtn: document.getElementById('notepad-send'),
+
+                // Model Options
+                goatXProOption: document.getElementById('goat-x-pro-option'),
+                projectGoatXProOption: document.getElementById('project-goat-x-pro-option'),
+                notepadGoatXProOption: document.getElementById('notepad-goat-x-pro-option'),
+
+                 // Share buttons
+                shareProjectBtn: document.getElementById('share-project-btn'),
+                shareFinancialBtn: document.getElementById('share-financial-btn'),
+
 
             };
             Object.assign(dom, fullDom);
@@ -2354,7 +2429,6 @@
                 'project-master': { id: 'project-master', title: 'Project Master', description: 'Completa 10 proyectos.', icon: 'fa-sitemap', xp: 1000, credits: 0, reward: '50% de descuento en consultoría de automatización.' },
                 'influencer': { id: 'influencer', title: 'Influencer', description: 'Genera 50 publicaciones para redes sociales.', icon: 'fa-bullhorn', xp: 750, credits: 0, reward: 'Un mes de GOAT Boost gratis.' },
             };
-
             function setLanguage(lang) {
                 const translationData = translations[lang];
                 if (!translationData) return;
@@ -2407,676 +2481,7 @@
             const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
             let recognition;
 
-            function showModal({ title, body, confirmText = 'Confirmar', cancelText = 'Cancelar', showCancel = true, showConfirm = true, extraButtons = [], dangerConfirm = false }) {
-                const modalTitle = dom.genericModal.querySelector('#modal-title');
-                const modalBody = dom.genericModal.querySelector('#modal-body');
-                const modalButtonsContainer = dom.genericModal.querySelector('#modal-buttons-container');
-                
-                modalTitle.innerHTML = title; 
-                modalBody.innerHTML = body;
-                
-                let buttonsHTML = '';
-                extraButtons.forEach(btn => {
-                    buttonsHTML += `<button id="${btn.id}" class="${btn.classes || 'px-4 py-2 rounded bg-gray-500 text-white'}">${btn.text}</button>`;
-                });
-                if (showCancel) {
-                    buttonsHTML += `<button id="modal-cancel" class="px-4 py-2 bg-gray-600 text-white rounded">${cancelText}</button>`;
-                }
-                if (showConfirm) {
-                    const confirmClasses = dangerConfirm ? 'btn-danger' : 'btn-primary';
-                    buttonsHTML += `<button id="modal-confirm" class="px-4 py-2 rounded text-white ${confirmClasses}">${confirmText}</button>`;
-                }
-                modalButtonsContainer.innerHTML = buttonsHTML;
-
-                if (showConfirm) {
-                    dom.genericModal.querySelector('#modal-confirm').addEventListener('click', () => {
-                        const inputs = modalBody.querySelectorAll('input, textarea, select');
-                        const data = {};
-                        inputs.forEach(input => {
-                            data[input.id] = input.type === 'checkbox' ? input.checked : input.value;
-                        });
-                        hideModal({ confirmed: true, data });
-                    }, { once: true });
-                }
-
-                if (showCancel) {
-                    dom.genericModal.querySelector('#modal-cancel').addEventListener('click', () => hideModal({ confirmed: false }), { once: true });
-                }
-                extraButtons.forEach(btn => {
-                    dom.genericModal.querySelector(`#${btn.id}`).addEventListener('click', (e) => {
-                         btn.action(e, modalBody);
-                    });
-                });
-                
-                dom.genericModal.classList.remove('hidden');
-                dom.genericModal.classList.add('flex');
-                
-                return new Promise(resolve => { modalResolve = resolve; });
-            }
-            function hideModal(resolveWith = null) { if(modalResolve) { modalResolve(resolveWith); modalResolve = null; } dom.genericModal.classList.add('hidden'); dom.genericModal.classList.remove('flex');  }
-            
-            function showPricingModal() { 
-                dom.pricingModal.classList.remove('hidden');
-                dom.pricingModal.classList.add('flex'); 
-                setTimeout(() => { dom.pricingModal.querySelector('.modal-content').classList.remove('scale-95'); }, 10);
-                
-                const lang = localStorage.getItem('goatify-lang') || 'es';
-                const isFree = !currentUser || (currentUser.app_metadata?.plan || 'free') === 'free';
-                
-                if (isFree) {
-                    dom.freePlanButton.textContent = translations[lang].current_plan;
-                    dom.freePlanButton.disabled = true;
-                    dom.freePlanButton.classList.add('btn-disabled');
-                } else {
-                    dom.freePlanButton.textContent = translations[lang].plan_free_cta;
-                    dom.freePlanButton.disabled = false;
-                    dom.freePlanButton.classList.remove('btn-disabled');
-                }
-            }
-            function hidePricingModal() { dom.pricingModal.querySelector('.modal-content').classList.add('scale-95');
-            setTimeout(() => { dom.pricingModal.classList.add('hidden'); dom.pricingModal.classList.remove('flex'); }, 300); }
-
-            function showSettingsModal() {
-                dom.settingsModal.classList.remove('hidden');
-                dom.settingsModal.classList.add('flex');
-                if (currentUser) {
-                    dom.settingsUserEmail.textContent = currentUser.email;
-                    const userPlan = currentUser.app_metadata?.plan || 'free';
-                    dom.settingsUserPlan.textContent = userPlan.charAt(0).toUpperCase() + userPlan.slice(1);
-                    dom.settingsUpgradePlanBtn.classList.toggle('hidden', userPlan !== 'free');
-                } else {
-                    dom.settingsUserEmail.textContent = 'Not logged in';
-                    dom.settingsUserPlan.textContent = 'Free (Guest)';
-                    dom.settingsUpgradePlanBtn.classList.remove('hidden');
-                }
-                dom.fontSizeSlider.value = parseInt(getComputedStyle(document.body).getPropertyValue('--base-font-size')) || 16;
-                dom.fontSizeValue.textContent = `${dom.fontSizeSlider.value}px`;
-                dom.settingsThemeIcon.className = `fas fa-${document.body.classList.contains('dark-theme') ? 'moon' : 'sun'} mr-2`;
-                dom.languageSelector.value = localStorage.getItem('goatify-lang') || 'es';
-                dom.notificationsToggle.checked = notificationsEnabled;
-            }
-
-            function hideSettingsModal() {
-                dom.settingsModal.classList.add('hidden');
-                dom.settingsModal.classList.remove('flex');
-            }
-
-            function showInAppNotification(title, body, duration = 3000) {
-                dom.inAppNotificationTitle.innerHTML = title;
-                dom.inAppNotificationBody.innerHTML = body;
-                dom.inAppNotification.classList.add('show');
-            
-                let timer;
-            
-                const closeNotification = (event) => {
-                    if (event && event.target.closest('button, a')) {
-                        return;
-                    }
-                    clearTimeout(timer);
-                    dom.inAppNotification.classList.remove('show');
-                    dom.inAppNotification.removeEventListener('click', closeNotification);
-                    dom.inAppNotificationClose.removeEventListener('click', closeFromX);
-                };
-            
-                const closeFromX = (event) => {
-                    event.stopPropagation();
-                    closeNotification();
-                };
-
-                dom.inAppNotification.addEventListener('click', closeNotification, { once: true });
-                dom.inAppNotificationClose.addEventListener('click', closeFromX, { once: true });
-            
-                timer = setTimeout(closeNotification, duration);
-            }
-
-            function showCalendarModal() {
-                dom.calendarModalOverlay.classList.remove('hidden');
-                dom.calendarModalOverlay.classList.add('flex');
-                if (!currentCalendarView) currentCalendarView = 'month'; 
-                renderCalendarView();
-            }
-
-            function hideCalendarModal() {
-                dom.calendarModalOverlay.classList.add('hidden');
-                dom.calendarModalOverlay.classList.remove('flex');
-            }
-
-            function renderMonthView() {
-                dom.calendarDaysGrid.innerHTML = '';
-                dom.currentMonthYear.textContent = selectedCalendarDate.format('MMMM YYYY');
-                const startDay = selectedCalendarDate.startOf('month').startOf('isoWeek');
-
-                for (let i = 0; i < 42; i++) {
-                    const day = startDay.add(i, 'day');
-                    const dayEl = document.createElement('div');
-                    dayEl.className = 'calendar-day';
-                    dayEl.dataset.date = day.format('YYYY-MM-DD');
-
-                    dayEl.innerHTML = `<span class="calendar-day-number">${day.date()}</span><div class="calendar-day-tasks"></div>`;
-
-                    if (day.month() === selectedCalendarDate.month()) {
-                        dayEl.classList.add('current-month');
-                    } else {
-                        dayEl.classList.add('other-month');
-                    }
-                    if (day.isSame(dayjs(), 'day')) {
-                        dayEl.classList.add('today');
-                    }
-
-                    const tasksContainer = dayEl.querySelector('.calendar-day-tasks');
-                    const tasksForDay = getTasksForDay(day.format('YYYY-MM-DD'));
-                    tasksForDay.slice(0, 3).forEach(task => { // Limit to 3 tasks to avoid clutter
-                        const taskEl = document.createElement('div');
-                        taskEl.className = 'calendar-day-task';
-                        taskEl.textContent = task.text;
-                        taskEl.style.backgroundColor = getLabelColor(task.source === 'Personal' ? 'Personal' : (task.labels && task.labels[0] ? task.labels[0] : 'default'));
-                        taskEl.draggable = true;
-                        taskEl.dataset.taskId = task.id;
-                        taskEl.dataset.taskSource = task.source;
-                        taskEl.innerHTML = `
-                            ${task.text}
-                            <i class="fas fa-times delete-task-icon" data-task-id="${task.id}" data-task-source="${task.source}"></i>
-                        `;
-                        tasksContainer.appendChild(taskEl);
-                    });
-
-                    dayEl.addEventListener('click', (e) => {
-                        if(e.target.classList.contains('delete-task-icon')) {
-                            e.stopPropagation();
-                            deleteTask(e.target.dataset.taskId);
-                        } else if(e.target === e.currentTarget || e.target.classList.contains('calendar-day-tasks')) {
-                             editCalendarTask(null, day.format('YYYY-MM-DD'));
-                        } else if(e.target.closest('.calendar-day-task')) {
-                            const taskEl = e.target.closest('.calendar-day-task');
-                            handleTaskClick(taskEl.dataset.taskId, taskEl.dataset.taskSource);
-                        }
-                    });
-                    dayEl.addEventListener('dragover', e => { e.preventDefault(); e.currentTarget.style.backgroundColor = 'var(--current-bg-light)'; });
-                    dayEl.addEventListener('dragleave', e => { e.currentTarget.style.backgroundColor = ''; });
-                    dayEl.addEventListener('drop', handleCalendarDrop);
-                    tasksContainer.querySelectorAll('.calendar-day-task').forEach(t => t.addEventListener('dragstart', handleCalendarDragStart));
-                    tasksContainer.querySelectorAll('.calendar-day-task').forEach(t => t.addEventListener('touchstart', handleTouchStart, {passive: false}));
-
-                    dom.calendarDaysGrid.appendChild(dayEl);
-                }
-            }
-            
-            function renderWeekView() {
-                dom.weekDaysContent.innerHTML = '';
-                let startOfWeek = selectedCalendarDate.startOf('isoWeek');
-
-                const endOfWeek = startOfWeek.add(6, 'day');
-                dom.currentWeekRange.textContent = `${startOfWeek.format('D MMM')} - ${endOfWeek.format('D MMM, YYYY')}`;
-
-                for (let i = 0; i < 7; i++) {
-                    const day = startOfWeek.add(i, 'day');
-                    const dayKey = day.format('YYYY-MM-DD');
-                    const tasks = getTasksForDay(dayKey);
-                    const lang = localStorage.getItem('goatify-lang') || 'es';
-                    const displayDate = day.format('dddd, D MMM');
-                    const daySection = document.createElement('div');
-                    daySection.className = 'week-day-section';
-                    daySection.dataset.date = dayKey;
-
-                    daySection.innerHTML = `
-                        <h5>
-                            <span>${displayDate}</span>
-                            <button class="add-task-to-day-btn text-lg hover:text-primary" data-date="${dayKey}">+</button>
-                        </h5>
-                        <div class="space-y-1">
-                            ${tasks.length === 0 ? `<p class="text-xs text-text-medium italic">${translations[lang].calendar_no_tasks}</p>` : ''}
-                            ${tasks.map((task) => {
-                                const isPersonal = task.source === 'Personal';
-                                return `
-                                <div class="task-item flex items-center gap-2 cursor-pointer ${task.completed ? 'task-item-completed' : ''}" 
-                                     draggable="true" data-task-id="${task.id}" data-task-source="${task.source}">
-                                     <input type="checkbox" class="task-checkbox flex-shrink-0" data-task-id="${task.id}" ${task.completed ? 'checked' : ''}>
-                                    <span class="flex-grow">${task.text} ${task.time ? `(${task.time})` : ''} <span class="text-xs text-primary">(${task.source})</span></span>
-                                    <button class="delete-task-icon text-text-medium hover:text-danger-color text-xs p-1"><i class="fas fa-trash-alt"></i></button>
-                                </div>
-                            `}).join('')}
-                        </div>
-                     `;
-                    dom.weekDaysContent.appendChild(daySection);
-                    daySection.addEventListener('dragover', e => { e.preventDefault(); e.currentTarget.style.backgroundColor = 'var(--current-bg-light)'; });
-                    daySection.addEventListener('dragleave', e => { e.currentTarget.style.backgroundColor = ''; });
-                    daySection.addEventListener('drop', handleCalendarDrop);
-                    daySection.addEventListener('click', (e) => {
-                         if(e.target === e.currentTarget || e.target.classList.contains('space-y-1')) {
-                            editCalendarTask(null, dayKey);
-                        }
-                    });
-                }
-
-                dom.weekDaysContent.querySelectorAll('.task-checkbox').forEach(checkbox => {
-                    checkbox.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        updateTaskStatus(e.currentTarget.dataset.taskId, { completed: e.currentTarget.checked });
-                    });
-                 });
-
-                dom.weekDaysContent.querySelectorAll('.task-item').forEach(item => {
-                    item.addEventListener('dragstart', handleCalendarDragStart);
-                    item.addEventListener('touchstart', handleTouchStart, {passive: false});
-                    item.addEventListener('click', (e) => {
-                        if (e.target.closest('.delete-task-icon')) {
-                            e.stopPropagation();
-                            deleteTask(item.dataset.taskId);
-                            return;
-                        }
-                        if (e.target.type === 'checkbox') return;
-                        handleTaskClick(item.dataset.taskId, item.dataset.taskSource);
-                     });
-                });
-                dom.weekDaysContent.querySelectorAll('.add-task-to-day-btn').forEach(btn => {
-                    btn.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        const date = e.currentTarget.dataset.date;
-                        editCalendarTask(null, date);
-                    });
-                });
-            }
-
-            function renderDayView() {
-                dom.currentDayDisplay.textContent = selectedCalendarDate.format('dddd, D [de] MMMM');
-                dom.dayViewTimeline.innerHTML = '';
-                const tasksForDay = getTasksForDay(selectedCalendarDate.format('YYYY-MM-DD'));
-                
-                for (let hour = 0; hour < 24; hour++) {
-                    const hourEl = document.createElement('div');
-                    hourEl.className = 'day-view-hour';
-                    const hourLabel = (hour < 10 ? '0' : '') + hour + ':00';
-                    hourEl.dataset.time = hourLabel.substring(0,2); // "09"
-                    const tasksInHour = tasksForDay.filter(t => t.time && t.time.startsWith((hour < 10 ? '0' : '') + hour));
-                    hourEl.innerHTML = `
-                        <div class="day-view-hour-label">${hourLabel}</div>
-                        <div class="day-view-hour-content" data-time="${hourLabel}" data-date="${selectedCalendarDate.format('YYYY-MM-DD')}">
-                            ${tasksInHour.map(task => {
-                                return `
-                                 <div class="task-item flex items-center gap-2 p-1 rounded-md ${task.completed ? 'bg-green-900/50 text-gray-400 line-through' : 'bg-input'} text-sm" 
-                                    draggable="true" data-task-id="${task.id}" data-task-source="${task.source}">
-                                    <input type="checkbox" class="task-checkbox flex-shrink-0" data-task-id="${task.id}" ${task.completed ? 'checked' : ''}>
-                                     <span class="flex-grow cursor-pointer"><strong>${task.time}:</strong> ${task.text} <span class="text-xs text-primary">(${task.source})</span></span>
-                                     <button class="delete-task-icon text-text-medium hover:text-danger-color text-xs p-1"><i class="fas fa-trash-alt"></i></button>
-                                </div>
-                                `
-                            }).join('')}
-                             <button class="add-task-to-time-btn text-lg hover:text-primary" data-date="${selectedCalendarDate.format('YYYY-MM-DD')}" data-time="${hourLabel}">+</button>
-                        </div>
-                    `;
-                    dom.dayViewTimeline.appendChild(hourEl);
-
-                    const hourContent = hourEl.querySelector('.day-view-hour-content');
-                    hourContent.addEventListener('dragover', e => { e.preventDefault(); e.currentTarget.style.backgroundColor = 'var(--current-bg-light)'; });
-                    hourContent.addEventListener('dragleave', e => { e.currentTarget.style.backgroundColor = ''; });
-                    hourContent.addEventListener('drop', handleCalendarDrop);
-                     hourContent.addEventListener('click', (e) => {
-                         if(e.target === e.currentTarget) {
-                            editCalendarTask(null, selectedCalendarDate.format('YYYY-MM-DD'), e.currentTarget.dataset.time);
-                        }
-                    });
-                }
-                dom.dayViewTimeline.querySelectorAll('.add-task-to-time-btn').forEach(btn => {
-                    btn.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        const date = e.currentTarget.dataset.date;
-                         const time = e.currentTarget.dataset.time;
-                        editCalendarTask(null, date, time);
-                    });
-                });
-                dom.dayViewTimeline.querySelectorAll('.task-checkbox').forEach(checkbox => {
-                    checkbox.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        updateTaskStatus(e.currentTarget.dataset.taskId, { completed: e.currentTarget.checked });
-                    });
-                });
-                dom.dayViewTimeline.querySelectorAll('.task-item').forEach(item => {
-                    item.addEventListener('dragstart', handleCalendarDragStart);
-                    item.addEventListener('touchstart', handleTouchStart, {passive: false});
-                    item.addEventListener('click', (e) => {
-                         if (e.target.closest('.delete-task-icon')) {
-                            e.stopPropagation();
-                            deleteTask(item.dataset.taskId);
-                            return;
-                        }
-                        if (e.target.type === 'checkbox') return;
-                        handleTaskClick(item.dataset.taskId, item.dataset.taskSource);
-                    });
-                 });
-            }
-
-            function handleTaskClick(taskId, taskSource) {
-                 if (taskSource === 'Personal') {
-                    editCalendarTask(taskId);
-                } else {
-                    const projectChat = Object.values(state.chats).find(c => c.projectData && c.projectData.title === taskSource);
-                    if (projectChat) {
-                        editProjectTask(projectChat.id, taskId);
-                    }
-                }
-            }
-            
-            let draggedCalendarTaskId = null;
-            function handleCalendarDragStart(e) {
-                const target = e.target.closest('[draggable="true"]');
-                if (!target) return;
-                draggedCalendarTaskId = target.dataset.taskId;
-                e.dataTransfer.setData('text/plain', draggedCalendarTaskId);
-                e.dataTransfer.effectAllowed = 'move';
-            }
-            
-            function handleCalendarDrop(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                e.currentTarget.style.backgroundColor = '';
-                const taskId = e.dataTransfer.getData('text/plain');
-                if (!taskId) return;
-
-                const dropZone = e.currentTarget;
-                const newDate = dropZone.dataset.date;
-                let newTime = dropZone.dataset.time || findTask(taskId)?.task?.time || null; 
-                
-                if (newTime && newTime.length === 2) { 
-                   const originalTask = findTask(taskId)?.task;
-                   const originalMinutes = originalTask?.time?.substring(3,5) || '00';
-                   newTime = `${newTime}:${originalMinutes}`;
-                }
-                
-                const updates = { date: newDate, time: newTime };
-                updateTaskStatus(taskId, updates);
-            }
-
-            let touchDragElement = null, ghostElement = null;
-            function handleTouchStart(e) {
-                if (e.touches.length !== 1) return;
-                const target = e.target.closest('[draggable="true"]');
-                if (!target) return;
-                
-                touchDragElement = target;
-                
-                ghostElement = touchDragElement.cloneNode(true);
-                ghostElement.style.position = 'absolute';
-                ghostElement.style.zIndex = '1000';
-                ghostElement.style.opacity = '0.7';
-                ghostElement.style.pointerEvents = 'none';
-                ghostElement.style.width = `${touchDragElement.offsetWidth}px`;
-                document.body.appendChild(ghostElement);
-                
-                const touch = e.touches[0];
-                ghostElement.style.left = `${touch.pageX - ghostElement.offsetWidth / 2}px`;
-                ghostElement.style.top = `${touch.pageY - ghostElement.offsetHeight / 2}px`;
-
-                document.addEventListener('touchmove', handleTouchMove, {passive: false});
-                document.addEventListener('touchend', handleTouchEnd);
-            }
-            function handleTouchMove(e) {
-                if (e.touches.length !== 1 || !ghostElement) return;
-                e.preventDefault();
-                const touch = e.touches[0];
-                ghostElement.style.left = `${touch.pageX - ghostElement.offsetWidth / 2}px`;
-                ghostElement.style.top = `${touch.pageY - ghostElement.offsetHeight / 2}px`;
-            }
-            function handleTouchEnd(e) {
-                if (!ghostElement) return;
-                
-                ghostElement.style.display = 'none';
-                const dropTarget = document.elementFromPoint(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
-                ghostElement.remove();
-                
-                if (dropTarget) {
-                    const dropZone = dropTarget.closest('.calendar-day, .week-day-section, .day-view-hour-content, .kanban-cards, .list-view-column-mobile, .list-view-content > h4');
-                    if(dropZone) {
-                        const taskId = touchDragElement.dataset.taskId;
-                        if (dropZone.classList.contains('kanban-cards')) {
-                            const chatId = currentChatId;
-                            const columnId = dropZone.dataset.columnId;
-                            moveTask(chatId, taskId, columnId);
-                        } else if(dropZone.classList.contains('list-view-column-mobile')) {
-                            const chatId = currentChatId;
-                            const columnId = dropZone.dataset.columnId;
-                            moveTask(chatId, taskId, columnId);
-                        } else if (dropZone.tagName === 'H4' && dropZone.closest('#list-view')) {
-                             const columnTitle = dropZone.textContent.trim();
-                             const chat = state.chats[currentChatId];
-                             const targetColumn = chat.projectData.columns.find(c => c.title === columnTitle);
-                             if (targetColumn) {
-                                 moveTask(currentChatId, taskId, targetColumn.id);
-                             }
-                        }
-                        else {
-                            const newDate = dropZone.dataset.date;
-                            let newTime = dropZone.dataset.time || findTask(taskId)?.task?.time || null;
-                            if (newTime && newTime.length === 2) {
-                                const originalTask = findTask(taskId)?.task;
-                                const originalMinutes = originalTask?.time?.substring(3,5) || '00';
-                                newTime = `${newTime}:${originalMinutes}`;
-                            }
-                            updateTaskStatus(taskId, { date: newDate, time: newTime });
-                        }
-                    }
-                }
-                
-                touchDragElement = null; ghostElement = null;
-                document.removeEventListener('touchmove', handleTouchMove);
-                document.removeEventListener('touchend', handleTouchEnd);
-            }
-
-            function findTask(taskId) {
-                if (!taskId) return null;
-                if (taskId.startsWith('cal-')) {
-                    for (const dayKey in state.calendar) {
-                        const taskIndex = (state.calendar[dayKey] || []).findIndex(t => t.id === taskId);
-                        if (taskIndex > -1) {
-                            return { type: 'personal', task: state.calendar[dayKey][taskIndex], dayKey, taskIndex };
-                        }
-                    }
-                } else if (taskId.startsWith('proj-')) {
-                    for (const chat of Object.values(state.chats)) {
-                        if (chat.projectData && chat.projectData.columns) {
-                            for (const column of chat.projectData.columns) {
-                                const taskIndex = (column.tasks || []).findIndex(t => t.id === taskId);
-                                if (taskIndex > -1) {
-                                     return { type: 'project', task: column.tasks[taskIndex], chat, column, taskIndex };
-                                }
-                            }
-                        }
-                    }
-                }
-                return null;
-            }
-
-            function updateTaskStatus(taskId, updates) {
-                const found = findTask(taskId);
-                if (!found) return;
-
-                if (found.type === 'personal') {
-                    const { task, dayKey } = found;
-                    const oldDate = dayKey;
-                    const newDate = updates.date || oldDate;
-                    
-                    if (oldDate !== newDate) {
-                        const taskIndex = state.calendar[oldDate].findIndex(t => t.id === taskId);
-                        const [taskToMove] = state.calendar[oldDate].splice(taskIndex, 1);
-                        if(state.calendar[oldDate].length === 0) delete state.calendar[oldDate];
-                        
-                        if (!state.calendar[newDate]) state.calendar[newDate] = [];
-                        Object.assign(taskToMove, updates);
-                        delete taskToMove.date;
-                        state.calendar[newDate].push(taskToMove);
-                    } else {
-                        delete updates.date;
-                        Object.assign(task, updates);
-                    }
-                } 
-                else if (found.type === 'project') {
-                    const { task, chat } = found;
-                    const originalCompleted = task.completed;
-                    Object.assign(task, updates);
-
-                    if (updates.completed !== undefined && updates.completed !== originalCompleted) {
-                        let sourceColumn, taskIndex;
-                        for(const col of chat.projectData.columns){
-                            const idx = (col.tasks || []).findIndex(t => t.id === taskId);
-                            if(idx > -1){
-                                sourceColumn = col;
-                                taskIndex = idx;
-                                break;
-                            }
-                        }
-
-                        if (sourceColumn) {
-                            const [taskToMove] = sourceColumn.tasks.splice(taskIndex, 1);
-                            if (task.completed) {
-                                const doneColumn = chat.projectData.columns.find(c => c.id === 'done');
-                                if (doneColumn && sourceColumn.id !== 'done') doneColumn.tasks.push(taskToMove);
-                                else sourceColumn.tasks.push(taskToMove); 
-                            } else {
-                                const todoColumn = chat.projectData.columns.find(c => c.id === 'todo');
-                                if (todoColumn && sourceColumn.id === 'done') todoColumn.tasks.push(taskToMove);
-                                else sourceColumn.tasks.push(taskToMove);
-                            }
-                        }
-                    }
-                }
-
-                saveState();
-                if (dom.calendarModalOverlay.classList.contains('flex')) {
-                    renderCalendarView();
-                }
-                if (dom.projectManagementView.style.display === 'flex') {
-                    renderProjectBoard(currentChatId);
-                }
-            }
-
-
-            function getTasksForDay(dayKey) {
-                const calendarTasks = (state.calendar[dayKey] || []).map(t => ({...t, text: t.content, source: 'Personal'}));
-                const projectTasks = [];
-                Object.values(state.chats).forEach(chat => {
-                    if (chat.projectData && chat.projectData.columns) {
-                        chat.projectData.columns.forEach(column => {
-                            (column.tasks || []).forEach(task => {
-                                 if (task.dueDate === dayKey) {
-                                    projectTasks.push({...task, source: chat.projectData.title, text: task.content});
-                                }
-                             });
-                        });
-                    }
-                });
-                return [...calendarTasks, ...projectTasks].sort((a, b) => (a.time || '23:59').localeCompare(b.time || '23:59'));
-            }
-
-
-            function updateNotificationBadge() {
-                 let pendingNotifications = 0;
-                const now = dayjs();
-                Object.keys(state.calendar).forEach(dayKey => {
-                    const tasksForDay = getTasksForDay(dayKey);
-                    tasksForDay.forEach(task => {
-                         if (!task.completed) {
-                            if (task.time) {
-                                const taskDateTime = dayjs(`${dayKey}T${task.time}`);
-                                if (taskDateTime.isBefore(now)) {
-                                     pendingNotifications++;
-                                }
-                            } else {
-                                const taskDate = dayjs(dayKey);
-                                if (taskDate.isBefore(now, 'day') || taskDate.isSame(now, 'day')) {
-                                    pendingNotifications++;
-                                }
-                            }
-                         }
-                    });
-                });
-                
-                const badgeEl = document.getElementById('notification-badge');
-
-                if (pendingNotifications > 0) {
-                    badgeEl.textContent = pendingNotifications;
-                    badgeEl.classList.remove('hidden');
-                } else {
-                    badgeEl.classList.add('hidden');
-                }
-            }
-
-            function checkAndNotifyTasks() {
-                if (!notificationsEnabled) return;
-                const now = dayjs();
-                const todayKey = now.format('YYYY-MM-DD');
-                const currentHourMinute = now.format('HH:mm');
-                const allTasksToday = getTasksForDay(todayKey);
-                allTasksToday.forEach(task => {
-                    if (!task.completed && task.time === currentHourMinute && !task.notifiedThisMinute) {
-                        const lang = localStorage.getItem('goatify-lang') || 'es';
-                        const notificationTitle = translations[lang].notification_title;
-                        const notificationBody = `${translations[lang].notification_task_due} ${task.text} (${task.time})`;
-                        
-                        showInAppNotification(
-                            `<i class="fas fa-bell animate-tada text-yellow-400 mr-2"></i> ${notificationTitle}`,
-                            `<p class="text-md">${notificationBody}</p>`
-                        );
-
-                        if (Notification.permission === "granted") {
-                            new Notification(notificationTitle, {
-                                 body: notificationBody,
-                                icon: './Logos HD.png'
-                            });
-                        }
-                        
-                        updateTaskNotifiedFlag(task.id, true);
-                    }
-                });
-                allTasksToday.forEach(task => {
-                    if (task.notifiedThisMinute && task.time !== currentHourMinute) {
-                        updateTaskNotifiedFlag(task.id, false);
-                    }
-                });
-                saveState();
-                updateNotificationBadge();
-            }
-
-            function updateTaskNotifiedFlag(taskId, isNotified) {
-                const found = findTask(taskId);
-                if (found) {
-                    found.task.notifiedThisMinute = isNotified;
-                }
-            }
-
-
-            function renderCalendarView() {
-                 dom.dayViewContainer.style.display = currentCalendarView === 'day' ? 'block' : 'none';
-                dom.weekViewContainer.style.display = currentCalendarView === 'week' ? 'block' : 'none';
-                dom.monthViewContainer.style.display = currentCalendarView === 'month' ? 'block' : 'none';
-                
-                dom.dayViewBtn.classList.toggle('active', currentCalendarView === 'day');
-                dom.weekViewBtn.classList.toggle('active', currentCalendarView === 'week');
-                dom.monthViewBtn.classList.toggle('active', currentCalendarView === 'month');
-
-                if (currentCalendarView === 'day') renderDayView();
-                if (currentCalendarView === 'week') renderWeekView();
-                if (currentCalendarView === 'month') renderMonthView();
-            }
-
-            setInterval(checkAndNotifyTasks, 10 * 1000);
-
-            function setupNotifications() {
-                if ("Notification" in window) {
-                    if (Notification.permission !== "granted" && Notification.permission !== "denied") {
-                        Notification.requestPermission().then(permission => {
-                            if (permission === "denied") {
-                                console.warn("El usuario ha denegado los permisos de notificación.");
-                            }
-                        });
-                    } else if (Notification.permission === "denied") {
-                         console.warn("Los permisos de notificación fueron denegados previamente.");
-                    }
-                } else {
-                    console.warn("Este navegador no soporta notificaciones de escritorio.");
-                }
-            }
-
-
-            function speak(text) { 
+            function speak(text, rate = 1.15) { 
                 if (!speechOn || !('speechSynthesis' in window) || !text) return;
                 speechSynthesis.cancel();
                 micWasOnBeforeSpeaking = isRecognizing;
@@ -3085,7 +2490,7 @@
                 const utterance = new SpeechSynthesisUtterance(cleanText); 
                 if (selectedVoice) { utterance.voice = selectedVoice;
                 }
-                utterance.rate = 1.15;
+                utterance.rate = rate;
                 utterance.onend = () => {
                     if (micWasOnBeforeSpeaking) {
                         if (recognition && !isRecognizing) {
@@ -3107,6 +2512,17 @@
                 }
                 speechSynthesis.speak(utterance);
             }
+
+            function speakMessage(text) {
+                if (!('speechSynthesis' in window) || !text) return;
+                speechSynthesis.cancel();
+                const cleanText = text.replace(/<[^>]*>/g, '').replace(/[*_`#~[\]()🔍]|(-{3,})/g, '');
+                const utterance = new SpeechSynthesisUtterance(cleanText);
+                if (selectedVoice) { utterance.voice = selectedVoice; }
+                utterance.rate = 1.15;
+                speechSynthesis.speak(utterance);
+            }
+
 
             function populateVoiceList() {
                 const setVoices = () => {
@@ -3141,13 +2557,16 @@
 
             function getModelForRequest(workflow, hasFile, isProjectChat, isFinancialChat, isNotepadChat) {
                 if (isProjectChat) {
-                    return document.getElementById('project-model-selector').value;
+                    return dom.projectModelSelector?.value || 'gpt-4o-mini';
                 }
-                 if (isFinancialChat || isNotepadChat) {
-                    return 'gpt-4o-mini'; 
+                 if (isFinancialChat) {
+                    return dom.financialModelSelector?.value || 'gpt-4o-mini';
                 }
-                if (workflow === "design-web") return "gpt-4o-mini";
-                if (hasFile) return "gpt-4o-mini";
+                if (isNotepadChat) {
+                    return dom.notepadModelSelector?.value || 'gpt-4o-mini';
+                }
+                if (workflow === "design-web") return "gpt-4o";
+                if (hasFile) return "gpt-4o";
                 return dom.modelSelector.value;
             }
 
@@ -3284,16 +2703,23 @@
                 state.structure = state.structure || [];
                 state.notes = state.notes || [];
 
-                // Ensure notepad assistant chat exists
-                if (!state.chats['notepad-assistant-chat']) {
-                    state.chats['notepad-assistant-chat'] = {
-                        id: 'notepad-assistant-chat',
-                        title: 'Asistente de Redacción',
-                        messages: [{ role: 'assistant', content: '¡Hola! Soy tu asistente de redacción. Pega tu texto aquí o pídeme ideas para empezar.' }],
-                        workflow: 'notepad-assistant',
-                        isDeletable: false,
-                    };
-                }
+                // Ensure assistant chats exist
+                const assistantChats = {
+                    'notepad-assistant-chat': { title: 'Asistente de Redacción', workflow: 'notepad-assistant', initialMessage: '¡Hola! Soy tu asistente de redacción. Pega tu texto aquí o pídeme ideas para empezar.'},
+                };
+
+                Object.keys(assistantChats).forEach(id => {
+                    if (!state.chats[id]) {
+                         state.chats[id] = {
+                            id: id,
+                            title: assistantChats[id].title,
+                            messages: [{ role: 'assistant', content: assistantChats[id].initialMessage }],
+                            workflow: assistantChats[id].workflow,
+                            isDeletable: false,
+                        };
+                    }
+                });
+
 
                 loadGamificationState();
                 renderSidebar();
@@ -3319,7 +2745,9 @@
             }
             
             function updateUserUI() {
-                if (currentUser) {
+                const isUserLoggedIn = !!currentUser;
+
+                if (isUserLoggedIn) {
                     dom.loginView.classList.add('hidden');
                     dom.userMenuView.classList.remove('hidden');
                     dom.genericWelcome.classList.add('hidden');
@@ -3335,6 +2763,12 @@
                     dom.personalizedWelcome.classList.add('hidden');
                     dom.upgradePlanContainer.classList.add('hidden');
                 }
+
+                // Toggle visibility of Pro models
+                [dom.goatXProOption, dom.projectGoatXProOption, dom.notepadGoatXProOption].forEach(option => {
+                    if(option) option.classList.toggle('hidden', !isUserLoggedIn);
+                });
+                
                 updateCreditCounter();
             }
 
@@ -3359,12 +2793,16 @@
 
             function toggleSidebar(show) {
                 const sidebar = dom.sidebar;
-                if (show) {
-                    sidebar.classList.add('is-open');
-                    dom.sidebarOverlay.classList.remove('opacity-0', 'pointer-events-none');
+                if(window.innerWidth < 768) {
+                    if (show) {
+                        sidebar.classList.add('is-open');
+                        dom.sidebarOverlay.classList.remove('opacity-0', 'pointer-events-none');
+                    } else {
+                        sidebar.classList.remove('is-open');
+                        dom.sidebarOverlay.classList.add('opacity-0', 'pointer-events-none');
+                    }
                 } else {
-                    sidebar.classList.remove('is-open');
-                    dom.sidebarOverlay.classList.add('opacity-0', 'pointer-events-none');
+                    sidebar.classList.toggle('collapsed');
                 }
             }
             
@@ -3388,7 +2826,7 @@
                     title: options.title || "Conversación Cósmica", 
                     messages: initialMessages,
                     workflow: options.workflow || null,
-                    model: options.model || 'gpt-3.5-turbo-1106'
+                    model: options.model || 'gpt-4o-mini'
                 };
 
                 if (options.workflow === 'project-management') {
@@ -3399,7 +2837,7 @@
                             { id: 'doing', title: 'En Progreso', tasks: [] },
                             { id: 'done', title: 'Hecho', tasks: [] }
                          ],
-                        currentView: 'list' // Default to list view
+                        currentView: 'list'
                     };
                 }
 
@@ -3407,11 +2845,11 @@
                 selectChat(id); 
                 saveState();
                 renderSidebar(); 
-                dom.modelSelector.value = options.model || 'gpt-3.5-turbo-1106';
+                dom.modelSelector.value = options.model || 'gpt-4o-mini';
                 if (window.innerWidth < 768) toggleSidebar(false);
                 
                 const chatType = options.title || 'chat';
-                showInAppNotification("Éxito", `Has creado un nuevo ${chatType}.`, 3000);
+                showInAppNotification("Éxito", `Has creado un nuevo ${chatType}.`);
 
                 return id;
             }
@@ -3420,7 +2858,7 @@
                 currentChatId = chatId;
                 if (isSelectModeActive) return;
 
-                dom.notepadViewContainer.classList.remove('mobile-editor-active'); // Reset mobile note view
+                dom.notepadViewContainer.classList.remove('mobile-editor-active'); 
 
                 if (!chatId || (!state.chats[chatId] && chatId !== 'notepad-app')) { 
                     resetChatView(); 
@@ -3456,7 +2894,7 @@
 
                     dom.chatTitle.textContent = chat.title;
                     dom.mobileChatTitle.textContent = chat.title;
-                    dom.modelSelector.value = chat.model || 'gpt-3.5-turbo-1106';
+                    dom.modelSelector.value = chat.model || 'gpt-4o-mini';
                     updateContextualFooter(chat.workflow);
                 }
 
@@ -3480,7 +2918,7 @@
                 dom.initialMessageContainer.style.display = 'flex'; 
                 updateUserUI(); 
                 updateActiveChatHighlight(); 
-                dom.modelSelector.value = 'gpt-3.5-turbo-1106';
+                dom.modelSelector.value = 'gpt-4o-mini';
                 updateContextualFooter(null);
             }
 
@@ -3489,27 +2927,28 @@
                 const wrapper = document.createElement('div');
                 wrapper.className = `chat-bubble-wrapper group flex items-start gap-2 my-2 ${role === 'user' ? 'justify-end' : 'justify-start'}`;
                 
+                let messageControls = '';
+                if (role === 'user' && container === dom.chatMessages) { 
+                     messageControls = `<button class="edit-message-btn p-1 text-text-medium opacity-100 transition-opacity" title="Editar mensaje" data-message-index="${messageIndex}"><i class="fas fa-pencil-alt fa-xs"></i></button>`;
+                }
+                 if (role === 'assistant') {
+                    messageControls = `<button class="speak-message-btn p-1" title="Leer mensaje"><i class="fas fa-volume-high fa-xs"></i></button>`;
+                }
+
                 const bubble = document.createElement('div');
                 bubble.className = `p-3 md:p-4 rounded-xl max-w-lg md:max-w-xl ${role === 'user' ? 'chat-bubble-user' : 'chat-bubble-bot'}`;
+                
                 if (imageSrc) {
                     const img = document.createElement('img');
                     img.src = imageSrc;
                     img.className = 'rounded-lg mb-2 max-w-full h-auto';
                     bubble.appendChild(img);
                 }
+
                 const contentDiv = document.createElement('div');
                 contentDiv.className = 'markdown-content';
                 contentDiv.innerHTML = content === '…' ? `<div class="flex items-center space-x-2"><div class="w-2 h-2 bg-gray-400 rounded-full animate-pulse"></div><div class="w-2 h-2 bg-gray-400 rounded-full animate-pulse" style="animation-delay: .2s;"></div><div class="w-2 h-2 bg-gray-400 rounded-full animate-pulse" style="animation-delay: .4s;"></div></div>` : marked.parse(content || "");
                 bubble.appendChild(contentDiv);
-
-                if (role === 'user' && container === dom.chatMessages) { 
-                    const editBtn = document.createElement('button');
-                    editBtn.className = 'p-1 text-text-medium opacity-100 transition-opacity';
-                    editBtn.innerHTML = '<i class="fas fa-pencil-alt fa-xs"></i>';
-                    editBtn.title = 'Editar mensaje';
-                    editBtn.onclick = (e) => { e.stopPropagation(); handleEditMessage(messageIndex); };
-                    wrapper.insertBefore(editBtn, wrapper.firstChild);
-                }
                 
                 if (role === 'assistant' && /<\/?[a-z][\s\S]*>/i.test(content)) {
                     const previewButton = document.createElement('button');
@@ -3525,7 +2964,14 @@
                     bubble.appendChild(previewButton);
                 }
 
-                wrapper.appendChild(bubble); 
+                if(role === 'user') {
+                    wrapper.innerHTML = messageControls;
+                    wrapper.appendChild(bubble);
+                } else {
+                    wrapper.appendChild(bubble);
+                    wrapper.innerHTML += messageControls;
+                }
+
                 container.appendChild(wrapper);
                 container.scrollTop = container.scrollHeight;
                 return bubble;
@@ -3759,7 +3205,7 @@
                 else {
                     inputEl = dom.msgInput;
                     messageContainer = dom.chatMessages;
-                    if (!chatIdToUpdate) {
+                    if (!chatIdToUpdate || chatIdToUpdate === 'notepad-app') {
                          chatIdToUpdate = createNewChat({});
                     }
                 }
@@ -3777,10 +3223,9 @@
                 }
                 
                 let cost = COSTS.GENERAL;
-                if(currentChat.workflow) cost = COSTS.COPYWRITING;
+                if(modelToUse.includes('4o')) cost = COSTS.COPYWRITING;
                 if(modelToUse === 'sonar') cost = COSTS.SEARCH;
                 if(hasFile()) cost = COSTS.NEBULA;
-                if(isNotepadChat) cost = COSTS.COPYWRITING;
 
 
                 if (!spendCredits(cost)) {
@@ -3947,8 +3392,9 @@
                     createdAt: new Date().toISOString()
                 };
                 state.notes.unshift(newNote); // Add to the beginning
-                selectNote(newNote.id);
                 saveState();
+                renderNotesList();
+                selectNote(newNote.id);
 
                 if (window.innerWidth < 768) {
                     dom.notepadViewContainer.classList.add('mobile-editor-active');
@@ -4013,15 +3459,14 @@
                 let lastY = 0;
                 let currentTool = 'pencil'; 
                 
-                // Load existing drawing
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
                 if (note.content) {
                     const img = new Image();
                     img.onload = () => {
                         ctx.drawImage(img, 0, 0);
                     }
                     img.src = note.content;
-                } else {
-                    ctx.clearRect(0, 0, canvas.width, canvas.height);
                 }
 
                 const getCoords = (e) => {
@@ -4095,7 +3540,6 @@
                 if (textSpan && textSpan.matches('.checklist-item-text')) {
                     textSpan.dataset.checked = isChecked;
                 }
-                // Save the entire note content after a checklist change
                 const currentNote = state.notes.find(n => n.id === currentNoteId);
                 if(currentNote) {
                     currentNote.content = dom.noteContentEditor.innerHTML;
@@ -4103,17 +3547,18 @@
                 }
             }
 
-            async function shareNote() {
+            async function shareItem(type) {
+                 const title = type === 'note' ? 'Compartir Nota' : (type === 'project' ? 'Compartir Proyecto' : 'Compartir Asistente Financiero');
                 const result = await showModal({
-                    title: 'Compartir Nota',
-                    body: `<p>Ingresa el email del usuario de Goatify con quien quieres colaborar en esta nota.</p>
+                    title: title,
+                    body: `<p>Ingresa el email del usuario de Goatify con quien quieres colaborar.</p>
                            <input type="email" id="share-email-input" class="w-full p-2 rounded bg-input border border-themed mt-2" placeholder="ejemplo@email.com">
-                           <p class="text-xs text-text-medium mt-2">Nota: Esta funcionalidad requiere que ambos usuarios tengan un plan Pro y está en desarrollo. Por ahora, esto es una demostración.</p>`,
+                           <p class="text-xs text-text-medium mt-2">Nota: La colaboración en tiempo real requiere un plan Pro y está en desarrollo. Esto es una demostración.</p>`,
                     confirmText: 'Compartir'
                 });
 
                 if (result.confirmed && result.data['share-email-input']) {
-                    console.log(`(DEMO) Sharing note ${currentNoteId} with ${result.data['share-email-input']}. Backend implementation needed.`);
+                    console.log(`(DEMO) Sharing ${type} ${currentNoteId || currentChatId} with ${result.data['share-email-input']}. Backend implementation needed.`);
                     showInAppNotification("Función en Desarrollo", "La colaboración en tiempo real estará disponible pronto.");
                 }
             }
@@ -4163,9 +3608,10 @@
                 if (motivationInterval) clearInterval(motivationInterval);
                 if (!motivationEnabled) return;
 
-                const notificationTimes = ['08:00', '11:00', '14:00', '17:00'];
-                let lastNotifiedHour = -1;
+                const notificationTimes = ['08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30', '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30'];
+                let lastNotifiedMinute = -1;
 
+                // Check every minute
                 motivationInterval = setInterval(() => {
                     if (!motivationEnabled) {
                         clearInterval(motivationInterval);
@@ -4173,17 +3619,24 @@
                     }
                     const now = dayjs();
                     const currentTime = now.format('HH:mm');
-                    const currentHour = now.hour();
+                    const currentMinute = now.minute();
 
-                    if (notificationTimes.includes(currentTime) && currentHour !== lastNotifiedHour) {
-                        lastNotifiedHour = currentHour;
+                    // Check if it's a 30-minute mark and we haven't already notified in this minute
+                    if ((currentMinute === 0 || currentMinute === 30) && currentMinute !== lastNotifiedMinute) {
+                        lastNotifiedMinute = currentMinute;
                         const randomIndex = Math.floor(Math.random() * MOTIVATIONAL_MESSAGES.length);
                         const message = MOTIVATIONAL_MESSAGES[randomIndex];
                         showInAppNotification(
                             `<i class="fas fa-lightbulb text-yellow-400 mr-2"></i> ¡Dosis de Motivación!`,
-                            `<p class="text-md">${message}</p>`
+                            `<p class="text-md">${message}</p>`,
+                            4000 // A bit longer for motivation
                         );
                     }
+                    // Reset if the minute has passed
+                    if (currentMinute !== 0 && currentMinute !== 30) {
+                        lastNotifiedMinute = -1;
+                    }
+
                 }, 60000); 
             }
 
@@ -4191,6 +3644,18 @@
                 dom.inAppNotificationClose?.addEventListener('click', (e) => {
                     e.stopPropagation();
                     dom.inAppNotification.classList.remove('show');
+                });
+
+                document.body.addEventListener('click', e => {
+                    const speakBtn = e.target.closest('.speak-message-btn');
+                    if(speakBtn) {
+                        const content = speakBtn.parentElement.querySelector('.markdown-content').innerText;
+                        speakMessage(content);
+                    }
+                    const editBtn = e.target.closest('.edit-message-btn');
+                    if(editBtn) {
+                        handleEditMessage(editBtn.dataset.messageIndex);
+                    }
                 });
 
                 const motivationClickHandler = () => showMotivationModal();
@@ -4201,28 +3666,23 @@
                 dom.motivationToggle?.addEventListener('change', () => {
                     motivationEnabled = dom.motivationToggle.checked;
                     localStorage.setItem('goatify-motivation-enabled', motivationEnabled);
-                    if(motivationEnabled) {
-                        setupMotivationInterval(); 
-                    } else {
-                        if(motivationInterval) clearInterval(motivationInterval); 
-                    }
+                    setupMotivationInterval();
                 });
 
                 dom.sendBtn?.addEventListener('click', () => sendMessage(false, null, {}));
                 
                 const setupAssistantInput = (inputId, sendId, options) => {
                     const inputEl = document.getElementById(inputId);
+                    if (!inputEl) return;
                     document.body.addEventListener('click', e => {
                         if (e.target && e.target.id === sendId) {
                             sendMessage(false, null, options);
                         }
                     });
-                     document.body.addEventListener('keydown', e => {
-                        if (e.target && e.target.id === inputId) {
-                            if (e.key === 'Enter' && !e.shiftKey) {
-                                e.preventDefault();
-                                sendMessage(false, null, options);
-                            }
+                     inputEl.addEventListener('keydown', e => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            sendMessage(false, null, options);
                         }
                     });
                 };
@@ -4247,7 +3707,10 @@
                 dom.newChatBtn?.addEventListener('click', newChatHandler);
                 dom.newChatIconBtn?.addEventListener('click', newChatHandler);
                 
-                dom.newFolderBtn?.addEventListener('click', async () => { const result = await showModal({ title: 'Crear Nueva Carpeta', body: '<input type="text" id="project-name" class="w-full p-2 rounded bg-input border border-themed" placeholder="Nombre de la Carpeta...">', confirmText: 'Crear' }); if (result.confirmed && result.data['project-name'].trim()) { const id = 'project-' + crypto.randomUUID(); state.projects[id] = { id, title: result.data['project-name'].trim(), chatIds: [] }; state.structure.unshift(id); saveState(); renderSidebar(); } });
+                const newFolderHandler = async () => { const result = await showModal({ title: 'Crear Nueva Carpeta', body: '<input type="text" id="project-name" class="w-full p-2 rounded bg-input border border-themed" placeholder="Nombre de la Carpeta...">', confirmText: 'Crear' }); if (result.confirmed && result.data['project-name'].trim()) { const id = 'project-' + crypto.randomUUID(); state.projects[id] = { id, title: result.data['project-name'].trim(), chatIds: [] }; state.structure.unshift(id); saveState(); renderSidebar(); } };
+                dom.newFolderBtn?.addEventListener('click', newFolderHandler);
+                dom.newFolderIconBtn?.addEventListener('click', newFolderHandler);
+                
                 dom.upgradePlanBtn?.addEventListener('click', showPricingModal);
                 dom.closePricingModalBtn?.addEventListener('click', hidePricingModal);
                 dom.themeToggle?.addEventListener('click', () => setTheme(!document.body.classList.contains('dark-theme')));
@@ -4328,7 +3791,7 @@
                     'english-teacher-vocabulary': { title: "Creador de Vocabulario", workflow: 'english-teacher-vocabulary', initialMessages: [{ role: 'assistant', content: 'Excellent! Let\'s learn some new vocabulary. What topic are you interested in? (e.g., "business negotiations", "travel")' }] },
                     'english-teacher-practice': { title: "Práctica de Inglés", workflow: 'english-teacher-practice', initialMessages: [{ role: 'assistant', content: 'Great! Let\'s practice our conversation. So, tell me about your day.' }] },
                     'social-skills': { title: "Consejero Social", workflow: 'social-skills', initialMessages: [{ role: 'assistant', content: 'Las habilidades sociales son clave. ¿En qué situación te gustaría mejorar tu comunicación? (Ej: una reunión de networking, una conversación difícil, etc.)' }] },
-                    'design-web': { title: "Diseñador Web", workflow: 'design-web', model: 'gpt-4o-mini', initialMessages: [{ role: 'assistant', content: 'Estoy listo para diseñar con código. Describe la página o componente que quieres crear, y lo programaré para ti.' }] },
+                    'design-web': { title: "Diseñador Web", workflow: 'design-web', model: 'gpt-4o', initialMessages: [{ role: 'assistant', content: 'Estoy listo para diseñar con código. Describe la página o componente que quieres crear, y lo programaré para ti.' }] },
                     'conflict-resolution': { title: "Mediador de Conflictos", workflow: 'conflict-resolution', initialMessages: [{ role: 'assistant', content: 'Entiendo. Las situaciones difíciles requieren una comunicación clara. Por favor, describe el conflicto objetivamente: ¿quiénes están involucrados y cuál es el punto principal de desacuerdo?' }] },
                     'decision-lab': { title: "Laboratorio de Decisiones", workflow: 'decision-lab', initialMessages: [{ role: 'assistant', content: 'Bienvenido al Laboratorio de Decisiones. Recuerda que una decisión puede cambiar el rumbo de tu vida. Para ayudarte a analizar tu situación, por favor, dime: ¿Cuál es la decisión que necesitas tomar y qué opciones estás considerando?' }] },
                 };
@@ -4492,9 +3955,14 @@
                 dom.addNewNoteBtn?.addEventListener('click', () => createNewNote('text'));
                 dom.addNewDrawingBtn?.addEventListener('click', () => createNewNote('drawing'));
                 dom.deleteNoteBtn?.addEventListener('click', () => deleteNote(currentNoteId));
-                dom.shareNoteBtn?.addEventListener('click', shareNote);
+                dom.shareNoteBtn?.addEventListener('click', () => shareItem('note'));
+                dom.shareProjectBtn?.addEventListener('click', () => shareItem('project'));
+                dom.shareFinancialBtn?.addEventListener('click', () => shareItem('financial'));
                 dom.noteBackBtn?.addEventListener('click', () => {
                     dom.notepadViewContainer.classList.remove('mobile-editor-active');
+                });
+                dom.notesListToggleBtn?.addEventListener('click', () => {
+                    dom.notepadViewContainer.classList.toggle('notes-list-collapsed');
                 });
                 dom.noteTitleInput?.addEventListener('input', (e) => {
                     const note = state.notes.find(n => n.id === currentNoteId);
@@ -5180,7 +4648,10 @@
                             <div class="finance-section">
                                 <div class="finance-section-header">
                                     <h3 class="text-green-400">Ingresos</h3>
-                                    <button id="add-income-category-btn" class="text-sm btn-primary p-1 px-2"><i class="fas fa-folder-plus mr-1"></i> Nueva Carpeta</button>
+                                    <div>
+                                        <button id="share-financial-btn" class="text-sm p-1 px-2" title="Compartir"><i class="fas fa-user-plus"></i></button>
+                                        <button id="add-income-category-btn" class="text-sm btn-primary p-1 px-2"><i class="fas fa-folder-plus mr-1"></i> Nueva Carpeta</button>
+                                    </div>
                                 </div>
                                 <div id="income-categories-list" class="space-y-3"></div>
                             </div>
@@ -5202,10 +4673,12 @@
                             <div id="financial-chat-messages" class="chat-bubble-bot"></div>
                             <div id="financial-input-area" class="mt-auto pt-2 p-2">
                                 <div class="pro-controls-bg rounded-lg p-1.5 mb-2">
-                                     <div class="flex items-center space-x-2">
-                                        <label class="font-medium text-xs text-text-medium pl-2 pr-1">Modelo:</label>
-                                        <div class="text-sm text-text-light font-semibold">GOAT Finanzas</div>
-                                     </div>
+                                     <div class="model-selector-wrapper">
+                                        <select id="financial-model-selector" class="rounded-md py-1 pl-1.5 focus:outline-none focus:ring-2 focus:ring-primary text-sm bg-transparent text-text-light">
+                                            <option value="gpt-4o-mini">GOAT X</option>
+                                        </select>
+                                        <i class="fas fa-chevron-down text-xs"></i>
+                                    </div>
                                 </div>
                                 <div class="relative rounded-xl flex items-center bg-input p-1 sm:p-2 input-wrapper">
                                     <textarea id="financial-msg" placeholder="Pregúntale a la IA sobre tus finanzas..." class="flex-1 bg-transparent p-2 h-10 max-h-28 resize-none outline-none placeholder-themed text-sm"></textarea>
