@@ -5682,7 +5682,7 @@
                 }, thirtyMinutes);
             }
 
-         function setupEventListeners() {
+            function setupEventListeners() {
                 dom.inAppNotificationClose?.addEventListener('click', (e) => {
                     e.stopPropagation();
                     dom.inAppNotification.classList.remove('show');
@@ -5706,22 +5706,22 @@
                             }
                         });
                     });
-                    const totalActivitiesToday = completedTasksToday + totalPendingTasksToday + Math.floor(totalChatActivities / 2); // Sum of completed, pending tasks and chat messages
+                    const totalActivitiesToday = completedTasksToday + totalPendingTasksToday + Math.floor(totalChatActivities / 2);
 
-                    const planCreditsInfo = getCreditCount();
-                    const totalCredits = planCreditsInfo.remaining + (gamificationState.credits || 0);
-
-                    const userName = currentUser ? (currentUser.user_metadata?.full_name?.split(' ')[0] || currentUser.email.split('@')[0]) : '';
-                    let greetingTitle = 'Jefe';
-                    if (userName.slice(-1).toLowerCase() === 'a' || ['isabel', 'dolores'].includes(userName.toLowerCase())) {
-                        greetingTitle = 'Jefa';
-                    }
+                    const positiveMessages = [
+                        "¡Estás haciendo un trabajo increíble!",
+                        "¡Cada pequeño paso te acerca a tu éxito!",
+                        "¡Sigue así, la constancia es clave!",
+                        "¡Eres imparable, el GOAT en acción!",
+                        "¡Tu dedicación te lleva lejos!"
+                    ];
+                    const randomPositiveMessage = positiveMessages[Math.floor(Math.random() * positiveMessages.length)];
 
                     let bodyContent = `
                         <div class="text-center mb-4">
                             <p id="modal-welcome-user-greeting" class="text-xl font-bold text-primary mb-2"></p>
                             <p id="modal-current-date-display" class="text-lg text-text-medium"></p>
-                            <p id="modal-current-time-display" class="text-2xl font-extrabold text-gold animate-pulse"></p>
+                            <p id="modal-current-time-display" class="text-3xl font-extrabold text-primary animate-pulse"></p>
                         </div>
                         <div class="grid grid-cols-2 gap-4 text-center mb-4">
                             <div class="bg-current-bg-light p-4 rounded-lg shadow-md flex flex-col items-center justify-center">
@@ -5729,30 +5729,25 @@
                                     <span data-translate-key="tasks_completed_today">Tareas completadas hoy:</span>
                                     <i class="fas fa-info-circle text-text-medium ml-1 cursor-pointer" title="Número de tareas que has marcado como completadas en tu calendario o en tus proyectos durante el día de hoy."></i>
                                 </h4>
-                                <p id="mi-dia-completed-tasks" class="text-xl font-bold text-primary">0/0</p>
+                                <p id="calendar-info-completed-tasks" class="text-2xl font-bold text-primary">${completedTasksToday}/${allTasksToday.length}</p>
                             </div>
                             <div class="bg-current-bg-light p-4 rounded-lg shadow-md flex flex-col items-center justify-center">
                                 <h4 class="font-semibold text-text-light text-sm mb-1">
                                     <span data-translate-key="pending_tasks_today">Tareas pendientes hoy:</span>
                                     <i class="fas fa-info-circle text-text-medium ml-1 cursor-pointer" title="Tareas que tienen fecha de vencimiento hoy y aún no han sido completadas, incluyendo las de tus proyectos."></i>
                                 </h4>
-                                <p id="mi-dia-pending-tasks" class="text-xl font-bold text-red-500">0</p>
+                                <p id="calendar-info-pending-tasks" class="text-2xl font-bold text-red-500">${totalPendingTasksToday}</p>
                             </div>
                             <div class="bg-current-bg-light p-4 rounded-lg shadow-md col-span-2 flex flex-col items-center justify-center">
                                 <h4 class="font-semibold text-text-light text-sm mb-1">
                                     <span data-translate-key="total_activities_today">Actividades totales hoy:</span>
                                     <i class="fas fa-info-circle text-text-medium ml-1 cursor-pointer" title="Suma de todas las interacciones del día: tareas completadas, tareas pendientes y mensajes enviados en los chats."></i>
                                 </h4>
-                                <p id="mi-dia-total-activities" class="text-xl font-bold text-gold">0</p>
-                            </div>
-                            <div class="bg-current-bg-light p-4 rounded-lg shadow-md col-span-2 flex flex-col items-center justify-center">
-                                <h4 class="font-semibold text-text-light text-sm mb-1">
-                                    <span data-translate-key="total_credits">Créditos Totales:</span>
-                                    <i class="fas fa-info-circle text-text-medium ml-1 cursor-pointer" title="Total de créditos disponibles (créditos del plan + créditos de recompensa)."></i>
-                                </h4>
-                                <p id="mi-dia-total-credits" class="text-xl font-bold text-gold">0 (0/0 plan + 0 🪙)</p>
+                                <p id="calendar-info-total-activities" class="text-2xl font-bold text-gold">${totalActivitiesToday}</p>
                             </div>
                         </div>
+                        <p class="mb-3 text-sm"><strong>${translations[lang].current_plan_details}</strong> ${plan.toUpperCase()}</p>
+                        <p class="mb-4 text-sm"><strong>${translations[lang].credits_breakdown}</strong> ${remaining}/${limit === Infinity ? '∞' : limit} (${gamCredits} 🪙)</p>
                         <p class="mb-4 text-md font-semibold text-primary text-center">${randomPositiveMessage}</p>
                     `;
 
@@ -5804,7 +5799,7 @@
                     if (userName.slice(-1).toLowerCase() === 'a' || ['isabel', 'dolores'].includes(userName.toLowerCase())) {
                         greetingTitle = 'Jefa';
                     }
-                    modalWelcomeGreeting.innerHTML = `¡Hola, <span class="text-primary">${userName || greetingTitle}</span>! Ten un excelente día.`;
+                    modalWelcomeGreeting.textContent = `¡Hola, ${userName || greetingTitle}! Ten un excelente día.`;
 
                     const updateModalTime = () => {
                         const now = dayjs();
@@ -5823,16 +5818,6 @@
                         }
                     });
                     observer.observe(dom.genericModal, { attributes: true });
-
-                    // Attach event listeners for info icons within the modal
-                    document.querySelectorAll('.modal-content .fa-info-circle').forEach(infoIcon => {
-                        infoIcon.addEventListener('click', (e) => {
-                            e.stopPropagation(); // Prevent modal from closing when info icon is clicked
-                            const title = e.target.closest('h4')?.textContent.trim().replace(/\s*[\r\n].*/g, '').replace(/\s{2,}/g, ' '); // Clean title
-                            const description = e.target.title;
-                            showModal({ title: title, body: description, showConfirm: false, cancelText: 'Cerrar' });
-                        });
-                    });
                 });
 
 
@@ -5958,9 +5943,9 @@
                 if (SR && dom.micBtn) {
                     recognition = new SR();
                     recognition.continuous = false; recognition.interimResults = false; recognition.lang = 'es-ES';
-                    recognition.onstart = () => { isRecognizing = true; dom.micBtn.classList.add('glowing-mic'); /* Removed toggleVoiceSelectorVisibility(true); */ };
-                    recognition.onend = () => { isRecognizing = false; dom.micBtn.classList.remove('glowing-mic'); /* Removed voice selector visibility change */ };
-                    recognition.onerror = (e) => { console.error("Speech recognition error", e); isRecognizing = false; dom.micBtn.classList.remove('glowing-mic'); /* Removed voice selector visibility change */ };
+                    recognition.onstart = () => { isRecognizing = true; dom.micBtn.classList.add('glowing-mic'); toggleVoiceSelectorVisibility(true);};
+                    recognition.onend = () => { isRecognizing = false; dom.micBtn.classList.remove('glowing-mic'); if (!speechSynthesis.speaking) toggleVoiceSelectorVisibility(false); };
+                    recognition.onerror = (e) => { console.error("Speech recognition error", e); isRecognizing = false; dom.micBtn.classList.remove('glowing-mic'); toggleVoiceSelectorVisibility(false); };
                     recognition.onresult = (event) => {
                         const transcript = event.results[0][0].transcript;
                         const activeView = document.querySelector('#view-container > div:not(.hidden)');
