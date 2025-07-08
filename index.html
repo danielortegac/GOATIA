@@ -41,7 +41,7 @@
             --light-text-medium: #6b7280;
             --light-border-color: rgba(0, 0, 0, 0.09);
 
-            --base-font-size: 15px;
+            --base-font-size: 14px; /* Letra ligeramente más pequeña */
         }
 
         html,
@@ -96,13 +96,37 @@
             flex-direction: column;
         }
         #sidebar.collapsed { 
-            width: 80px; /* Adjusted collapsed width to show logo/icon */
+            width: 72px; /* Adjusted collapsed width to show logo/icon */
             padding: 0; 
             overflow: hidden; 
         }
-        #sidebar.collapsed > *:not(#sidebar-toggle-arrow, #sidebar-header, #sidebar-bottom-fixed) { /* Hide most content when collapsed */
-            display: none; 
+        #sidebar.collapsed > *:not(#sidebar-toggle-arrow, #sidebar-header, #sidebar-bottom-fixed) {
+             padding-left: 0.5rem;
+             padding-right: 0.5rem;
         }
+        #sidebar.collapsed .workflow-header span,
+        #sidebar.collapsed .actions-header span,
+        #sidebar.collapsed .workflow-content,
+        #sidebar.collapsed .actions-content,
+        #sidebar.collapsed .chat-item-actions,
+        #sidebar.collapsed #user-email,
+        #sidebar.collapsed #sidebar-footer,
+        #sidebar.collapsed .chat-item span {
+            display: none;
+        }
+        #sidebar.collapsed .workflow-header, #sidebar.collapsed .actions-header, #sidebar.collapsed .chat-item {
+            justify-content: center;
+        }
+        #sidebar.collapsed .workflow-header i.fa-chevron-right,
+        #sidebar.collapsed .actions-header i.fa-chevron-right {
+             display: none;
+        }
+        #sidebar.collapsed .workflow-header i:not(.fa-chevron-right),
+        #sidebar.collapsed .chat-item i {
+            margin-right: 0;
+            font-size: 1.1rem;
+        }
+
         #sidebar.collapsed #sidebar-toggle-arrow {
             display: flex;
             left: unset; /* Reset left positioning */
@@ -137,6 +161,9 @@
         #sidebar-header, #sidebar-bottom-fixed {
             flex-shrink: 0;
             padding: 0.75rem;
+        }
+        #sidebar.collapsed #sidebar-header {
+             padding: 0.5rem;
         }
         #sidebar-header { border-bottom: 1px solid var(--current-border-color); }
         #sidebar-bottom-fixed { border-top: 1px solid var(--current-border-color); }
@@ -174,16 +201,16 @@
                 height: 100vh;
                 height: -webkit-fill-available;
             }
-            body { --base-font-size: 13.5px; }
+            body { --base-font-size: 13px; }
             button, .btn-primary { 
                 padding-top: 0.4rem; padding-bottom: 0.4rem; 
                 padding-left: 0.75rem; padding-right: 0.75rem;
                 font-size: 0.8rem;
             }
-            .text-lg { font-size: 1rem; }
-            .text-xl { font-size: 1.1rem; }
-            .text-2xl { font-size: 1.2rem; }
-            .text-3xl { font-size: 1.4rem; }
+            .text-lg { font-size: 0.95rem; }
+            .text-xl { font-size: 1.05rem; }
+            .text-2xl { font-size: 1.15rem; }
+            .text-3xl { font-size: 1.35rem; }
             #app-container {
                 max-height: calc(100vh - 10px);
             }
@@ -203,7 +230,7 @@
 
 
         #main-chat-area, .modal-content { background-color: var(--current-bg-medium); }
-        .chat-bubble-bot, .bg-input, #pdf-preview-container, .chat-item, .project-header, #user-menu-popup, #services-menu, .pro-controls-bg { background-color: var(--current-bg-light); }
+        .chat-bubble-bot, .bg-input, #pdf-preview-container, .chat-item, .project-header, #user-menu-popup, #services-menu, .pro-controls-bg, .add-to-folder-menu { background-color: var(--current-bg-light); }
         .border-themed { border-color: var(--current-border-color); }
         .chat-bubble-user { background-color: var(--current-primary); color: white; }
         .btn-primary { background-color: var(--current-primary); color: white; }
@@ -229,6 +256,7 @@
         #app-container { height: 100vh; height: -webkit-fill-available; }
         #pricing-modal .modal-content-body { max-height: 80vh; overflow-y: auto; }
         .chat-item.selected-for-delete { background-color: var(--primary) !important; color: white; }
+        .chat-item.is-drag-selecting { background-color: var(--primary-hover); }
         
         .model-selector-wrapper {
             position: relative;
@@ -343,6 +371,18 @@
         }
         .light-theme .chat-item {
             color: var(--light-text-dark);
+        }
+
+        /* Add to Folder Menu */
+        .add-to-folder-menu {
+            display: none;
+            position: absolute;
+            z-index: 50;
+            min-width: 150px;
+            border: 1px solid var(--current-border-color);
+            border-radius: 0.5rem;
+            padding: 0.5rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
 
         /* Calendar styles */
@@ -1180,7 +1220,7 @@
                 display: flex;
             }
             #sidebar.collapsed {
-                width: 80px;
+                width: 72px;
             }
             #sidebar:not(.collapsed) {
                 width: 288px;
@@ -1534,6 +1574,7 @@
         .chat-item {
             display: block;
             text-decoration: none;
+            position: relative; /* Needed for the folder menu */
         }
         .chat-item, a.chat-item:hover {
             color: var(--current-text-light);
@@ -1543,7 +1584,8 @@
         }
 
     </style>
-</head>
+
+    </head>
 <body class="w-screen overflow-x-hidden dark-theme">
     <script type="text/javascript" src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
     <script type="text/javascript">
@@ -1552,7 +1594,7 @@
         }
     </script>
     <div id="loading-overlay" class="fixed inset-0 bg-bg-dark bg-opacity-95 flex flex-col items-center justify-center z-[100] transition-opacity duration-300">
-        <img src="./Logos HD.png" alt="Goatify Logo" class="w-24 h-24 object-contain mb-6 animate-pulse" onerror="this.onerror=null;this.src='https://placehold.co/96x96/121212/e0e0e0?text=LOGO';">
+        <img src="./Logos HD.png" alt="Goatify Logo" class="w-20 h-20 object-contain mb-6 animate-pulse" onerror="this.onerror=null;this.src='https://placehold.co/80x80/121212/e0e0e0?text=LOGO';">
         <div class="text-text-light text-center">
             <i class="fas fa-spinner fa-spin fa-2x"></i>
             <p class="mt-3 text-lg font-semibold" data-translate-key="initializing">Inicializando...</p>
@@ -1654,8 +1696,18 @@
                             </div>
                         </div>
                         
+                        <div id="my-projects-container" class="actions-category border-t border-themed pt-4 open">
+                            <div class="actions-header flex items-center p-2 rounded-md cursor-pointer hover:bg-light">
+                                <i class="fas fa-chevron-right actions-arrow mr-2 transition-transform text-xs"></i>
+                                <span class="text-sm font-bold">Mis Proyectos</span>
+                                <button id="add-folder-from-projects-btn" class="ml-auto text-text-medium hover:text-primary"><i class="fas fa-plus"></i></button>
+                            </div>
+                             <div id="folders-container" class="actions-content space-y-1 mt-2 block"></div>
+                        </div>
+
                         <div class="actions-category border-t border-themed pt-4 open">
                             <div class="actions-header flex items-center p-2 rounded-md cursor-pointer hover:bg-light">
+                                <i class="fas fa-chevron-right actions-arrow mr-2 transition-transform text-xs"></i>
                                 <span class="text-sm font-bold">Acciones Rápidas</span>
                             </div>
                             <div class="actions-content pl-4 pt-2 space-y-2 block">
@@ -1674,7 +1726,6 @@
                             <button id="delete-selected-btn" class="flex-1 flex items-center justify-center font-semibold p-2 rounded-lg bg-red-600 text-white disabled:opacity-50" disabled><i class="fas fa-trash-alt mr-2"></i><span data-translate-key="delete">Borrar</span></button>
                              <button id="cancel-select-mode-btn" class="p-2 rounded-lg bg-gray-600 text-white"><i class="fas fa-times"></i></button>
                         </div>
-                        <div id="folders-container" class="space-y-1 mt-4"></div>
                         <div id="sidebar-content" class="pr-1 space-y-1"></div>
                     </div>
                 </div>
@@ -1708,10 +1759,10 @@
                      <div id="user-menu-view" class="hidden relative">
                         <button id="user-menu-btn" class="w-full flex items-center text-left p-2 rounded-lg hover:bg-light transition-colors">
                             <span id="user-email" class="flex-grow truncate text-sm font-semibold"></span>
-                            <i class="fas fa-ellipsis-h"></i>
+                            <i class="fas fa-cog"></i>
                         </button>
                         <div id="user-menu-popup" class="absolute bottom-full left-0 w-full mb-2 rounded-lg p-2 border border-themed shadow-lg hidden">
-                            <button id="settings-btn" class="w-full text-left text-sm p-2 rounded hover:bg-medium flex items-center"><i class="fas fa-cog w-6 mr-2"></i><span data-translate-key="settings">Configuración</span></button>
+                            <button id="settings-btn" class="w-full text-left text-sm p-2 rounded hover:bg-medium flex items-center"><i class="fas fa-user-cog w-6 mr-2"></i><span data-translate-key="settings">Configuración</span></button>
                              <button id="logout-btn" class="w-full text-left text-sm p-2 rounded hover:bg-medium flex items-center"><i class="fas fa-sign-out-alt w-6 mr-2"></i><span data-translate-key="logout">Cerrar Sesión</span></button>
                         </div>
                     </div>
@@ -1728,19 +1779,19 @@
                         <button id="menu-toggle" class="md:hidden text-xl p-2"><i class="fas fa-bars"></i></button>
                         <button id="new-chat-icon-btn" title="Nuevo Chat" class="text-xl p-1 hover:opacity-80 transition-opacity"><i class="fas fa-plus-circle text-primary"></i></button>
                         <button id="new-folder-icon-btn" title="Nueva Carpeta" class="text-xl p-1 hover:opacity-80 transition-opacity"><i class="fas fa-folder-plus text-primary"></i></button>
-                        <button id="calendar-btn" title="Mi Calendario y Tareas" class="text-sky-400 hover:text-sky-300 p-1 transition-colors notification-bell-icon">
-                            <i class="fas fa-calendar-days text-lg"></i>
-                            <span id="notification-badge" class="notification-badge hidden">0</span>
-                        </button>
                     </div>
                     
                     <div id="desktop-chat-title-wrapper" class="hidden sm:flex items-center justify-center group cursor-pointer mx-2 flex-1 min-w-0" title="Renombrar Chat">
                         <i class="fas fa-pencil-alt text-xs text-text-medium edit-icon"></i>
                         <h1 id="chat-title" class="text-lg font-semibold truncate">Goatify IA</h1>
-                        <button id="motivation-btn-header" title="Motivación Diaria" class="text-yellow-400 hover:text-yellow-300 p-2 transition-colors ml-2"><i class="fas fa-lightbulb text-xl"></i></button>
                     </div>
 
                     <div class="flex items-center space-x-1 sm:space-x-2 header-right-icons">
+                        <button id="motivation-btn-header" title="Motivación Diaria" class="text-yellow-400 hover:text-yellow-300 p-2 transition-colors"><i class="fas fa-lightbulb text-xl"></i></button>
+                        <button id="calendar-btn" title="Mi Calendario y Tareas" class="text-sky-400 hover:text-sky-300 p-1 transition-colors notification-bell-icon">
+                            <i class="fas fa-calendar-days text-lg"></i>
+                            <span id="notification-badge" class="notification-badge hidden">0</span>
+                        </button>
                         <div id="message-counter-wrapper" class="flex items-center space-x-2 text-xs font-mono whitespace-nowrap block mx-2 cursor-pointer">
                              <div id="plan-credits-info" class="flex items-center">
                                 <i class="fas fa-trophy text-primary mr-1 text-base"></i> <span id="plan-credits-display">0/0</span>
@@ -1757,8 +1808,8 @@
                     </div>
                 </div>
                  <div id="services-menu" class="absolute top-full right-4 mt-2 w-80 rounded-xl shadow-lg border border-themed z-30 p-4 origin-top-right">
-                    <h4 class="font-bold text-lg mb-1 text-text-light" data-translate-key="ally_title">Somos tu Aliado Estratégico</h4>
-                    <p class="text-sm text-text-medium mb-4" data-translate-key="ally_desc">Goatify no es solo un chat. Somos una IA personalizada con un equipo de expertos listos para ayudarte a escalar tu negocio.</p>
+                    <h4 class="font-bold text-lg mb-1 text-text-light" data-translate-key="ally_title">Tu Socio de Crecimiento con IA</h4>
+                    <p class="text-sm text-text-medium mb-4" data-translate-key="ally_desc">Goatify es la única plataforma que combina modelos de IA únicos con un asistente de proyectos integrado. No solo chatees, ejecuta y escala tu negocio con un equipo de expertos listos para ayudarte.</p>
                     <ul class="space-y-3">
                         <li><a id="sol-web" href="#" class="block p-3 rounded-lg hover:bg-medium transition-colors"><p class="font-semibold text-primary">Páginas Web que Convierten</p><p class="text-sm text-text-medium">Transformamos tus ideas en webs y tiendas online diseñadas para vender.</p></a></li>
                          <li><a id="sol-auto" href="#" class="block p-3 rounded-lg hover:bg-medium transition-colors"><p class="font-semibold text-primary">Ventas en Piloto Automático</p><p class="text-sm text-text-medium">Implementamos sistemas de IA para automatizar tus ventas y procesos clave.</p></a></li>
@@ -1800,6 +1851,10 @@
                                 <button id="note-back-btn" title="Volver a la lista" class="p-2 hidden mr-2"><i class="fas fa-arrow-left"></i></button>
                                 <input id="note-title-input" type="text" placeholder="Título de la nota...">
                                 <div id="text-tools" class="flex items-center gap-2 ml-auto">
+                                    <button data-command="bold" title="Negrita" class="p-2"><i class="fas fa-bold"></i></button>
+                                    <button data-command="italic" title="Cursiva" class="p-2"><i class="fas fa-italic"></i></button>
+                                    <button data-command="underline" title="Subrayado" class="p-2"><i class="fas fa-underline"></i></button>
+                                    <button data-command="insertUnorderedList" title="Viñetas" class="p-2"><i class="fas fa-list-ul"></i></button>
                                     <button id="add-checklist-item-btn" title="Añadir Checklist" class="p-2"><i class="fas fa-check-square"></i></button>
                                 </div>
                                 <div id="drawing-tools" class="hidden items-center gap-2">
@@ -2289,7 +2344,7 @@
                     welcome_user: "¡Hola, ", welcome_user_2: "! Hoy es un gran día para crear algo increíble.",
                     welcome_guest: "¿Cómo puedo ayudarte hoy?", model: "Modelo:", model_general: "GOAT X",
                     model_web: "Búsqueda Web", voice: "Voz:", placeholder_main: "Escribe tu mensaje...", cancel: "Cancelar",
-                    confirm: "Confirm", plans_title: "Planes Goatify", plan_free_sub: "Para Siempre", plan_free_cta: "Empezar Gratis",
+                    confirm: "Confirm", plans_title: "Planes Goatify", plan_free_sub: "Para Siempre", plan_free_cta: "Tu Plan Actual",
                      plan_boost_cta: "Obtener Boost", plan_pro_cta: "Quiero mi Plan Pro + Web",
                     preview: "Vista Previa", settings_email: "Correo Electrónico:", settings_plan: "Plan de Suscripción:",
                     settings_fontsize: "Tamaño de Letra:", settings_theme: "Personalización:", settings_dark_mode: "Modo Oscuro",
@@ -2327,12 +2382,12 @@
                     wf_eng_1: "Translate/Correct Text",
                     wf_eng_2: "Learn New Vocabulary", wf_eng_3: "Practice Conversation", select_chats: "Select Multiple Chats",
                     delete: "Delete", login: "Login", settings: "Settings", logout: "Logout",
-                    solutions: "Solutions", ally_title: "We are your Strategic Ally",
-                    ally_desc: "Goatify is not just a chat. We are a custom IA with a team of experts ready to help you scale your business.",
+                    solutions: "Solutions", ally_title: "Your Growth Partner with AI",
+                    ally_desc: "Goatify is the only platform that combines unique AI models with an integrated project assistant. Don't just chat, execute and scale your business with a team of experts ready to help you.",
                     welcome_user: "Hello, ", welcome_user_2: "! Today is a great day to create something amazing.",
                     welcome_guest: "How can I help you today?", model: "Model:", model_general: "GOAT X",
                     model_web: "Web Search", voice: "Voice:", placeholder_main: "Type your message...", cancel: "Cancel",
-                    confirm: "Confirm", plans_title: "Goatify Plans", plan_free_sub: "Forever", plan_free_cta: "Get Started for Free",
+                    confirm: "Confirm", plans_title: "Goatify Plans", plan_free_sub: "Forever", plan_free_cta: "Current Plan",
                     plan_boost_cta: "Get Boost", plan_pro_cta: "Get Pro Plan + Web",
                     preview: "Preview", settings_email: "Email Address:", settings_plan: "Subscription Plan:",
                     settings_fontsize: "Font Size:", settings_theme: "Personalization:", settings_dark_mode: "Dark Mode",
@@ -2523,6 +2578,7 @@
                 closeMotivationModal: document.getElementById('close-motivation-modal'),
                 sidebarToggleArrow: document.getElementById('sidebar-toggle-arrow'),
                 foldersContainer: document.getElementById('folders-container'),
+                addFolderFromProjectsBtn: document.getElementById('add-folder-from-projects-btn'),
                 
                 // Notepad DOM elements
                 notesListPanel: document.getElementById('notes-list-panel'),
@@ -2557,8 +2613,8 @@
             const MISSIONS = {
                 'brand-strategy': { id: 'brand-strategy', text: 'Define tu primera estrategia de marca', xp: 50, credits: 15, workflow: 'brand-strategy' },
                 'competitor-analysis': { id: 'competitor-analysis', text: 'Espía a la competencia por primera vez', xp: 50, credits: 15, workflow: 'competitor-analysis' },
-                'week-organized': { id: 'week-organized', text: 'Crea una tarea para cada día de la semana', xp: 75, credits: 25, condition: checkWeekOrganized },
-                'project-created': { id: 'project-created', text: 'Crea tu primer proyecto y añade 3 tareas', xp: 100, credits: 30, condition: (chatId) => checkProjectCreated(chatId, 3) },
+                'week-organized': { id: 'week-organized', text: 'Crea una tarea para cada día de la semana', xp: 75, credits: 25, condition: checkWeekOrganized, action: 'openCalendar' },
+                'project-created': { id: 'project-created', text: 'Crea tu primer proyecto y añade 3 tareas', xp: 100, credits: 30, condition: (chatId) => checkProjectCreated(chatId, 3), action: 'createProject' },
                 'image-generated': { id: 'image-generated', text: 'Genera tu primera imagen con IA', xp: 40, credits: 10, action: 'generateImage' },
                 'english-practice': { id: 'english-practice', text: 'Practica tu conversación en inglés', xp: 30, credits: 10, workflow: 'english-teacher-practice' },
                 'social-skills': { id: 'social-skills', text: 'Mejora tus habilidades sociales con un consejo de IA', xp: 30, credits: 10, workflow: 'social-skills' },
@@ -4020,6 +4076,7 @@
                     item.draggable = true;
                     item.innerHTML = `<i class="far fa-comment-dots mr-2"></i><span class="flex-grow truncate text-sm font-medium">${chat.title}</span>
                     <div class="chat-item-actions flex-shrink-0 flex items-center ${actionsOpacityClass} transition-opacity">
+                        <button class="add-to-folder-btn text-text-medium hover:text-primary p-1" title="Añadir a carpeta"><i class="fas fa-folder-plus fa-xs"></i></button>
                         <button class="rename-btn text-text-medium hover:text-primary p-1" title="Renombrar"><i class="fas fa-pencil-alt fa-xs"></i></button>
                         <button class="delete-btn text-text-medium hover:text-red-500 p-1" title="Eliminar"><i class="fas fa-trash-alt fa-xs"></i></button>
                     </div>`;
@@ -4036,9 +4093,11 @@
                     
                     item.addEventListener('dragstart', e => handleDragStart(e, id));
 
+                    const addToFolderBtn = item.querySelector('.add-to-folder-btn');
                     const renameBtn = item.querySelector('.rename-btn');
                     const deleteBtn = item.querySelector('.delete-btn');
                     
+                    addToFolderBtn.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); showAddToFolderMenu(e.currentTarget, id); });
                     renameBtn.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); renameItem('chat', id); });
                     deleteBtn.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); deleteItem('chat', id); });
                 }
@@ -4083,6 +4142,7 @@
                         <i class="fas ${note.type === 'drawing' ? 'fa-paint-brush' : 'fa-file-alt'} mr-2"></i>
                         <span class="flex-grow truncate text-sm font-medium">${note.title}</span>
                         <div class="chat-item-actions flex-shrink-0 ${actionsOpacityClass} transition-opacity">
+                            <button class="add-to-folder-btn text-text-medium hover:text-primary p-1" title="Añadir a carpeta"><i class="fas fa-folder-plus fa-xs"></i></button>
                             <button class="rename-btn text-text-medium hover:text-primary p-1" title="Renombrar"><i class="fas fa-pencil-alt fa-xs"></i></button>
                             <button class="delete-btn text-text-medium hover:text-red-500 p-1" title="Eliminar"><i class="fas fa-trash-alt fa-xs"></i></button>
                         </div>
@@ -4102,9 +4162,11 @@
                     
                     item.addEventListener('dragstart', e => handleDragStart(e, id));
                     
+                    const addToFolderBtn = item.querySelector('.add-to-folder-btn');
                     const renameBtn = item.querySelector('.rename-btn');
                     const deleteBtn = item.querySelector('.delete-btn');
 
+                    addToFolderBtn.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); showAddToFolderMenu(e.currentTarget, id); });
                     renameBtn.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); renameItem('note', id); });
                     deleteBtn.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); deleteItem('note', id); });
                 }
@@ -4428,7 +4490,7 @@
                 const notepadModelSelector = document.getElementById('notepad-model-selector');
                 if (notepadModelSelector) {
                     const goatXProOption = notepadModelSelector.querySelector('.goat-x-pro-model');
-                    if (goatXProOption) goatXProOption.disabled = !currentUser;
+                    if (goatXProOption) goatXProOption.disabled = true;
                 }
             }
             
@@ -4668,6 +4730,42 @@
                     );
                 }, thirtyMinutes); 
             }
+            
+            function showAddToFolderMenu(button, itemId) {
+                let menu = document.getElementById('add-to-folder-menu');
+                if (menu) menu.remove();
+
+                menu = document.createElement('div');
+                menu.id = 'add-to-folder-menu';
+                menu.className = 'add-to-folder-menu';
+
+                const projects = Object.values(state.projects);
+                if (projects.length === 0) {
+                    menu.innerHTML = '<p class="text-xs text-text-medium">No hay carpetas.</p>';
+                } else {
+                    projects.forEach(project => {
+                        const projectButton = document.createElement('button');
+                        projectButton.className = 'w-full text-left text-sm p-2 rounded hover:bg-medium flex items-center';
+                        projectButton.innerHTML = `<i class="fas fa-folder mr-2 text-yellow-500"></i> ${project.title}`;
+                        projectButton.onclick = () => {
+                            moveItemToProject(itemId, project.id);
+                            menu.style.display = 'none';
+                        };
+                        menu.appendChild(projectButton);
+                    });
+                }
+
+                document.body.appendChild(menu);
+                const btnRect = button.getBoundingClientRect();
+                menu.style.display = 'block';
+                menu.style.left = `${btnRect.left}px`;
+                menu.style.top = `${btnRect.bottom + 5}px`;
+
+                // Hide menu on next click
+                setTimeout(() => {
+                    document.addEventListener('click', () => menu.remove(), { once: true });
+                }, 0);
+            }
 
             function setupEventListeners() {
                 dom.inAppNotificationClose?.addEventListener('click', (e) => {
@@ -4760,8 +4858,7 @@
                 dom.newChatBtn?.addEventListener('click', newChatHandler);
                 dom.newChatIconBtn?.addEventListener('click', newChatHandler);
                 
-                dom.newFolderBtn?.addEventListener('click', async () => { const result = await showModal({ title: 'Crear Nueva Carpeta', body: '<input type="text" id="project-name" class="w-full p-2 rounded bg-input border border-themed" placeholder="Nombre de la Carpeta...">', confirmText: 'Crear' }); if (result.confirmed && result.data['project-name'].trim()) { const id = 'project-' + crypto.randomUUID(); state.projects[id] = { id, title: result.data['project-name'].trim(), itemIds: [] }; state.structure.unshift(id); saveState(); renderSidebar(); } });
-                dom.newFolderIconBtn?.addEventListener('click', async () => { 
+                const newFolderHandler = async () => { 
                     const result = await showModal({ 
                         title: 'Crear Nueva Carpeta', 
                         body: '<input type="text" id="project-name" class="w-full p-2 rounded bg-input border border-themed" placeholder="Nombre de la Carpeta...">', 
@@ -4775,7 +4872,10 @@
                         renderSidebar(); 
                         showInAppNotification("Éxito", `Carpeta "${result.data['project-name'].trim()}" creada.`);
                     } 
-                });
+                };
+                dom.newFolderBtn?.addEventListener('click', newFolderHandler);
+                dom.newFolderIconBtn?.addEventListener('click', newFolderHandler);
+                dom.addFolderFromProjectsBtn?.addEventListener('click', newFolderHandler);
 
                 dom.upgradePlanBtn?.addEventListener('click', showPricingModal);
                 dom.closePricingModalBtn?.addEventListener('click', hidePricingModal);
@@ -4887,18 +4987,14 @@
                 };
                 
                 document.body.addEventListener('click', e => { 
-                    const workflowHeader = e.target.closest('.workflow-header');
-                    if (workflowHeader) {
-                        const workflowCategory = workflowHeader.closest('.workflow-category');
-                        if(workflowCategory) workflowCategory.classList.toggle('open');
-                    }
-                    const actionsHeader = e.target.closest('.actions-header');
-                    if(actionsHeader) {
-                        actionsHeader.closest('.actions-category').classList.toggle('open');
+                    const header = e.target.closest('.workflow-header, .actions-header');
+                    if (header) {
+                        const category = header.closest('.workflow-category, .actions-category');
+                        if (category) category.classList.toggle('open');
                     }
 
                     const workflowButton = e.target.closest('[data-workflow]');
-                    if (workflowButton) {
+                    if (workflowButton && !workflowButton.classList.contains('workflow-header')) {
                         const workflowKey = workflowButton.dataset.workflow;
                         const config = workflowConfigs[workflowKey];
                          if (config) {
@@ -5064,6 +5160,16 @@
                         saveState();
                     }
                 });
+                
+                dom.noteEditorToolbar.addEventListener('click', e => {
+                    const button = e.target.closest('button[data-command]');
+                    if(button) {
+                        const command = button.dataset.command;
+                        document.execCommand(command, false, null);
+                        dom.noteContentEditor.focus();
+                    }
+                });
+
                 dom.addChecklistItemBtn?.addEventListener('click', () => {
                     // Get the current selection or cursor position
                     const selection = window.getSelection();
@@ -5122,28 +5228,23 @@
                     handleChecklistItem(e.target);
                 });
                 dom.noteContentEditor?.addEventListener('keydown', e => {
+                    // This allows normal enter behavior. The checklist logic is now separate.
                     if (e.key === 'Enter' && !e.shiftKey) {
                         const selection = window.getSelection();
                         const range = selection.getRangeAt(0);
-                        const currentChecklistItem = range.startContainer.closest('.checklist-item');
+                        const currentChecklistItemText = range.startContainer.parentElement.closest('.checklist-item-text');
 
-                        if (currentChecklistItem) {
-                            e.preventDefault(); // Prevent default Enter behavior
-
+                        if (currentChecklistItemText) {
+                            e.preventDefault(); // Prevent default Enter behavior ONLY inside checklist
+                            const currentChecklistItem = currentChecklistItemText.closest('.checklist-item');
                             const newChecklistItem = document.createElement('div');
                             newChecklistItem.className = 'checklist-item';
                             newChecklistItem.innerHTML = `<input type="checkbox" class="checklist-item-checkbox"><span contenteditable="true" class="checklist-item-text"></span>`;
-
-                            // Insert the new checklist item after the current one
                             currentChecklistItem.parentNode.insertBefore(newChecklistItem, currentChecklistItem.nextSibling);
-
-                            // Set cursor to the new text span
                             const newTextSpan = newChecklistItem.querySelector('.checklist-item-text');
                             if (newTextSpan) {
                                 newTextSpan.focus();
                             }
-                            
-                            // Save state after adding new checklist item
                             const note = state.notes.find(n => n.id === currentNoteId);
                             if (note) {
                                 note.content = dom.noteContentEditor.innerHTML;
@@ -5152,6 +5253,7 @@
                         }
                     }
                 });
+
 
                 document.querySelectorAll('.plan-details-toggle').forEach(button => {
                     button.addEventListener('click', () => {
@@ -5215,14 +5317,56 @@
                     if (button && !button.disabled) {
                         const missionId = button.dataset.missionId;
                         const mission = MISSIONS[missionId];
-                        if (mission && mission.workflow) {
+                        if (!mission) return;
+
+                        if (mission.workflow) {
                             const workflowButton = document.querySelector(`[data-workflow="${mission.workflow}"]`);
-                            if(workflowButton) {
-                                workflowButton.click();
-                                dom.closeGamificationModal.click();
+                            if (workflowButton) workflowButton.click();
+                        } else if (mission.action) {
+                            switch(mission.action) {
+                                case 'generateImage': generateImage(); break;
+                                case 'openCalendar': showCalendarModal(); break;
+                                case 'createProject': 
+                                    const pmWorkflowBtn = document.querySelector('[data-workflow="project-management"]');
+                                    if(pmWorkflowBtn) pmWorkflowBtn.click();
+                                    break;
                             }
                         }
+                        dom.closeGamificationModal.click();
                     }
+                });
+                
+                // Drag-to-select logic
+                let isDragSelecting = false;
+                const sidebarDragContainers = [dom.sidebarContent, dom.foldersContainer];
+
+                const handleDragSelectMove = (e) => {
+                    if (!isDragSelecting) return;
+                    const target = e.target.closest('.chat-item, .note-item');
+                    if (target && !chatsToDelete.has(target.dataset.id)) {
+                        target.click(); // Use existing click handler to toggle selection
+                    }
+                };
+                
+                const handleDragSelectEnd = () => {
+                    isDragSelecting = false;
+                    sidebarDragContainers.forEach(container => {
+                        container.removeEventListener('mousemove', handleDragSelectMove);
+                        document.removeEventListener('mouseup', handleDragSelectEnd);
+                    });
+                };
+                
+                sidebarDragContainers.forEach(container => {
+                    container.addEventListener('mousedown', (e) => {
+                        if (isSelectModeActive && e.button === 0) { // Only on left click
+                             // Check if the click is on the container itself or a non-interactive part
+                            if (e.target === container || e.target.classList.contains('project-content')) {
+                                isDragSelecting = true;
+                                container.addEventListener('mousemove', handleDragSelectMove);
+                                document.addEventListener('mouseup', handleDragSelectEnd, { once: true });
+                            }
+                        }
+                    });
                 });
             }
 
@@ -5259,7 +5403,7 @@
                 const projectModelSelector = document.getElementById('project-model-selector');
                 if (projectModelSelector) {
                     const goatXProOption = projectModelSelector.querySelector('.goat-x-pro-model');
-                    if (goatXProOption) goatXProOption.disabled = !currentUser;
+                    if (goatXProOption) goatXProOption.disabled = true;
                 }
             }
             
@@ -5864,7 +6008,7 @@
                 const financialModelSelector = document.getElementById('financial-model-selector');
                 if (financialModelSelector) {
                     const goatXProOption = financialModelSelector.querySelector('.goat-x-pro-model');
-                    if (goatXProOption) goatXProOption.disabled = !currentUser;
+                    if (goatXProOption) goatXProOption.disabled = true;
                 }
 
             }
@@ -6407,5 +6551,3 @@
     </script>
 </body>
 </html>
-
-            
