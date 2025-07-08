@@ -3028,7 +3028,7 @@
                 dom.taskNotificationModal.classList.remove('flex');
             }
 
-            function showCalendarModal() {
+           function showCalendarModal() {
                 dom.calendarModalOverlay.classList.remove('hidden');
                 dom.calendarModalOverlay.classList.add('flex');
                 if (!currentCalendarView) currentCalendarView = 'month'; 
@@ -3518,9 +3518,10 @@
                     if (!task.completed && task.time === currentHourMinute && !task.notifiedThisMinute) {
                         const lang = localStorage.getItem('goatify-lang') || 'es';
                         const notificationTitle = translations[lang].notification_title;
-                        const notificationBody = `${translations[lang].notification_task_due} ${task.text} (${task.time})`;
+                        const notificationBody = `${translations[lang].notification_task_due} ${task.text}`;
                         
-                        showTaskNotification(notificationTitle, notificationBody);
+                        showInAppNotification(notificationTitle, notificationBody);
+                        showTaskNotification(notificationTitle, notificationBody); // This will also trigger the push
                         
                         updateTaskNotifiedFlag(task.id, true);
                     }
@@ -3541,6 +3542,65 @@
                 }
             }
 
+            async function registerServiceWorkerAndSubscribe() {
+                if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+                    console.warn('Push messaging is not supported');
+                    return;
+                }
+
+                try {
+                    const registration = await navigator.serviceWorker.register('/service-worker.js');
+                    console.log('Service Worker registered successfully');
+
+                    // Check notification permission
+                    let permission = Notification.permission;
+                    if (permission === 'default') {
+                        permission = await Notification.requestPermission();
+                    }
+                    
+                    if (permission !== 'granted') {
+                        console.warn('Notification permission not granted.');
+                        notificationsEnabled = false;
+                        dom.notificationsToggle.checked = false;
+                        localStorage.setItem('goatify-notifications-enabled', 'false');
+                        return;
+                    }
+
+                    // Get subscription
+                    let subscription = await registration.pushManager.getSubscription();
+                    if (subscription === null) {
+                        console.log('No subscription found, creating new one...');
+                        // IMPORTANT: You need to generate VAPID keys on your server and provide the public key here.
+                        // For demonstration, I'm using a placeholder. Replace this with your actual VAPID public key.
+                        const VAPID_PUBLIC_KEY = "YOUR_VAPID_PUBLIC_KEY"; // <-- REPLACE THIS
+                        if (VAPID_PUBLIC_KEY === "YOUR_VAPID_PUBLIC_KEY") {
+                            console.error("ERROR: You must provide your VAPID public key for push notifications to work.");
+                            return;
+                        }
+
+                        subscription = await registration.pushManager.subscribe({
+                            userVisibleOnly: true,
+                            applicationServerKey: VAPID_PUBLIC_KEY
+                        });
+                    }
+                    
+                    // Send subscription to backend
+                    await fetch('/.netlify/functions/save-subscription', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            userId: currentUser.id, // Ensure user is logged in
+                            subscription: subscription
+                        }),
+                    });
+
+                    console.log('User is subscribed.');
+
+                } catch (error) {
+                    console.error('Service Worker registration or subscription failed:', error);
+                }
+            }
+
 
             function renderCalendarView() {
                  dom.dayViewContainer.style.display = currentCalendarView === 'day' ? 'block' : 'none';
@@ -3556,62 +3616,7 @@
                 if (currentCalendarView === 'month') renderMonthView();
             }
 
-            setInterval(checkAndNotifyTasks, 10 * 1000);
-
-            async function registerServiceWorkerAndSubscribe() {
-                if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-                    console.warn('Push messaging is not supported');
-                    notificationsEnabled = false;
-                    localStorage.setItem('goatify-notifications-enabled', 'false');
-                    return;
-                }
-
-                try {
-                    const registration = await navigator.serviceWorker.register('./service-worker.js');
-                    console.log('Service Worker registered with scope:', registration.scope);
-
-                    const permission = await Notification.requestPermission();
-                    if (permission !== 'granted') {
-                        console.warn('Notification permission was not granted.');
-                        notificationsEnabled = false;
-                        localStorage.setItem('goatify-notifications-enabled', 'false');
-                        return;
-                    }
-
-                    notificationsEnabled = true;
-                    localStorage.setItem('goatify-notifications-enabled', 'true');
-                    
-                    let subscription = await registration.pushManager.getSubscription();
-                    if (subscription === null) {
-                        console.log('No subscription found, subscribing...');
-                        const vapidPublicKey = 'BMehx1iPZ1Ea-QW9h1sT5axRk_N9fXmHgQMM_y_e65VHr0TQlHywGQRy_U0l4KkOwaqf69LSg_dY4CqT_oaqmO4';
-                        subscription = await registration.pushManager.subscribe({
-                            userVisibleOnly: true,
-                            applicationServerKey: vapidPublicKey,
-                        });
-                        console.log('New subscription created:', subscription);
-                        
-                        // Send the new subscription to your backend
-                        if (currentUser) {
-                            await fetch('/.netlify/functions/save-subscription', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                    userId: currentUser.id,
-                                    subscription: subscription,
-                                }),
-                            });
-                        }
-                    } else {
-                        console.log('Existing subscription found:', subscription);
-                    }
-                } catch (error) {
-                    console.error('Service Worker registration or subscription failed:', error);
-                    notificationsEnabled = false;
-                    localStorage.setItem('goatify-notifications-enabled', 'false');
-                }
-            }
-
+            setInterval(checkAndNotifyTasks, 60 * 1000); // Check every minute
 
             function speak(text, element) { 
                 if (!text) return;
@@ -3633,7 +3638,6 @@
                             }
                             micWasOnBeforeSpeaking = false;
                         }
-                        toggleVoiceSelectorVisibility(false);
                     };
                     utterance.onerror = (e) => {
                         console.error('Speech synthesis error:', e);
@@ -3643,7 +3647,6 @@
                             }
                             micWasOnBeforeSpeaking = false;
                         }
-                         toggleVoiceSelectorVisibility(false);
                     }
                     speechSynthesis.speak(utterance);
                 } else if (element) { // Click on individual speaker icon
@@ -3773,9 +3776,9 @@
 
             function spendCredits(cost, modelUsed) {
                 // Check daily GOAT X PRO limit first
-                if (modelUsed === 'gpt-4o') {
+                if (modelUsed === 'gpt-4o' && currentUser) {
                     const today = dayjs().format('YYYY-MM-DD');
-                    const proUsageKey = `goat_x_pro_usage_${currentUser?.id || 'guest'}_${today}`;
+                    const proUsageKey = `goat_x_pro_usage_${currentUser.id}_${today}`;
                     goatXProUsage = parseInt(localStorage.getItem(proUsageKey) || '0');
 
                     if (goatXProUsage >= GOAT_X_PRO_DAILY_LIMIT) {
@@ -3804,7 +3807,7 @@
                     
                     if (modelUsed === 'gpt-4o') {
                         const today = dayjs().format('YYYY-MM-DD');
-                        const proUsageKey = `goat_x_pro_usage_${currentUser?.id || 'guest'}_${today}`;
+                        const proUsageKey = `goat_x_pro_usage_${currentUser.id}_${today}`;
                         goatXProUsage++;
                         localStorage.setItem(proUsageKey, goatXProUsage.toString());
                     }
@@ -3818,16 +3821,16 @@
                     if (usageData.count + cost > GUEST_CREDIT_LIMIT) {
                          showModal({
                             title: 'Créditos de Invitado Agotados',
-                            body: `<p>Has utilizado tus ${GUEST_CREDIT_LIMIT} créditos de invitado. <strong>Inicia sesión para obtener 50 créditos mensuales más, ¡gratis!</strong></p><p class="mt-2 text-sm text-text-medium">También puedes usar este link para agendar una reunión y conocer nuestros planes.</p>`, // Added text for meeting
+                            body: `<p>Has utilizado tus ${GUEST_CREDIT_LIMIT} créditos de invitado. <strong>Inicia sesión para obtener 50 créditos mensuales más, ¡gratis!</strong></p><p class="mt-2 text-sm text-text-medium">También puedes usar este link para agendar una reunión y conocer nuestros planes.</p>`,
                             confirmText: 'Iniciar Sesión',
                             cancelText: 'Más Tarde',
-                            extraButtons: [{ // Added extra button for meeting
+                            extraButtons: [{
                                 id: 'guest-meeting-btn',
                                 classes: 'px-4 py-2 rounded bg-primary text-white',
                                 text: 'Agendar Reunión',
                                 action: () => {
                                     window.open('https://calendly.com/goatify', '_blank');
-                                    hideModal(); // Close modal after action
+                                    hideModal();
                                 }
                             }]
                         }).then(res => { if (res.confirmed) { netlifyIdentity.open('login'); } });
@@ -3837,12 +3840,6 @@
                     localStorage.setItem(usageKey, JSON.stringify(usageData));
                     updateCreditCounter();
 
-                    if (modelUsed === 'gpt-4o') {
-                        const today = dayjs().format('YYYY-MM-DD');
-                        const proUsageKey = `goat_x_pro_usage_${currentUser?.id || 'guest'}_${today}`;
-                        goatXProUsage++;
-                        localStorage.setItem(proUsageKey, goatXProUsage.toString());
-                    }
                     return true;
                 }
 
@@ -3871,7 +3868,7 @@
 
                 if (modelUsed === 'gpt-4o') {
                     const today = dayjs().format('YYYY-MM-DD');
-                    const proUsageKey = `goat_x_pro_usage_${currentUser?.id || 'guest'}_${today}`;
+                    const proUsageKey = `goat_x_pro_usage_${currentUser.id}_${today}`;
                     goatXProUsage++;
                     localStorage.setItem(proUsageKey, goatXProUsage.toString());
                 }
@@ -3892,7 +3889,7 @@
                      try {
                         const response = await fetch('/.netlify/functions/load-chats', {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
+                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentUser.token.access_token}` },
                             body: JSON.stringify({ userId: currentUser.id }),
                         });
                         if (!response.ok) { throw new Error(`Server error: ${response.status}`); }
@@ -3913,7 +3910,6 @@
                 state.structure = state.structure || [];
                 state.notes = state.notes || [];
 
-                // Ensure notepad-assistant-chat exists and is not deletable
                 if (!state.chats['notepad-assistant-chat']) {
                     state.chats['notepad-assistant-chat'] = {
                         id: 'notepad-assistant-chat',
@@ -3924,10 +3920,11 @@
                     };
                 }
 
-                // Initialize goatXProUsage for the current day
-                const today = dayjs().format('YYYY-MM-DD');
-                const proUsageKey = `goat_x_pro_usage_${currentUser?.id || 'guest'}_${today}`;
-                goatXProUsage = parseInt(localStorage.getItem(proUsageKey) || '0');
+                if (currentUser) {
+                    const today = dayjs().format('YYYY-MM-DD');
+                    const proUsageKey = `goat_x_pro_usage_${currentUser.id}_${today}`;
+                    goatXProUsage = parseInt(localStorage.getItem(proUsageKey) || '0');
+                }
 
                 loadGamificationState();
                 renderSidebar();
@@ -3940,10 +3937,10 @@
                 
                 try {
                     localStorage.setItem(key, JSON.stringify(stateData));
-                    if(currentUser) {
+                    if(currentUser && currentUser.token) {
                         await fetch('/.netlify/functions/save-chats', {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
+                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentUser.token.access_token}` },
                             body: JSON.stringify({ userId: currentUser.id, stateToSave: stateData }),
                         });
                     }
@@ -3962,8 +3959,12 @@
                     const userName = currentUser.user_metadata?.full_name?.split(' ')[0] || currentUser.email.split('@')[0];
                     dom.userEmail.textContent = currentUser.user_metadata?.full_name || currentUser.email;
                     dom.userName.textContent = userName;
-                    dom.upgradePlanContainer.classList.toggle('hidden', (currentUser.app_metadata?.plan || 'free') !== 'free');
-                    goatXProModels.forEach(option => option.disabled = false);
+                    const plan = currentUser.app_metadata?.plan || 'free';
+                    dom.upgradePlanContainer.classList.toggle('hidden', plan !== 'free');
+                    goatXProModels.forEach(option => {
+                        option.disabled = (plan === 'free');
+                        option.textContent = (plan === 'free') ? "GOAT X PRO (Plan Requerido)" : "GOAT X PRO";
+                    });
 
                 } else {
                     dom.loginView.classList.remove('hidden');
@@ -3971,7 +3972,10 @@
                     dom.genericWelcome.classList.remove('hidden');
                     dom.personalizedWelcome.classList.add('hidden');
                     dom.upgradePlanContainer.classList.add('hidden');
-                    goatXProModels.forEach(option => option.disabled = true);
+                    goatXProModels.forEach(option => {
+                        option.disabled = true;
+                        option.textContent = "GOAT X PRO (Inicia Sesión)";
+                    });
                 }
                 updateCreditCounter();
             }
@@ -3981,11 +3985,10 @@
                 const gamCredits = (currentUser && gamificationState.credits) ? gamificationState.credits : 0;
                 let displayLimit = limit === Infinity ? '∞' : limit;
 
-                // Update individual spans for plan and reward credits
                 dom.planCreditsDisplay.textContent = `${remaining}/${displayLimit}`;
                 dom.rewardCreditsDisplay.textContent = `${gamCredits}`;
                 
-                dom.messageCounterWrapper.classList.remove('hidden'); // Ensure the counter is visible
+                dom.messageCounterWrapper.classList.remove('hidden');
             }
 
             function setTheme(isDark) { 
@@ -4012,13 +4015,13 @@
 
             function createNewChat(options = {}) {
                 const id = 'chat-' + crypto.randomUUID();
-                const lang = localStorage.getItem('goatify-lang') || 'es';
                 const name = currentUser ? (currentUser.user_metadata.full_name?.split(' ')[0] || 'Tú') : 'viajero';
                 let title = 'Jefe';
                 if (name.slice(-1).toLowerCase() === 'a' || ['isabel', 'dolores'].includes(name.toLowerCase())) {
                     title = 'Jefa';
                 }
                 
+                const lang = localStorage.getItem('goatify-lang') || 'es';
                 let initialMessages;
                 initialMessages = options.initialMessages ||
                 [{ 
@@ -4060,7 +4063,7 @@
                 if (window.innerWidth < 768) toggleSidebar(false);
                 
                 const chatType = options.title || 'chat';
-                showInAppNotification(translations[lang].success_title || "Éxito", `${translations[lang].new_chat_created || "Has creado un nuevo" } ${chatType}.`);
+                showInAppNotification("Éxito", `Has creado un nuevo ${chatType}.`);
 
                 return id;
             }
@@ -4080,7 +4083,7 @@
                 dom.projectManagementView.style.display = 'none';
                 dom.financialAssistantView.style.display = 'none';
                 dom.notepadViewContainer.style.display = 'none';
-                dom.inputArea.style.display = 'none'; 
+                dom.inputArea.style.display = 'flex'; // Keep input area visible by default, hide for specific views if needed
                 
                 if (chatId.startsWith('note-') || chatId === 'notepad-app') {
                     const lang = localStorage.getItem('goatify-lang') || 'es';
@@ -4097,17 +4100,20 @@
                             dom.noteEditorPanel.classList.add('hidden');
                         }
                     }
+                    dom.inputArea.style.display = 'none'; // Hide main input area for notepad
                 } else {
                     const chat = state.chats[chatId]; 
                     if (chat.workflow === 'project-management') {
                         dom.projectManagementView.style.display = 'flex';
                         renderProjectView(chatId);
+                        dom.inputArea.style.display = 'none'; // Hide main input for project view
                     } else if (chat.workflow === 'financial-assistant') {
                         dom.financialAssistantView.style.display = 'flex';
                         renderFinancialAssistant(chatId);
+                        dom.inputArea.style.display = 'none'; // Hide main input for financial view
                     } else {
                         dom.chatMessages.style.display = 'block';
-                        dom.inputArea.style.display = 'flex';
+                        dom.inputArea.style.display = 'flex'; // Show main input for regular chat
                         dom.chatMessages.innerHTML = ''; 
                         chat.messages.forEach((msg, index) => addMessageToUI(msg.role, msg.content, msg.image, index, dom.chatMessages));
                         dom.initialMessageContainer.style.display = 'none';
@@ -4162,10 +4168,9 @@
                 contentDiv.innerHTML = parsedContent;
                 
                 if (role === 'assistant') {
-                    const lang = localStorage.getItem('goatify-lang') || 'es';
                     const speakerIcon = document.createElement('i');
                     speakerIcon.className = 'fas fa-volume-up speaker-icon';
-                    speakerIcon.title = translations[lang].read_aloud_title || 'Leer en voz alta';
+                    speakerIcon.title = translations[localStorage.getItem('goatify-lang') || 'es'].read_aloud_title || 'Leer en voz alta';
                     speakerIcon.onclick = (e) => {
                         e.stopPropagation();
                         speak(content, e.target);
@@ -4176,19 +4181,17 @@
                 bubble.appendChild(contentDiv);
 
                 if (role === 'user' && container === dom.chatMessages) { 
-                    const lang = localStorage.getItem('goatify-lang') || 'es';
                     const editBtn = document.createElement('button');
                     editBtn.className = 'p-1 text-text-medium opacity-100 transition-opacity';
                     editBtn.innerHTML = '<i class="fas fa-pencil-alt fa-xs"></i>';
-                    editBtn.title = translations[lang].edit_message_title || 'Editar mensaje';
+                    editBtn.title = translations[localStorage.getItem('goatify-lang') || 'es'].edit_message_title || 'Editar mensaje';
                     editBtn.onclick = (e) => { e.stopPropagation(); handleEditMessage(messageIndex); };
                     wrapper.insertBefore(editBtn, wrapper.firstChild);
                 }
                 
                 if (role === 'assistant' && /<\/?[a-z][\s\S]*>/i.test(content)) {
-                    const lang = localStorage.getItem('goatify-lang') || 'es';
                     const previewButton = document.createElement('button');
-                    previewButton.innerHTML = `<i class="fas fa-eye mr-2"></i>${translations[lang].preview}`;
+                    previewButton.innerHTML = `<i class="fas fa-eye mr-2"></i>${translations[localStorage.getItem('goatify-lang') || 'es'].preview}`;
                     previewButton.className = 'btn-primary text-xs font-semibold px-3 py-1 rounded-md mt-3';
                     previewButton.addEventListener('click', () => {
                         const match = content.match(/```html\n([\s\S]*?)```/);
@@ -4207,14 +4210,13 @@
             }
             
             async function handleEditMessage(index) {
-                const lang = localStorage.getItem('goatify-lang') || 'es';
                 const chat = state.chats[currentChatId];
                 if (!chat || !chat.messages[index]) return;
                 const originalContent = chat.messages[index].content;
                 const result = await showModal({ 
-                    title: translations[lang].edit_message_title || 'Editar Mensaje', 
+                    title: 'Editar Mensaje', 
                     body: `<textarea id="edit-msg-textarea" class="w-full p-2 rounded bg-input border border-themed h-28">${originalContent}</textarea>`,
-                    confirmText: translations[lang].save_changes_btn || 'Guardar Cambios'
+                    confirmText: 'Guardar Cambios'
                  });
                 if (result.confirmed && result.data['edit-msg-textarea'] && result.data['edit-msg-textarea'].trim() !== originalContent.trim()) {
                     chat.messages[index].content = result.data['edit-msg-textarea'].trim();
@@ -4225,10 +4227,25 @@
 
             function updateMessageInUI(bubble, content, imageSrc, container) {
                 if (!bubble) return;
-                const newBubbleWrapper = addMessageToUI('assistant', content, imageSrc, null, container).parentElement;
-                if (bubble && bubble.parentElement) {
-                    bubble.parentElement.replaceWith(newBubbleWrapper);
+                bubble.innerHTML = ''; // Clear the "thinking" dots
+                if (imageSrc) {
+                    const img = document.createElement('img');
+                    img.src = imageSrc;
+                    img.className = 'rounded-lg mb-2 max-w-full h-auto';
+                    bubble.appendChild(img);
                 }
+                const contentDiv = document.createElement('div');
+                contentDiv.className = 'markdown-content';
+                const parsedContent = marked.parse(content || "");
+                contentDiv.innerHTML = parsedContent;
+
+                const speakerIcon = document.createElement('i');
+                speakerIcon.className = 'fas fa-volume-up speaker-icon';
+                speakerIcon.title = 'Leer en voz alta';
+                speakerIcon.onclick = (e) => { e.stopPropagation(); speak(content, e.target); };
+                contentDiv.appendChild(speakerIcon);
+
+                bubble.appendChild(contentDiv);
             }
             
             function renderSidebar() { 
@@ -4272,13 +4289,13 @@
             function createChatItemElement(id, isSubItem = false) { 
                 const chat = state.chats[id];
                 if (!chat || chat.isDeletable === false) return document.createDocumentFragment(); 
-                const lang = localStorage.getItem('goatify-lang') || 'es';
 
                 const item = document.createElement('a');
                 item.href = `?chat=${id}`;
-                item.className = `chat-item group flex items-center justify-between p-2 rounded-md cursor-pointer hover:bg-light ${isSubItem ? 'pl-8' : ''}`;
+                item.className = `chat-item group flex items-center justify-between p-2 rounded-md cursor-pointer ${isSubItem ? 'pl-8' : ''}`;
                 item.dataset.id = id; 
                 item.dataset.type = 'chat';
+                const lang = localStorage.getItem('goatify-lang') || 'es';
                 
                 if (isSelectModeActive) {
                     item.draggable = false;
@@ -4305,17 +4322,16 @@
                     item.draggable = true;
                     item.innerHTML = `<i class="far fa-comment-dots mr-2"></i><span class="flex-grow truncate text-sm font-medium">${chat.title}</span>
                     <div class="chat-item-actions flex-shrink-0 flex items-center ${actionsOpacityClass} transition-opacity">
-                        <div class="relative">
-                            <button class="add-to-folder-btn text-text-medium hover:text-primary p-1" title="${translations[lang].add_to_folder_title}"><i class="fas fa-folder-plus fa-xs"></i></button>
-                            <div class="add-to-folder-dropdown absolute hidden right-0 top-full mt-1 p-2 rounded-md shadow-lg z-20"></div>
-                        </div>
+                        <button class="add-to-folder-btn text-text-medium hover:text-primary p-1 relative" title="${translations[lang].add_to_folder_title}"><i class="fas fa-folder-plus fa-xs"></i>
+                            <div class="add-to-folder-dropdown absolute hidden top-full left-1/2 -translate-x-1/2 mt-2 p-2 rounded-md shadow-lg"></div>
+                        </button>
                         <button class="rename-btn text-text-medium hover:text-primary p-1" title="${translations[lang].rename_title}"><i class="fas fa-pencil-alt fa-xs"></i></button>
                         <button class="delete-btn text-text-medium hover:text-red-500 p-1" title="${translations[lang].delete_title}"><i class="fas fa-trash-alt fa-xs"></i></button>
                     </div>`;
                     
                     item.addEventListener('click', e => {
                         if (!e.ctrlKey && !e.metaKey && e.button === 0) {
-                            if (!e.target.closest('.chat-item-actions')) {
+                            if (!e.target.closest('.chat-item-actions') && !e.target.closest('.add-to-folder-dropdown')) {
                                 e.preventDefault();
                                 selectChat(id);
                                 history.pushState({chatId: id}, '', item.href);
@@ -4331,16 +4347,14 @@
                     
                     if (addToFolderBtn) {
                         addToFolderBtn.addEventListener('click', (e) => {
-                            e.preventDefault();
                             e.stopPropagation();
-                            const dropdown = addToFolderBtn.nextElementSibling;
-                            const isHidden = dropdown.classList.contains('hidden');
-                            // Hide all other dropdowns
-                            document.querySelectorAll('.add-to-folder-dropdown').forEach(d => d.classList.add('hidden'));
-                            if (isHidden) {
-                                dropdown.classList.remove('hidden');
-                                renderFolderDropdown(id, dropdown);
-                            }
+                            e.preventDefault();
+                            const dropdown = addToFolderBtn.querySelector('.add-to-folder-dropdown');
+                            document.querySelectorAll('.add-to-folder-dropdown').forEach(d => {
+                                if (d !== dropdown) d.classList.add('hidden');
+                            });
+                            dropdown.classList.toggle('hidden');
+                            renderFolderDropdown(id, dropdown);
                         });
                     }
 
@@ -4353,7 +4367,6 @@
             function createNoteItemElement(id, isSubItem = false) {
                 const note = state.notes.find(n => n.id === id);
                 if (!note) return document.createDocumentFragment();
-                const lang = localStorage.getItem('goatify-lang') || 'es';
 
                 const item = document.createElement('a');
                 item.href = `?chat=${id}`;
@@ -4361,6 +4374,7 @@
                 if (isSubItem) item.classList.add('pl-8');
                 item.dataset.id = note.id;
                 item.dataset.type = 'note';
+                const lang = localStorage.getItem('goatify-lang') || 'es';
 
                 const isMobileView = window.innerWidth < 768;
                 const actionsOpacityClass = isMobileView ? 'opacity-100' : 'opacity-0 group-hover:opacity-100';
@@ -4389,17 +4403,16 @@
                         <i class="fas ${note.type === 'drawing' ? 'fa-paint-brush' : 'fa-file-alt'} mr-2"></i>
                         <span class="flex-grow truncate text-sm font-medium">${note.title}</span>
                         <div class="chat-item-actions flex-shrink-0 ${actionsOpacityClass} transition-opacity">
-                            <div class="relative">
-                                <button class="add-to-folder-btn text-text-medium hover:text-primary p-1" title="${translations[lang].add_to_folder_title}"><i class="fas fa-folder-plus fa-xs"></i></button>
-                                <div class="add-to-folder-dropdown absolute hidden right-0 top-full mt-1 p-2 rounded-md shadow-lg z-20"></div>
-                            </div>
+                            <button class="add-to-folder-btn text-text-medium hover:text-primary p-1 relative" title="${translations[lang].add_to_folder_title}"><i class="fas fa-folder-plus fa-xs"></i>
+                                <div class="add-to-folder-dropdown absolute hidden top-full left-1/2 -translate-x-1/2 mt-2 p-2 rounded-md shadow-lg"></div>
+                            </button>
                             <button class="rename-btn text-text-medium hover:text-primary p-1" title="${translations[lang].rename_title}"><i class="fas fa-pencil-alt fa-xs"></i></button>
                             <button class="delete-btn text-text-medium hover:text-red-500 p-1" title="${translations[lang].delete_title}"><i class="fas fa-trash-alt fa-xs"></i></button>
                         </div>
                     `;
                     item.addEventListener('click', e => {
                         if (!e.ctrlKey && !e.metaKey && e.button === 0) {
-                             if (!e.target.closest('.chat-item-actions')) {
+                            if (!e.target.closest('.chat-item-actions') && !e.target.closest('.add-to-folder-dropdown')) {
                                 e.preventDefault();
                                 selectChat(id);
                                 history.pushState({chatId: id}, '', item.href);
@@ -4418,15 +4431,14 @@
 
                     if (addToFolderBtn) {
                         addToFolderBtn.addEventListener('click', (e) => {
-                            e.preventDefault();
                             e.stopPropagation();
-                            const dropdown = addToFolderBtn.nextElementSibling;
-                            const isHidden = dropdown.classList.contains('hidden');
-                            document.querySelectorAll('.add-to-folder-dropdown').forEach(d => d.classList.add('hidden'));
-                            if (isHidden) {
-                                dropdown.classList.remove('hidden');
-                                renderFolderDropdown(id, dropdown);
-                            }
+                            e.preventDefault();
+                            const dropdown = addToFolderBtn.querySelector('.add-to-folder-dropdown');
+                            document.querySelectorAll('.add-to-folder-dropdown').forEach(d => {
+                                if (d !== dropdown) d.classList.add('hidden');
+                            });
+                            dropdown.classList.toggle('hidden');
+                            renderFolderDropdown(id, dropdown);
                         });
                     }
                     renameBtn.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); renameItem('note', id); });
@@ -4436,13 +4448,13 @@
             }
 
             function renderFolderDropdown(itemId, dropdownElement) {
-                const lang = localStorage.getItem('goatify-lang') || 'es';
                 dropdownElement.innerHTML = '';
                 const folders = Object.values(state.projects);
                 const currentFolderId = Object.values(state.projects).find(p => p.itemIds && p.itemIds.includes(itemId))?.id;
+                const lang = localStorage.getItem('goatify-lang') || 'es';
 
                 if (folders.length === 0) {
-                    dropdownElement.innerHTML = `<span class="p-2 text-xs text-text-medium italic">${translations[lang].no_folders_yet}</span>`;
+                    dropdownElement.innerHTML = `<button class="p-2 text-xs text-text-medium italic" disabled>${translations[lang].no_folders_yet}</button>`;
                     return;
                 }
 
@@ -4450,13 +4462,13 @@
                     const button = document.createElement('button');
                     button.textContent = folder.title;
                     button.dataset.folderId = folder.id;
-                    button.className = "block w-full text-left p-2 hover:bg-medium rounded-md text-sm";
                     if (folder.id === currentFolderId) {
                         button.disabled = true;
-                        button.classList.add('opacity-50');
+                        button.classList.add('bg-current-primary', 'text-white');
                     }
                     button.addEventListener('click', (e) => {
                         e.stopPropagation();
+                        e.preventDefault();
                         moveItemToProject(itemId, folder.id);
                         dropdownElement.classList.add('hidden');
                     });
@@ -4471,7 +4483,7 @@
                 div.className = 'project folders-category open'; // Start open
                 div.dataset.id = id;
                 const header = document.createElement('div');
-                header.className = 'project-header folders-header group flex items-center p-2 rounded-md cursor-pointer hover:bg-light';
+                header.className = 'project-header folders-header group flex items-center p-2 rounded-md cursor-pointer';
                 const lang = localStorage.getItem('goatify-lang') || 'es';
 
                 const isMobileView = window.innerWidth < 768;
@@ -4488,8 +4500,8 @@
                 header.addEventListener('click', e => { 
                     if (!e.target.closest('.chat-item-actions')) {
                         div.classList.toggle('open'); 
-                        content.classList.toggle('block');
-                        content.classList.toggle('hidden');
+                        content.style.display = div.classList.contains('open') ? 'block' : 'none';
+                        header.querySelector('.project-arrow').style.transform = div.classList.contains('open') ? 'rotate(90deg)' : 'rotate(0deg)';
                     }
                 });
                 header.addEventListener('dragover', e => handleDragOver(e, header));
@@ -4500,12 +4512,11 @@
                 return div;
             }
             let draggedItemId = null;
-            let currentDragSelection = null; // For multi-select drag
+            let currentDragSelection = null;
             function handleDragStart(e, id) { 
                 draggedItemId = id; 
                 e.dataTransfer.effectAllowed = 'move'; 
                 e.dataTransfer.setData('text/plain', id); 
-                // If multi-select is active and this item is part of it, drag all selected items
                 if (isSelectModeActive && chatsToDelete.has(id)) {
                     e.dataTransfer.setData('application/json', JSON.stringify(Array.from(chatsToDelete)));
                     currentDragSelection = new Set(chatsToDelete);
@@ -4535,7 +4546,7 @@
                 if (itemsToMove.length === 0) return;
                 
                 itemsToMove.forEach(itemId => {
-                    if (itemId !== targetProjectId) { // Prevent dropping a folder onto itself or into itself
+                    if (itemId !== targetProjectId) {
                         moveItemToProject(itemId, targetProjectId);
                     }
                 });
@@ -4545,11 +4556,9 @@
                 }
             }
             function moveItemToProject(itemId, targetProjectId = null) {
-                // Remove from old location
                 state.structure = state.structure.filter(id => id !== itemId); 
                 Object.values(state.projects).forEach(p => { if(p.itemIds) p.itemIds = p.itemIds.filter(id => id !== itemId) });
 
-                // Add to new project (or root if targetProjectId is null)
                 if(targetProjectId && state.projects[targetProjectId]){ 
                     if(!state.projects[targetProjectId].itemIds) state.projects[targetProjectId].itemIds = [];
                     state.projects[targetProjectId].itemIds.unshift(itemId); 
@@ -4566,16 +4575,15 @@
 
             async function renameItem(type, id) {
                 let item;
-                const lang = localStorage.getItem('goatify-lang') || 'es';
                 if(type === 'chat') item = state.chats[id];
                 else if(type === 'project') item = state.projects[id];
                 else if(type === 'note') item = state.notes.find(n => n.id === id);
                 if(!item) return;
 
                 const result = await showModal({ 
-                    title: `${translations[lang].rename_title_prefix || "Renombrar"} ${type === 'chat' ? (translations[lang].conversation_text || 'Conversación') : (type === 'project' ? (translations[lang].project_text || 'Proyecto') : (translations[lang].note_text || 'Nota'))}`, 
+                    title: `Renombrar ${type === 'chat' ? 'Conversación' : (type === 'project' ? 'Proyecto' : 'Nota')}`, 
                     body: `<input type="text" id="rename-input" class="w-full p-2 rounded bg-input border border-themed" value="${item.title}">`,
-                    confirmText: translations[lang].rename_btn || 'Renombrar'
+                    confirmText: 'Renombrar'
                  });
                 if (result.confirmed && result.data['rename-input'] && result.data['rename-input'].trim()) {
                     item.title = result.data['rename-input'].trim();
@@ -4595,7 +4603,6 @@
             }
             async function deleteItem(type, id) { 
                 let item, childrenIds = [];
-                const lang = localStorage.getItem('goatify-lang') || 'es';
                 if(type === 'chat') item = state.chats[id];
                 else if(type === 'project') {
                     item = state.projects[id];
@@ -4604,15 +4611,15 @@
                 else if(type === 'note') item = state.notes.find(n => n.id === id);
                 if(!item) return;
 
-                let body = translations[lang].undo_action_warning || 'Esta acción no se puede deshacer.';
+                let body = 'Esta acción no se puede deshacer.';
                 if(type === 'project' && childrenIds.length > 0) {
-                    body += ` ${translations[lang].also_delete_items_warning || "También se eliminarán los"} ${childrenIds.length} ${translations[lang].items_contained_warning || "elementos que contiene."}`
+                    body += ` También se eliminarán los ${childrenIds.length} elementos que contiene.`
                 }
 
                 const confResult = await showModal({ 
-                    title: `${translations[lang].delete_confirm_prefix || "Eliminar"} ${item.title}?`, 
+                    title: `¿Eliminar "${item.title}"?`, 
                     body: body, 
-                    confirmText: translations[lang].delete || 'Eliminar', 
+                    confirmText: 'Eliminar', 
                     dangerConfirm: true 
                 });
                 
@@ -4664,7 +4671,6 @@
                 let inputEl, messageContainer, financialData = null, noteContent = null;
                 let chatIdToUpdate = currentChatId;
                 let modelToUse;
-                const lang = localStorage.getItem('goatify-lang') || 'es';
 
                 switch(assistantType) {
                     case 'project':
@@ -4707,11 +4713,11 @@
                 if(currentChat.workflow) cost = COSTS.WORKFLOW;
                 if(selectedPdfText) cost = COSTS.PDF_ANALYSIS;
                 if(selectedImageBase64) cost = COSTS.IMAGE_ANALYSIS;
-                if(modelToUse === 'gpt-4o') cost = COSTS.GPT4O;
+                if(modelToUse.includes('gpt-4')) cost = COSTS.GPT4O;
 
                 if (!spendCredits(cost, modelToUse)) return;
 
-                if(currentChat.title === (translations[lang].default_chat_title || 'Conversación Cósmica') && userMessage.length > 5 && assistantType === 'main') {
+                if(currentChat.title === (translations[localStorage.getItem('goatify-lang') || 'es'].default_chat_title) && userMessage.length > 5 && assistantType === 'main') {
                     currentChat.title = userMessage.split(' ').slice(0, 4).join(' ');
                     renderSidebar();
                 }
@@ -4732,7 +4738,10 @@
                     const responseData = await getAIResponse(userMessage, currentChat.messages.slice(0, -1), image, pdf, modelToUse, currentChat.workflow, userNameForCall, financialData, noteContent);
                     
                     updateCreditCounter();
-                    currentChat.messages.push({ role: 'assistant', content: responseData.reply });
+                    
+                    const assistantMessage = { role: 'assistant', content: responseData.reply };
+                    currentChat.messages.push(assistantMessage);
+                    
                     updateMessageInUI(thinkingBubble, responseData.reply, null, messageContainer);
                     speak(responseData.reply);
 
@@ -4757,17 +4766,16 @@
                 }
             }
             async function generateImage() {
-                const lang = localStorage.getItem('goatify-lang') || 'es';
-                const result = await showModal({ title: translations[lang].create_image_title || 'Crear Imagen', body: `${translations[lang].image_prompt_desc || 'Describe la imagen que quieres crear:'}<br><input type="text" id="img-prompt" class="w-full p-2 rounded bg-input border border-themed mt-2" placeholder="${translations[lang].image_prompt_placeholder || 'Ej: Un astronauta en un caballo cósmico'}">`, confirmText: translations[lang].generate_btn || 'Generar' });
+                const result = await showModal({ title: 'Crear Imagen', body: `Describe la imagen que quieres crear:<br><input type="text" id="img-prompt" class="w-full p-2 rounded bg-input border border-themed mt-2" placeholder="Ej: Un astronauta en un caballo cósmico">`, confirmText: 'Generar' });
                 if (!result.confirmed || !result.data['img-prompt']) return;
                 
                 if (!spendCredits(COSTS.IMAGE_GENERATION, 'dall-e-2')) return;
                 
                 let chatIdToUpdate = currentChatId || createNewChat({});
                 const currentChat = state.chats[chatIdToUpdate];
-                currentChat.messages.push({ role: 'user', content: `${translations[lang].generate_image_message || 'Generar imagen:'} "${result.data['img-prompt']}"` });
-                addMessageToUI('user', `${translations[lang].generate_image_message || 'Generar imagen:'} "${result.data['img-prompt']}"`, null, currentChat.messages.length - 1, dom.chatMessages);
-                const thinkingBubble = addMessageToUI('assistant', translations[lang].creating_image_message || 'Creando tu visión con DALL·E 2...', null, null, dom.chatMessages);
+                currentChat.messages.push({ role: 'user', content: `Generar imagen: "${result.data['img-prompt']}"` });
+                addMessageToUI('user', `Generar imagen: "${result.data['img-prompt']}"`, null, currentChat.messages.length - 1, dom.chatMessages);
+                const thinkingBubble = addMessageToUI('assistant', 'Creando tu visión con DALL·E 2...', null, null, dom.chatMessages);
                 try {
                     const response = await fetch('/.netlify/functions/generate-image', {
                         method: 'POST',
@@ -4776,13 +4784,13 @@
                     });
                     if (!response.ok) { throw new Error((await response.json()).error || 'Error del servidor'); }
                     const { imageData } = await response.json();
-                    const imageContent = translations[lang].image_creation_success || '¡Aquí está tu creación, Jefe/a!';
+                    const imageContent = '¡Aquí está tu creación, Jefe/a!';
                     currentChat.messages.push({ role: 'assistant', content: imageContent, image: imageData });
                     updateMessageInUI(thinkingBubble, imageContent, imageData, dom.chatMessages);
                     completeMission('image-generated');
                     saveState();
                 } catch (error) {
-                    updateMessageInUI(thinkingBubble, `${translations[lang].image_creation_error || '❌ **Error al crear la imagen:**'}<br><small>${error.message}</small>`, null, dom.chatMessages);
+                    updateMessageInUI(thinkingBubble, `❌ **Error al crear la imagen:**<br><small>${error.message}</small>`, null, dom.chatMessages);
                 }
             }
             function toggleSelectMode(active) {
@@ -4890,6 +4898,8 @@
                 });
             }
 
+            // --- NOTEPAD FUNCTIONS START ---
+
             function showNotepadView() {
                 dom.notepadViewContainer.style.display = 'flex';
                 dom.notepadChatContainer.classList.toggle('hidden', window.innerWidth < 768);
@@ -4944,7 +4954,7 @@
                 if (window.innerWidth < 768) {
                     dom.notepadViewContainer.classList.add('mobile-editor-active');
                 }
-                showInAppNotification(translations[lang].success_title || "Éxito", `${translations[lang].note_created_message || "Se ha creado:"} "${newNote.title}"`);
+                showInAppNotification("Éxito", `Se ha creado: "${newNote.title}"`);
             }
 
             function loadNoteIntoEditor(noteId) {
@@ -5109,9 +5119,12 @@
 
                 if (result.confirmed && result.data['share-email-input']) {
                     console.log(`(DEMO) Sharing note ${currentNoteId} with ${result.data['share-email-input']}. Backend implementation needed.`);
-                    showInAppNotification(translations[lang].feature_in_dev_title || "Función en Desarrollo", translations[lang].feature_in_dev_message || "La colaboración en tiempo real estará disponible pronto.");
+                    showInAppNotification("Función en Desarrollo", "La colaboración en tiempo real estará disponible pronto.");
                 }
             }
+
+            // --- NOTEPAD FUNCTIONS END ---
+
 
             function setupModalClickOutside(modalElement, hideFunction) {
                 if (!modalElement) return;
@@ -5157,14 +5170,14 @@
 
                 const thirtyMinutes = 30 * 60 * 1000;
                 motivationInterval = setInterval(() => {
-                    if (!motivationEnabled || !currentUser) { // Only send if user is logged in
+                    if (!motivationEnabled) {
                         clearInterval(motivationInterval);
                         return;
                     }
-                    const lang = localStorage.getItem('goatify-lang') || 'es';
                     const randomIndex = Math.floor(Math.random() * MOTIVATIONAL_MESSAGES.length);
                     const message = MOTIVATIONAL_MESSAGES[randomIndex];
-                    const title = `<i class="fas fa-lightbulb text-yellow-400 mr-2"></i> ${translations[lang].motivation_title || '¡Dosis de Motivación!'}`;
+                    const lang = localStorage.getItem('goatify-lang') || 'es';
+                    const title = `<i class="fas fa-lightbulb text-yellow-400 mr-2"></i> ${translations[lang].motivation_title}`;
                     
                     showInAppNotification(title, `<p class="text-md">${message}</p>`, 4000);
                     triggerPushNotification(translations[lang].motivation_title, message);
@@ -5185,23 +5198,24 @@
                     let bodyContent = `<p class="mb-3 text-sm"><strong>${translations[lang].current_plan_details}</strong> ${plan.toUpperCase()}</p>`;
                     bodyContent += `<p class="mb-2 text-sm"><strong>${translations[lang].credits_breakdown}</strong></p>`;
                     bodyContent += `<ul class="list-disc list-inside space-y-2 text-sm">
-                                <li><strong>GOAT X (General):</strong> 1 crédito</li>
-                                <li><strong>Búsqueda Web:</strong> 2 créditos</li>
-                                <li><strong>Workflows:</strong> 2 créditos</li>
-                                <li><strong>Análisis de PDF:</strong> 2 créditos</li>
-                                <li><strong>Análisis de Imagen:</strong> 2 créditos</li>
-                                <li><strong>Creación de Imagen (DALL-E):</strong> 5 créditos</li>
-                                <li><strong>GOAT X PRO (GPT-4o):</strong> 3 créditos</li>
+                                <li><strong>GOAT X:</strong> ${COSTS.GENERAL} crédito</li>
+                                <li><strong>Búsqueda Web:</strong> ${COSTS.SEARCH} créditos</li>
+                                <li><strong>Workflows:</strong> ${COSTS.WORKFLOW} créditos</li>
+                                <li><strong>Análisis de PDF:</strong> ${COSTS.PDF_ANALYSIS} créditos</li>
+                                <li><strong>Análisis de Imagen:</strong> ${COSTS.IMAGE_ANALYSIS} créditos</li>
+                                <li><strong>Creación de Imagen (DALL-E):</strong> ${COSTS.IMAGE_GENERATION} créditos</li>
+                                <li><strong>GOAT X PRO:</strong> ${COSTS.GPT4O} créditos</li>
                                </ul>`;
                     bodyContent += `<p class="mt-4 text-sm">${translations[lang].gamification_credits_info}</p>`;
+                    bodyContent += `<p class="mt-3 text-sm italic">${translations[lang].upgrade_for_more}</p>`;
                     
                     showModal({
                         title: translations[lang].credits_details_title,
                         body: bodyContent,
                         showCancel: false,
-                        confirmText: translations[lang].understood_btn || 'Entendido',
+                        confirmText: translations[lang].understood_btn,
                         extraButtons: [{
-                            id: 'view-plans-btn-modal',
+                            id: 'modal-view-plans-btn',
                             text: translations[lang].view_plans_btn,
                             classes: 'btn-primary px-4 py-2 rounded',
                             action: () => {
@@ -5214,7 +5228,7 @@
 
                 dom.rewardCreditsInfo?.addEventListener('click', () => {
                     if(!currentUser) {
-                        showInAppNotification(translations[localStorage.getItem('goatify-lang') || 'es'].exclusive_feature_title || "Función Exclusiva", translations[localStorage.getItem('goatify-lang') || 'es'].exclusive_feature_message || "La gamificación está disponible para usuarios logueados.", 3000);
+                        showInAppNotification("Función Exclusiva", "La gamificación está disponible para usuarios registrados.", 3000);
                         return;
                     }
                     renderGamificationModal();
@@ -5279,13 +5293,12 @@
                 dom.newChatBtn?.addEventListener('click', newChatHandler);
                 dom.newChatIconBtn?.addEventListener('click', newChatHandler);
                 
-                dom.newFolderBtn?.addEventListener('click', async () => { const lang = localStorage.getItem('goatify-lang') || 'es'; const result = await showModal({ title: translations[lang].create_folder_title || 'Crear Nueva Carpeta', body: `<input type="text" id="project-name" class="w-full p-2 rounded bg-input border border-themed" placeholder="${translations[lang].folder_name_placeholder || 'Nombre de la Carpeta...'}">`, confirmText: translations[lang].create_btn || 'Crear' }); if (result.confirmed && result.data['project-name'].trim()) { const id = 'project-' + crypto.randomUUID(); state.projects[id] = { id, title: result.data['project-name'].trim(), itemIds: [] }; state.structure.unshift(id); saveState(); renderSidebar(); } });
-                dom.newFolderIconBtn?.addEventListener('click', async () => { 
+                const newFolderHandler = async () => { 
                     const lang = localStorage.getItem('goatify-lang') || 'es';
                     const result = await showModal({ 
-                        title: translations[lang].create_folder_title || 'Crear Nueva Carpeta', 
-                        body: `<input type="text" id="project-name" class="w-full p-2 rounded bg-input border border-themed" placeholder="${translations[lang].folder_name_placeholder || 'Nombre de la Carpeta...'}">`, 
-                        confirmText: translations[lang].create_btn || 'Crear'
+                        title: 'Crear Nueva Carpeta', 
+                        body: `<input type="text" id="project-name" class="w-full p-2 rounded bg-input border border-themed" placeholder="Nombre de la Carpeta...">`, 
+                        confirmText: 'Crear'
                     }); 
                     if (result.confirmed && result.data['project-name'].trim()) { 
                         const id = 'project-' + crypto.randomUUID(); 
@@ -5293,43 +5306,40 @@
                         state.structure.unshift(id); 
                         saveState(); 
                         renderSidebar(); 
-                        showInAppNotification(translations[lang].success_title || "Éxito", `${translations[lang].folder_created_message || "Carpeta"} "${result.data['project-name'].trim()}" ${translations[lang].created_suffix || "creada."}`);
+                        showInAppNotification("Éxito", `Carpeta "${result.data['project-name'].trim()}" creada.`);
                     } 
-                });
+                };
+                dom.newFolderBtn?.addEventListener('click', newFolderHandler);
+                dom.newFolderIconBtn?.addEventListener('click', newFolderHandler);
 
                 dom.upgradePlanBtn?.addEventListener('click', showPricingModal);
                 dom.closePricingModalBtn?.addEventListener('click', hidePricingModal);
                 dom.themeToggle?.addEventListener('click', () => setTheme(!document.body.classList.contains('dark-theme')));
                 dom.loginBtn?.addEventListener('click', () => netlifyIdentity.open('login'));
                 
-                dom.desktopChatTitleWrapper?.addEventListener('click', (e) => { if(!e.target.closest('#motivation-btn-header') && currentChatId && currentChatId.startsWith('chat-')) renameItem('chat', currentChatId); });
-                dom.mobileChatTitleWrapper?.addEventListener('click', (e) => { if(!e.target.closest('#motivation-btn-mobile') && currentChatId && currentChatId.startsWith('chat-')) renameItem('chat', currentChatId); });
+                dom.desktopChatTitleWrapper?.addEventListener('click', (e) => { if(!e.target.closest('#motivation-btn-header, #calendar-btn') && currentChatId && currentChatId.startsWith('chat-')) renameItem('chat', currentChatId); });
+                dom.mobileChatTitleWrapper?.addEventListener('click', (e) => { if(!e.target.closest('#motivation-btn-mobile, #calendar-btn-mobile') && currentChatId && currentChatId.startsWith('chat-')) renameItem('chat', currentChatId); });
+
                 dom.imageGenBtn?.addEventListener('click', generateImage);
                 dom.pdfUploadBtn?.addEventListener('click', () => dom.pdfUploadInput.click());
                 dom.imageUploadBtn?.addEventListener('click', () => dom.imageUploadInput.click());
                 if (SR && dom.micBtn) {
                     recognition = new SR();
-                    recognition.continuous = false; recognition.interimResults = false; recognition.lang = localStorage.getItem('goatify-lang') || 'es-ES';
-                    recognition.onstart = () => { isRecognizing = true; dom.micBtn.classList.add('glowing-mic'); toggleVoiceSelectorVisibility(true);};
-                    recognition.onend = () => { isRecognizing = false; dom.micBtn.classList.remove('glowing-mic'); if (!speechSynthesis.speaking) toggleVoiceSelectorVisibility(false); };
-                    recognition.onerror = (e) => { console.error("Speech recognition error", e); isRecognizing = false; dom.micBtn.classList.remove('glowing-mic'); toggleVoiceSelectorVisibility(false); };
+                    recognition.continuous = true; recognition.interimResults = false; recognition.lang = 'es-ES';
+                    recognition.onstart = () => { isRecognizing = true; dom.micBtn.classList.add('glowing-mic'); };
+                    recognition.onend = () => { isRecognizing = false; dom.micBtn.classList.remove('glowing-mic'); };
+                    recognition.onerror = (e) => { console.error("Speech recognition error", e); isRecognizing = false; dom.micBtn.classList.remove('glowing-mic'); };
                     recognition.onresult = (event) => {
-                        const transcript = event.results[0][0].transcript;
-                        const activeView = document.querySelector('#view-container > div:not(.hidden)');
-                        let assistantType = 'main';
-                        if(activeView) {
-                            if(activeView.id === 'project-management-view') assistantType = 'project';
-                            else if(activeView.id === 'financial-assistant-view') assistantType = 'financial';
-                            else if(activeView.id === 'notepad-view-container') assistantType = 'notepad';
+                        let final_transcript = '';
+                        for (let i = event.resultIndex; i < event.results.length; ++i) {
+                            if (event.results[i].isFinal) {
+                                final_transcript += event.results[i][0].transcript;
+                            }
                         }
-                        
-                        let activeInput = dom.msgInput;
-                        if(assistantType === 'project') activeInput = dom.projectMsgInput;
-                        else if(assistantType === 'financial') activeInput = document.getElementById('financial-msg');
-                        else if(assistantType === 'notepad') activeInput = dom.notepadMsgInput;
-
-                        activeInput.value = transcript; 
-                        sendMessage(false, null, { assistantType });
+                        if(final_transcript) {
+                            dom.msgInput.value = final_transcript;
+                            sendMessage(false, null, { assistantType: 'main' });
+                        }
                     };
                     dom.micBtn.addEventListener('click', () => {
                         if(isRecognizing) { recognition.stop(); } 
@@ -5348,10 +5358,10 @@
                  });
 
                 dom.modelSelector?.addEventListener('change', () => {
-                    const lang = localStorage.getItem('goatify-lang') || 'es';
                     const selectedValue = dom.modelSelector.value;
-                    if (selectedValue === 'gpt-4o' && (!currentUser || (currentUser.app_metadata?.plan || 'free') === 'free')) {
-                        showInAppNotification(translations[lang].restricted_access_title || "Acceso Restringido", translations[lang].restricted_access_message || "El modelo GOAT X PRO está disponible solo para usuarios con un plan de pago.", 3000);
+                    const plan = currentUser?.app_metadata?.plan || 'free';
+                    if (selectedValue === 'gpt-4o' && plan === 'free') {
+                        showInAppNotification("Acceso Restringido", "El modelo GOAT X PRO está disponible solo para usuarios con un plan de pago.", 3000);
                         dom.modelSelector.value = 'gpt-3.5-turbo-1106';
                     }
                 });
@@ -5359,7 +5369,7 @@
                 dom.clearImageBtn?.addEventListener('click', clearImageData);
                 dom.clearPdfBtn?.addEventListener('click', clearPdfData);
                 dom.imageUploadInput?.addEventListener('change', (e) => { if (e.target.files && e.target.files[0]) { dom.filePreviewArea.style.display = "block"; clearPdfData(); const reader = new FileReader(); reader.onload = (ev) => { selectedImageBase64 = ev.target.result; dom.imagePreview.src = selectedImageBase64; dom.imagePreviewContainer.classList.remove('hidden'); }; reader.readAsDataURL(e.target.files[0]); } });
-                dom.pdfUploadInput?.addEventListener('change', (e) => { const file = e.target.files[0]; const lang = localStorage.getItem('goatify-lang') || 'es'; if (!file || file.type !== 'application/pdf') return; dom.filePreviewArea.style.display = "block"; clearImageData(); dom.pdfNameEl.textContent = file.name; dom.pdfStatusEl.textContent = translations[lang].reading_pdf_status || 'Leyendo...'; dom.pdfPreviewContainer.classList.remove('hidden'); const reader = new FileReader(); reader.onload = async (ev) => { dom.pdfStatusEl.textContent = translations[lang].processing_pdf_status || 'Procesando...'; try { const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(ev.target.result) }).promise; let text = ''; for (let i = 1; i <= pdf.numPages; i++) { const page = await pdf.getPage(i); const content = await page.getTextContent(); text += content.items.map(item => item.str).join(' ') + '\n'; } selectedPdfText = text; dom.pdfStatusEl.textContent = `✅ ${translations[lang].pdf_ready_status || 'Listo'} (${pdf.numPages} ${translations[lang].pages_short || 'pág.'})`; } catch (err) { console.error("Error al procesar el PDF:", err); dom.pdfStatusEl.textContent = `❌ ${translations[lang].pdf_error_status || 'Error al leer PDF.'}`; selectedPdfText = null; setTimeout(clearPdfData, 2000); } }; reader.readAsArrayBuffer(file); });
+                dom.pdfUploadInput?.addEventListener('change', (e) => { const file = e.target.files[0]; if (!file || file.type !== 'application/pdf') return; dom.filePreviewArea.style.display = "block"; clearImageData(); dom.pdfNameEl.textContent = file.name; dom.pdfStatusEl.textContent = 'Leyendo...'; dom.pdfPreviewContainer.classList.remove('hidden'); const reader = new FileReader(); reader.onload = async (ev) => { dom.pdfStatusEl.textContent = 'Procesando...'; try { const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(ev.target.result) }).promise; let text = ''; for (let i = 1; i <= pdf.numPages; i++) { const page = await pdf.getPage(i); const content = await page.getTextContent(); text += content.items.map(item => item.str).join(' ') + '\n'; } selectedPdfText = text; dom.pdfStatusEl.textContent = `✅ Listo (${pdf.numPages} pág.)`; } catch (err) { console.error("Error al procesar el PDF:", err); dom.pdfStatusEl.textContent = `❌ Error al leer PDF.`; selectedPdfText = null; setTimeout(clearPdfData, 2000); } }; reader.readAsArrayBuffer(file); });
                 dom.menuToggle?.addEventListener('click', (e) => { e.stopPropagation(); toggleSidebar(true); });
                 dom.sidebarOverlay?.addEventListener('click', () => toggleSidebar(false));
                 dom.sidebarToggleArrow?.addEventListener('click', () => {
@@ -5385,45 +5395,15 @@
                 dom.logoutBtn?.addEventListener('click', () => { netlifyIdentity.logout(); dom.userMenuPopup.classList.add('hidden');});
                 
                 dom.userSettingsIcon?.addEventListener('click', (e) => { e.stopPropagation(); showSettingsModal(); });
-
-                const workflowConfigs = {
-                    'project-management': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_pm, workflow: 'project-management' },
-                    'financial-assistant': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_financial, workflow: 'financial-assistant' },
-                    'notepad-app': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_notepad, workflow: 'notepad-app' },
-                    'create-full-post': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_social_1, workflow: 'create-full-post', initialMessages: [{ role: 'assistant', content: translations[localStorage.getItem('goatify-lang') || 'es'].create_full_post_initial_message || '¡Claro! Vamos a crear un post increíble. ¿Para qué red social lo necesitas (Instagram, Facebook, LinkedIn, etc.)?' }] },
-                    'persuasive-copy': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_social_2, workflow: 'persuasive-copy', initialMessages: [{ role: 'assistant', content: translations[localStorage.getItem('goatify-lang') || 'es'].persuasive_copy_initial_message || 'Estoy listo para redactar textos que vendan. ¿Para qué necesitas este copy? (ej: Anuncio de Facebook, Post de Venta, Descripción de Producto)' }] },
-                    'post-ideas': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_social_3, workflow: 'post-ideas', initialMessages: [{ role: 'assistant', content: translations[localStorage.getItem('goatify-lang') || 'es'].post_ideas_initial_message || '¡Acabemos con el bloqueo creativo! Dime un tema y te daré 7 ideas de contenido excelentes.' }] },
-                    'brand-strategy': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_social_4, workflow: 'brand-strategy', initialMessages: [{ role: 'assistant', content: translations[localStorage.getItem('goatify-lang') || 'es'].brand_strategy_initial_message || 'Definamos el corazón de tu marca. ¿Cuál es el nombre de tu negocio y a qué se dedica?' }] },
-                    'competitor-analysis': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_business_1, workflow: 'competitor-analysis', model: 'sonar', initialMessages: [{ role: 'assistant', content: translations[localStorage.getItem('goatify-lang') || 'es'].competitor_analysis_initial_message || "Estoy listo para analizar a tu competencia usando el buscador web. Por favor, pega la URL (dirección web) de la página que quieres que investigue para entregarte un análisis DAFO simplificado." }] },
-                    'buyer-persona': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_business_2, workflow: 'buyer-persona', initialMessages: [{ role: 'assistant', content: translations[localStorage.getItem('goatify-lang') || 'es'].buyer_persona_initial_message || "Vamos a definir a tu cliente ideal (Buyer Persona). Describe tu producto o servicio, y te haré preguntas para construir el perfil detallado paso a paso." }] },
-                    'brand-names': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_business_3, workflow: 'brand-names', initialMessages: [{ role: 'assistant', content: translations[localStorage.getItem('goatify-lang') || 'es'].brand_names_initial_message || "¡Excelente! Busquemos un nombre increíble. Describe brevemente tu idea de negocio, tu público y el estilo que buscas (ej. moderno, clásico, divertido) para generar nombres y slogans." }] },
-                    'sales-assistant': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_sales_1, workflow: 'sales-assistant', initialMessages: [{ role: 'assistant', content: translations[localStorage.getItem('goatify-lang') || 'es'].sales_assistant_initial_message || 'Para ayudarte a cerrar esa venta, pega aquí el mensaje de tu cliente.' }] },
-                    'email-writing': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_sales_2, workflow: 'email-writing', initialMessages: [{ role: 'assistant', content: translations[localStorage.getItem('goatify-lang') || 'es'].email_writing_initial_message || 'Creemos un email que convierta. ¿Cuál es el objetivo principal de este correo?' }] },
-                    'english-teacher-translate': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_eng_1, workflow: 'english-teacher-translate', initialMessages: [{ role: 'assistant', content: translations[localStorage.getItem('goatify-lang') || 'es'].english_translate_initial_message || 'Of course! Please provide the text you want me to translate or correct.' }] },
-                    'english-teacher-vocabulary': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_eng_2, workflow: 'english-teacher-vocabulary', initialMessages: [{ role: 'assistant', content: translations[localStorage.getItem('goatify-lang') || 'es'].english_vocabulary_initial_message || 'Excellent! Let\'s learn some new vocabulary. What topic are you interested in? (e.g., "business negotiations", "travel")' }] },
-                    'english-teacher-practice': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_eng_3, workflow: 'english-teacher-practice', initialMessages: [{ role: 'assistant', content: translations[localStorage.getItem('goatify-lang') || 'es'].english_practice_initial_message || 'Great! Let\'s practice our conversation. So, tell me about your day.' }] },
-                    'social-skills': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_sales_4, workflow: 'social-skills', initialMessages: [{ role: 'assistant', content: translations[localStorage.getItem('goatify-lang') || 'es'].social_skills_initial_message || 'Las habilidades sociales son clave. ¿En qué situación te gustaría mejorar tu comunicación? (Ej: una reunión de networking, una conversación difícil, etc.)' }] },
-                    'design-web': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_sales_3, workflow: 'design-web', model: 'gpt-4o', initialMessages: [{ role: 'assistant', content: translations[localStorage.getItem('goatify-lang') || 'es'].design_web_initial_message || 'Estoy listo para diseñar con código. Describe la página o componente que quieres crear, y lo programaré para ti.' }] },
-                    'conflict-resolution': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_expert_2, workflow: 'conflict-resolution', initialMessages: [{ role: 'assistant', content: translations[localStorage.getItem('goatify-lang') || 'es'].conflict_resolution_initial_message || 'Entiendo. Las situaciones difíciles requieren una comunicación clara. Por favor, describe el conflicto objetivamente: ¿quiénes están involucrados y cuál es el punto principal de desacuerdo?' }] },
-                    'decision-lab': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_expert_1, workflow: 'decision-lab', initialMessages: [{ role: 'assistant', content: translations[localStorage.getItem('goatify-lang') || 'es'].decision_lab_initial_message || 'Bienvenido al Laboratorio de Decisiones. Recuerda que una decisión puede cambiar el rumbo de tu vida. Para ayudarte a analizar tu situación, por favor, dime: ¿Cuál es la decisión que necesitas tomar y qué opciones estás considerando?' }] },
-                };
                 
-                document.body.addEventListener('click', e => { 
-                    const workflowHeader = e.target.closest('.workflow-header:not([data-workflow])');
-                    if (workflowHeader) {
-                        const workflowCategory = workflowHeader.closest('.workflow-category');
-                        if (workflowCategory) {
-                             workflowCategory.classList.toggle('open');
+                // *** FIX: Corrected event delegation for sidebar category toggles ***
+                document.getElementById('sidebar-scrollable-content').addEventListener('click', e => {
+                    const categoryHeader = e.target.closest('.workflow-header, .actions-header, .folders-header');
+                    if (categoryHeader) {
+                        const parentCategory = categoryHeader.parentElement;
+                        if(parentCategory.classList.contains('workflow-category') || parentCategory.classList.contains('actions-category') || parentCategory.classList.contains('folders-category')) {
+                            parentCategory.classList.toggle('open');
                         }
-                    }
-                    const actionsHeader = e.target.closest('.actions-header');
-                    if (actionsHeader) {
-                        actionsHeader.closest('.actions-category').classList.toggle('open');
-                    }
-                    const foldersHeader = e.target.closest('.folders-header');
-                    if (foldersHeader && !e.target.closest('.chat-item-actions')) {
-                        const folderCategory = foldersHeader.closest('.folders-category');
-                        folderCategory.classList.toggle('open');
                     }
 
                     const workflowButton = e.target.closest('[data-workflow]');
@@ -5442,11 +5422,11 @@
                 
                 dom.webLaunchOfferBtn.addEventListener('click', () => { 
                     const lang = localStorage.getItem('goatify-lang') || 'es';
-                    const offerTitle = `<i class="fas fa-gift mr-2"></i>${translations[lang].web_offer_title || 'Tu Oferta de Lanzamiento Exclusiva'}`; 
-                    const offerMessage = `<p class="font-bold mb-2">${translations[lang].web_offer_desc_part1 || 'Al suscribirte a nuestro Plan Pro por $17/mes, desbloqueas:'}</p><ul class="list-disc list-inside space-y-2 text-left"><li><strong>${translations[lang].web_offer_benefit1_strong || 'Acceso Ilimitado a Goatify IA:'}</strong> ${translations[lang].web_offer_benefit1_text || 'Todos los modelos y workflows sin restricciones.'}</li><li><strong>${translations[lang].web_offer_benefit2_strong || 'Construcción de tu Página Web Profesional:'}</strong> ${translations[lang].web_offer_benefit2_text || 'Nosotros construiremos la primera versión, ¡gratis!'}</li></ul><p class="font-bold mt-4 mb-2">${translations[lang].web_offer_how_it_works_title || '¿Cómo funciona?'}</p><ol class="list-decimal list-inside space-y-1 text-left"><li><strong>${translations[lang].web_offer_step1_strong || 'Agenda tu Sesión Estratégica:'}</strong> ${translations[lang].web_offer_step1_text || 'Al confirmar, agenda tu llamada de 20 min.'}</li><li><strong>${translations[lang].web_offer_step2_strong || 'Co-creación:'}</strong> ${translations[lang].web_offer_step2_text || 'En la llamada definiremos objetivos y crearemos el borrador con IA.'}</li><li><strong>${translations[lang].web_offer_step3_strong || 'Entrega:'}</strong> ${translations[lang].web_offer_step3_text || 'Nuestro equipo lo pulirá y te entregará una web de una sección, lista.'}</li></ol><p class="text-xs mt-4 italic"><strong>${translations[lang].web_offer_important_note_strong || 'Importante:'}</strong> ${translations[lang].web_offer_important_note_text || 'La web es tuya para siempre. Para mantenerla online con nuestro hosting, necesitas tu suscripción Pro activa. Si cancelas, te entregamos el código completo.'}</p>`; 
-                    showModal({ title: offerTitle, body: offerMessage, confirmText: translations[lang].schedule_strategic_session_btn || 'Agendar Sesión Estratégica' }).then(res => { if (res.confirmed) { window.open('https://calendly.com/goatify', '_blank'); } });
+                    const offerTitle = `<i class="fas fa-gift mr-2"></i>Tu Oferta de Lanzamiento Exclusiva`; 
+                    const offerMessage = `<p class="font-bold mb-2">Al suscribirte a nuestro Plan Pro por $17/mes, desbloqueas:</p><ul class="list-disc list-inside space-y-2 text-left"><li><strong>Acceso Ilimitado a Goatify IA:</strong> Todos los modelos y workflows sin restricciones.</li><li><strong>Construcción de tu Página Web Profesional:</strong> Nosotros construiremos la primera versión, ¡gratis!</li></ul><p class="font-bold mt-4 mb-2">¿Cómo funciona?</p><ol class="list-decimal list-inside space-y-1 text-left"><li><strong>Agenda tu Sesión Estratégica:</strong> Al confirmar, agenda tu llamada de 20 min.</li><li><strong>Co-creación:</strong> En la llamada definiremos objetivos y crearemos el borrador con IA.</li><li><strong>Entrega:</strong> Nuestro equipo lo pulirá y te entregará una web de una sección, lista.</li></ol><p class="text-xs mt-4 italic"><strong>Importante:</strong> La web es tuya para siempre. Para mantenerla online con nuestro hosting, necesitas tu suscripción Pro activa. Si cancelas, te entregamos el código completo.</p>`; 
+                    showModal({ title: offerTitle, body: offerMessage, confirmText: 'Agendar Sesión Estratégica' }).then(res => { if (res.confirmed) { window.open('https://calendly.com/goatify', '_blank'); } });
                 });
-                dom.freeGuidesLink.addEventListener('click', (e) => { e.preventDefault(); const isPaidUser = currentUser && currentUser.app_metadata?.plan && currentUser.app_metadata.plan !== 'free'; if (isPaidUser) { window.open('https://goatify.app/guiasIA', '_blank'); } else { const lang = localStorage.getItem('goatify-lang') || 'es'; const title = translations[lang].exclusive_access_title || 'Acceso Exclusivo para Suscriptores'; const message = translations[lang].guides_subscription_message || 'Estas guías se actualizan semanalmente con estrategias de negocio que te ayudarán a crecer un montón. Son un beneficio exclusivo para nuestros suscriptores. ¡Únete a un plan para desbloquearlas!'; showModal({ title, body: message, confirmText: translations[lang].view_plans_btn || 'Ver Planes' }).then(res => { if (res.confirmed) { showPricingModal(); } }); } });
+                dom.freeGuidesLink.addEventListener('click', (e) => { e.preventDefault(); const isPaidUser = currentUser && currentUser.app_metadata?.plan && currentUser.app_metadata.plan !== 'free'; if (isPaidUser) { window.open('https://goatify.app/guiasIA', '_blank'); } else { const lang = localStorage.getItem('goatify-lang') || 'es'; const title = 'Acceso Exclusivo para Suscriptores'; const message = 'Estas guías se actualizan semanalmente con estrategias de negocio que te ayudarán a crecer un montón. Son un beneficio exclusivo para nuestros suscriptores. ¡Únete a un plan para desbloquearlas!'; showModal({ title, body: message, confirmText: 'Ver Planes' }).then(res => { if (res.confirmed) { showPricingModal(); } }); } });
                 dom.closeHtmlPreviewModalBtn?.addEventListener('click', () => { dom.htmlPreviewModal.classList.add('hidden'); dom.htmlPreviewModal.classList.remove('flex'); });
                 
                 dom.voiceSelector?.addEventListener('change', (e) => { selectedVoice = availableVoices.find(voice => voice.name === e.target.value); });
@@ -5497,7 +5477,7 @@
                 window.addEventListener('resize', setAppHeight);
                 dom.selectChatsBtn?.addEventListener('click', () => toggleSelectMode(true));
                 dom.cancelSelectModeBtn?.addEventListener('click', () => toggleSelectMode(false));
-                dom.deleteSelectedBtn?.addEventListener('click', async () => { if (chatsToDelete.size === 0) return; const lang = localStorage.getItem('goatify-lang') || 'es'; const confirm = await showModal({ title: `${translations[lang].delete_confirm_prefix || 'Eliminar'} ${chatsToDelete.size} ${translations[lang].item_s || 'elemento(s)'}`, body: translations[lang].undo_action_warning || 'Esta acción es irreversible. ¿Confirmas la eliminación?', confirmText: translations[lang].delete || 'Eliminar', dangerConfirm: true }); if (confirm.confirmed) { chatsToDelete.forEach(id => deleteItem(id.split('-')[0], id)); toggleSelectMode(false); } });
+                dom.deleteSelectedBtn?.addEventListener('click', async () => { if (chatsToDelete.size === 0) return; const lang = localStorage.getItem('goatify-lang') || 'es'; const confirm = await showModal({ title: `Eliminar ${chatsToDelete.size} elemento(s)`, body: 'Esta acción es irreversible. ¿Confirmas la eliminación?', confirmText: 'Eliminar', dangerConfirm: true }); if (confirm.confirmed) { chatsToDelete.forEach(id => deleteItem(id.split('-')[0], id)); toggleSelectMode(false); } });
                 dom.settingsBtn?.addEventListener('click', showSettingsModal);
                 dom.closeSettingsModal?.addEventListener('click', hideSettingsModal);
                 dom.settingsUpgradePlanBtn?.addEventListener('click', () => { hideSettingsModal(); showPricingModal(); });
@@ -5580,6 +5560,7 @@
                     });
                 });
 
+                // NOTEPAD Event Listeners
                 dom.addNewNoteBtn?.addEventListener('click', () => createNewNote('text'));
                 dom.addNewDrawingBtn?.addEventListener('click', () => createNewNote('drawing'));
                 dom.deleteNoteBtn?.addEventListener('click', () => deleteItem('note', currentNoteId));
@@ -5694,7 +5675,7 @@
                 });
                 dom.gamificationBtn?.addEventListener('click', () => {
                     if(!currentUser) {
-                        showInAppNotification(translations[localStorage.getItem('goatify-lang') || 'es'].exclusive_feature_title || "Función Exclusiva", translations[localStorage.getItem('goatify-lang') || 'es'].exclusive_feature_message || "La gamificación está disponible para usuarios logueados.", 3000);
+                        showInAppNotification("Función Exclusiva", "La gamificación está disponible para usuarios registrados.", 3000);
                         return;
                     }
                     renderGamificationModal();
@@ -5724,16 +5705,14 @@
                     dom.gamificationRulesModal.classList.add('hidden');
                     dom.gamificationRulesModal.classList.remove('flex');
                 });
-                document.querySelectorAll('.gamification-tab').forEach(tab => {
+                dom.gamificationModal.querySelectorAll('.gamification-tab').forEach(tab => {
                     tab.addEventListener('click', () => {
-                        document.querySelector('.gamification-tab.active')?.classList.remove('active');
+                        dom.gamificationModal.querySelector('.gamification-tab.active').classList.remove('active');
                         tab.classList.add('active');
-                        document.querySelectorAll('.gamification-tab-content').forEach(content => content.classList.add('hidden'));
-                        const tabContent = document.querySelector(`#gamification-tab-${tab.dataset.tab}`);
-                        if (tabContent) tabContent.classList.remove('hidden');
+                        dom.gamificationModal.querySelectorAll('.gamification-tab-content').forEach(content => content.classList.add('hidden'));
+                         dom.gamificationModal.querySelector(`#gamification-tab-${tab.dataset.tab}`).classList.remove('hidden');
                     });
                 });
-
                 dom.missionsContainer.addEventListener('click', (e) => {
                     const button = e.target.closest('button[data-mission-id]');
                     if (button && !button.disabled) {
@@ -5748,8 +5727,11 @@
                         } else if (mission && mission.action === 'generateImage') {
                             generateImage();
                             dom.closeGamificationModal.click();
-                        } else if (mission && (mission.id === 'week-organized' || mission.id === 'project-created')) {
+                        } else if (mission && mission.id === 'week-organized') {
                             dom.closeGamificationModal.click();
+                        } else if (mission && mission.id === 'project-created') {
+                            dom.closeGamificationModal.click();
+                            selectChat('project-management');
                         }
                     }
                 });
@@ -5896,15 +5878,14 @@
             function renderListView(chatId) {
                 const { projectData } = state.chats[chatId];
                 dom.listView.innerHTML = ''; 
-                const lang = localStorage.getItem('goatify-lang') || 'es';
 
                 const header = document.createElement('div');
                 header.className = 'list-view-header flex-shrink-0';
                 header.innerHTML = `
-                     <span class="truncate">${translations[lang].task_name_list || 'Nombre'}</span>
-                    <span class="truncate">${translations[lang].task_date_time_list || 'Fecha y Hora'}</span>
-                    <span class="truncate">${translations[lang].task_priority_list || 'Prioridad'}</span>
-                    <span class="truncate">${translations[lang].task_labels_list || 'Etiquetas'}</span>
+                     <span class="truncate">Nombre</span>
+                    <span class="truncate">Fecha y Hora</span>
+                    <span class="truncate">Prioridad</span>
+                    <span class="truncate">Etiquetas</span>
                     <span class="truncate"></span>
                 `;
                 dom.listView.appendChild(header);
@@ -5945,7 +5926,7 @@
                                 <input type="time" class="task-time-input" value="${task.time || ''}" data-task-id="${task.id}">
                             </span>
                             <div class="priority-cell" data-task-id="${task.id}">
-                                ${task.urgent ? `<i class="fas fa-flag text-red-500" title="${translations[lang].priority_urgent || 'Urgente'}"></i>` : `<i class="far fa-flag text-text-medium" title="${translations[lang].priority_not_urgent || 'No urgente'}"></i>`}
+                                ${task.urgent ? '<i class="fas fa-flag text-red-500" title="Urgente"></i>' : '<i class="far fa-flag text-text-medium" title="No urgente"></i>'}
                             </div>
                             <div class="task-labels truncate">${labelsHtml || '–'}</div>
                             <div class="text-center">
@@ -5961,7 +5942,7 @@
                     const newRowEl = document.createElement('div');
                     newRowEl.className = 'list-view-task';
                     newRowEl.innerHTML = `
-                        <button class="add-task-to-list-btn text-left text-text-medium hover:text-primary"><i class="fas fa-plus mr-2"></i><span data-translate-key="add_task_btn_short">${translations[lang].add_task_btn_short}</span></button>
+                        <button class="add-task-to-list-btn text-left text-text-medium hover:text-primary"><i class="fas fa-plus mr-2"></i>Añadir tarea</button>
                         <span/><span/><span/><span/>
                     `;
                     newRowEl.querySelector('.add-task-to-list-btn').addEventListener('click', () => {
@@ -6047,7 +6028,7 @@
 
                     const addTaskBtn = document.createElement('button');
                     addTaskBtn.className = 'add-task-to-list-btn text-left text-text-medium hover:text-primary p-2 w-full';
-                    addTaskBtn.innerHTML = `<i class="fas fa-plus mr-2"></i><span data-translate-key="add_task_btn_short">Añadir tarea</span>`;
+                    addTaskBtn.innerHTML = `<i class="fas fa-plus mr-2"></i>Añadir tarea`;
                     addTaskBtn.onclick = () => {
                          editProjectTask(chatId, null, column.id);
                     };
@@ -6097,11 +6078,10 @@
             }
 
             async function deleteTask(taskId, chatId) {
-                const lang = localStorage.getItem('goatify-lang') || 'es';
                 const result = await showModal({
-                    title: translations[lang].delete_task_confirm_title,
-                    body: translations[lang].delete_task_confirm_body,
-                    confirmText: translations[lang].delete_btn,
+                    title: 'Confirmar Eliminación',
+                    body: '¿Estás seguro de que quieres eliminar esta tarea?',
+                    confirmText: 'Eliminar',
                     dangerConfirm: true
                 });
 
@@ -6126,18 +6106,17 @@
             async function editProjectTask(chatId, taskId, columnIdForNew) {
                 const task = taskId ? findTask(taskId)?.task : null;
                 const isNew = !task;
-                const lang = localStorage.getItem('goatify-lang') || 'es';
                 
                 const result = await showModal({
-                    title: isNew ? translations[lang].new_project_task_title || 'Nueva Tarea de Proyecto' : translations[lang].edit_task_title || 'Editar Tarea',
+                    title: isNew ? 'Nueva Tarea de Proyecto' : 'Editar Tarea',
                     body: `
                         <div class="space-y-4">
-                            <div><label for="task-content-edit" class="block text-sm font-medium text-text-light mb-1">${translations[lang].content_label || 'Contenido'}:</label><textarea id="task-content-edit" class="w-full p-2 rounded bg-input border border-themed h-24">${isNew ? '' : task.content}</textarea></div>
-                            <div class="flex gap-4"><div class="flex-1"><label for="task-due-date" class="block text-sm font-medium text-text-light mb-1">${translations[lang].date_label || 'Fecha'}:</label><input type="date" id="task-due-date" value="${isNew ? '' : task.dueDate || ''}" class="w-full p-2 rounded bg-input border border-themed"></div><div class="flex-1"><label for="task-due-time" class="block text-sm font-medium text-text-light mb-1">${translations[lang].time_label || 'Hora'}:</label><input type="time" id="task-due-time" value="${isNew ? '' : task.time || ''}" class="w-full p-2 rounded bg-input border border-themed"></div></div>
-                            <div><label for="task-labels-input" class="block text-sm font-medium text-text-light mb-1">${translations[lang].labels_label || 'Etiquetas'} (${translations[lang].labels_hint || 'separadas por coma'}):</label><input type="text" id="task-labels-input" value="${isNew ? '' : (task.labels || []).join(', ')}" class="w-full p-2 rounded bg-input border border-themed"></div>
-                            <div><label class="flex items-center cursor-pointer"><input type="checkbox" id="task-urgent-checkbox" class="rounded bg-input border-themed" ${isNew ? '' : (task.urgent ? 'checked' : '')}><span class="ml-2 text-sm text-text-light">${translations[lang].mark_urgent_label || 'Marcar como Urgente'}</span><i class="fas fa-flag text-red-500 ml-2"></i></label></div>
+                            <div><label for="task-content-edit" class="block text-sm font-medium text-text-light mb-1">Contenido:</label><textarea id="task-content-edit" class="w-full p-2 rounded bg-input border border-themed h-24">${isNew ? '' : task.content}</textarea></div>
+                            <div class="flex gap-4"><div class="flex-1"><label for="task-due-date" class="block text-sm font-medium text-text-light mb-1">Fecha:</label><input type="date" id="task-due-date" value="${isNew ? '' : task.dueDate || ''}" class="w-full p-2 rounded bg-input border border-themed"></div><div class="flex-1"><label for="task-due-time" class="block text-sm font-medium text-text-light mb-1">Hora:</label><input type="time" id="task-due-time" value="${isNew ? '' : task.time || ''}" class="w-full p-2 rounded bg-input border border-themed"></div></div>
+                            <div><label for="task-labels-input" class="block text-sm font-medium text-text-light mb-1">Etiquetas (separadas por coma):</label><input type="text" id="task-labels-input" value="${isNew ? '' : (task.labels || []).join(', ')}" class="w-full p-2 rounded bg-input border border-themed"></div>
+                            <div><label class="flex items-center cursor-pointer"><input type="checkbox" id="task-urgent-checkbox" class="rounded bg-input border-themed" ${isNew ? '' : (task.urgent ? 'checked' : '')}><span class="ml-2 text-sm text-text-light">Marcar como Urgente</span><i class="fas fa-flag text-red-500 ml-2"></i></label></div>
                         </div>`,
-                    confirmText: translations[lang].save_btn || 'Guardar'
+                    confirmText: 'Guardar'
                 });
 
                 if (result.confirmed) {
@@ -6179,10 +6158,10 @@
                     
                     setTimeout(async () => {
                          const projResult = await showModal({
-                            title: translations[lang].create_new_project_title || 'Crear Nuevo Proyecto',
-                            body: `<p>${translations[lang].new_project_from_task_desc || 'Ingresa un nombre para el nuevo proyecto basado en la tarea'} "${content.substring(0,30)}...".</p>
+                            title: 'Crear Nuevo Proyecto',
+                            body: `<p>Ingresa un nombre para el nuevo proyecto basado en la tarea "${content.substring(0,30)}...".</p>
                                 <input type="text" id="new-proj-name" class="w-full p-2 rounded bg-input border border-themed mt-2" value="${content.split(' ').slice(0,4).join(' ')}">`,
-                            confirmText: translations[lang].create_project_btn || 'Crear Proyecto'
+                            confirmText: 'Crear Proyecto'
                         });
 
                         if(projResult.confirmed && projResult.data['new-proj-name']) {
@@ -6211,14 +6190,14 @@
                 };
                 
                 const result = await showModal({
-                    title: isNew ? translations[lang].new_personal_task_title || 'Nueva Tarea Personal' : translations[lang].edit_personal_task_title || 'Editar Tarea Personal',
+                    title: isNew ? 'Nueva Tarea Personal' : 'Editar Tarea Personal',
                     body: `
                     <div class="space-y-4">
-                        <div><label for="cal-task-content-edit" class="block text-sm font-medium text-text-light mb-1">${translations[lang].content_label || 'Contenido'}:</label><textarea id="cal-task-content-edit" class="w-full p-2 rounded bg-input border border-themed h-24">${isNew ? '' : task.content}</textarea></div>
-                        <div class="flex gap-4"><div class="flex-1"><label for="cal-task-date" class="block text-sm font-medium text-text-light mb-1">${translations[lang].date_label || 'Fecha'}:</label><input type="date" id="cal-task-date" value="${isNew ? preselectedDate || '' : taskDayKey}" class="w-full p-2 rounded bg-input border border-themed"></div><div class="flex-1"><label for="cal-task-time" class="block text-sm font-medium text-text-light mb-1">${translations[lang].time_label || 'Hora'}:</label><input type="time" id="cal-task-time" value="${isNew ? preselectedTime || '' : task.time || ''}" class="w-full p-2 rounded bg-input border border-themed"></div></div>
-                        ${isNew ? `<div><label class="flex items-center cursor-pointer"><input type="checkbox" id="create-project-checkbox" class="rounded bg-input border-themed"><span class="ml-2 text-sm text-text-light">${translations[lang].create_project_checkbox_label || 'Crear un nuevo tablero de proyecto con esta tarea'}</span></label></div>` : ''}
+                        <div><label for="cal-task-content-edit" class="block text-sm font-medium text-text-light mb-1">Contenido:</label><textarea id="cal-task-content-edit" class="w-full p-2 rounded bg-input border border-themed h-24">${isNew ? '' : task.content}</textarea></div>
+                        <div class="flex gap-4"><div class="flex-1"><label for="cal-task-date" class="block text-sm font-medium text-text-light mb-1">Fecha:</label><input type="date" id="cal-task-date" value="${isNew ? preselectedDate || '' : taskDayKey}" class="w-full p-2 rounded bg-input border border-themed"></div><div class="flex-1"><label for="cal-task-time" class="block text-sm font-medium text-text-light mb-1">Hora:</label><input type="time" id="cal-task-time" value="${isNew ? preselectedTime || '' : task.time || ''}" class="w-full p-2 rounded bg-input border border-themed"></div></div>
+                        ${isNew ? `<div><label class="flex items-center cursor-pointer"><input type="checkbox" id="create-project-checkbox" class="rounded bg-input border-themed"><span class="ml-2 text-sm text-text-light">Crear un nuevo tablero de proyecto con esta tarea</span></label></div>` : ''}
                     </div>`,
-                    confirmText: translations[lang].save_btn || 'Guardar'
+                    confirmText: 'Guardar'
                 });
 
                 if (result.confirmed) {
@@ -6293,15 +6272,14 @@
                 const { projectData } = state.chats[chatId];
                 const allTasks = projectData.columns.flatMap(c => c.tasks || []);
                 const allTags = [...new Set(allTasks.flatMap(t => t.labels || []))];
-                const lang = localStorage.getItem('goatify-lang') || 'es';
                 
                 dom.tagFilterDropdown.innerHTML = '';
                 const allBtn = document.createElement('button');
                 allBtn.className = 'block w-full text-left p-2 hover:bg-medium rounded-md text-sm';
-                allBtn.textContent = translations[lang].all_tags_filter || 'Todas las Etiquetas';
+                allBtn.textContent = 'Todas las Etiquetas';
                 allBtn.onclick = () => {
                     activeTagFilter = null;
-                    dom.tagFilterBtn.innerHTML = `<i class="fas fa-tag mr-1"></i> ${translations[lang].filter_tags}`;
+                    dom.tagFilterBtn.innerHTML = `<i class="fas fa-tag mr-1"></i> Filtrar`;
                     dom.tagFilterDropdown.classList.add('hidden');
                     renderProjectBoard(chatId);
                 };
@@ -6326,21 +6304,20 @@
             function renderFinancialAssistant(chatId) {
                 const chat = state.chats[chatId];
                 if (!chat) return;
-                const lang = localStorage.getItem('goatify-lang') || 'es';
                 
                 dom.financialAssistantView.innerHTML = `
                      <div id="financial-tools-container" class="flex-1 overflow-y-auto p-4 space-y-4">
                          <div class="finance-summary">
                             <div>
-                                <h4 data-translate-key="total_income">${translations[lang].total_income || 'Ingresos Totales'}</h4>
+                                <h4>Ingresos Totales</h4>
                                 <p id="total-income" class="text-green-400">$0.00</p>
                             </div>
                             <div>
-                                <h4 data-translate-key="total_expenses">${translations[lang].total_expenses || 'Gastos Totales'}</h4>
+                                <h4>Gastos Totales</h4>
                                 <p id="total-expenses" class="text-red-400">$0.00</p>
                             </div>
                             <div>
-                                <h4 data-translate-key="net_balance">${translations[lang].net_balance || 'Balance Neto'}</h4>
+                                <h4>Balance Neto</h4>
                                 <p id="net-balance">$0.00</p>
                             </div>
                         </div>
@@ -6348,15 +6325,15 @@
                         <div id="finance-unified-view" class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div class="finance-section">
                                 <div class="finance-section-header">
-                                    <h3 class="text-green-400" data-translate-key="income">${translations[lang].income || 'Ingresos'}</h3>
-                                    <button id="add-income-category-btn" class="text-sm btn-primary p-1 px-2"><i class="fas fa-folder-plus mr-1"></i> <span data-translate-key="new_folder_short">${translations[lang].new_folder_short || 'Nueva Carpeta'}</span></button>
+                                    <h3 class="text-green-400">Ingresos</h3>
+                                    <button id="add-income-category-btn" class="text-sm btn-primary p-1 px-2"><i class="fas fa-folder-plus mr-1"></i> Nueva Carpeta</button>
                                 </div>
                                 <div id="income-categories-list" class="space-y-3"></div>
                             </div>
                             <div class="finance-section">
                                 <div class="finance-section-header">
-                                    <h3 class="text-red-400" data-translate-key="expenses">${translations[lang].expenses || 'Gastos'}</h3>
-                                    <button id="add-expense-category-btn" class="text-sm btn-primary p-1 px-2"><i class="fas fa-folder-plus mr-1"></i> <span data-translate-key="new_folder_short">${translations[lang].new_folder_short || 'Nueva Carpeta'}</span></button>
+                                    <h3 class="text-red-400">Gastos</h3>
+                                    <button id="add-expense-category-btn" class="text-sm btn-primary p-1 px-2"><i class="fas fa-folder-plus mr-1"></i> Nueva Carpeta</button>
                                 </div>
                                 <div id="expense-categories-list" class="space-y-3"></div>
                             </div>
@@ -6364,7 +6341,7 @@
                     </div>
                     <div id="financial-chat-container">
                         <div id="financial-chat-header" class="flex justify-between items-center cursor-pointer p-2 border-t md:border-t-0 md:border-b border-themed">
-                            <h3 class="text-lg font-semibold text-primary" data-translate-key="financial_assistant">${translations[lang].financial_assistant || 'Asistente Financiero'}</h3>
+                            <h3 class="text-lg font-semibold text-primary">Asistente Financiero</h3>
                             <button id="financial-chat-toggle" class="text-xl p-2"><i class="fas fa-angle-up"></i></button>
                         </div>
                         <div class="financial-chat-body">
@@ -6372,11 +6349,11 @@
                             <div id="financial-input-area" class="mt-auto pt-2 p-2">
                                 <div class="pro-controls-bg rounded-lg p-1.5 mb-2">
                                      <div class="flex items-center space-x-2">
-                                        <label for="financial-model-selector" class="font-medium text-xs text-text-medium pl-2 pr-1" data-translate-key="model">${translations[lang].model}</label>
+                                        <label for="financial-model-selector" class="font-medium text-xs text-text-medium pl-2 pr-1">Modelo:</label>
                                         <div class="model-selector-wrapper">
                                             <select id="financial-model-selector" class="rounded-md py-1 pl-1.5 focus:outline-none focus:ring-2 focus:ring-primary text-sm bg-transparent text-text-light">
-                                                 <option value="gpt-3.5-turbo-1106" data-translate-key="model_general">${translations[lang].model_general}</option>
-                                                 <option value="sonar" data-translate-key="model_web">${translations[lang].model_web}</option>
+                                                 <option value="gpt-3.5-turbo-1106">GOAT X</option>
+                                                 <option value="sonar">Búsqueda Web</option>
                                                  <option value="gpt-4o" class="goat-x-pro-model">GOAT X PRO</option>
                                              </select>
                                               <i class="fas fa-chevron-down text-xs"></i>
@@ -6384,7 +6361,7 @@
                                      </div>
                                 </div>
                                 <div class="relative rounded-xl flex items-center bg-input p-1 sm:p-2 input-wrapper">
-                                    <textarea id="financial-msg" placeholder="${translations[lang].financial_chat_placeholder || 'Pregúntale a la IA sobre tus finanzas...'}" class="flex-1 bg-transparent p-2 h-10 max-h-28 resize-none outline-none placeholder-themed text-sm"></textarea>
+                                    <textarea id="financial-msg" placeholder="Pregúntale a la IA sobre tus finanzas..." class="flex-1 bg-transparent p-2 h-10 max-h-28 resize-none outline-none placeholder-themed text-sm"></textarea>
                                     <button id="financial-send" title="Enviar" class="p-2 sm:p-3 disabled:opacity-50 disabled:cursor-not-allowed text-primary"><i class="fa fa-paper-plane text-lg"></i></button>
                                 </div>
                             </div>
@@ -6412,7 +6389,6 @@
                     chat.financialData = { incomeCategories: [], expenseCategories: [] };
                 }
                 const { incomeCategories = [], expenseCategories = [] } = chat.financialData;
-                const lang = localStorage.getItem('goatify-lang') || 'es';
 
                 const incomeList = dom.financialAssistantView.querySelector('#income-categories-list');
                 const expenseList = dom.financialAssistantView.querySelector('#expense-categories-list');
@@ -6426,7 +6402,7 @@
 
                     let itemsHTML = (category.items || []).map(item => `
                         <div class="finance-item-row" data-item-id="${item.id}">
-                            <input type="text" class="finance-item-input" data-field="description" value="${item.description}" placeholder="${translations[lang].description_placeholder || 'Descripción...'}">
+                            <input type="text" class="finance-item-input" data-field="description" value="${item.description}" placeholder="Descripción...">
                             <input type="number" class="finance-item-input text-right" data-field="amount" value="${item.amount}" placeholder="0.00">
                             <button class="delete-finance-item-btn text-red-500 p-1"><i class="fas fa-times"></i></button>
                         </div>
@@ -6436,8 +6412,8 @@
                         <div class="finance-category-header">
                             <input type="text" class="finance-category-name-input" value="${category.name}">
                             <div>
-                                <button class="add-finance-item-btn text-primary p-1 mr-2" title="${translations[lang].add_item_title || 'Añadir Item'}"><i class="fas fa-plus-circle"></i></button>
-                                <button class="delete-finance-category-btn text-red-500 p-1" title="${translations[lang].delete_folder_title || 'Eliminar Carpeta'}"><i class="fas fa-trash-alt"></i></button>
+                                <button class="add-finance-item-btn text-primary p-1 mr-2" title="Añadir Item"><i class="fas fa-plus-circle"></i></button>
+                                <button class="delete-finance-category-btn text-red-500 p-1" title="Eliminar Carpeta"><i class="fas fa-trash-alt"></i></button>
                             </div>
                         </div>
                         <div class="finance-category-content">
@@ -6448,11 +6424,11 @@
 
                 incomeList.innerHTML = '';
                 incomeCategories.forEach(cat => incomeList.appendChild(renderCategory(cat, 'income')));
-                if(incomeList.innerHTML === '') incomeList.innerHTML = `<p class="text-xs text-text-medium italic p-2">${translations[lang].create_income_folder_hint || 'Crea carpetas para organizar tus ingresos.'}</p>`;
+                if(incomeList.innerHTML === '') incomeList.innerHTML = `<p class="text-xs text-text-medium italic p-2">Crea carpetas para organizar tus ingresos.</p>`;
 
                 expenseList.innerHTML = '';
                 expenseCategories.forEach(cat => expenseList.appendChild(renderCategory(cat, 'expense')));
-                if(expenseList.innerHTML === '') expenseList.innerHTML = `<p class="text-xs text-text-medium italic p-2">${translations[lang].create_expense_folder_hint || 'Crea carpetas para organizar tus gastos.'}</p>`;
+                if(expenseList.innerHTML === '') expenseList.innerHTML = `<p class="text-xs text-text-medium italic p-2">Crea carpetas para organizar tus gastos.</p>`;
 
                 recalculateFinances(chatId);
             }
@@ -6505,7 +6481,6 @@
                 view.addEventListener('click', async (e) => {
                     const chat = state.chats[chatId];
                     if (!chat || !chat.financialData) return;
-                    const lang = localStorage.getItem('goatify-lang') || 'es';
 
                     const addItemBtn = e.target.closest('.add-finance-item-btn');
                     if(addItemBtn) {
@@ -6551,8 +6526,7 @@
                 });
 
                 view.querySelector('#add-income-category-btn')?.addEventListener('click', () => {
-                    const lang = localStorage.getItem('goatify-lang') || 'es';
-                    const newCategory = { id: `fin-cat-${crypto.randomUUID()}`, name: translations[lang].new_income_folder || 'Nueva Carpeta de Ingresos', items: [] };
+                    const newCategory = { id: `fin-cat-${crypto.randomUUID()}`, name: 'Nueva Carpeta de Ingresos', items: [] };
                     if (!chat.financialData.incomeCategories) chat.financialData.incomeCategories = [];
                     chat.financialData.incomeCategories.push(newCategory);
                     renderFinancialData(chatId);
@@ -6560,8 +6534,7 @@
                 });
 
                 view.querySelector('#add-expense-category-btn')?.addEventListener('click', () => {
-                    const lang = localStorage.getItem('goatify-lang') || 'es';
-                    const newCategory = { id: `fin-cat-${crypto.randomUUID()}`, name: translations[lang].new_expense_folder || 'Nueva Carpeta de Gastos', items: [] };
+                    const newCategory = { id: `fin-cat-${crypto.randomUUID()}`, name: 'Nueva Carpeta de Gastos', items: [] };
                     if (!chat.financialData.expenseCategories) chat.financialData.expenseCategories = [];
                     chat.financialData.expenseCategories.push(newCategory);
                     renderFinancialData(chatId);
@@ -6644,7 +6617,6 @@
 
             function addXp(amount) {
                 if(!currentUser) return;
-                const lang = localStorage.getItem('goatify-lang') || 'es';
                 gamificationState.xp += amount;
                 const currentLevel = gamificationState.level;
                 if (currentLevel >= LEVEL_NAMES.length) return; 
@@ -6654,14 +6626,14 @@
                     gamificationState.level++;
                     const newLevelName = LEVEL_NAMES[gamificationState.level - 1];
                     showModal({
-                        title: `<i class="fas fa-sparkles fa-lg text-gold animate-pulse mr-2"></i> ${translations[lang].level_up_title || '¡Nivel Subido!'} <i class="fas fa-sparkles fa-lg text-gold animate-pulse ml-2"></i>`,
+                        title: `<i class="fas fa-sparkles fa-lg text-gold animate-pulse mr-2"></i> ¡Nivel Subido! <i class="fas fa-sparkles fa-lg text-gold animate-pulse ml-2"></i>`,
                         body: `<div class="text-center">
-                                <p class="text-lg">${translations[lang].congratulations_message || '¡Felicidades! Has ascendido al'}</p>
-                                <p class="text-3xl font-bold text-primary my-2">${translations[lang].level_text || 'Nivel'} ${gamificationState.level}</p>
+                                <p class="text-lg">¡Felicidades! Has ascendido al</p>
+                                <p class="text-3xl font-bold text-primary my-2">Nivel ${gamificationState.level}</p>
                                 <p class="text-2xl font-semibold">${newLevelName}</p>
-                                <p class="mt-4 text-text-medium">${translations[lang].continue_goat_path || '¡Sigue así en tu camino para ser un G.O.A.T.!'}</p>
+                                <p class="mt-4 text-text-medium">¡Sigue así en tu camino para ser un G.O.A.T.!</p>
                                </div>`,
-                        confirmText: translations[lang].great_btn || '¡Genial!',
+                        confirmText: '¡Genial!',
                         showCancel: false
                     });
                 }
@@ -6712,28 +6684,27 @@
             function openGoatChest() {
                 const rand = Math.random();
                 let rewardTitle, rewardBody;
-                const lang = localStorage.getItem('goatify-lang') || 'es';
 
                 if (rand < 0.01) { 
-                    rewardTitle = translations[lang].legendary_reward_title || ' recompensa ¡LEGENDARIA!';
-                    rewardBody = translations[lang].legendary_reward_body || '¡Increíble! Has ganado una <strong>Asesoría Estratégica de 30 minutos GRATIS</strong> con un experto de Goatify. ¡Nos pondremos en contacto contigo!';
+                    rewardTitle = ' recompensa ¡LEGENDARIA!';
+                    rewardBody = '¡Increíble! Has ganado una <strong>Asesoría Estratégica de 30 minutos GRATIS</strong> con un experto de Goatify. ¡Nos pondremos en contacto contigo!';
                 } else if (rand < 0.1) { 
-                    rewardTitle = translations[lang].epic_reward_title || ' recompensa ¡ÉPICA!';
-                    rewardBody = translations[lang].epic_reward_body || '¡Genial! Has ganado un <strong>cupón del 25% de descuento</strong> en cualquiera de nuestros servicios.';
+                    rewardTitle = ' recompensa ¡ÉPICA!';
+                    rewardBody = '¡Genial! Has ganado un <strong>cupón del 25% de descuento</strong> en cualquiera de nuestros servicios.';
                 } else if (rand < 0.4) { 
                     addCredits(150);
-                    rewardTitle = translations[lang].rare_reward_title || ' recompensa RARA!';
-                    rewardBody = `${translations[lang].rare_reward_body_prefix || 'Has ganado'} <strong>150 ${translations[lang].reward_credits_text || 'Créditos de Recompensa'}</strong> ${translations[lang].rare_reward_body_suffix || 'extra. ¡Sigue así!'}`;
+                    rewardTitle = ' recompensa RARA!';
+                    rewardBody = `Has ganado <strong>150 Créditos de Recompensa</strong> extra. ¡Sigue así!`;
                 } else { 
                     addCredits(50);
-                    rewardTitle = translations[lang].common_reward_title || ' recompensa COMÚN!';
-                    rewardBody = `${translations[lang].common_reward_body_prefix || 'Has ganado'} <strong>50 ${translations[lang].reward_credits_text || 'Créditos de Recompensa'}</strong>. ${translations[lang].common_reward_body_suffix || '¡Buen trabajo!'}`;
+                    rewardTitle = ' recompensa COMÚN!';
+                    rewardBody = `Has ganado <strong>50 Créditos de Recompensa</strong>. ¡Buen trabajo!`;
                 }
 
                 showModal({
-                    title: `<i class="fas fa-gift text-gold mr-2"></i>${translations[lang].goat_chest_open_title || '¡Cofre GOAT Abierto!'}`,
-                    body: `<p class="text-lg text-center">${translations[lang].goat_chest_open_desc_prefix || '¡Completaste la racha de 7 días y obtuviste una'}${rewardTitle}</p><p class="mt-4 text-center">${rewardBody}</p>`,
-                    confirmText: translations[lang].fantastic_btn || '¡Fantástico!',
+                    title: `<i class="fas fa-gift text-gold mr-2"></i>¡Cofre GOAT Abierto!`,
+                    body: `<p class="text-lg text-center">¡Completaste la racha de 7 días y obtuviste una${rewardTitle}</p><p class="mt-4 text-center">${rewardBody}</p>`,
+                    confirmText: '¡Fantástico!',
                      showCancel: false
                 });
             }
@@ -6742,7 +6713,6 @@
                 if (!currentUser || gamificationState.completedMissions.includes(missionId)) return;
                 const mission = MISSIONS[missionId];
                 if (!mission) return;
-                const lang = localStorage.getItem('goatify-lang') || 'es';
 
                 let isCompleted = false;
                 if (mission.condition) {
@@ -6759,9 +6729,9 @@
                     addXp(mission.xp);
                     addCredits(mission.credits);
                     showModal({
-                        title: `<i class="fas fa-check-circle text-green-400 mr-2"></i> ${translations[lang].mission_completed_title || 'Misión Completada'}`,
-                        body: `<p class="text-lg text-center">${translations[lang].mission_completed_desc || '¡Completaste'} "${mission.text}"!</p><p class="text-center font-bold mt-2">+${mission.xp} XP | +${mission.credits} ${translations[lang].reward_credits_text || 'Créditos de Recompensa'}</p>`,
-                        confirmText: translations[lang].lets_go_btn || '¡Vamos!',
+                        title: `<i class="fas fa-check-circle text-green-400 mr-2"></i> Misión Completada`,
+                        body: `<p class="text-lg text-center">¡Completaste "${mission.text}"!</p><p class="text-center font-bold mt-2">+${mission.xp} XP | +${mission.credits} Créditos de Recompensa</p>`,
+                        confirmText: '¡Vamos!',
                          showCancel: false
                     });
                     saveGamificationState();
@@ -6772,15 +6742,14 @@
                 if (!currentUser || gamificationState.unlockedAchievements.includes(achievementId)) return;
                 const achievement = ACHIEVEMENTS[achievementId];
                 if (!achievement) return;
-                const lang = localStorage.getItem('goatify-lang') || 'es';
 
                 gamificationState.unlockedAchievements.push(achievementId);
                 addXp(achievement.xp);
                 if (achievement.credits) addCredits(achievement.credits);
                 showModal({
-                    title: `<i class="fas fa-medal text-gold mr-2"></i> ${translations[lang].achievement_unlocked_title || '¡Logro Desbloqueado!'}`,
+                    title: `<i class="fas fa-medal text-gold mr-2"></i> ¡Logro Desbloqueado!`,
                     body: `<p class="text-xl text-center font-bold">${achievement.title}</p><p class="text-center mt-2">${achievement.description}</p><p class="text-center font-bold mt-4">+${achievement.xp} XP ${achievement.reward ? `| ${achievement.reward}` : ''}</p>`,
-                    confirmText: translations[lang].awesome_btn || '¡Impresionante!',
+                    confirmText: '¡Impresionante!',
                      showCancel: false
                 });
                 saveGamificationState();
@@ -6788,19 +6757,18 @@
 
             function renderGamificationModal() {
                 if(!currentUser) return;
-                const lang = localStorage.getItem('goatify-lang') || 'es';
                 const level = gamificationState.level;
                 const currentXp = gamificationState.xp;
                 const xpForCurrentLevel = XP_FOR_LEVEL[level - 1];
                 const xpForNextLevel = XP_FOR_LEVEL[level];
-                dom.gamificationLevelName.textContent = `${translations[lang].level_text || 'Nivel'} ${level}: ${LEVEL_NAMES[level - 1]}`;
-                dom.gamificationCredits.innerHTML = `<i class="fas fa-coins mr-1"></i>${gamificationState.credits} ${translations[lang].credits_text || 'Créditos'}`;
+                dom.gamificationLevelName.textContent = `Nivel ${level}: ${LEVEL_NAMES[level - 1]}`;
+                dom.gamificationCredits.innerHTML = `<i class="fas fa-coins mr-1"></i>${gamificationState.credits} Créditos`;
                 if (level < LEVEL_NAMES.length) {
                     const progress = ((currentXp - xpForCurrentLevel) / (xpForNextLevel - xpForCurrentLevel)) * 100;
                     dom.gamificationXp.textContent = `${currentXp} / ${xpForNextLevel} XP`;
                     dom.gamificationXpBar.style.width = `${Math.min(100, progress)}%`;
                 } else {
-                    dom.gamificationXp.textContent = translations[lang].max_level_text || '¡Nivel Máximo!';
+                    dom.gamificationXp.textContent = '¡Nivel Máximo!';
                     dom.gamificationXpBar.style.width = `100%`;
                 }
 
@@ -6820,9 +6788,9 @@
                     else rewardText = '<i class="fas fa-gift fa-2x"></i>';
 
                     dayEl.innerHTML = `
-                        <p class="font-bold text-lg">${i === 7 ? '' : `${translations[lang].day_text || 'Día'} ${i}`}</p>
+                        <p class="font-bold text-lg">${i === 7 ? '' : `Día ${i}`}</p>
                         <div class="text-2xl my-2">${rewardText}</div>
-                        <p class="text-xs">${i <= 3 ? `+5 ${translations[lang].credits_text || 'Créditos'}` : (i <= 6 ? `+10 ${translations[lang].credits_text || 'Créditos'}` : translations[lang].goat_chest_text || 'Cofre GOAT')}</p>
+                        <p class="text-xs">${i <= 3 ? `+5 Créditos` : (i <= 6 ? `+10 Créditos` : 'Cofre GOAT')}</p>
                     `;
                     dom.dailyStreakContainer.appendChild(dayEl);
                 }
@@ -6835,10 +6803,10 @@
                      missionEl.innerHTML = `
                         <div>
                             <p class="font-semibold">${mission.text}</p>
-                            <p class="text-sm text-text-medium">+${mission.xp} XP | +${mission.credits} ${translations[lang].credits_text || 'Créditos'}</p>
+                            <p class="text-sm text-text-medium">+${mission.xp} XP | +${mission.credits} Créditos</p>
                          </div>
                         <button class="btn-primary px-4 py-2 rounded-lg text-sm font-bold" data-mission-id="${mission.id}" ${isCompleted ? 'disabled' : ''}>
-                            ${isCompleted ? (translations[lang].done_btn || 'Hecho') : (translations[lang].start_btn || 'Empezar')}
+                            ${isCompleted ? 'Hecho' : 'Empezar'}
                          </button>
                     `;
                     dom.missionsContainer.appendChild(missionEl);
@@ -6924,8 +6892,11 @@
                     netlifyIdentity.close(); 
                     currentUser = user;
                     updateUserUI(); 
-                    loadStateForUser();
-                    registerServiceWorkerAndSubscribe();
+                    loadStateForUser().then(() => {
+                        if (notificationsEnabled) {
+                            registerServiceWorkerAndSubscribe();
+                        }
+                    });
                 });
                 netlifyIdentity.on('logout', () => {
                     currentUser = null;
