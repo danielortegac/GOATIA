@@ -3028,7 +3028,7 @@
                 dom.taskNotificationModal.classList.remove('flex');
             }
 
-           function showCalendarModal() {
+            function showCalendarModal() {
                 dom.calendarModalOverlay.classList.remove('hidden');
                 dom.calendarModalOverlay.classList.add('flex');
                 if (!currentCalendarView) currentCalendarView = 'month'; 
@@ -3518,10 +3518,9 @@
                     if (!task.completed && task.time === currentHourMinute && !task.notifiedThisMinute) {
                         const lang = localStorage.getItem('goatify-lang') || 'es';
                         const notificationTitle = translations[lang].notification_title;
-                        const notificationBody = `${translations[lang].notification_task_due} ${task.text}`;
+                        const notificationBody = `${translations[lang].notification_task_due} ${task.text} (${task.time})`;
                         
-                        showInAppNotification(notificationTitle, notificationBody);
-                        showTaskNotification(notificationTitle, notificationBody); // This will also trigger the push
+                        showTaskNotification(notificationTitle, notificationBody);
                         
                         updateTaskNotifiedFlag(task.id, true);
                     }
@@ -3542,65 +3541,6 @@
                 }
             }
 
-            async function registerServiceWorkerAndSubscribe() {
-                if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-                    console.warn('Push messaging is not supported');
-                    return;
-                }
-
-                try {
-                    const registration = await navigator.serviceWorker.register('/service-worker.js');
-                    console.log('Service Worker registered successfully');
-
-                    // Check notification permission
-                    let permission = Notification.permission;
-                    if (permission === 'default') {
-                        permission = await Notification.requestPermission();
-                    }
-                    
-                    if (permission !== 'granted') {
-                        console.warn('Notification permission not granted.');
-                        notificationsEnabled = false;
-                        dom.notificationsToggle.checked = false;
-                        localStorage.setItem('goatify-notifications-enabled', 'false');
-                        return;
-                    }
-
-                    // Get subscription
-                    let subscription = await registration.pushManager.getSubscription();
-                    if (subscription === null) {
-                        console.log('No subscription found, creating new one...');
-                        // IMPORTANT: You need to generate VAPID keys on your server and provide the public key here.
-                        // For demonstration, I'm using a placeholder. Replace this with your actual VAPID public key.
-                        const VAPID_PUBLIC_KEY = "YOUR_VAPID_PUBLIC_KEY"; // <-- REPLACE THIS
-                        if (VAPID_PUBLIC_KEY === "YOUR_VAPID_PUBLIC_KEY") {
-                            console.error("ERROR: You must provide your VAPID public key for push notifications to work.");
-                            return;
-                        }
-
-                        subscription = await registration.pushManager.subscribe({
-                            userVisibleOnly: true,
-                            applicationServerKey: VAPID_PUBLIC_KEY
-                        });
-                    }
-                    
-                    // Send subscription to backend
-                    await fetch('/.netlify/functions/save-subscription', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            userId: currentUser.id, // Ensure user is logged in
-                            subscription: subscription
-                        }),
-                    });
-
-                    console.log('User is subscribed.');
-
-                } catch (error) {
-                    console.error('Service Worker registration or subscription failed:', error);
-                }
-            }
-
 
             function renderCalendarView() {
                  dom.dayViewContainer.style.display = currentCalendarView === 'day' ? 'block' : 'none';
@@ -3616,7 +3556,80 @@
                 if (currentCalendarView === 'month') renderMonthView();
             }
 
-            setInterval(checkAndNotifyTasks, 60 * 1000); // Check every minute
+            setInterval(checkAndNotifyTasks, 10 * 1000);
+
+            // ==========================================================
+            // === FUNCIONES PARA NOTIFICACIONES PUSH ===================
+            // ==========================================================
+
+            // Esta función convierte la VAPID key de base64url a un formato que el navegador entiende.
+            function urlBase64ToUint8Array(base64String) {
+                const padding = '='.repeat((4 - base64String.length % 4) % 4);
+                const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+                const rawData = window.atob(base64);
+                const outputArray = new Uint8Array(rawData.length);
+                for (let i = 0; i < rawData.length; ++i) {
+                    outputArray[i] = rawData.charCodeAt(i);
+                }
+                return outputArray;
+            }
+
+            async function registerServiceWorkerAndSubscribe() {
+                if (!('serviceWorker' in navigator && 'PushManager' in window)) {
+                    console.warn("Push messaging is not supported");
+                    return;
+                }
+
+                try {
+                    const registration = await navigator.serviceWorker.register('/service-worker.js');
+                    console.log('Service Worker registered successfully.');
+
+                    // Pide permiso para notificaciones
+                    const permission = await Notification.requestPermission();
+                    if (permission !== 'granted') {
+                        console.warn("Permission for notifications was denied.");
+                        notificationsEnabled = false;
+                        localStorage.setItem('goatify-notifications-enabled', 'false');
+                        if(dom.notificationsToggle) dom.notificationsToggle.checked = false;
+                        return;
+                    }
+                    
+                    console.log("Notification permission granted.");
+
+                    // Obtiene la suscripción existente o crea una nueva
+                    let subscription = await registration.pushManager.getSubscription();
+                    if (subscription === null) {
+                        console.log("No subscription found, creating new one.");
+                        // IMPORTANTE: Debes generar tus propias VAPID keys (pública y privada).
+                        // Esta es solo una clave PÚBLICA de ejemplo. La privada NUNCA debe estar aquí.
+                        const VAPID_PUBLIC_KEY = 'BJ4v02ExA1Tso9D_s2zXJGXWf_Q-wG2t6RkcuU_k9mLyD_i_Ld16Gq2g4Gf4K_V8A2f4g7J1zX9Z8hE3D4A0f5Y';
+                        
+                        subscription = await registration.pushManager.subscribe({
+                            userVisibleOnly: true,
+                            applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+                        });
+                        console.log('New subscription created:', subscription);
+
+                        // Envía la nueva suscripción a tu backend para guardarla.
+                        // Debes crear una función en Netlify/Supabase para manejar esto.
+                        await fetch('/.netlify/functions/save-subscription', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                userId: currentUser.id, // Asegúrate de que el usuario esté logueado
+                                subscription: subscription
+                            }),
+                        });
+                        console.log("Subscription sent to backend.");
+                    } else {
+                        console.log("Existing subscription found:", subscription);
+                    }
+
+                } catch (error) {
+                    console.error('Service Worker registration or subscription failed:', error);
+                }
+            }
+
 
             function speak(text, element) { 
                 if (!text) return;
@@ -3638,6 +3651,7 @@
                             }
                             micWasOnBeforeSpeaking = false;
                         }
+                        toggleVoiceSelectorVisibility(false);
                     };
                     utterance.onerror = (e) => {
                         console.error('Speech synthesis error:', e);
@@ -3647,6 +3661,7 @@
                             }
                             micWasOnBeforeSpeaking = false;
                         }
+                         toggleVoiceSelectorVisibility(false);
                     }
                     speechSynthesis.speak(utterance);
                 } else if (element) { // Click on individual speaker icon
@@ -3776,9 +3791,9 @@
 
             function spendCredits(cost, modelUsed) {
                 // Check daily GOAT X PRO limit first
-                if (modelUsed === 'gpt-4o' && currentUser) {
+                if (modelUsed === 'gpt-4o') {
                     const today = dayjs().format('YYYY-MM-DD');
-                    const proUsageKey = `goat_x_pro_usage_${currentUser.id}_${today}`;
+                    const proUsageKey = `goat_x_pro_usage_${currentUser?.id || 'guest'}_${today}`;
                     goatXProUsage = parseInt(localStorage.getItem(proUsageKey) || '0');
 
                     if (goatXProUsage >= GOAT_X_PRO_DAILY_LIMIT) {
@@ -3807,7 +3822,7 @@
                     
                     if (modelUsed === 'gpt-4o') {
                         const today = dayjs().format('YYYY-MM-DD');
-                        const proUsageKey = `goat_x_pro_usage_${currentUser.id}_${today}`;
+                        const proUsageKey = `goat_x_pro_usage_${currentUser?.id || 'guest'}_${today}`;
                         goatXProUsage++;
                         localStorage.setItem(proUsageKey, goatXProUsage.toString());
                     }
@@ -3821,16 +3836,16 @@
                     if (usageData.count + cost > GUEST_CREDIT_LIMIT) {
                          showModal({
                             title: 'Créditos de Invitado Agotados',
-                            body: `<p>Has utilizado tus ${GUEST_CREDIT_LIMIT} créditos de invitado. <strong>Inicia sesión para obtener 50 créditos mensuales más, ¡gratis!</strong></p><p class="mt-2 text-sm text-text-medium">También puedes usar este link para agendar una reunión y conocer nuestros planes.</p>`,
+                            body: `<p>Has utilizado tus ${GUEST_CREDIT_LIMIT} créditos de invitado. <strong>Inicia sesión para obtener 50 créditos mensuales más, ¡gratis!</strong></p><p class="mt-2 text-sm text-text-medium">También puedes usar este link para agendar una reunión y conocer nuestros planes.</p>`, // Added text for meeting
                             confirmText: 'Iniciar Sesión',
                             cancelText: 'Más Tarde',
-                            extraButtons: [{
+                            extraButtons: [{ // Added extra button for meeting
                                 id: 'guest-meeting-btn',
                                 classes: 'px-4 py-2 rounded bg-primary text-white',
                                 text: 'Agendar Reunión',
                                 action: () => {
                                     window.open('https://calendly.com/goatify', '_blank');
-                                    hideModal();
+                                    hideModal(); // Close modal after action
                                 }
                             }]
                         }).then(res => { if (res.confirmed) { netlifyIdentity.open('login'); } });
@@ -3840,6 +3855,12 @@
                     localStorage.setItem(usageKey, JSON.stringify(usageData));
                     updateCreditCounter();
 
+                    if (modelUsed === 'gpt-4o') {
+                        const today = dayjs().format('YYYY-MM-DD');
+                        const proUsageKey = `goat_x_pro_usage_${currentUser?.id || 'guest'}_${today}`;
+                        goatXProUsage++;
+                        localStorage.setItem(proUsageKey, goatXProUsage.toString());
+                    }
                     return true;
                 }
 
@@ -3868,7 +3889,7 @@
 
                 if (modelUsed === 'gpt-4o') {
                     const today = dayjs().format('YYYY-MM-DD');
-                    const proUsageKey = `goat_x_pro_usage_${currentUser.id}_${today}`;
+                    const proUsageKey = `goat_x_pro_usage_${currentUser?.id || 'guest'}_${today}`;
                     goatXProUsage++;
                     localStorage.setItem(proUsageKey, goatXProUsage.toString());
                 }
@@ -3889,7 +3910,7 @@
                      try {
                         const response = await fetch('/.netlify/functions/load-chats', {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentUser.token.access_token}` },
+                            headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ userId: currentUser.id }),
                         });
                         if (!response.ok) { throw new Error(`Server error: ${response.status}`); }
@@ -3910,6 +3931,7 @@
                 state.structure = state.structure || [];
                 state.notes = state.notes || [];
 
+                // Ensure notepad-assistant-chat exists and is not deletable
                 if (!state.chats['notepad-assistant-chat']) {
                     state.chats['notepad-assistant-chat'] = {
                         id: 'notepad-assistant-chat',
@@ -3920,11 +3942,10 @@
                     };
                 }
 
-                if (currentUser) {
-                    const today = dayjs().format('YYYY-MM-DD');
-                    const proUsageKey = `goat_x_pro_usage_${currentUser.id}_${today}`;
-                    goatXProUsage = parseInt(localStorage.getItem(proUsageKey) || '0');
-                }
+                // Initialize goatXProUsage for the current day
+                const today = dayjs().format('YYYY-MM-DD');
+                const proUsageKey = `goat_x_pro_usage_${currentUser?.id || 'guest'}_${today}`;
+                goatXProUsage = parseInt(localStorage.getItem(proUsageKey) || '0');
 
                 loadGamificationState();
                 renderSidebar();
@@ -3937,10 +3958,10 @@
                 
                 try {
                     localStorage.setItem(key, JSON.stringify(stateData));
-                    if(currentUser && currentUser.token) {
+                    if(currentUser) {
                         await fetch('/.netlify/functions/save-chats', {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${currentUser.token.access_token}` },
+                            headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ userId: currentUser.id, stateToSave: stateData }),
                         });
                     }
@@ -3959,12 +3980,8 @@
                     const userName = currentUser.user_metadata?.full_name?.split(' ')[0] || currentUser.email.split('@')[0];
                     dom.userEmail.textContent = currentUser.user_metadata?.full_name || currentUser.email;
                     dom.userName.textContent = userName;
-                    const plan = currentUser.app_metadata?.plan || 'free';
-                    dom.upgradePlanContainer.classList.toggle('hidden', plan !== 'free');
-                    goatXProModels.forEach(option => {
-                        option.disabled = (plan === 'free');
-                        option.textContent = (plan === 'free') ? "GOAT X PRO (Plan Requerido)" : "GOAT X PRO";
-                    });
+                    dom.upgradePlanContainer.classList.toggle('hidden', (currentUser.app_metadata?.plan || 'free') !== 'free');
+                    goatXProModels.forEach(option => option.disabled = false);
 
                 } else {
                     dom.loginView.classList.remove('hidden');
@@ -3972,10 +3989,7 @@
                     dom.genericWelcome.classList.remove('hidden');
                     dom.personalizedWelcome.classList.add('hidden');
                     dom.upgradePlanContainer.classList.add('hidden');
-                    goatXProModels.forEach(option => {
-                        option.disabled = true;
-                        option.textContent = "GOAT X PRO (Inicia Sesión)";
-                    });
+                    goatXProModels.forEach(option => option.disabled = true);
                 }
                 updateCreditCounter();
             }
@@ -3985,10 +3999,11 @@
                 const gamCredits = (currentUser && gamificationState.credits) ? gamificationState.credits : 0;
                 let displayLimit = limit === Infinity ? '∞' : limit;
 
+                // Update individual spans for plan and reward credits
                 dom.planCreditsDisplay.textContent = `${remaining}/${displayLimit}`;
                 dom.rewardCreditsDisplay.textContent = `${gamCredits}`;
                 
-                dom.messageCounterWrapper.classList.remove('hidden');
+                dom.messageCounterWrapper.classList.remove('hidden'); // Ensure the counter is visible
             }
 
             function setTheme(isDark) { 
@@ -4009,6 +4024,7 @@
                 } else {
                     sidebar.classList.remove('is-open');
                     dom.sidebarOverlay.classList.add('opacity-0', 'pointer-events-none');
+                    // In collapsed state, the arrow should point right (when sidebar is hidden)
                     dom.sidebarToggleArrow.querySelector('i').classList.replace('fa-chevron-left', 'fa-chevron-right');
                 }
             }
@@ -4021,7 +4037,6 @@
                     title = 'Jefa';
                 }
                 
-                const lang = localStorage.getItem('goatify-lang') || 'es';
                 let initialMessages;
                 initialMessages = options.initialMessages ||
                 [{ 
@@ -4031,7 +4046,7 @@
 
                 state.chats[id] = { 
                     id, 
-                    title: options.title || translations[lang].default_chat_title, 
+                    title: options.title || translations[localStorage.getItem('goatify-lang') || 'es'].default_chat_title || "Conversación Cósmica", 
                     messages: initialMessages,
                     workflow: options.workflow || null,
                     model: options.model || 'gpt-3.5-turbo-1106'
@@ -4063,7 +4078,7 @@
                 if (window.innerWidth < 768) toggleSidebar(false);
                 
                 const chatType = options.title || 'chat';
-                showInAppNotification("Éxito", `Has creado un nuevo ${chatType}.`);
+                showInAppNotification(translations[localStorage.getItem('goatify-lang') || 'es'].success_title || "Éxito", `${translations[localStorage.getItem('goatify-lang') || 'es'].new_chat_created || "Has creado un nuevo" } ${chatType}.`);
 
                 return id;
             }
@@ -4083,12 +4098,11 @@
                 dom.projectManagementView.style.display = 'none';
                 dom.financialAssistantView.style.display = 'none';
                 dom.notepadViewContainer.style.display = 'none';
-                dom.inputArea.style.display = 'flex'; // Keep input area visible by default, hide for specific views if needed
+                dom.inputArea.style.display = 'none'; 
                 
                 if (chatId.startsWith('note-') || chatId === 'notepad-app') {
-                    const lang = localStorage.getItem('goatify-lang') || 'es';
-                    dom.chatTitle.textContent = translations[lang].wf_notepad;
-                    dom.mobileChatTitle.textContent = translations[lang].wf_notepad;
+                    dom.chatTitle.textContent = translations[localStorage.getItem('goatify-lang') || 'es'].wf_notepad;
+                    dom.mobileChatTitle.textContent = translations[localStorage.getItem('goatify-lang') || 'es'].wf_notepad;
                     showNotepadView();
                    
                     if (chatId.startsWith('note-')) { 
@@ -4100,20 +4114,17 @@
                             dom.noteEditorPanel.classList.add('hidden');
                         }
                     }
-                    dom.inputArea.style.display = 'none'; // Hide main input area for notepad
                 } else {
                     const chat = state.chats[chatId]; 
                     if (chat.workflow === 'project-management') {
                         dom.projectManagementView.style.display = 'flex';
                         renderProjectView(chatId);
-                        dom.inputArea.style.display = 'none'; // Hide main input for project view
                     } else if (chat.workflow === 'financial-assistant') {
                         dom.financialAssistantView.style.display = 'flex';
                         renderFinancialAssistant(chatId);
-                        dom.inputArea.style.display = 'none'; // Hide main input for financial view
                     } else {
                         dom.chatMessages.style.display = 'block';
-                        dom.inputArea.style.display = 'flex'; // Show main input for regular chat
+                        dom.inputArea.style.display = 'flex'; // Changed to flex to re-enable the input area
                         dom.chatMessages.innerHTML = ''; 
                         chat.messages.forEach((msg, index) => addMessageToUI(msg.role, msg.content, msg.image, index, dom.chatMessages));
                         dom.initialMessageContainer.style.display = 'none';
@@ -4136,7 +4147,7 @@
                 dom.mobileChatTitle.textContent = "Goatify IA";
 
                 dom.chatMessages.style.display = 'block';
-                dom.inputArea.style.display = 'flex';
+                dom.inputArea.style.display = 'flex'; // Changed to flex to match default state
                 dom.projectManagementView.style.display = 'none';
                 dom.financialAssistantView.style.display = 'none';
                 dom.notepadViewContainer.style.display = 'none';
@@ -4214,9 +4225,9 @@
                 if (!chat || !chat.messages[index]) return;
                 const originalContent = chat.messages[index].content;
                 const result = await showModal({ 
-                    title: 'Editar Mensaje', 
+                    title: translations[localStorage.getItem('goatify-lang') || 'es'].edit_message_title || 'Editar Mensaje', 
                     body: `<textarea id="edit-msg-textarea" class="w-full p-2 rounded bg-input border border-themed h-28">${originalContent}</textarea>`,
-                    confirmText: 'Guardar Cambios'
+                    confirmText: translations[localStorage.getItem('goatify-lang') || 'es'].save_changes_btn || 'Guardar Cambios'
                  });
                 if (result.confirmed && result.data['edit-msg-textarea'] && result.data['edit-msg-textarea'].trim() !== originalContent.trim()) {
                     chat.messages[index].content = result.data['edit-msg-textarea'].trim();
@@ -4227,8 +4238,11 @@
 
             function updateMessageInUI(bubble, content, imageSrc, container) {
                 if (!bubble) return;
+                const wrapper = bubble.parentElement;
+                if (!wrapper) return;
+                
                 bubble.innerHTML = ''; // Clear the "thinking" dots
-                if (imageSrc) {
+                 if (imageSrc) {
                     const img = document.createElement('img');
                     img.src = imageSrc;
                     img.className = 'rounded-lg mb-2 max-w-full h-auto';
@@ -4236,12 +4250,11 @@
                 }
                 const contentDiv = document.createElement('div');
                 contentDiv.className = 'markdown-content';
-                const parsedContent = marked.parse(content || "");
-                contentDiv.innerHTML = parsedContent;
+                contentDiv.innerHTML = marked.parse(content || "");
 
                 const speakerIcon = document.createElement('i');
                 speakerIcon.className = 'fas fa-volume-up speaker-icon';
-                speakerIcon.title = 'Leer en voz alta';
+                speakerIcon.title = translations[localStorage.getItem('goatify-lang') || 'es'].read_aloud_title || 'Leer en voz alta';
                 speakerIcon.onclick = (e) => { e.stopPropagation(); speak(content, e.target); };
                 contentDiv.appendChild(speakerIcon);
 
@@ -4292,10 +4305,9 @@
 
                 const item = document.createElement('a');
                 item.href = `?chat=${id}`;
-                item.className = `chat-item group flex items-center justify-between p-2 rounded-md cursor-pointer ${isSubItem ? 'pl-8' : ''}`;
+                item.className = `chat-item group flex items-center justify-between p-2 rounded-md cursor-pointer hover:bg-light ${isSubItem ? 'pl-8' : ''}`;
                 item.dataset.id = id; 
                 item.dataset.type = 'chat';
-                const lang = localStorage.getItem('goatify-lang') || 'es';
                 
                 if (isSelectModeActive) {
                     item.draggable = false;
@@ -4322,16 +4334,16 @@
                     item.draggable = true;
                     item.innerHTML = `<i class="far fa-comment-dots mr-2"></i><span class="flex-grow truncate text-sm font-medium">${chat.title}</span>
                     <div class="chat-item-actions flex-shrink-0 flex items-center ${actionsOpacityClass} transition-opacity">
-                        <button class="add-to-folder-btn text-text-medium hover:text-primary p-1 relative" title="${translations[lang].add_to_folder_title}"><i class="fas fa-folder-plus fa-xs"></i>
+                        <button class="add-to-folder-btn text-text-medium hover:text-primary p-1 relative" title="${translations[localStorage.getItem('goatify-lang') || 'es'].add_to_folder_title}"><i class="fas fa-folder-plus fa-xs"></i>
                             <div class="add-to-folder-dropdown absolute hidden top-full left-1/2 -translate-x-1/2 mt-2 p-2 rounded-md shadow-lg"></div>
                         </button>
-                        <button class="rename-btn text-text-medium hover:text-primary p-1" title="${translations[lang].rename_title}"><i class="fas fa-pencil-alt fa-xs"></i></button>
-                        <button class="delete-btn text-text-medium hover:text-red-500 p-1" title="${translations[lang].delete_title}"><i class="fas fa-trash-alt fa-xs"></i></button>
+                        <button class="rename-btn text-text-medium hover:text-primary p-1" title="${translations[localStorage.getItem('goatify-lang') || 'es'].rename_title}"><i class="fas fa-pencil-alt fa-xs"></i></button>
+                        <button class="delete-btn text-text-medium hover:text-red-500 p-1" title="${translations[localStorage.getItem('goatify-lang') || 'es'].delete_title}"><i class="fas fa-trash-alt fa-xs"></i></button>
                     </div>`;
                     
                     item.addEventListener('click', e => {
                         if (!e.ctrlKey && !e.metaKey && e.button === 0) {
-                            if (!e.target.closest('.chat-item-actions') && !e.target.closest('.add-to-folder-dropdown')) {
+                            if (!e.target.closest('.chat-item-actions')) {
                                 e.preventDefault();
                                 selectChat(id);
                                 history.pushState({chatId: id}, '', item.href);
@@ -4347,11 +4359,11 @@
                     
                     if (addToFolderBtn) {
                         addToFolderBtn.addEventListener('click', (e) => {
-                            e.stopPropagation();
                             e.preventDefault();
+                            e.stopPropagation();
                             const dropdown = addToFolderBtn.querySelector('.add-to-folder-dropdown');
                             document.querySelectorAll('.add-to-folder-dropdown').forEach(d => {
-                                if (d !== dropdown) d.classList.add('hidden');
+                                if(d !== dropdown) d.classList.add('hidden');
                             });
                             dropdown.classList.toggle('hidden');
                             renderFolderDropdown(id, dropdown);
@@ -4374,7 +4386,6 @@
                 if (isSubItem) item.classList.add('pl-8');
                 item.dataset.id = note.id;
                 item.dataset.type = 'note';
-                const lang = localStorage.getItem('goatify-lang') || 'es';
 
                 const isMobileView = window.innerWidth < 768;
                 const actionsOpacityClass = isMobileView ? 'opacity-100' : 'opacity-0 group-hover:opacity-100';
@@ -4403,16 +4414,16 @@
                         <i class="fas ${note.type === 'drawing' ? 'fa-paint-brush' : 'fa-file-alt'} mr-2"></i>
                         <span class="flex-grow truncate text-sm font-medium">${note.title}</span>
                         <div class="chat-item-actions flex-shrink-0 ${actionsOpacityClass} transition-opacity">
-                            <button class="add-to-folder-btn text-text-medium hover:text-primary p-1 relative" title="${translations[lang].add_to_folder_title}"><i class="fas fa-folder-plus fa-xs"></i>
+                            <button class="add-to-folder-btn text-text-medium hover:text-primary p-1 relative" title="${translations[localStorage.getItem('goatify-lang') || 'es'].add_to_folder_title}"><i class="fas fa-folder-plus fa-xs"></i>
                                 <div class="add-to-folder-dropdown absolute hidden top-full left-1/2 -translate-x-1/2 mt-2 p-2 rounded-md shadow-lg"></div>
                             </button>
-                            <button class="rename-btn text-text-medium hover:text-primary p-1" title="${translations[lang].rename_title}"><i class="fas fa-pencil-alt fa-xs"></i></button>
-                            <button class="delete-btn text-text-medium hover:text-red-500 p-1" title="${translations[lang].delete_title}"><i class="fas fa-trash-alt fa-xs"></i></button>
+                            <button class="rename-btn text-text-medium hover:text-primary p-1" title="${translations[localStorage.getItem('goatify-lang') || 'es'].rename_title}"><i class="fas fa-pencil-alt fa-xs"></i></button>
+                            <button class="delete-btn text-text-medium hover:text-red-500 p-1" title="${translations[localStorage.getItem('goatify-lang') || 'es'].delete_title}"><i class="fas fa-trash-alt fa-xs"></i></button>
                         </div>
                     `;
                     item.addEventListener('click', e => {
                         if (!e.ctrlKey && !e.metaKey && e.button === 0) {
-                            if (!e.target.closest('.chat-item-actions') && !e.target.closest('.add-to-folder-dropdown')) {
+                             if (!e.target.closest('.chat-item-actions')) {
                                 e.preventDefault();
                                 selectChat(id);
                                 history.pushState({chatId: id}, '', item.href);
@@ -4431,11 +4442,11 @@
 
                     if (addToFolderBtn) {
                         addToFolderBtn.addEventListener('click', (e) => {
-                            e.stopPropagation();
                             e.preventDefault();
+                            e.stopPropagation();
                             const dropdown = addToFolderBtn.querySelector('.add-to-folder-dropdown');
                             document.querySelectorAll('.add-to-folder-dropdown').forEach(d => {
-                                if (d !== dropdown) d.classList.add('hidden');
+                                if(d !== dropdown) d.classList.add('hidden');
                             });
                             dropdown.classList.toggle('hidden');
                             renderFolderDropdown(id, dropdown);
@@ -4451,10 +4462,9 @@
                 dropdownElement.innerHTML = '';
                 const folders = Object.values(state.projects);
                 const currentFolderId = Object.values(state.projects).find(p => p.itemIds && p.itemIds.includes(itemId))?.id;
-                const lang = localStorage.getItem('goatify-lang') || 'es';
 
                 if (folders.length === 0) {
-                    dropdownElement.innerHTML = `<button class="p-2 text-xs text-text-medium italic" disabled>${translations[lang].no_folders_yet}</button>`;
+                    dropdownElement.innerHTML = `<button class="p-2 text-xs text-text-medium italic" disabled>${translations[localStorage.getItem('goatify-lang') || 'es'].no_folders_yet}</button>`;
                     return;
                 }
 
@@ -4468,7 +4478,6 @@
                     }
                     button.addEventListener('click', (e) => {
                         e.stopPropagation();
-                        e.preventDefault();
                         moveItemToProject(itemId, folder.id);
                         dropdownElement.classList.add('hidden');
                     });
@@ -4480,18 +4489,17 @@
                 const project = state.projects[id];
                 if (!project) return document.createDocumentFragment();
                 const div = document.createElement('div');
-                div.className = 'project folders-category open'; // Start open
+                div.className = 'project open folders-category'; // Folders start expanded
                 div.dataset.id = id;
                 const header = document.createElement('div');
-                header.className = 'project-header folders-header group flex items-center p-2 rounded-md cursor-pointer';
-                const lang = localStorage.getItem('goatify-lang') || 'es';
+                header.className = 'project-header folders-header group flex items-center p-2 rounded-md cursor-pointer hover:bg-light';
 
                 const isMobileView = window.innerWidth < 768;
                 const actionsOpacityClass = isMobileView ? 'opacity-100' : 'opacity-0 group-hover:opacity-100';
 
-                header.innerHTML = `<i class="fas fa-chevron-right project-arrow folder-arrow mr-2 transition-transform"></i><i class="fas fa-folder mr-2 text-yellow-500"></i><span class="flex-grow truncate text-sm font-bold">${project.title}</span><div class="chat-item-actions flex-shrink-0 ${actionsOpacityClass} transition-opacity"><button class="rename-btn text-text-medium hover:text-primary p-1" title="${translations[lang].rename_title}"><i class="fas fa-pencil-alt fa-xs"></i></button><button class="delete-btn text-text-medium hover:text-red-500 p-1" title="${translations[lang].delete_title}"><i class="fas fa-trash-alt fa-xs"></i></button></div>`;
+                header.innerHTML = `<i class="fas fa-chevron-right project-arrow folder-arrow mr-2 transition-transform"></i><i class="fas fa-folder mr-2 text-yellow-500"></i><span class="flex-grow truncate text-sm font-bold">${project.title}</span><div class="chat-item-actions flex-shrink-0 ${actionsOpacityClass} transition-opacity"><button class="rename-btn text-text-medium hover:text-primary p-1" title="${translations[localStorage.getItem('goatify-lang') || 'es'].rename_title}"><i class="fas fa-pencil-alt fa-xs"></i></button><button class="delete-btn text-text-medium hover:text-red-500 p-1" title="${translations[localStorage.getItem('goatify-lang') || 'es'].delete_title}"><i class="fas fa-trash-alt fa-xs"></i></button></div>`;
                 const content = document.createElement('div');
-                content.className = 'project-content folders-content pt-1 space-y-1 block'; // Start open
+                content.className = 'project-content folders-content pt-1 space-y-1 block'; // Start with content visible
                 (project.itemIds || []).forEach(itemId => {
                     if (itemId.startsWith('chat-') && itemId !== 'notepad-assistant-chat') content.appendChild(createChatItemElement(itemId, true));
                     if (itemId.startsWith('note-')) content.appendChild(createNoteItemElement(itemId, true));
@@ -4509,14 +4517,20 @@
                 header.addEventListener('drop', e => handleDrop(e, id, header));
                 header.querySelector('.rename-btn').addEventListener('click', (e) => { e.stopPropagation(); renameItem('project', id);});
                 header.querySelector('.delete-btn').addEventListener('click', (e) => { e.stopPropagation(); deleteItem('project', id);});
+                
+                // Set initial state correctly
+                div.classList.add('open');
+                content.style.display = 'block';
+                header.querySelector('.project-arrow').style.transform = 'rotate(90deg)';
                 return div;
             }
             let draggedItemId = null;
-            let currentDragSelection = null;
+            let currentDragSelection = null; // For multi-select drag
             function handleDragStart(e, id) { 
                 draggedItemId = id; 
                 e.dataTransfer.effectAllowed = 'move'; 
                 e.dataTransfer.setData('text/plain', id); 
+                // If multi-select is active and this item is part of it, drag all selected items
                 if (isSelectModeActive && chatsToDelete.has(id)) {
                     e.dataTransfer.setData('application/json', JSON.stringify(Array.from(chatsToDelete)));
                     currentDragSelection = new Set(chatsToDelete);
@@ -4546,19 +4560,22 @@
                 if (itemsToMove.length === 0) return;
                 
                 itemsToMove.forEach(itemId => {
-                    if (itemId !== targetProjectId) {
+                    if (itemId !== targetProjectId) { // Prevent dropping a folder onto itself or into itself
                         moveItemToProject(itemId, targetProjectId);
                     }
                 });
                 
+                // If in select mode and items were moved, clear selection and exit select mode
                 if (isSelectModeActive && itemsToMove.length > 0) {
                     toggleSelectMode(false);
                 }
             }
             function moveItemToProject(itemId, targetProjectId = null) {
+                // Remove from old location
                 state.structure = state.structure.filter(id => id !== itemId); 
                 Object.values(state.projects).forEach(p => { if(p.itemIds) p.itemIds = p.itemIds.filter(id => id !== itemId) });
 
+                // Add to new project (or root if targetProjectId is null)
                 if(targetProjectId && state.projects[targetProjectId]){ 
                     if(!state.projects[targetProjectId].itemIds) state.projects[targetProjectId].itemIds = [];
                     state.projects[targetProjectId].itemIds.unshift(itemId); 
@@ -4568,6 +4585,7 @@
                 
                 saveState(); 
                 renderSidebar(); 
+                // If a chat was moved, re-select it to update the view
                 if (currentChatId === itemId) {
                     selectChat(currentChatId);
                 }
@@ -4581,9 +4599,9 @@
                 if(!item) return;
 
                 const result = await showModal({ 
-                    title: `Renombrar ${type === 'chat' ? 'Conversación' : (type === 'project' ? 'Proyecto' : 'Nota')}`, 
+                    title: `${translations[localStorage.getItem('goatify-lang') || 'es'].rename_title_prefix || "Renombrar"} ${type === 'chat' ? (translations[localStorage.getItem('goatify-lang') || 'es'].conversation_text || 'Conversación') : (type === 'project' ? (translations[localStorage.getItem('goatify-lang') || 'es'].project_text || 'Proyecto') : (translations[localStorage.getItem('goatify-lang') || 'es'].note_text || 'Nota'))}`, 
                     body: `<input type="text" id="rename-input" class="w-full p-2 rounded bg-input border border-themed" value="${item.title}">`,
-                    confirmText: 'Renombrar'
+                    confirmText: translations[localStorage.getItem('goatify-lang') || 'es'].rename_btn || 'Renombrar'
                  });
                 if (result.confirmed && result.data['rename-input'] && result.data['rename-input'].trim()) {
                     item.title = result.data['rename-input'].trim();
@@ -4611,15 +4629,15 @@
                 else if(type === 'note') item = state.notes.find(n => n.id === id);
                 if(!item) return;
 
-                let body = 'Esta acción no se puede deshacer.';
+                let body = translations[localStorage.getItem('goatify-lang') || 'es'].undo_action_warning || 'Esta acción no se puede deshacer.';
                 if(type === 'project' && childrenIds.length > 0) {
-                    body += ` También se eliminarán los ${childrenIds.length} elementos que contiene.`
+                    body += ` ${translations[localStorage.getItem('goatify-lang') || 'es'].also_delete_items_warning || "También se eliminarán los"} ${childrenIds.length} ${translations[localStorage.getItem('goatify-lang') || 'es'].items_contained_warning || "elementos que contiene."}`
                 }
 
                 const confResult = await showModal({ 
-                    title: `¿Eliminar "${item.title}"?`, 
+                    title: `${translations[localStorage.getItem('goatify-lang') || 'es'].delete_confirm_prefix || "Eliminar"} ${item.title}?`, 
                     body: body, 
-                    confirmText: 'Eliminar', 
+                    confirmText: translations[localStorage.getItem('goatify-lang') || 'es'].delete || 'Eliminar', 
                     dangerConfirm: true 
                 });
                 
@@ -4636,7 +4654,7 @@
                         });
 
                         if (currentChatId === deleteId) resetChatView(); 
-                        if (currentNoteId === deleteId) { 
+                        if (currentNoteId === deleteId) { // If currentNoteId is deleted, clear editor
                             currentNoteId = null;
                             dom.noteEditorPanel.classList.add('hidden');
                         }
@@ -4650,7 +4668,7 @@
             function updateActiveChatHighlight() { 
                 document.querySelectorAll('.chat-item, .note-item').forEach(item => {
                     item.classList.toggle('selected-chat', item.dataset.id === currentChatId);
-                    item.classList.toggle('active', item.dataset.id === currentNoteId);
+                    item.classList.toggle('active', item.dataset.id === currentNoteId); // For notepad active state
                 });
             }
 
@@ -4688,7 +4706,7 @@
                         inputEl = dom.notepadMsgInput;
                         messageContainer = dom.notepadChatMessages;
                         chatIdToUpdate = 'notepad-assistant-chat';
-                        noteContent = dom.noteContentEditor.innerHTML;
+                        noteContent = dom.noteContentEditor.innerHTML; // Get innerHTML for rich text content
                         modelToUse = getModelForRequest(state.chats[chatIdToUpdate]?.workflow, false, 'notepad');
                         break;
                     default: // main
@@ -4713,11 +4731,11 @@
                 if(currentChat.workflow) cost = COSTS.WORKFLOW;
                 if(selectedPdfText) cost = COSTS.PDF_ANALYSIS;
                 if(selectedImageBase64) cost = COSTS.IMAGE_ANALYSIS;
-                if(modelToUse.includes('gpt-4')) cost = COSTS.GPT4O;
+                if(modelToUse === 'gpt-4o') cost = COSTS.GPT4O; // Specific cost for GPT-4o
 
-                if (!spendCredits(cost, modelToUse)) return;
+                if (!spendCredits(cost, modelToUse)) return; // Pass modelUsed to spendCredits
 
-                if(currentChat.title === (translations[localStorage.getItem('goatify-lang') || 'es'].default_chat_title) && userMessage.length > 5 && assistantType === 'main') {
+                if(currentChat.title === (translations[localStorage.getItem('goatify-lang') || 'es'].default_chat_title || 'Conversación Cósmica') && userMessage.length > 5 && assistantType === 'main') {
                     currentChat.title = userMessage.split(' ').slice(0, 4).join(' ');
                     renderSidebar();
                 }
@@ -4738,10 +4756,7 @@
                     const responseData = await getAIResponse(userMessage, currentChat.messages.slice(0, -1), image, pdf, modelToUse, currentChat.workflow, userNameForCall, financialData, noteContent);
                     
                     updateCreditCounter();
-                    
-                    const assistantMessage = { role: 'assistant', content: responseData.reply };
-                    currentChat.messages.push(assistantMessage);
-                    
+                    currentChat.messages.push({ role: 'assistant', content: responseData.reply });
                     updateMessageInUI(thinkingBubble, responseData.reply, null, messageContainer);
                     speak(responseData.reply);
 
@@ -4766,16 +4781,16 @@
                 }
             }
             async function generateImage() {
-                const result = await showModal({ title: 'Crear Imagen', body: `Describe la imagen que quieres crear:<br><input type="text" id="img-prompt" class="w-full p-2 rounded bg-input border border-themed mt-2" placeholder="Ej: Un astronauta en un caballo cósmico">`, confirmText: 'Generar' });
+                const result = await showModal({ title: translations[localStorage.getItem('goatify-lang') || 'es'].create_image_title || 'Crear Imagen', body: `${translations[localStorage.getItem('goatify-lang') || 'es'].image_prompt_desc || 'Describe la imagen que quieres crear:'}<br><input type="text" id="img-prompt" class="w-full p-2 rounded bg-input border border-themed mt-2" placeholder="${translations[localStorage.getItem('goatify-lang') || 'es'].image_prompt_placeholder || 'Ej: Un astronauta en un caballo cósmico'}">`, confirmText: translations[localStorage.getItem('goatify-lang') || 'es'].generate_btn || 'Generar' });
                 if (!result.confirmed || !result.data['img-prompt']) return;
                 
-                if (!spendCredits(COSTS.IMAGE_GENERATION, 'dall-e-2')) return;
+                if (!spendCredits(COSTS.IMAGE_GENERATION, 'dall-e-2')) return; // Pass model name for pro usage check
                 
                 let chatIdToUpdate = currentChatId || createNewChat({});
                 const currentChat = state.chats[chatIdToUpdate];
-                currentChat.messages.push({ role: 'user', content: `Generar imagen: "${result.data['img-prompt']}"` });
-                addMessageToUI('user', `Generar imagen: "${result.data['img-prompt']}"`, null, currentChat.messages.length - 1, dom.chatMessages);
-                const thinkingBubble = addMessageToUI('assistant', 'Creando tu visión con DALL·E 2...', null, null, dom.chatMessages);
+                currentChat.messages.push({ role: 'user', content: `${translations[localStorage.getItem('goatify-lang') || 'es'].generate_image_message || 'Generar imagen:'} "${result.data['img-prompt']}"` });
+                addMessageToUI('user', `${translations[localStorage.getItem('goatify-lang') || 'es'].generate_image_message || 'Generar imagen:'} "${result.data['img-prompt']}"`, null, currentChat.messages.length - 1, dom.chatMessages);
+                const thinkingBubble = addMessageToUI('assistant', '…', null, null, dom.chatMessages);
                 try {
                     const response = await fetch('/.netlify/functions/generate-image', {
                         method: 'POST',
@@ -4784,13 +4799,13 @@
                     });
                     if (!response.ok) { throw new Error((await response.json()).error || 'Error del servidor'); }
                     const { imageData } = await response.json();
-                    const imageContent = '¡Aquí está tu creación, Jefe/a!';
+                    const imageContent = translations[localStorage.getItem('goatify-lang') || 'es'].image_creation_success || '¡Aquí está tu creación, Jefe/a!';
                     currentChat.messages.push({ role: 'assistant', content: imageContent, image: imageData });
                     updateMessageInUI(thinkingBubble, imageContent, imageData, dom.chatMessages);
                     completeMission('image-generated');
                     saveState();
                 } catch (error) {
-                    updateMessageInUI(thinkingBubble, `❌ **Error al crear la imagen:**<br><small>${error.message}</small>`, null, dom.chatMessages);
+                    updateMessageInUI(thinkingBubble, `${translations[localStorage.getItem('goatify-lang') || 'es'].image_creation_error || '❌ **Error al crear la imagen:**'}<br><small>${error.message}</small>`, null, dom.chatMessages);
                 }
             }
             function toggleSelectMode(active) {
@@ -4803,6 +4818,7 @@
                 }
                 renderSidebar();
 
+                // Enable/disable selection by dragging
                 if (active) {
                     document.addEventListener('mousedown', handleMouseDownForSelection);
                 } else {
@@ -4869,6 +4885,8 @@
                             item.classList.add('selected-for-delete');
                         }
                     } else {
+                        // If item was previously selected by drag but no longer overlaps, deselect it
+                        // This prevents items remaining selected if the user drags away from them
                         if (chatsToDelete.has(item.dataset.id) && item.classList.contains('selected-for-delete')) {
                              chatsToDelete.delete(item.dataset.id);
                              item.querySelector('i').classList.replace('fa-check-square', 'fa-square');
@@ -4887,7 +4905,7 @@
                 }
                 document.removeEventListener('mousemove', handleMouseMoveForSelection);
                 document.removeEventListener('mouseup', handleMouseUpForSelection);
-                dom.deleteSelectedBtn.disabled = chatsToDelete.size === 0;
+                dom.deleteSelectedBtn.disabled = chatsToDelete.size === 0; // Final check
             }
 
             function clearSelectionVisuals() {
@@ -4939,22 +4957,21 @@
             }
 
             function createNewNote(type = 'text') {
-                const lang = localStorage.getItem('goatify-lang') || 'es';
                 const newNote = {
                     id: 'note-' + crypto.randomUUID(),
-                    title: type === 'text' ? translations[lang].new_note : translations[lang].new_drawing_title,
+                    title: type === 'text' ? translations[localStorage.getItem('goatify-lang') || 'es'].new_note : translations[localStorage.getItem('goatify-lang') || 'es'].new_drawing_title,
                     content: type === 'text' ? '' : null, 
                     type: type,
                     createdAt: new Date().toISOString()
                 };
                 state.notes.unshift(newNote);
                 state.structure.unshift(newNote.id);
-                selectChat(newNote.id);
+                selectChat(newNote.id); // Select the new note, which also renders sidebar and saves state
                 
                 if (window.innerWidth < 768) {
                     dom.notepadViewContainer.classList.add('mobile-editor-active');
                 }
-                showInAppNotification("Éxito", `Se ha creado: "${newNote.title}"`);
+                showInAppNotification(translations[localStorage.getItem('goatify-lang') || 'es'].success_title || "Éxito", `${translations[localStorage.getItem('goatify-lang') || 'es'].note_created_message || "Se ha creado:"} "${newNote.title}"`);
             }
 
             function loadNoteIntoEditor(noteId) {
@@ -4976,6 +4993,7 @@
                 if (isDrawing) {
                     setupCanvas(note);
                 } else {
+                     // Ensure any active text editor buttons are reset for new text notes
                     dom.noteEditorToolbar.querySelectorAll('.text-editor-controls button').forEach(btn => btn.classList.remove('active'));
                 }
             }
@@ -5045,7 +5063,7 @@
                     ctx.closePath(); 
                     const activeNote = state.notes.find(n => n.id === currentNoteId);
                     if (activeNote) {
-                        activeNote.content = canvas.toDataURL();
+                        activeNote.content = canvas.toDataURL(); // Save drawing
                         saveState();
                     }
                 };
@@ -5077,6 +5095,7 @@
             function applyTextFormat(command, value = null) {
                 document.execCommand(command, false, value);
                 dom.noteContentEditor.focus();
+                // Update active state of buttons
                 updateToolbarButtonStates();
                 const note = state.notes.find(n => n.id === currentNoteId);
                 if (note && note.type === 'text') {
@@ -5119,7 +5138,7 @@
 
                 if (result.confirmed && result.data['share-email-input']) {
                     console.log(`(DEMO) Sharing note ${currentNoteId} with ${result.data['share-email-input']}. Backend implementation needed.`);
-                    showInAppNotification("Función en Desarrollo", "La colaboración en tiempo real estará disponible pronto.");
+                    showInAppNotification(translations[lang].feature_in_dev_title || "Función en Desarrollo", translations[lang].feature_in_dev_message || "La colaboración en tiempo real estará disponible pronto.");
                 }
             }
 
@@ -5176,11 +5195,12 @@
                     }
                     const randomIndex = Math.floor(Math.random() * MOTIVATIONAL_MESSAGES.length);
                     const message = MOTIVATIONAL_MESSAGES[randomIndex];
-                    const lang = localStorage.getItem('goatify-lang') || 'es';
-                    const title = `<i class="fas fa-lightbulb text-yellow-400 mr-2"></i> ${translations[lang].motivation_title}`;
-                    
-                    showInAppNotification(title, `<p class="text-md">${message}</p>`, 4000);
-                    triggerPushNotification(translations[lang].motivation_title, message);
+                    const title = `<i class="fas fa-lightbulb text-yellow-400 mr-2"></i> ${translations[localStorage.getItem('goatify-lang') || 'es'].motivation_dose_title || '¡Dosis de Motivación!'}`;
+                    const body = `<p class="text-md">${message}</p>`;
+
+                    showInAppNotification(title, body, 4000);
+                    triggerPushNotification(translations[localStorage.getItem('goatify-lang') || 'es'].motivation_title, message);
+
                 }, thirtyMinutes); 
             }
 
@@ -5204,10 +5224,9 @@
                                 <li><strong>Análisis de PDF:</strong> ${COSTS.PDF_ANALYSIS} créditos</li>
                                 <li><strong>Análisis de Imagen:</strong> ${COSTS.IMAGE_ANALYSIS} créditos</li>
                                 <li><strong>Creación de Imagen (DALL-E):</strong> ${COSTS.IMAGE_GENERATION} créditos</li>
-                                <li><strong>GOAT X PRO:</strong> ${COSTS.GPT4O} créditos</li>
+                                <li><strong>GOAT X PRO (GPT-4o):</strong> ${COSTS.GPT4O} créditos</li>
                                </ul>`;
-                    bodyContent += `<p class="mt-4 text-sm">${translations[lang].gamification_credits_info}</p>`;
-                    bodyContent += `<p class="mt-3 text-sm italic">${translations[lang].upgrade_for_more}</p>`;
+                    bodyContent += `<p class="mt-4 text-sm italic">${translations[lang].gamification_credits_info}</p>`;
                     
                     showModal({
                         title: translations[lang].credits_details_title,
@@ -5228,7 +5247,7 @@
 
                 dom.rewardCreditsInfo?.addEventListener('click', () => {
                     if(!currentUser) {
-                        showInAppNotification("Función Exclusiva", "La gamificación está disponible para usuarios registrados.", 3000);
+                        showInAppNotification(translations[localStorage.getItem('goatify-lang') || 'es'].exclusive_feature_title || "Función Exclusiva", translations[localStorage.getItem('goatify-lang') || 'es'].exclusive_feature_message || "La gamificación está disponible para usuarios logueados.", 3000);
                         return;
                     }
                     renderGamificationModal();
@@ -5293,12 +5312,12 @@
                 dom.newChatBtn?.addEventListener('click', newChatHandler);
                 dom.newChatIconBtn?.addEventListener('click', newChatHandler);
                 
-                const newFolderHandler = async () => { 
-                    const lang = localStorage.getItem('goatify-lang') || 'es';
+                dom.newFolderBtn?.addEventListener('click', async () => { const result = await showModal({ title: translations[localStorage.getItem('goatify-lang') || 'es'].create_folder_title || 'Crear Nueva Carpeta', body: `<input type="text" id="project-name" class="w-full p-2 rounded bg-input border border-themed" placeholder="${translations[localStorage.getItem('goatify-lang') || 'es'].folder_name_placeholder || 'Nombre de la Carpeta...'}">`, confirmText: translations[localStorage.getItem('goatify-lang') || 'es'].create_btn || 'Crear' }); if (result.confirmed && result.data['project-name'].trim()) { const id = 'project-' + crypto.randomUUID(); state.projects[id] = { id, title: result.data['project-name'].trim(), itemIds: [] }; state.structure.unshift(id); saveState(); renderSidebar(); } });
+                dom.newFolderIconBtn?.addEventListener('click', async () => { 
                     const result = await showModal({ 
-                        title: 'Crear Nueva Carpeta', 
-                        body: `<input type="text" id="project-name" class="w-full p-2 rounded bg-input border border-themed" placeholder="Nombre de la Carpeta...">`, 
-                        confirmText: 'Crear'
+                        title: translations[localStorage.getItem('goatify-lang') || 'es'].create_folder_title || 'Crear Nueva Carpeta', 
+                        body: `<input type="text" id="project-name" class="w-full p-2 rounded bg-input border border-themed" placeholder="${translations[localStorage.getItem('goatify-lang') || 'es'].folder_name_placeholder || 'Nombre de la Carpeta...'}">`, 
+                        confirmText: translations[localStorage.getItem('goatify-lang') || 'es'].create_btn || 'Crear'
                     }); 
                     if (result.confirmed && result.data['project-name'].trim()) { 
                         const id = 'project-' + crypto.randomUUID(); 
@@ -5306,40 +5325,43 @@
                         state.structure.unshift(id); 
                         saveState(); 
                         renderSidebar(); 
-                        showInAppNotification("Éxito", `Carpeta "${result.data['project-name'].trim()}" creada.`);
+                        showInAppNotification(translations[localStorage.getItem('goatify-lang') || 'es'].success_title || "Éxito", `${translations[localStorage.getItem('goatify-lang') || 'es'].folder_created_message || "Carpeta"} "${result.data['project-name'].trim()}" ${translations[localStorage.getItem('goatify-lang') || 'es'].created_suffix || "creada."}`);
                     } 
-                };
-                dom.newFolderBtn?.addEventListener('click', newFolderHandler);
-                dom.newFolderIconBtn?.addEventListener('click', newFolderHandler);
+                });
 
                 dom.upgradePlanBtn?.addEventListener('click', showPricingModal);
                 dom.closePricingModalBtn?.addEventListener('click', hidePricingModal);
                 dom.themeToggle?.addEventListener('click', () => setTheme(!document.body.classList.contains('dark-theme')));
                 dom.loginBtn?.addEventListener('click', () => netlifyIdentity.open('login'));
                 
-                dom.desktopChatTitleWrapper?.addEventListener('click', (e) => { if(!e.target.closest('#motivation-btn-header, #calendar-btn') && currentChatId && currentChatId.startsWith('chat-')) renameItem('chat', currentChatId); });
-                dom.mobileChatTitleWrapper?.addEventListener('click', (e) => { if(!e.target.closest('#motivation-btn-mobile, #calendar-btn-mobile') && currentChatId && currentChatId.startsWith('chat-')) renameItem('chat', currentChatId); });
-
+                dom.desktopChatTitleWrapper?.addEventListener('click', (e) => { if(!e.target.closest('#motivation-btn-header') && currentChatId && currentChatId.startsWith('chat-')) renameItem('chat', currentChatId); });
+                dom.mobileChatTitleWrapper?.addEventListener('click', (e) => { if(!e.target.closest('#motivation-btn-mobile') && currentChatId && currentChatId.startsWith('chat-')) renameItem('chat', currentChatId); });
                 dom.imageGenBtn?.addEventListener('click', generateImage);
                 dom.pdfUploadBtn?.addEventListener('click', () => dom.pdfUploadInput.click());
                 dom.imageUploadBtn?.addEventListener('click', () => dom.imageUploadInput.click());
                 if (SR && dom.micBtn) {
                     recognition = new SR();
-                    recognition.continuous = true; recognition.interimResults = false; recognition.lang = 'es-ES';
-                    recognition.onstart = () => { isRecognizing = true; dom.micBtn.classList.add('glowing-mic'); };
-                    recognition.onend = () => { isRecognizing = false; dom.micBtn.classList.remove('glowing-mic'); };
-                    recognition.onerror = (e) => { console.error("Speech recognition error", e); isRecognizing = false; dom.micBtn.classList.remove('glowing-mic'); };
+                    recognition.continuous = false; recognition.interimResults = false; recognition.lang = 'es-ES';
+                    recognition.onstart = () => { isRecognizing = true; dom.micBtn.classList.add('glowing-mic'); toggleVoiceSelectorVisibility(true);};
+                    recognition.onend = () => { isRecognizing = false; dom.micBtn.classList.remove('glowing-mic'); if (!speechSynthesis.speaking) toggleVoiceSelectorVisibility(false); };
+                    recognition.onerror = (e) => { console.error("Speech recognition error", e); isRecognizing = false; dom.micBtn.classList.remove('glowing-mic'); toggleVoiceSelectorVisibility(false); };
                     recognition.onresult = (event) => {
-                        let final_transcript = '';
-                        for (let i = event.resultIndex; i < event.results.length; ++i) {
-                            if (event.results[i].isFinal) {
-                                final_transcript += event.results[i][0].transcript;
-                            }
+                        const transcript = event.results[0][0].transcript;
+                        const activeView = document.querySelector('#view-container > div:not(.hidden)');
+                        let assistantType = 'main';
+                        if(activeView) {
+                            if(activeView.id === 'project-management-view') assistantType = 'project';
+                            else if(activeView.id === 'financial-assistant-view') assistantType = 'financial';
+                            else if(activeView.id === 'notepad-view-container') assistantType = 'notepad';
                         }
-                        if(final_transcript) {
-                            dom.msgInput.value = final_transcript;
-                            sendMessage(false, null, { assistantType: 'main' });
-                        }
+                        
+                        let activeInput = dom.msgInput;
+                        if(assistantType === 'project') activeInput = dom.projectMsgInput;
+                        else if(assistantType === 'financial') activeInput = document.getElementById('financial-msg');
+                        else if(assistantType === 'notepad') activeInput = dom.notepadMsgInput;
+
+                        activeInput.value = transcript; 
+                        sendMessage(false, null, { assistantType });
                     };
                     dom.micBtn.addEventListener('click', () => {
                         if(isRecognizing) { recognition.stop(); } 
@@ -5359,9 +5381,8 @@
 
                 dom.modelSelector?.addEventListener('change', () => {
                     const selectedValue = dom.modelSelector.value;
-                    const plan = currentUser?.app_metadata?.plan || 'free';
-                    if (selectedValue === 'gpt-4o' && plan === 'free') {
-                        showInAppNotification("Acceso Restringido", "El modelo GOAT X PRO está disponible solo para usuarios con un plan de pago.", 3000);
+                    if (selectedValue === 'gpt-4o' && (!currentUser || (currentUser.app_metadata?.plan || 'free') === 'free')) { // Re-check on change
+                        showInAppNotification(translations[localStorage.getItem('goatify-lang') || 'es'].restricted_access_title || "Acceso Restringido", translations[localStorage.getItem('goatify-lang') || 'es'].restricted_access_message || "El modelo GOAT X PRO está disponible solo para usuarios con un plan de pago.", 3000);
                         dom.modelSelector.value = 'gpt-3.5-turbo-1106';
                     }
                 });
@@ -5369,11 +5390,12 @@
                 dom.clearImageBtn?.addEventListener('click', clearImageData);
                 dom.clearPdfBtn?.addEventListener('click', clearPdfData);
                 dom.imageUploadInput?.addEventListener('change', (e) => { if (e.target.files && e.target.files[0]) { dom.filePreviewArea.style.display = "block"; clearPdfData(); const reader = new FileReader(); reader.onload = (ev) => { selectedImageBase64 = ev.target.result; dom.imagePreview.src = selectedImageBase64; dom.imagePreviewContainer.classList.remove('hidden'); }; reader.readAsDataURL(e.target.files[0]); } });
-                dom.pdfUploadInput?.addEventListener('change', (e) => { const file = e.target.files[0]; if (!file || file.type !== 'application/pdf') return; dom.filePreviewArea.style.display = "block"; clearImageData(); dom.pdfNameEl.textContent = file.name; dom.pdfStatusEl.textContent = 'Leyendo...'; dom.pdfPreviewContainer.classList.remove('hidden'); const reader = new FileReader(); reader.onload = async (ev) => { dom.pdfStatusEl.textContent = 'Procesando...'; try { const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(ev.target.result) }).promise; let text = ''; for (let i = 1; i <= pdf.numPages; i++) { const page = await pdf.getPage(i); const content = await page.getTextContent(); text += content.items.map(item => item.str).join(' ') + '\n'; } selectedPdfText = text; dom.pdfStatusEl.textContent = `✅ Listo (${pdf.numPages} pág.)`; } catch (err) { console.error("Error al procesar el PDF:", err); dom.pdfStatusEl.textContent = `❌ Error al leer PDF.`; selectedPdfText = null; setTimeout(clearPdfData, 2000); } }; reader.readAsArrayBuffer(file); });
+                dom.pdfUploadInput?.addEventListener('change', (e) => { const file = e.target.files[0]; if (!file || file.type !== 'application/pdf') return; dom.filePreviewArea.style.display = "block"; clearImageData(); dom.pdfNameEl.textContent = file.name; dom.pdfStatusEl.textContent = translations[localStorage.getItem('goatify-lang') || 'es'].reading_pdf_status || 'Leyendo...'; dom.pdfPreviewContainer.classList.remove('hidden'); const reader = new FileReader(); reader.onload = async (ev) => { dom.pdfStatusEl.textContent = translations[localStorage.getItem('goatify-lang') || 'es'].processing_pdf_status || 'Procesando...'; try { const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(ev.target.result) }).promise; let text = ''; for (let i = 1; i <= pdf.numPages; i++) { const page = await pdf.getPage(i); const content = await page.getTextContent(); text += content.items.map(item => item.str).join(' ') + '\n'; } selectedPdfText = text; dom.pdfStatusEl.textContent = `✅ ${translations[localStorage.getItem('goatify-lang') || 'es'].pdf_ready_status || 'Listo'} (${pdf.numPages} ${translations[localStorage.getItem('goatify-lang') || 'es'].pages_short || 'pág.'})`; } catch (err) { console.error("Error al procesar el PDF:", err); dom.pdfStatusEl.textContent = `❌ ${translations[localStorage.getItem('goatify-lang') || 'es'].pdf_error_status || 'Error al leer PDF.'}`; selectedPdfText = null; setTimeout(clearPdfData, 2000); } }; reader.readAsArrayBuffer(file); });
                 dom.menuToggle?.addEventListener('click', (e) => { e.stopPropagation(); toggleSidebar(true); });
                 dom.sidebarOverlay?.addEventListener('click', () => toggleSidebar(false));
                 dom.sidebarToggleArrow?.addEventListener('click', () => {
                     dom.sidebar.classList.toggle('collapsed');
+                    // Toggle arrow direction based on collapsed state
                     if (dom.sidebar.classList.contains('collapsed')) {
                         dom.sidebarToggleArrow.querySelector('i').classList.replace('fa-chevron-left', 'fa-chevron-right');
                     } else {
@@ -5395,19 +5417,41 @@
                 dom.logoutBtn?.addEventListener('click', () => { netlifyIdentity.logout(); dom.userMenuPopup.classList.add('hidden');});
                 
                 dom.userSettingsIcon?.addEventListener('click', (e) => { e.stopPropagation(); showSettingsModal(); });
+
+                const workflowConfigs = {
+                    'project-management': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_pm, workflow: 'project-management' },
+                    'financial-assistant': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_financial, workflow: 'financial-assistant' },
+                    'notepad-app': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_notepad, workflow: 'notepad-app' },
+                    'create-full-post': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_social_1, workflow: 'create-full-post', initialMessages: [{ role: 'assistant', content: '¡Claro! Vamos a crear un post increíble. ¿Para qué red social lo necesitas (Instagram, Facebook, LinkedIn, etc.)?' }] },
+                    'persuasive-copy': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_social_2, workflow: 'persuasive-copy', initialMessages: [{ role: 'assistant', content: 'Estoy listo para redactar textos que vendan. ¿Para qué necesitas este copy? (ej: Anuncio de Facebook, Post de Venta, Descripción de Producto)' }] },
+                    'post-ideas': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_social_3, workflow: 'post-ideas', initialMessages: [{ role: 'assistant', content: '¡Acabemos con el bloqueo creativo! Dime un tema y te daré 7 ideas de contenido excelentes.' }] },
+                    'brand-strategy': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_social_4, workflow: 'brand-strategy', initialMessages: [{ role: 'assistant', content: 'Definamos el corazón de tu marca. ¿Cuál es el nombre de tu negocio y a qué se dedica?' }] },
+                    'competitor-analysis': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_business_1, workflow: 'competitor-analysis', model: 'sonar', initialMessages: [{ role: 'assistant', content: "Estoy listo para analizar a tu competencia usando el buscador web. Por favor, pega la URL (dirección web) de la página que quieres que investigue para entregarte un análisis DAFO simplificado." }] },
+                    'buyer-persona': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_business_2, workflow: 'buyer-persona', initialMessages: [{ role: 'assistant', content: "Vamos a definir a tu cliente ideal (Buyer Persona). Describe tu producto o servicio, y te haré preguntas para construir el perfil detallado paso a paso." }] },
+                    'brand-names': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_business_3, workflow: 'brand-names', initialMessages: [{ role: 'assistant', content: "¡Excelente! Busquemos un nombre increíble. Describe brevemente tu idea de negocio, tu público y el estilo que buscas (ej. moderno, clásico, divertido) para generar nombres y slogans." }] },
+                    'sales-assistant': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_sales_1, workflow: 'sales-assistant', initialMessages: [{ role: 'assistant', content: 'Para ayudarte a cerrar esa venta, pega aquí el mensaje de tu cliente.' }] },
+                    'email-writing': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_sales_2, workflow: 'email-writing', initialMessages: [{ role: 'assistant', content: 'Creemos un email que convierta. ¿Cuál es el objetivo principal de este correo?' }] },
+                    'english-teacher-translate': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_eng_1, workflow: 'english-teacher-translate', initialMessages: [{ role: 'assistant', content: 'Of course! Please provide the text you want me to translate or correct.' }] },
+                    'english-teacher-vocabulary': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_eng_2, workflow: 'english-teacher-vocabulary', initialMessages: [{ role: 'assistant', content: 'Excellent! Let\'s learn some new vocabulary. What topic are you interested in? (e.g., "business negotiations", "travel")' }] },
+                    'english-teacher-practice': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_eng_3, workflow: 'english-teacher-practice', initialMessages: [{ role: 'assistant', content: 'Great! Let\'s practice our conversation. So, tell me about your day.' }] },
+                    'social-skills': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_sales_4, workflow: 'social-skills', initialMessages: [{ role: 'assistant', content: 'Las habilidades sociales son clave. ¿En qué situación te gustaría mejorar tu comunicación? (Ej: una reunión de networking, una conversación difícil, etc.)' }] },
+                    'design-web': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_sales_3, workflow: 'design-web', model: 'gpt-4o', initialMessages: [{ role: 'assistant', content: 'Estoy listo para diseñar con código. Describe la página o componente que quieres crear, y lo programaré para ti.' }] },
+                    'conflict-resolution': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_expert_2, workflow: 'conflict-resolution', initialMessages: [{ role: 'assistant', content: 'Entiendo. Las situaciones difíciles requieren una comunicación clara. Por favor, describe el conflicto objetivamente: ¿quiénes están involucrados y cuál es el punto principal de desacuerdo?' }] },
+                    'decision-lab': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_expert_1, workflow: 'decision-lab', initialMessages: [{ role: 'assistant', content: 'Bienvenido al Laboratorio de Decisiones. Recuerda que una decisión puede cambiar el rumbo de tu vida. Para ayudarte a analizar tu situación, por favor, dime: ¿Cuál es la decisión que necesitas tomar y qué opciones estás considerando?' }] },
+                };
                 
-                // *** FIX: Corrected event delegation for sidebar category toggles ***
-                document.getElementById('sidebar-scrollable-content').addEventListener('click', e => {
-                    const categoryHeader = e.target.closest('.workflow-header, .actions-header, .folders-header');
-                    if (categoryHeader) {
-                        const parentCategory = categoryHeader.parentElement;
-                        if(parentCategory.classList.contains('workflow-category') || parentCategory.classList.contains('actions-category') || parentCategory.classList.contains('folders-category')) {
-                            parentCategory.classList.toggle('open');
+                document.body.addEventListener('click', e => { 
+                    // FIX: Make all three sidebar dropdowns work correctly.
+                    const header = e.target.closest('.workflow-header, .actions-header, .folders-header');
+                    if (header) {
+                        const category = header.parentElement;
+                        if (category) {
+                            category.classList.toggle('open');
                         }
                     }
 
                     const workflowButton = e.target.closest('[data-workflow]');
-                    if (workflowButton) {
+                    if (workflowButton && workflowButton.closest('.workflow-content, #sidebar-top-actions')) {
                         const workflowKey = workflowButton.dataset.workflow;
                         const config = workflowConfigs[workflowKey];
                          if (config) {
@@ -5422,8 +5466,8 @@
                 
                 dom.webLaunchOfferBtn.addEventListener('click', () => { 
                     const lang = localStorage.getItem('goatify-lang') || 'es';
-                    const offerTitle = `<i class="fas fa-gift mr-2"></i>Tu Oferta de Lanzamiento Exclusiva`; 
-                    const offerMessage = `<p class="font-bold mb-2">Al suscribirte a nuestro Plan Pro por $17/mes, desbloqueas:</p><ul class="list-disc list-inside space-y-2 text-left"><li><strong>Acceso Ilimitado a Goatify IA:</strong> Todos los modelos y workflows sin restricciones.</li><li><strong>Construcción de tu Página Web Profesional:</strong> Nosotros construiremos la primera versión, ¡gratis!</li></ul><p class="font-bold mt-4 mb-2">¿Cómo funciona?</p><ol class="list-decimal list-inside space-y-1 text-left"><li><strong>Agenda tu Sesión Estratégica:</strong> Al confirmar, agenda tu llamada de 20 min.</li><li><strong>Co-creación:</strong> En la llamada definiremos objetivos y crearemos el borrador con IA.</li><li><strong>Entrega:</strong> Nuestro equipo lo pulirá y te entregará una web de una sección, lista.</li></ol><p class="text-xs mt-4 italic"><strong>Importante:</strong> La web es tuya para siempre. Para mantenerla online con nuestro hosting, necesitas tu suscripción Pro activa. Si cancelas, te entregamos el código completo.</p>`; 
+                    const offerTitle = `<i class="fas fa-gift mr-2"></i>${'Tu Oferta de Lanzamiento Exclusiva'}`; 
+                    const offerMessage = `<p class="font-bold mb-2">${'Al suscribirte a nuestro Plan Pro por $17/mes, desbloqueas:'}</p><ul class="list-disc list-inside space-y-2 text-left"><li><strong>${'Acceso Ilimitado a Goatify IA:'}</strong> ${'Todos los modelos y workflows sin restricciones.'}</li><li><strong>${'Construcción de tu Página Web Profesional:'}</strong> ${'Nosotros construiremos la primera versión, ¡gratis!'}</li></ul><p class="font-bold mt-4 mb-2">${'¿Cómo funciona?'}</p><ol class="list-decimal list-inside space-y-1 text-left"><li><strong>${'Agenda tu Sesión Estratégica:'}</strong> ${'Al confirmar, agenda tu llamada de 20 min.'}</li><li><strong>${'Co-creación:'}</strong> ${'En la llamada definiremos objetivos y crearemos el borrador con IA.'}</li><li><strong>${'Entrega:'}</strong> ${'Nuestro equipo lo pulirá y te entregará una web de una sección, lista.'}</li></ol><p class="text-xs mt-4 italic"><strong>${'Importante:'}</strong> ${'La web es tuya para siempre. Para mantenerla online con nuestro hosting, necesitas tu suscripción Pro activa. Si cancelas, te entregamos el código completo.'}</p>`; 
                     showModal({ title: offerTitle, body: offerMessage, confirmText: 'Agendar Sesión Estratégica' }).then(res => { if (res.confirmed) { window.open('https://calendly.com/goatify', '_blank'); } });
                 });
                 dom.freeGuidesLink.addEventListener('click', (e) => { e.preventDefault(); const isPaidUser = currentUser && currentUser.app_metadata?.plan && currentUser.app_metadata.plan !== 'free'; if (isPaidUser) { window.open('https://goatify.app/guiasIA', '_blank'); } else { const lang = localStorage.getItem('goatify-lang') || 'es'; const title = 'Acceso Exclusivo para Suscriptores'; const message = 'Estas guías se actualizan semanalmente con estrategias de negocio que te ayudarán a crecer un montón. Son un beneficio exclusivo para nuestros suscriptores. ¡Únete a un plan para desbloquearlas!'; showModal({ title, body: message, confirmText: 'Ver Planes' }).then(res => { if (res.confirmed) { showPricingModal(); } }); } });
@@ -5442,6 +5486,7 @@
                     if (dom.tagFilterDropdown && dom.tagFilterBtn && !dom.tagFilterBtn.contains(e.target) && !dom.tagFilterDropdown.contains(e.target)) {
                         dom.tagFilterDropdown.classList.add('hidden');
                     }
+                    // Close all add-to-folder dropdowns
                     document.querySelectorAll('.add-to-folder-dropdown').forEach(dropdown => {
                         if (!e.target.closest('.add-to-folder-btn')) {
                             dropdown.classList.add('hidden');
@@ -5509,7 +5554,7 @@
 
                 const calendarClickHandler = () => showCalendarModal();
                 dom.calendarBtn?.addEventListener('click', calendarClickHandler);
-                dom.mobileCalendarBtn?.addEventListener('click', calendarClickHandler);
+                dom.mobileCalendarBtn?.addEventListener('click', calendarClickHandler); // Add listener for mobile calendar button
 
                 dom.projectCalendarBtn?.addEventListener('click', showCalendarModal);
                 dom.closeCalendarModal?.addEventListener('click', hideCalendarModal);
@@ -5585,16 +5630,20 @@
                 });
                 dom.noteContentEditor?.addEventListener('keydown', (e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
+                        // Prevent default Enter behavior for checklist items, handled by addChecklistItemBtn listener
+                        // Otherwise, allow default browser behavior for new lines
                         const selection = window.getSelection();
                         const range = selection.getRangeAt(0);
                         const currentChecklistItem = range.startContainer.closest('.checklist-item');
                         if (currentChecklistItem) {
                             e.preventDefault();
+                            // Logic to add a new checklist item (already handled by addChecklistItemBtn)
                             applyTextFormat('insertHTML', '<div class="checklist-item"><input type="checkbox" class="checklist-item-checkbox"><span contenteditable="true" class="checklist-item-text"></span></div>');
                         }
                     }
                 });
 
+                // Text editor formatting buttons
                 dom.boldBtn?.addEventListener('click', () => applyTextFormat('bold'));
                 dom.italicBtn?.addEventListener('click', () => applyTextFormat('italic'));
                 dom.underlineBtn?.addEventListener('click', () => applyTextFormat('underline'));
@@ -5608,11 +5657,13 @@
                     updateToolbarButtonStates();
                 });
                 dom.addChecklistItemBtn?.addEventListener('click', () => {
+                    // Get the current selection or cursor position
                     const selection = window.getSelection();
                     const range = selection.getRangeAt(0);
                     const currentContainer = selection.focusNode?.parentElement?.closest('#note-content-editor, .checklist-item-text');
 
                     if (!currentContainer) {
+                         // If no selection or not in editor, append at the end
                         dom.noteContentEditor.innerHTML += `<div class="checklist-item"><input type="checkbox" class="checklist-item-checkbox"><span contenteditable="true" class="checklist-item-text"></span></div>`;
                         const newChecklistItem = dom.noteContentEditor.lastElementChild;
                         const newTextSpan = newChecklistItem.querySelector('.checklist-item-text');
@@ -5626,20 +5677,22 @@
                         const newTextSpan = newChecklistItemContent.nextElementSibling;
 
                         if (currentContainer.classList.contains('checklist-item-text')) {
+                            // If inside an existing checklist item text, create a new checklist item below
                             const parentChecklistItem = currentContainer.closest('.checklist-item');
                             const newChecklistItemWrapper = document.createElement('div');
                             newChecklistItemWrapper.className = 'checklist-item';
                             newChecklistItemWrapper.appendChild(newChecklistItemContent);
-                            newChecklistItemWrapper.appendChild(newTextSpan);
+                            newChecklistItemWrapper.appendChild(newTextSpan); // Append the span element
 
                             parentChecklistItem.parentNode.insertBefore(newChecklistItemWrapper, parentChecklistItem.nextSibling);
                             newTextSpan.focus();
                         } else {
-                            range.deleteContents();
+                            // If in the main editor, insert at current cursor position
+                            range.deleteContents(); // Remove any selected text
                             const wrapper = document.createElement('div');
                             wrapper.className = 'checklist-item';
                             wrapper.appendChild(newChecklistItemContent);
-                            wrapper.appendChild(newTextSpan);
+                            wrapper.appendChild(newTextSpan); // Append the span element
 
                             range.insertNode(wrapper);
                             range.setStartAfter(wrapper);
@@ -5675,7 +5728,7 @@
                 });
                 dom.gamificationBtn?.addEventListener('click', () => {
                     if(!currentUser) {
-                        showInAppNotification("Función Exclusiva", "La gamificación está disponible para usuarios registrados.", 3000);
+                        showInAppNotification("Función Exclusiva", "La gamificación está disponible para usuarios logueados.", 3000);
                         return;
                     }
                     renderGamificationModal();
@@ -5687,9 +5740,10 @@
                     dom.gamificationModal.querySelector('.modal-content').classList.add('scale-95');
                     setTimeout(() => { dom.gamificationModal.classList.add('hidden'); dom.gamificationModal.classList.remove('flex'); }, 300);
                 });
+                // Event listener for clicking outside the gamification modal content to close it
                 dom.gamificationModal.addEventListener('click', (e) => {
-                    if (e.target === dom.gamificationModal) {
-                        dom.closeGamificationModal.click();
+                    if (e.target === dom.gamificationModal) { // Check if the click was directly on the overlay
+                        dom.closeGamificationModal.click(); // Simulate click on the close button
                     }
                 });
 
@@ -5728,10 +5782,14 @@
                             generateImage();
                             dom.closeGamificationModal.click();
                         } else if (mission && mission.id === 'week-organized') {
+                            // This mission is triggered by fulfilling a condition, not a direct action button click
+                            // Clicking "Empezar" should just close the modal
                             dom.closeGamificationModal.click();
                         } else if (mission && mission.id === 'project-created') {
+                             // Clicking "Empezar" should just close the modal
                             dom.closeGamificationModal.click();
-                            selectChat('project-management');
+                            // Optionally, navigate to project management view or prompt to create project
+                            selectChat('project-management'); // This assumes project-management chat exists or creates a new one
                         }
                     }
                 });
@@ -6078,10 +6136,11 @@
             }
 
             async function deleteTask(taskId, chatId) {
+                const lang = localStorage.getItem('goatify-lang') || 'es';
                 const result = await showModal({
-                    title: 'Confirmar Eliminación',
-                    body: '¿Estás seguro de que quieres eliminar esta tarea?',
-                    confirmText: 'Eliminar',
+                    title: translations[lang].delete_task_confirm_title,
+                    body: translations[lang].delete_task_confirm_body,
+                    confirmText: translations[lang].delete_btn,
                     dangerConfirm: true
                 });
 
@@ -6106,6 +6165,7 @@
             async function editProjectTask(chatId, taskId, columnIdForNew) {
                 const task = taskId ? findTask(taskId)?.task : null;
                 const isNew = !task;
+                const lang = localStorage.getItem('goatify-lang') || 'es';
                 
                 const result = await showModal({
                     title: isNew ? 'Nueva Tarea de Proyecto' : 'Editar Tarea',
@@ -6136,7 +6196,7 @@
                                 column.tasks.push({ id: `proj-${crypto.randomUUID()}`, ...updatedTaskData, completed: false });
                                 saveState();
                                 renderProjectBoard(chatId);
-                                completeMission('project-created', chatId);
+                                completeMission('project-created', chatId); // Check project creation mission
                             }
                         } else {
                             updateTaskStatus(taskId, updatedTaskData);
@@ -6184,7 +6244,7 @@
                             await saveState();
                             renderSidebar();
                             selectChat(newTaskChatId);
-                            completeMission('project-created', newTaskChatId);
+                            completeMission('project-created', newTaskChatId); // Check project creation mission
                         }
                     }, 250);
                 };
@@ -6231,7 +6291,7 @@
                         }
                         saveState();
                         renderCalendarView();
-                        completeMission('week-organized');
+                        completeMission('week-organized'); // Check if week is organized after adding/editing a task
                     }
                 }
             }
@@ -6399,6 +6459,7 @@
                     categoryEl.className = 'finance-category';
                     categoryEl.dataset.categoryId = category.id;
                     categoryEl.dataset.type = type;
+                    const lang = localStorage.getItem('goatify-lang') || 'es';
 
                     let itemsHTML = (category.items || []).map(item => `
                         <div class="finance-item-row" data-item-id="${item.id}">
@@ -6438,6 +6499,7 @@
 
                 const chat = state.chats[chatId];
 
+                // Setup send button and Enter key for financial chat
                 const financialInput = view.querySelector('#financial-msg');
                 const financialSendBtn = view.querySelector('#financial-send');
                 if (financialSendBtn) {
@@ -6694,11 +6756,11 @@
                 } else if (rand < 0.4) { 
                     addCredits(150);
                     rewardTitle = ' recompensa RARA!';
-                    rewardBody = `Has ganado <strong>150 Créditos de Recompensa</strong> extra. ¡Sigue así!`;
+                    rewardBody = 'Has ganado <strong>150 Créditos de Recompensa</strong> extra. ¡Sigue así!';
                 } else { 
                     addCredits(50);
                     rewardTitle = ' recompensa COMÚN!';
-                    rewardBody = `Has ganado <strong>50 Créditos de Recompensa</strong>. ¡Buen trabajo!`;
+                    rewardBody = 'Has ganado <strong>50 Créditos de Recompensa</strong>. ¡Buen trabajo!';
                 }
 
                 showModal({
@@ -6790,7 +6852,7 @@
                     dayEl.innerHTML = `
                         <p class="font-bold text-lg">${i === 7 ? '' : `Día ${i}`}</p>
                         <div class="text-2xl my-2">${rewardText}</div>
-                        <p class="text-xs">${i <= 3 ? `+5 Créditos` : (i <= 6 ? `+10 Créditos` : 'Cofre GOAT')}</p>
+                        <p class="text-xs">${i <= 3 ? '+5 Créditos' : (i <= 6 ? '+10 Créditos' : 'Cofre GOAT')}</p>
                     `;
                     dom.dailyStreakContainer.appendChild(dayEl);
                 }
@@ -6838,10 +6900,11 @@
 
                     updateUserUI();
                     loadStateForUser().then(() => {
+                        // This logic runs after state is loaded
                         populateVoiceList();
                         setupEventListeners();
-                        if (notificationsEnabled) {
-                            registerServiceWorkerAndSubscribe();
+                        if (currentUser && notificationsEnabled) {
+                             registerServiceWorkerAndSubscribe();
                         }
                         updateContextualFooter(null);
                         setupMotivationInterval();
@@ -6849,6 +6912,7 @@
                         dom.appContainer.classList.remove('opacity-0');
                         dom.loadingOverlay.style.display = 'none';
                         
+                        // Check for chat ID from URL after state is fully loaded
                         if (chatIdFromUrl && (state.chats[chatIdFromUrl] || (state.notes || []).find(n => n.id === chatIdFromUrl))) {
                             selectChat(chatIdFromUrl);
                         } else if (currentChatId && (state.chats[currentChatId] || (state.notes || []).find(n => n.id === currentChatId))) {
@@ -6892,11 +6956,10 @@
                     netlifyIdentity.close(); 
                     currentUser = user;
                     updateUserUI(); 
-                    loadStateForUser().then(() => {
-                        if (notificationsEnabled) {
-                            registerServiceWorkerAndSubscribe();
-                        }
-                    });
+                    loadStateForUser();
+                    if (notificationsEnabled) {
+                         registerServiceWorkerAndSubscribe();
+                    }
                 });
                 netlifyIdentity.on('logout', () => {
                     currentUser = null;
