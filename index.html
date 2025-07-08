@@ -285,15 +285,16 @@
             pointer-events: none;
         }
 
-        .pro-controls-bg {
+        /* Adjusted pro-controls-bg for main chat input */
+        #input-area > .pro-controls-bg {
             display: flex;
+            flex-direction: row; /* Keep it horizontal */
             align-items: center;
             justify-content: space-between;
-            padding: 0.375rem;
-            border-radius: 0.5rem;
-            overflow: hidden;
+            padding: 0.5rem; /* Slightly more padding */
+            border-radius: 0.75rem; /* Larger border radius */
+            margin-bottom: 0.75rem; /* Space between model selector and chat input */
             width: 100%;
-            gap: 0.5rem;
         }
 
         #pro-controls-left, #pro-controls-right {
@@ -1178,6 +1179,12 @@
             color: white;
             border-color: var(--current-primary);
         }
+        .drawing-tool.active {
+            background-color: var(--current-primary);
+            color: white;
+            border-color: var(--current-primary);
+        }
+
 
         /* In-app notification */
         #in-app-notification {
@@ -1761,6 +1768,7 @@
                             <div class="folders-header flex items-center p-2 rounded-md cursor-pointer hover:bg-light">
                                 <i class="fas fa-chevron-right folder-arrow mr-2 transition-transform text-xs"></i>
                                 <span class="text-sm font-bold" data-translate-key="my_projects">Mis Proyectos</span>
+                                <button id="add-project-folder-btn" title="Nueva Carpeta de Proyectos" class="ml-2 text-primary hover:text-primary-hover"><i class="fas fa-plus-circle"></i></button>
                             </div>
                             <div id="folders-container" class="folders-content pl-4 pt-2 space-y-1"></div>
                         </div>
@@ -1922,8 +1930,13 @@
                                 <div id="drawing-tools" class="hidden items-center gap-2">
                                     <button id="tool-pencil" class="drawing-tool active" title="Lápiz" data-translate-key="tool_pencil"><i class="fas fa-pencil-alt"></i></button>
                                     <button id="tool-eraser" class="drawing-tool" title="Borrador" data-translate-key="tool_eraser"><i class="fas fa-eraser"></i></button>
+                                    <button id="tool-line" class="drawing-tool" title="Línea"><i class="fas fa-slash"></i></button>
+                                    <button id="tool-rect" class="drawing-tool" title="Rectángulo"><i class="fas fa-square"></i></button>
+                                    <button id="tool-circle" class="drawing-tool" title="Círculo"><i class="fas fa-circle"></i></button>
                                     <input type="color" id="drawing-color" class="drawing-tool" title="Color" value="#000000" data-translate-key="drawing_color"> <input type="range" id="drawing-line-width" class="drawing-tool" min="1" max="50" value="3" title="Grosor" data-translate-key="drawing_thickness">
                                     <button id="clear-canvas-btn" class="drawing-tool" title="Limpiar todo" data-translate-key="clear_all"><i class="fas fa-trash-alt"></i></button>
+                                    <button id="undo-drawing-btn" class="drawing-tool" title="Deshacer"><i class="fas fa-undo"></i></button>
+                                    <button id="redo-drawing-btn" class="drawing-tool" title="Rehacer"><i class="fas fa-redo"></i></button>
                                 </div>
                                 <button id="share-note-btn" title="Compartir / Colaborar" class="p-2 ml-2" data-translate-key="share_note_btn"><i class="fas fa-user-plus"></i></button>
                                 <button id="delete-note-btn" title="Eliminar Nota" class="p-2 text-red-500 hover:text-red-400 transition-colors" data-translate-key="delete_note_btn"><i class="fas fa-trash-alt"></i></button>
@@ -2233,7 +2246,11 @@
 
     <div id="calendar-modal-overlay" class="fixed inset-0 bg-black bg-opacity-70 hidden items-center justify-center z-40 p-4">
         <div id="calendar-modal" class="modal-content rounded-lg w-full max-w-4xl p-6 relative">
-             <h3 class="text-lg font-bold mb-4" data-translate-key="calendar_my_calendar">Mi Calendario y Tareas</h3>
+             <h3 class="text-2xl font-extrabold text-center text-primary mb-4" data-translate-key="calendar_my_calendar">Mi Calendario y Tareas</h3>
+             <div class="text-center mb-4">
+                <p id="current-date-display" class="text-xl font-bold text-text-light"></p>
+                <p id="current-time-display" class="text-4xl font-extrabold text-gold animate-pulse"></p>
+            </div>
             <div class="calendar-view-toggle mb-4">
                 <button id="day-view-btn" data-translate-key="calendar_day_view">Vista de Día</button>
                 <button id="week-view-btn" data-translate-key="calendar_week_view">Vista de Semana</button>
@@ -2459,8 +2476,8 @@
                     understood_btn: "¡Entendido!", view_details: "Ver Detalles",
                     back_to_list: "Volver a la lista",
                     credits_details_title: "Mi Día",
-                    current_plan_details: "Plan Activo: ", // Changed for "Mi Día" popup
-                    credits_breakdown: "Créditos Restantes:", // Changed for "Mi Día" popup
+                    current_plan_details: "Plan Activo: ",
+                    credits_breakdown: "Créditos Restantes:",
                     upgrade_for_more: "Mejora tu plan para obtener más.",
                     gamification_credits_info: "Adicionalmente, tienes tus <strong>Créditos de Recompensa (🪙)</strong> ganados en la gamificación, que se usan automáticamente cuando se agotan los de tu plan.",
                     view_plans_btn: "Ver Planes",
@@ -2508,6 +2525,11 @@
                     restricted_access_message: "El modelo GOAT X PRO está disponible solo para usuarios con un plan de pago.",
                     exclusive_feature_title: "Función Exclusiva",
                     exclusive_feature_message: "La gamificación está disponible para usuarios logueados.",
+                    drawing_tool_line: "Línea",
+                    drawing_tool_rect: "Rectángulo",
+                    drawing_tool_circle: "Círculo",
+                    undo_drawing: "Deshacer",
+                    redo_drawing: "Rehacer",
                 },
                 en: {
                     initializing: "Initializing...", new_chat: "New Chat", new_folder: "New Folder",
@@ -2582,9 +2604,9 @@
                     activate_mic: "Activate Microphone", toggle_voice: "Toggle Voice",
                     understood_btn: "Got it!", view_details: "View Details",
                     back_to_list: "Back to list",
-                    credits_details_title: "My Day", // Changed for "Mi Día" popup
-                    current_plan_details: "Active Plan: ", // Changed for "Mi Día" popup
-                    credits_breakdown: "Remaining Credits:", // Changed for "Mi Día" popup
+                    credits_details_title: "My Day",
+                    current_plan_details: "Active Plan: ",
+                    credits_breakdown: "Remaining Credits:",
                     upgrade_for_more: "Upgrade your plan for more.",
                     gamification_credits_info: "Additionally, you have your <strong>Reward Credits (🪙)</strong> earned from gamification, which are used automatically when your plan credits run out.",
                     view_plans_btn: "View Plans",
@@ -2632,6 +2654,11 @@
                     restricted_access_message: "The GOAT X PRO model is only available for paid users.",
                     exclusive_feature_title: "Exclusive Feature",
                     exclusive_feature_message: "Gamification is available for logged-in users.",
+                    drawing_tool_line: "Line",
+                    drawing_tool_rect: "Rectangle",
+                    drawing_tool_circle: "Circle",
+                    undo_drawing: "Undo",
+                    redo_drawing: "Redo",
                 }
             };
             const GUEST_CREDIT_LIMIT = 5;
@@ -2799,6 +2826,7 @@
                 closeMotivationModal: document.getElementById('close-motivation-modal'),
                 sidebarToggleArrow: document.getElementById('sidebar-toggle-arrow'),
                 foldersContainer: document.getElementById('folders-container'),
+                addProjectFolderBtn: document.getElementById('add-project-folder-btn'), // Added for new project folder button
 
                 // Notepad DOM elements
                 notesListPanel: document.getElementById('notes-list-panel'),
@@ -2831,6 +2859,13 @@
                 bulletListBtn: document.getElementById('bullet-list-btn'),
                 numberedListBtn: document.getElementById('numbered-list-btn'),
                 fontFamilySelector: document.getElementById('font-family-selector'), // Added font family selector
+                toolLine: document.getElementById('tool-line'), // Added line tool
+                toolRect: document.getElementById('tool-rect'), // Added rectangle tool
+                toolCircle: document.getElementById('tool-circle'), // Added circle tool
+                undoDrawingBtn: document.getElementById('undo-drawing-btn'), // Added undo button
+                redoDrawingBtn: document.getElementById('redo-drawing-btn'), // Added redo button
+                currentDateDisplay: document.getElementById('current-date-display'), // Added for Mi Día
+                currentTimeDisplay: document.getElementById('current-time-display'), // Added for Mi Día
             };
             Object.assign(dom, fullDom);
 
@@ -2863,7 +2898,7 @@
                         // Check if the element is an icon-only button
                         const isIconOnlyButton = el.tagName === 'BUTTON' && el.querySelector('i') && !el.querySelector('span');
 
-                        if (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT') {
+                        if (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT' || el.tagName === 'SELECT') {
                             if (el.placeholder) el.placeholder = translationData[key];
                             // Also set title for inputs that might use it (like file inputs)
                             if (el.title) el.title = translationData[key];
@@ -3207,6 +3242,7 @@
                 dom.calendarModalOverlay.classList.add('flex');
                 if (!currentCalendarView) currentCalendarView = 'month';
                 renderCalendarView();
+                updateCalendarTime(); // Update time when modal opens
             }
 
             function hideCalendarModal() {
@@ -3214,9 +3250,16 @@
                 dom.calendarModalOverlay.classList.remove('flex');
             }
 
+            function updateCalendarTime() {
+                const now = dayjs();
+                dom.currentDateDisplay.textContent = now.format('dddd, D [de] MMMM [de] YYYY');
+                dom.currentTimeDisplay.textContent = now.format('HH:mm');
+            }
+            setInterval(updateCalendarTime, 1000); // Update time every second
+
             function renderMonthView() {
                 dom.calendarDaysGrid.innerHTML = '';
-                dom.currentMonthYear.textContent = selectedCalendarDate.format('MMMM YYYY'); // Changed to include full year
+                dom.currentMonthYear.textContent = selectedCalendarDate.format('MMMM YYYY');
                 const startDay = selectedCalendarDate.startOf('month').startOf('isoWeek');
 
                 for (let i = 0; i < 42; i++) {
@@ -3279,7 +3322,7 @@
                 let startOfWeek = selectedCalendarDate.startOf('isoWeek');
 
                 const endOfWeek = startOfWeek.add(6, 'day');
-                dom.currentWeekRange.textContent = `${startOfWeek.format('D MMM')} - ${endOfWeek.format('D MMM, YYYY')}`; // Changed to include full year
+                dom.currentWeekRange.textContent = `${startOfWeek.format('D MMM')} - ${endOfWeek.format('D MMM, YYYY')}`;
 
             for (let i = 0; i < 7; i++) {
                     const day = startOfWeek.add(i, 'day');
@@ -3830,7 +3873,7 @@
 
                 const selectedModel = selector.value;
                 if (selectedModel === 'gpt-4o' && (!currentUser || (currentUser.app_metadata?.plan || 'free') === 'free')) { // Check if user is logged in AND not on free plan
-                     showInAppNotification("Acceso Restringido", "El modelo GOAT X PRO está disponible solo para usuarios con un plan de pago.", 3000); // Updated message
+                     showInAppNotification("Acceso Restringido", "El modelo GOAT X PRO está disponible solo para usuarios con un plan de pago.", 3000);
                      selector.value = 'gpt-3.5-turbo-1106';
                      return 'gpt-3.5-turbo-1106';
                 }
@@ -3940,16 +3983,16 @@
                     if (usageData.count + cost > GUEST_CREDIT_LIMIT) {
                          showModal({
                             title: 'Créditos de Invitado Agotados',
-                            body: `<p>Has utilizado tus ${GUEST_CREDIT_LIMIT} créditos de invitado. <strong>Inicia sesión para obtener 50 créditos mensuales más, ¡gratis!</strong></p><p class="mt-2 text-sm text-text-medium">También puedes usar este link para agendar una reunión y conocer nuestros planes.</p>`, // Added text for meeting
+                            body: `<p>Has utilizado tus ${GUEST_CREDIT_LIMIT} créditos de invitado. <strong>Inicia sesión para obtener 50 créditos mensuales más, ¡gratis!</strong></p><p class="mt-2 text-sm text-text-medium">También puedes usar este link para agendar una reunión y conocer nuestros planes.</p>`,
                             confirmText: 'Iniciar Sesión',
                             cancelText: 'Más Tarde',
-                            extraButtons: [{ // Added extra button for meeting
+                            extraButtons: [{
                                 id: 'guest-meeting-btn',
                                 classes: 'px-4 py-2 rounded btn-primary text-white',
                                 text: 'Agendar Reunión',
                                 action: () => {
                                     window.open('https://calendly.com/goatify', '_blank');
-                                    hideModal(); // Close modal after action
+                                    hideModal();
                                 }
                             }]
                         }).then(res => { if (res.confirmed) { netlifyIdentity.open('login'); } });
@@ -4450,7 +4493,7 @@
                             if (!e.target.closest('.chat-item-actions')) {
                                 e.preventDefault();
                                 selectChat(id);
-                                history.pushState({chatId: id}, '', `?chat=${id}`); // Updated to pass chat ID in URL
+                                history.pushState({chatId: id}, '', `?chat=${id}`);
                             }
                         }
                     });
@@ -4463,7 +4506,7 @@
 
                     if (addToFolderBtn) {
                         addToFolderBtn.addEventListener('click', (e) => {
-                            e.preventDefault(); // <-- FIX: Previene la navegación del enlace padre 'a'
+                            e.preventDefault();
                             e.stopPropagation();
                             const dropdown = addToFolderBtn.querySelector('.add-to-folder-dropdown');
                             document.querySelectorAll('.add-to-folder-dropdown').forEach(d => {
@@ -4485,7 +4528,7 @@
                 if (!note) return document.createDocumentFragment();
 
                 const item = document.createElement('a');
-                item.href = `javascript:void(0);`; // Changed to prevent navigation
+                item.href = `javascript:void(0);`;
                 item.className = 'note-item group flex items-center justify-between p-2 rounded-md cursor-pointer';
                 if (isSubItem) item.classList.add('pl-8');
                 item.dataset.id = note.id;
@@ -4530,7 +4573,7 @@
                              if (!e.target.closest('.chat-item-actions')) {
                                 e.preventDefault();
                                 selectChat(id);
-                                history.pushState({chatId: id}, '', `?chat=${id}`); // Updated to pass chat ID in URL
+                                history.pushState({chatId: id}, '', `?chat=${id}`);
                                 if (window.innerWidth < 768) {
                                     dom.notepadViewContainer.classList.add('mobile-editor-active');
                                 }
@@ -4546,7 +4589,7 @@
 
                     if (addToFolderBtn) {
                         addToFolderBtn.addEventListener('click', (e) => {
-                            e.preventDefault(); // <-- FIX: Previene la navegación del enlace padre 'a'
+                            e.preventDefault();
                             e.stopPropagation();
                             const dropdown = addToFolderBtn.querySelector('.add-to-folder-dropdown');
                             document.querySelectorAll('.add-to-folder-dropdown').forEach(d => {
@@ -4593,7 +4636,7 @@
                 const project = state.projects[id];
                 if (!project) return document.createDocumentFragment();
                 const div = document.createElement('div');
-                div.className = 'project folders-category'; // Removed 'open' from here
+                div.className = 'project folders-category';
                 div.dataset.id = id;
                 const header = document.createElement('div');
                 header.className = 'project-header folders-header group flex items-center p-2 rounded-md cursor-pointer hover:bg-light';
@@ -4603,7 +4646,7 @@
 
                 header.innerHTML = `<i class="fas fa-chevron-right project-arrow folder-arrow mr-2 transition-transform"></i><i class="fas fa-folder mr-2 text-yellow-500"></i><span class="flex-grow truncate text-sm font-bold">${project.title}</span><div class="chat-item-actions flex-shrink-0 ${actionsOpacityClass} transition-opacity"><button class="rename-btn text-text-medium hover:text-primary p-1" title="${translations[localStorage.getItem('goatify-lang') || 'es'].rename_title}"><i class="fas fa-pencil-alt fa-xs"></i></button><button class="delete-btn text-text-medium hover:text-red-500 p-1" title="${translations[localStorage.getItem('goatify-lang') || 'es'].delete_title}"><i class="fas fa-trash-alt fa-xs"></i></button></div>`;
                 const content = document.createElement('div');
-                content.className = 'project-content folders-content pt-1 space-y-1'; // Removed 'block' from here
+                content.className = 'project-content folders-content pt-1 space-y-1';
                 (project.itemIds || []).forEach(itemId => {
                     if (itemId.startsWith('chat-') && itemId !== 'notepad-assistant-chat') content.appendChild(createChatItemElement(itemId, true));
                     if (itemId.startsWith('note-')) content.appendChild(createNoteItemElement(itemId, true));
@@ -4611,9 +4654,11 @@
                 div.append(header, content);
                 header.addEventListener('click', e => {
                     if (!e.target.closest('.chat-item-actions')) {
-                        div.classList.toggle('open');
-                        content.style.display = div.classList.contains('open') ? 'block' : 'none';
-                        header.querySelector('.project-arrow').style.transform = div.classList.contains('open') ? 'rotate(90deg)' : 'rotate(0deg)';
+                        const isOpen = div.classList.toggle('open');
+                        content.style.display = isOpen ? 'block' : 'none';
+                        header.querySelector('.project-arrow').style.transform = isOpen ? 'rotate(90deg)' : 'rotate(0deg)';
+                        project.isOpen = isOpen; // Save state to project object
+                        saveState();
                     }
                 });
                 header.addEventListener('dragover', e => handleDragOver(e, header));
@@ -4622,12 +4667,13 @@
                 header.querySelector('.rename-btn').addEventListener('click', (e) => { e.stopPropagation(); renameItem('project', id);});
                 header.querySelector('.delete-btn').addEventListener('click', (e) => { e.stopPropagation(); deleteItem('project', id);});
 
-                // Set initial state correctly based on whether it was already open
-                if (project.isOpen) { // Assume 'isOpen' property on project to remember state
+                // Set initial state correctly based on saved 'isOpen' property
+                if (project.isOpen) {
                     div.classList.add('open');
                     content.style.display = 'block';
                     header.querySelector('.project-arrow').style.transform = 'rotate(90deg)';
                 } else {
+                    div.classList.remove('open');
                     content.style.display = 'none';
                     header.querySelector('.project-arrow').style.transform = 'rotate(0deg)';
                 }
@@ -4842,7 +4888,7 @@
                 if(selectedImageBase64) cost = COSTS.IMAGE_ANALYSIS;
                 if(modelToUse === 'gpt-4o') cost = COSTS.GPT4O; // Specific cost for GPT-4o
 
-                if (!spendCredits(cost, modelToUse)) return; // Pass modelUsed to spendCredits
+                if (!spendCredits(cost, modelToUse)) return;
 
                 if(currentChat.title === (translations[localStorage.getItem('goatify-lang') || 'es'].default_chat_title || 'Conversación Cósmica') && userMessage.length > 5 && assistantType === 'main') {
                     currentChat.title = userMessage.split(' ').slice(0, 4).join(' ');
@@ -4893,7 +4939,7 @@
                 const result = await showModal({ title: translations[localStorage.getItem('goatify-lang') || 'es'].create_image_title || 'Crear Imagen', body: `${translations[localStorage.getItem('goatify-lang') || 'es'].image_prompt_desc || 'Describe la imagen que quieres crear:'}<br><input type="text" id="img-prompt" class="w-full p-2 rounded bg-input border border-themed mt-2" placeholder="${translations[localStorage.getItem('goatify-lang') || 'es'].image_prompt_placeholder || 'Ej: Un astronauta en un caballo cósmico'}">`, confirmText: translations[localStorage.getItem('goatify-lang') || 'es'].generate_btn || 'Generar' });
                 if (!result.confirmed || !result.data['img-prompt']) return;
 
-                if (!spendCredits(COSTS.IMAGE_GENERATION, 'dall-e-2')) return; // Pass model name for pro usage check
+                if (!spendCredits(COSTS.IMAGE_GENERATION, 'dall-e-2')) return;
 
                 let chatIdToUpdate = currentChatId || createNewChat({});
                 const currentChat = state.chats[chatIdToUpdate];
@@ -5027,6 +5073,66 @@
 
             // --- NOTEPAD FUNCTIONS START ---
 
+            let drawingHistory = [];
+            let historyIndex = -1;
+
+            function saveDrawingState() {
+                const canvas = dom.noteCanvas;
+                if (!canvas) return;
+
+                const imageData = canvas.toDataURL();
+                if (historyIndex < drawingHistory.length - 1) {
+                    drawingHistory = drawingHistory.slice(0, historyIndex + 1);
+                }
+                drawingHistory.push(imageData);
+                historyIndex++;
+
+                const activeNote = state.notes.find(n => n.id === currentNoteId);
+                if (activeNote) {
+                    activeNote.content = imageData;
+                    saveState();
+                }
+            }
+
+            function undoDrawing() {
+                if (historyIndex > 0) {
+                    historyIndex--;
+                    const canvas = dom.noteCanvas;
+                    const ctx = canvas.getContext('2d');
+                    const img = new Image();
+                    img.onload = () => {
+                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    };
+                    img.src = drawingHistory[historyIndex];
+                    const activeNote = state.notes.find(n => n.id === currentNoteId);
+                    if (activeNote) {
+                        activeNote.content = drawingHistory[historyIndex];
+                        saveState();
+                    }
+                }
+            }
+
+            function redoDrawing() {
+                if (historyIndex < drawingHistory.length - 1) {
+                    historyIndex++;
+                    const canvas = dom.noteCanvas;
+                    const ctx = canvas.getContext('2d');
+                    const img = new Image();
+                    img.onload = () => {
+                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    };
+                    img.src = drawingHistory[historyIndex];
+                    const activeNote = state.notes.find(n => n.id === currentNoteId);
+                    if (activeNote) {
+                        activeNote.content = drawingHistory[historyIndex];
+                        saveState();
+                    }
+                }
+            }
+
+
             function showNotepadView() {
                 dom.notepadViewContainer.style.display = 'flex';
                 dom.notepadChatContainer.classList.toggle('hidden', window.innerWidth < 768);
@@ -5075,7 +5181,7 @@
                 };
                 state.notes.unshift(newNote);
                 state.structure.unshift(newNote.id);
-                selectChat(newNote.id); // Select the new note, which also renders sidebar and saves state
+                selectChat(newNote.id);
 
                 if (window.innerWidth < 768) {
                     dom.notepadViewContainer.classList.add('mobile-editor-active');
@@ -5115,32 +5221,52 @@
                 const ctx = canvas.getContext('2d');
                 const toolbar = dom.drawingTools;
 
+                let isDrawing = false;
+                let lastX = 0;
+                let lastY = 0;
+                let startX = 0;
+                let startY = 0;
+                let currentTool = 'pencil';
+                let currentSnapshot = null; // To store snapshot for shapes
+
+                drawingHistory = [];
+                historyIndex = -1;
+
                 const resizeCanvas = () => {
                     const rect = canvas.parentElement.getBoundingClientRect();
                     canvas.width = rect.width;
                     canvas.height = rect.height;
+                    // Redraw from history after resize
                     if (note.content) {
                         const img = new Image();
-                        img.onload = () => { ctx.drawImage(img, 0, 0, canvas.width, canvas.height); }
+                        img.onload = () => {
+                            ctx.clearRect(0, 0, canvas.width, canvas.height);
+                            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                            saveDrawingState(); // Save the new resized state to history
+                        }
                         img.src = note.content;
+                    } else {
+                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+                        saveDrawingState();
                     }
                 };
 
                 resizeCanvas();
+                window.removeEventListener('resize', resizeCanvas); // Remove previous listener to avoid duplicates
                 window.addEventListener('resize', resizeCanvas);
-
-
-                let isDrawing = false;
-                let lastX = 0;
-                let lastY = 0;
-                let currentTool = 'pencil';
 
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 if (note.content) {
                     const img = new Image();
-                    img.onload = () => { ctx.drawImage(img, 0, 0, canvas.width, canvas.height); }
+                    img.onload = () => {
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                        saveDrawingState(); // Save initial state to history
+                    }
                     img.src = note.content;
+                } else {
+                    saveDrawingState(); // Save initial blank state
                 }
+
 
                 const getCoords = (e) => {
                     const event = e.touches ? e.touches[0] : e;
@@ -5152,32 +5278,52 @@
                     e.preventDefault();
                     isDrawing = true;
                     [lastX, lastY] = getCoords(e);
-                    ctx.beginPath();
-                    ctx.moveTo(lastX, lastY);
+                    [startX, startY] = [lastX, lastY]; // For shapes
+                    if (currentTool === 'pencil' || currentTool === 'eraser') {
+                         ctx.beginPath();
+                         ctx.moveTo(lastX, lastY);
+                    } else {
+                        currentSnapshot = ctx.getImageData(0, 0, canvas.width, canvas.height); // Save canvas state before drawing shape
+                    }
                 };
                 const draw = (e) => {
                     if (!isDrawing) return;
                     e.preventDefault();
 
                     const [currentX, currentY] = getCoords(e);
-                    ctx.lineTo(currentX, currentY);
                     ctx.strokeStyle = toolbar.querySelector('#drawing-color').value;
                     ctx.lineWidth = toolbar.querySelector('#drawing-line-width').value;
                     ctx.lineCap = 'round';
                     ctx.lineJoin = 'round';
                     ctx.globalCompositeOperation = currentTool === 'eraser' ? 'destination-out' : 'source-over';
-                    ctx.stroke();
+
+                    if (currentTool === 'pencil' || currentTool === 'eraser') {
+                        ctx.lineTo(currentX, currentY);
+                        ctx.stroke();
+                    } else if (currentSnapshot) {
+                        ctx.putImageData(currentSnapshot, 0, 0); // Restore canvas to clear previous shape preview
+                        ctx.beginPath();
+                        if (currentTool === 'line') {
+                            ctx.moveTo(startX, startY);
+                            ctx.lineTo(currentX, currentY);
+                        } else if (currentTool === 'rect') {
+                            ctx.rect(startX, startY, currentX - startX, currentY - startY);
+                        } else if (currentTool === 'circle') {
+                            const radius = Math.sqrt(Math.pow(currentX - startX, 2) + Math.pow(currentY - startY, 2));
+                            ctx.arc(startX, startY, radius, 0, 2 * Math.PI);
+                        }
+                        ctx.stroke();
+                    }
                     [lastX, lastY] = [currentX, currentY];
                 };
                 const stopDrawing = () => {
                     if (!isDrawing) return;
                     isDrawing = false;
-                    ctx.closePath();
-                    const activeNote = state.notes.find(n => n.id === currentNoteId);
-                    if (activeNote) {
-                        activeNote.content = canvas.toDataURL(); // Save drawing
-                        saveState();
+                    if (currentTool === 'pencil' || currentTool === 'eraser') {
+                        ctx.closePath();
                     }
+                    saveDrawingState(); // Save state after drawing is complete
+                    currentSnapshot = null;
                 };
 
                 canvas.onmousedown = startDrawing;
@@ -5188,8 +5334,17 @@
                 canvas.ontouchmove = draw;
                 canvas.ontouchend = stopDrawing;
 
-                toolbar.querySelector('#tool-pencil').onclick = () => { currentTool = 'pencil'; setActiveTool('tool-pencil'); };
-                toolbar.querySelector('#tool-eraser').onclick = () => { currentTool = 'eraser'; setActiveTool('tool-eraser'); };
+                const setActiveTool = (toolId) => {
+                    toolbar.querySelectorAll('.drawing-tool').forEach(t => t.classList.remove('active'));
+                    toolbar.querySelector(`#${toolId}`).classList.add('active');
+                    currentTool = toolId.replace('tool-', ''); // Extract tool name
+                }
+
+                toolbar.querySelector('#tool-pencil').onclick = () => setActiveTool('tool-pencil');
+                toolbar.querySelector('#tool-eraser').onclick = () => setActiveTool('tool-eraser');
+                toolbar.querySelector('#tool-line').onclick = () => setActiveTool('tool-line');
+                toolbar.querySelector('#tool-rect').onclick = () => setActiveTool('tool-rect');
+                toolbar.querySelector('#tool-circle').onclick = () => setActiveTool('tool-circle');
                 toolbar.querySelector('#clear-canvas-btn').onclick = () => {
                      ctx.clearRect(0, 0, canvas.width, canvas.height);
                      const activeNote = state.notes.find(n => n.id === currentNoteId);
@@ -5197,11 +5352,12 @@
                          activeNote.content = null;
                          saveState();
                      }
+                     drawingHistory = [];
+                     historyIndex = -1;
+                     saveDrawingState(); // Save empty state
                 };
-                 const setActiveTool = (toolId) => {
-                    toolbar.querySelectorAll('.drawing-tool').forEach(t => t.classList.remove('active'));
-                    toolbar.querySelector(`#${toolId}`).classList.add('active');
-                }
+                toolbar.querySelector('#undo-drawing-btn').onclick = undoDrawing;
+                toolbar.querySelector('#redo-drawing-btn').onclick = redoDrawing;
             }
 
             function applyTextFormat(command, value = null) {
@@ -5317,6 +5473,7 @@
 
                 }, thirtyMinutes);
             }
+
             function setupEventListeners() {
                 dom.inAppNotificationClose?.addEventListener('click', (e) => {
                     e.stopPropagation();
@@ -5326,13 +5483,24 @@
 
                 dom.planCreditsInfo?.addEventListener('click', () => {
                     const { remaining, limit, plan } = getCreditCount();
+                    const gamCredits = (currentUser && gamificationState.credits) ? gamificationState.credits : 0;
                     const lang = localStorage.getItem('goatify-lang') || 'es';
 
                     // Calculate tasks for today and total activities
                     const todayKey = dayjs().format('YYYY-MM-DD');
                     const allTasksToday = getTasksForDay(todayKey);
                     const completedTasksToday = allTasksToday.filter(task => task.completed).length;
-                    const totalActivitiesToday = allTasksToday.length + (state.chats[currentChatId]?.messages?.length / 2 || 0); // Roughly messages / 2 for user+assistant pairs
+                    // For total activities, we can approximate by counting messages in active chats today
+                    // This is a rough estimate and can be refined if needed.
+                    let totalChatActivities = 0;
+                    Object.values(state.chats).forEach(chat => {
+                        chat.messages.forEach(msg => {
+                            if (dayjs(msg.timestamp).isSame(dayjs(), 'day')) {
+                                totalChatActivities++;
+                            }
+                        });
+                    });
+                    const totalActivitiesToday = allTasksToday.length + Math.floor(totalChatActivities / 2); // Divide by 2 for user/assistant pairs
 
                     const positiveMessages = [
                         "¡Estás haciendo un trabajo increíble!",
@@ -5343,23 +5511,26 @@
                     ];
                     const randomPositiveMessage = positiveMessages[Math.floor(Math.random() * positiveMessages.length)];
 
-
-                    let bodyContent = `<p class="mb-3 text-sm"><strong>${translations[lang].current_plan_details}</strong> ${plan.toUpperCase()}</p>`;
-                    bodyContent += `<p class="mb-2 text-sm"><strong>${translations[lang].credits_breakdown}</strong> ${remaining}/${limit === Infinity ? '∞' : limit}</p>`;
-                    bodyContent += `<p class="mb-2 text-sm"><strong>${translations[lang].tasks_completed_today}</strong> ${completedTasksToday}/${allTasksToday.length}</p>`;
-                    bodyContent += `<p class="mb-4 text-sm"><strong>${translations[lang].activities_today}</strong> ${Math.floor(totalActivitiesToday)}</p>`; // Display as integer
-
-                    bodyContent += `<p class="mb-4 text-md font-semibold text-primary text-center">${randomPositiveMessage}</p>`;
-
+                    let bodyContent = `
+                        <div class="text-center mb-4">
+                            <p id="modal-current-date-display" class="text-xl font-bold text-text-light"></p>
+                            <p id="modal-current-time-display" class="text-4xl font-extrabold text-gold animate-pulse"></p>
+                        </div>
+                        <p class="mb-3 text-sm"><strong>${translations[lang].current_plan_details}</strong> ${plan.toUpperCase()}</p>
+                        <p class="mb-2 text-sm"><strong>${translations[lang].credits_breakdown}</strong> ${remaining}/${limit === Infinity ? '∞' : limit} (${gamCredits} 🪙)</p>
+                        <p class="mb-2 text-sm"><strong>${translations[lang].tasks_completed_today}</strong> ${completedTasksToday}/${allTasksToday.length}</p>
+                        <p class="mb-4 text-sm"><strong>${translations[lang].activities_today}</strong> ${totalActivitiesToday}</p>
+                        <p class="mb-4 text-md font-semibold text-primary text-center">${randomPositiveMessage}</p>
+                    `;
 
                     showModal({
-                        title: translations[lang].credits_details_title, // Changed title to "Mi Día"
+                        title: translations[lang].credits_details_title,
                         body: bodyContent,
                         showCancel: false,
                         confirmText: translations[lang].understood_btn,
                         extraButtons: [{
                             id: 'modal-view-active-plan-btn',
-                            text: translations[lang].view_active_plan, // New button to see active plan
+                            text: translations[lang].view_active_plan,
                             classes: 'btn-primary px-4 py-2 rounded',
                             action: () => {
                                 hideModal();
@@ -5368,11 +5539,10 @@
                         },
                         {
                             id: 'modal-learn-about-credits-btn',
-                            text: translations[lang].learn_about_credits, // New button for credit details
+                            text: translations[lang].learn_about_credits,
                             classes: 'px-4 py-2 rounded bg-gray-500 text-white',
                             action: () => {
                                 hideModal();
-                                // Re-show modal with credit breakdown
                                 showModal({
                                     title: translations[lang].learn_about_credits,
                                     body: `<ul class="list-disc list-inside space-y-2 text-sm">
@@ -5391,7 +5561,30 @@
                             }
                         }]
                     });
+
+                    // Update time and date in the modal every second
+                    const updateModalTime = () => {
+                        const now = dayjs();
+                        const modalDateDisplay = document.getElementById('modal-current-date-display');
+                        const modalTimeDisplay = document.getElementById('modal-current-time-display');
+                        if (modalDateDisplay) modalDateDisplay.textContent = now.format('dddd, D [de] MMMM [de] YYYY');
+                        if (modalTimeDisplay) modalTimeDisplay.textContent = now.format('HH:mm');
+                    };
+                    updateModalTime();
+                    const modalTimeInterval = setInterval(updateModalTime, 1000);
+
+                    // Clear interval when modal is hidden
+                    const observer = new MutationObserver((mutationsList, observer) => {
+                        for (const mutation of mutationsList) {
+                            if (mutation.attributeName === 'class' && dom.genericModal.classList.contains('hidden')) {
+                                clearInterval(modalTimeInterval);
+                                observer.disconnect();
+                            }
+                        }
+                    });
+                    observer.observe(dom.genericModal, { attributes: true });
                 });
+
 
                 dom.rewardCreditsInfo?.addEventListener('click', () => {
                     if(!currentUser) {
@@ -5476,14 +5669,41 @@
                         showInAppNotification(translations[localStorage.getItem('goatify-lang') || 'es'].success_title || "Éxito", `${translations[localStorage.getItem('goatify-lang') || 'es'].folder_created_message || "Carpeta"} "${result.data['project-name'].trim()}" ${translations[localStorage.getItem('goatify-lang') || 'es'].created_suffix || "creada."}`);
                     }
                 });
+                dom.addProjectFolderBtn?.addEventListener('click', async () => { // Event listener for the new button
+                    const result = await showModal({
+                        title: translations[localStorage.getItem('goatify-lang') || 'es'].create_folder_title || 'Crear Nueva Carpeta',
+                        body: `<input type="text" id="project-name" class="w-full p-2 rounded bg-input border border-themed" placeholder="${translations[localStorage.getItem('goatify-lang') || 'es'].folder_name_placeholder || 'Nombre de la Carpeta...'}">`,
+                        confirmText: translations[localStorage.getItem('goatify-lang') || 'es'].create_btn || 'Crear'
+                    });
+                    if (result.confirmed && result.data['project-name'].trim()) {
+                        const id = 'project-' + crypto.randomUUID();
+                        state.projects[id] = { id, title: result.data['project-name'].trim(), itemIds: [] };
+                        state.structure.unshift(id);
+                        saveState();
+                        renderSidebar();
+                        showInAppNotification(translations[localStorage.getItem('goatify-lang') || 'es'].success_title || "Éxito", `${translations[localStorage.getItem('goatify-lang') || 'es'].folder_created_message || "Carpeta"} "${result.data['project-name'].trim()}" ${translations[localStorage.getItem('goatify-lang') || 'es'].created_suffix || "creada."}`);
+                    }
+                });
+
 
                 dom.upgradePlanBtn?.addEventListener('click', showPricingModal);
                 dom.closePricingModalBtn?.addEventListener('click', hidePricingModal);
                 dom.themeToggle?.addEventListener('click', () => setTheme(!document.body.classList.contains('dark-theme')));
                 dom.loginBtn?.addEventListener('click', () => netlifyIdentity.open('login'));
 
-                dom.desktopChatTitleWrapper?.addEventListener('click', (e) => { if(!e.target.closest('#motivation-btn-header') && currentChatId && currentChatId.startsWith('chat-')) renameItem('chat', currentChatId); });
-                dom.mobileChatTitleWrapper?.addEventListener('click', (e) => { if(!e.target.closest('#motivation-btn-mobile') && currentChatId && currentChatId.startsWith('chat-')) renameItem('chat', currentChatId); });
+                dom.desktopChatTitleWrapper?.addEventListener('click', (e) => {
+                    // Only rename chat if the click target is NOT the calendar button
+                    if (!e.target.closest('#calendar-btn') && !e.target.closest('#motivation-btn-header') && currentChatId && currentChatId.startsWith('chat-')) {
+                        renameItem('chat', currentChatId);
+                    }
+                });
+                dom.mobileChatTitleWrapper?.addEventListener('click', (e) => {
+                    // Only rename chat if the click target is NOT the calendar button
+                    if (!e.target.closest('#calendar-btn-mobile') && !e.target.closest('#motivation-btn-mobile') && currentChatId && currentChatId.startsWith('chat-')) {
+                        renameItem('chat', currentChatId);
+                    }
+                });
+
                 dom.imageGenBtn?.addEventListener('click', generateImage);
                 dom.pdfUploadBtn?.addEventListener('click', () => dom.pdfUploadInput.click());
                 dom.imageUploadBtn?.addEventListener('click', () => dom.imageUploadInput.click());
@@ -5529,7 +5749,7 @@
 
                 dom.modelSelector?.addEventListener('change', () => {
                     const selectedValue = dom.modelSelector.value;
-                    if (selectedValue === 'gpt-4o' && (!currentUser || (currentUser.app_metadata?.plan || 'free') === 'free')) { // Re-check on change
+                    if (selectedValue === 'gpt-4o' && (!currentUser || (currentUser.app_metadata?.plan || 'free') === 'free')) {
                         showInAppNotification(translations[localStorage.getItem('goatify-lang') || 'es'].restricted_access_title || "Acceso Restringido", translations[localStorage.getItem('goatify-lang') || 'es'].restricted_access_message || "El modelo GOAT X PRO está disponible solo para usuarios con un plan de pago.", 3000);
                         dom.modelSelector.value = 'gpt-3.5-turbo-1106';
                     }
@@ -5543,7 +5763,6 @@
                 dom.sidebarOverlay?.addEventListener('click', () => toggleSidebar(false));
                 dom.sidebarToggleArrow?.addEventListener('click', () => {
                     dom.sidebar.classList.toggle('collapsed');
-                    // Toggle arrow direction based on collapsed state
                     if (dom.sidebar.classList.contains('collapsed')) {
                         dom.sidebarToggleArrow.querySelector('i').classList.replace('fa-chevron-left', 'fa-chevron-right');
                     } else {
@@ -5589,12 +5808,21 @@
                 };
 
                 document.body.addEventListener('click', e => {
-                    // FIX: Make all three sidebar dropdowns work correctly.
                     const header = e.target.closest('.workflow-header, .actions-header, .folders-header');
                     if (header) {
                         const category = header.parentElement;
                         if (category) {
-                            category.classList.toggle('open');
+                            const isOpen = category.classList.toggle('open');
+                            const content = category.querySelector('.workflow-content, .actions-content, .folders-content');
+                            const arrow = category.querySelector('.workflow-arrow, .actions-arrow, .folder-arrow');
+                            if (content) content.style.display = isOpen ? 'block' : 'none';
+                            if (arrow) arrow.style.transform = isOpen ? 'rotate(90deg)' : 'rotate(0deg)';
+
+                            // If it's a project folder, save its state
+                            if (category.classList.contains('project') && state.projects[category.dataset.id]) {
+                                state.projects[category.dataset.id].isOpen = isOpen;
+                                saveState();
+                            }
                         }
                     }
 
@@ -5707,9 +5935,12 @@
                 });
                 dom.freePlanButton?.addEventListener('click', showPricingModal);
 
-                const calendarClickHandler = () => showCalendarModal();
+                const calendarClickHandler = (e) => {
+                    e.stopPropagation(); // Stop propagation to prevent chat rename trigger
+                    showCalendarModal();
+                };
                 dom.calendarBtn?.addEventListener('click', calendarClickHandler);
-                dom.mobileCalendarBtn?.addEventListener('click', calendarClickHandler); // Add listener for mobile calendar button
+                dom.mobileCalendarBtn?.addEventListener('click', calendarClickHandler);
 
                 dom.projectCalendarBtn?.addEventListener('click', showCalendarModal);
                 dom.closeCalendarModal?.addEventListener('click', hideCalendarModal);
@@ -5804,7 +6035,7 @@
                 dom.fontFamilySelector?.addEventListener('change', (e) => {
                     const selectedFont = e.target.value;
                     dom.noteContentEditor.style.fontFamily = selectedFont;
-                    localStorage.setItem('notepad-font-family', selectedFont); // Save user preference
+                    localStorage.setItem('notepad-font-family', selectedFont);
                     const note = state.notes.find(n => n.id === currentNoteId);
                     if (note && note.type === 'text') {
                         note.content = dom.noteContentEditor.innerHTML;
@@ -6345,7 +6576,7 @@
                                 column.tasks.push({ id: `proj-${crypto.randomUUID()}`, ...updatedTaskData, completed: false });
                                 saveState();
                                 renderProjectBoard(chatId);
-                                completeMission('project-created', chatId); // Check project creation mission
+                                completeMission('project-created', chatId);
                             }
                         } else {
                             updateTaskStatus(taskId, updatedTaskData);
@@ -6393,7 +6624,7 @@
                             await saveState();
                             renderSidebar();
                             selectChat(newTaskChatId);
-                            completeMission('project-created', newTaskChatId); // Check project creation mission
+                            completeMission('project-created', newTaskChatId);
                         }
                     }, 250);
                 };
@@ -6440,7 +6671,7 @@
                         }
                         saveState();
                         renderCalendarView();
-                        completeMission('week-organized'); // Check if week is organized after adding/editing a task
+                        completeMission('week-organized');
                     }
                 }
             }
@@ -6936,7 +7167,7 @@
                 }
 
                 if (isCompleted) {
-                    gamificationState.completedMissions.push(missionId);
+                    gamificationState.completedMissions.push(mission.id); // Use mission.id
                     addXp(mission.xp);
                     addCredits(mission.credits);
                     showModal({
@@ -7049,7 +7280,6 @@
 
                     updateUserUI();
                     loadStateForUser().then(() => {
-                        // This logic runs after state is loaded
                         populateVoiceList();
                         setupEventListeners();
                         if (currentUser && notificationsEnabled) {
@@ -7061,7 +7291,6 @@
                         dom.appContainer.classList.remove('opacity-0');
                         dom.loadingOverlay.style.display = 'none';
 
-                        // Check for chat ID from URL after state is fully loaded
                         if (chatIdFromUrl && (state.chats[chatIdFromUrl] || (state.notes || []).find(n => n.id === chatIdFromUrl))) {
                             selectChat(chatIdFromUrl);
                         } else if (currentChatId && (state.chats[currentChatId] || (state.notes || []).find(n => n.id === currentChatId))) {
