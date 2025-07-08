@@ -2220,7 +2220,7 @@
             dayjs.extend(window.dayjs_plugin_localizedFormat);
             dayjs.extend(window.dayjs_plugin_isoWeek);
             
-            // --- TRANSLATIONS & CONSTANTS --- //
+            // --- CONSTANTS & TRANSLATIONS --- //
             const translations = {
                 es: {
                     initializing: "Iniciando Aula Virtual...", new_chat: "Nueva Consulta al Tutor", new_folder: "Nuevo Curso",
@@ -2237,7 +2237,7 @@
                     solutions: "Recursos", ally_title: "Recursos Adicionales",
                     ally_desc: "Accede a la biblioteca, soporte técnico y otros servicios de la institución.",
                     welcome_user: "¡Hola, ", welcome_user_2: "! Listo para un nuevo día de aprendizaje.",
-                    welcome_guest: "¿En qué te puedo ayudar hoy?", model: "Modelo IA:", model_general: "Tutor General",
+                    welcome_guest: "Selecciona un curso para empezar.", model: "Modelo IA:", model_general: "Tutor General",
                     model_web: "Búsqueda Académica", voice: "Voz:", placeholder_main: "Escribe tu consulta al Tutor IA...", cancel: "Cancelar",
                     confirm: "Confirmar", plans_title: "Planes Educativos IBERO", plan_free_sub: "Acceso limitado", plan_free_cta: "Plan Actual",
                     plan_boost_cta: "Seleccionar Plan PRO", plan_pro_cta: "Obtener Plan PLUS",
@@ -2276,7 +2276,7 @@
                     solutions: "Resources", ally_title: "Additional Resources",
                     ally_desc: "Access the library, technical support, and other institutional services.",
                     welcome_user: "Hello, ", welcome_user_2: "! Ready for a new day of learning.",
-                    welcome_guest: "How can I help you today?", model: "AI Model:", model_general: "General Tutor",
+                    welcome_guest: "Select a course to get started.", model: "AI Model:", model_general: "General Tutor",
                     model_web: "Academic Search", voice: "Voice:", placeholder_main: "Type your query to the AI Tutor...", cancel: "Cancel",
                     confirm: "Confirm", plans_title: "IBERO Educational Plans", plan_free_sub: "Limited Access", plan_free_cta: "Current Plan",
                     plan_boost_cta: "Select PRO Plan", plan_pro_cta: "Get PLUS Plan",
@@ -2301,33 +2301,12 @@
                     share_note_button: "Share",
                 }
             };
-            const MOTIVATIONAL_MESSAGES = [
-                "La disciplina es el puente entre tus metas y tus logros. ¡Sigue adelante!", "No te detengas hasta que te sientas orgulloso de lo que has aprendido.", "Cada página leída es un paso más hacia la cima del conocimiento.", "Tu potencial es infinito. ¡Cree en tu capacidad para aprender y crecer!", "La educación es el arma más poderosa que puedes usar para cambiar el mundo.", "El éxito es la suma de pequeños esfuerzos repetidos día tras día. ¡Tu esfuerzo de hoy cuenta!", "No importa lo lento que vayas, siempre y cuando no te detengas. ¡Cada concepto cuenta!", "Confía en tu proceso. Estás construyendo una versión más sabia de ti mismo."
-            ];
-            const MOTIVATION_BUTTON_TEXTS = ["¡Entendido!", "¡A estudiar!", "¡Perfecto!", "¡Claro que sí!", "¡Vamos!", "¡A por ello!"];
-            const COSTS = { GENERAL: 1, SEARCH: 2, WORKFLOW: 2, PDF_ANALYSIS: 5, IMAGE_ANALYSIS: 5, IMAGE_GENERATION: 10, GPT4O: 3 };
-            const XP_FOR_LEVEL = [0, 250, 750, 2000, 5000, Infinity];
-            const LEVEL_NAMES = ["Novato Curioso", "Estudiante Dedicado", "Erudito", "Maestro", "Sabio Iberoamericano"];
-
-            // --- STATE MANAGEMENT --- //
-            let state = { chats: {}, projects: {}, structure: [], calendar: { tasks: [] }, notes: [] };
-            let gamificationState = {};
-            let currentChatId = null, currentUser = null, speechOn = false, availableVoices = [], selectedVoice = null, isRecognizing = false, selectedImageBase64 = null, selectedPdfText = null;
-            let modalResolve = null;
-            let isSelectModeActive = false;
-            let chatsToDelete = new Set();
-            let currentNoteId = null;
-            let notificationsEnabled = localStorage.getItem('ibero-notifications-enabled') === null ? true : localStorage.getItem('ibero-notifications-enabled') === 'true';
-            let motivationEnabled = localStorage.getItem('ibero-motivation-enabled') === null ? true : localStorage.getItem('ibero-motivation-enabled') === 'true';
-            let selectedCalendarDate = dayjs();
-            let currentCalendarView = 'month';
-            let motivationInterval = null;
-
+            
             // --- DOM ELEMENTS CACHE --- //
             const dom = {};
             const elementIds = [
                 'app-container', 'msg', 'send', 'input-area', 'file-preview-area', 'message-counter-wrapper', 'plan-credits-info', 'reward-credits-info',
-                'upgrade-plan-container', 'upgrade-plan-btn', 'new-chat-btn', 'new-folder-btn', 'pricing-modal', 'close-pricing-modal', 'generic-modal',
+                'upgrade-plan-container', 'upgrade-plan-btn', 'pricing-modal', 'close-pricing-modal', 'generic-modal',
                 'view-container', 'chat-messages', 'notepad-view-container', 'chat-title', 'mobile-chat-title', 'desktop-chat-title-wrapper',
                 'mobile-chat-title-wrapper', 'initial-message-container', 'theme-toggle', 'theme-icon', 'mic-btn', 'tts-toggle', 'model-selector',
                 'action-buttons-container', 'image-upload-btn', 'image-upload', 'image-preview-container', 'image-preview', 'clear-image-btn', 'pdf-upload-btn',
@@ -2336,15 +2315,15 @@
                 'web-launch-offer-btn', 'workflows-container', 'free-guides-link', 'personalized-welcome', 'generic-welcome', 'user-name',
                 'loading-overlay', 'html-preview-modal', 'close-html-preview-modal', 'html-preview-iframe', 'voice-selector', 'voice-selector-container',
                 'select-chats-btn', 'delete-mode-controls', 'delete-selected-btn', 'cancel-select-mode-btn', 'image-gen-btn', 'services-menu-btn',
-                'services-menu', 'contextual-footer', 'new-chat-icon-btn', 'new-folder-icon-btn', 'settings-btn', 'settings-modal', 'close-settings-modal',
+                'services-menu', 'contextual-footer', 'new-chat-icon-btn', 'settings-btn', 'settings-modal', 'close-settings-modal',
                 'settings-user-email', 'settings-user-plan', 'settings-upgrade-plan-btn', 'font-size-slider', 'font-size-value', 'settings-theme-toggle',
                 'settings-theme-icon', 'language-selector', 'connect-whatsapp-btn', 'schedule-meeting-btn', 'free-plan-button', 'notifications-toggle',
                 'main-chat-area', 'calendar-modal-overlay', 'calendar-modal', 'calendar-btn', 'close-calendar-modal', 'prev-month', 'next-month',
                 'current-month-year', 'calendar-days-grid', 'add-task-btn', 'notification-badge', 'in-app-notification', 'in-app-notification-title',
                 'in-app-notification-body', 'in-app-notification-close', 'task-notification-modal', 'task-notification-title', 'task-notification-body',
-                'task-notification-close-btn', 'month-view-container', 'week-view-container', 'day-view-container', 'month-view-btn', 'week-view-btn',
-                'day-view-btn', 'prev-week', 'next-week', 'current-week-range', 'week-days-content', 'prev-day', 'next-day', 'current-day-display',
-                'day-view-timeline', 'project-management-view', 'project-board-container', 'project-chat-container', 'project-chat-toggle',
+                'task-notification-close-btn', 'month-view-container', 'week-view-container', 'day-view-container', 'month-view-btn', 'week-view-btn', 'day-view-btn',
+                'prev-week', 'next-week', 'current-week-range', 'week-days-content', 'prev-day', 'next-day', 'current-day-display', 'day-view-timeline',
+                'project-management-view', 'project-board-container', 'project-chat-container', 'project-chat-toggle',
                 'project-chat-container-header', 'project-view-title', 'kanban-view', 'list-view', 'list-view-mobile', 'view-toggle-kanban',
                 'view-toggle-list', 'add-task-list-view-btn', 'project-chat-messages', 'project-msg', 'project-send', 'project-calendar-btn',
                 'tag-filter-btn', 'tag-filter-dropdown', 'financial-assistant-view', 'gamification-btn', 'gamification-modal', 'close-gamification-modal',
@@ -2356,50 +2335,25 @@
                 'note-content-area', 'note-content-editor', 'note-canvas', 'add-new-note-btn', 'add-new-drawing-btn', 'note-back-btn', 'notepad-chat-container',
                 'notepad-chat-header', 'notepad-chat-toggle', 'notepad-chat-messages', 'notepad-msg', 'notepad-send', 'plan-credits-display', 'reward-credits-display'
             ];
-            elementIds.forEach(id => dom[id.replace(/-(\w)/g, (match, letter) => letter.toUpperCase())] = document.getElementById(id));
+            elementIds.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    dom[id.replace(/-(\w)/g, (match, letter) => letter.toUpperCase())] = el;
+                } else {
+                    console.warn(`DOM element with ID "${id}" not found.`);
+                }
+            });
 
+            // --- STATE & APP VARIABLES --- //
+            let state = { chats: {}, structure: [], calendar: { tasks: [] }, notes: [] };
+            let currentChatId = null, currentUser = null;
+            let initFired = false;
+            
             // --- UTILITY FUNCTIONS --- //
             const generateId = () => `id_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
             const getLang = () => localStorage.getItem('ibero-lang') || 'es';
-            
-            // --- MAIN INITIALIZATION --- //
-            let initFired = false;
-            const finishInitialization = (user) => {
-                currentUser = user;
-                
-                try {
-                    updateUserUI();
-                    loadStateForUser().then(() => {
-                        // These setups depend on the user state but are safe to re-run
-                        populateVoiceList(); 
-                        setupNotifications();
-                        updateContextualFooter(null);
-                        setupMotivationInterval();
-                        updateNotificationBadge();
-                        resetChatView();
 
-                        // This part should only run ONCE to avoid re-attaching listeners
-                        if (!initFired) {
-                            setupEventListeners();
-                            dom.appContainer.classList.remove('opacity-0');
-                            dom.loadingOverlay.style.display = 'none';
-                            initFired = true;
-                        }
-                    });
-                } catch (e) {
-                    console.error("Error during initialization:", e);
-                    dom.loadingOverlay.innerHTML = `<div class="text-red-500 text-center">Error loading the virtual classroom.<br>Please reload the page.</div>`;
-                }
-            };
-            
-            // --- THEME & LANGUAGE --- //
-            function setTheme(isDark) {
-                document.body.classList.toggle('dark-theme', isDark);
-                document.body.classList.toggle('light-theme', !isDark);
-                dom.themeIcon.className = `fas fa-${isDark ? 'sun' : 'moon'}`;
-                localStorage.setItem('theme', isDark ? 'dark' : 'light');
-            }
-
+            // --- FUNCTION DECLARATIONS (Hoisted) --- //
             function setLanguage(lang) {
                 const translationData = translations[lang];
                 if (!translationData) return;
@@ -2407,43 +2361,45 @@
                 document.querySelectorAll('[data-translate-key]').forEach(el => {
                     const key = el.dataset.translateKey;
                     if (translationData[key]) {
-                        // This logic is simplified to handle most cases.
-                        // It avoids replacing icons by checking for child nodes.
-                        if (el.childNodes.length === 1 && el.childNodes[0].nodeType === Node.TEXT_NODE) {
-                             el.textContent = translationData[key];
-                        } else if (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT') {
+                        const firstChild = el.firstChild;
+                        if (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT') {
                             if(el.placeholder) el.placeholder = translationData[key];
+                        } else if (el.querySelector('span')) {
+                            const span = el.querySelector('span');
+                            if (span.parentElement === el) span.textContent = translationData[key];
+                        } else if (firstChild && firstChild.nodeType === Node.TEXT_NODE) {
+                            firstChild.textContent = translationData[key];
+                        } else {
+                            el.textContent = translationData[key];
                         }
                     }
                 });
                 document.documentElement.lang = lang;
                 localStorage.setItem('ibero-lang', lang);
-                if(initFired) { // Avoid re-rendering before app is visible
-                    renderCalendarView();
+                if(initFired) {
+                    // renderCalendarView(); // These would be called to update date formats etc.
                     renderSidebar();
                 }
             }
 
-            // --- STATE PERSISTENCE (using localStorage) --- //
+            function setTheme(isDark) {
+                document.body.classList.toggle('dark-theme', isDark);
+                document.body.classList.toggle('light-theme', !isDark);
+                dom.themeIcon.className = `fas fa-${isDark ? 'sun' : 'moon'}`;
+                localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            }
+
             function getStateStorageKey() {
                 return currentUser ? `ibero_state_${currentUser.id}` : 'ibero_state_guest';
             }
 
             async function loadStateForUser() {
                 const savedState = localStorage.getItem(getStateStorageKey());
-                if (savedState) {
-                    const parsedState = JSON.parse(savedState);
-                    state = {
-                        ...{ chats: {}, projects: {}, structure: [], calendar: { tasks: [] }, notes: [] },
-                        ...parsedState,
-                        calendar: { tasks: [], ...(parsedState.calendar || {}) },
-                        notes: parsedState.notes || []
-                    };
-                } else {
-                    state = { chats: {}, projects: {}, structure: [], calendar: { tasks: [] }, notes: [] };
-                }
+                state = savedState ? JSON.parse(savedState) : { chats: {}, structure: [], calendar: { tasks: [] }, notes: [] };
+                if (!state.structure) state.structure = [];
+                if (!state.calendar) state.calendar = { tasks: [] };
+                if (!state.notes) state.notes = [];
                 currentChatId = localStorage.getItem(`ibero_currentChatId_${currentUser?.id || 'guest'}`);
-                loadGamificationState();
                 renderSidebar();
                 return Promise.resolve();
             }
@@ -2455,11 +2411,8 @@
                 } else {
                     localStorage.removeItem(`ibero_currentChatId_${currentUser?.id || 'guest'}`);
                 }
-                saveGamificationState();
             }
-            
-            // --- DUMMY/PLACEHOLDER FUNCTIONS --- //
-            // These functions need full implementation for the app to work as designed.
+
             function updateUserUI() {
                 const user = currentUser;
                 dom.loginView.classList.toggle('hidden', !!user);
@@ -2470,13 +2423,16 @@
                     dom.userEmail.textContent = user.user_metadata?.full_name || user.email;
                     dom.userName.textContent = user.user_metadata?.full_name || 'Estudiante';
                 }
-                updateCreditDisplay();
             }
-            function updateCreditDisplay() { /* Placeholder */ }
+
             function renderSidebar() {
-                dom.sidebarContent.innerHTML = '';
-                dom.foldersContainer.innerHTML = '';
-                if (!state.structure) state.structure = [];
+                const sidebarContent = dom.sidebarContent;
+                const foldersContainer = dom.foldersContainer;
+                sidebarContent.innerHTML = '';
+                foldersContainer.innerHTML = '';
+
+                if (!state.structure) return;
+                
                 state.structure.forEach(item => {
                     const el = document.createElement('a');
                     el.href = `#`;
@@ -2484,99 +2440,263 @@
                     el.dataset.id = item.id;
                     if (item.id === currentChatId) el.classList.add('selected-chat');
                     
-                    const icon = item.type === 'folder' ? 'fa-folder' : 'fa-comment';
+                    const icon = item.projectData ? 'fa-graduation-cap' : 'fa-comment';
                     el.innerHTML = `<i class="fas ${icon} w-6 mr-2"></i><span class="truncate flex-1">${item.title}</span>`;
                     
-                    if (item.type === 'folder') {
-                        dom.foldersContainer.appendChild(el);
+                    if (item.projectData) {
+                        foldersContainer.appendChild(el);
                     } else {
-                        dom.sidebarContent.appendChild(el);
+                        sidebarContent.appendChild(el);
                     }
                 });
             }
+
             function selectChat(id) {
-                 currentChatId = id;
-                 saveStateForUser();
-                 renderSidebar();
-                 // Add logic here to show the correct view (chat, project, note)
+                currentChatId = id;
+                const item = state.structure.find(i => i.id === id);
+                
+                dom.initialMessageContainer.classList.add('hidden');
+                dom.projectManagementView.classList.add('hidden');
+                dom.notepadViewContainer.classList.add('hidden');
+                dom.chatMessages.classList.add('hidden');
+                dom.inputArea.classList.add('hidden');
+
+                if (!item) {
+                    resetChatView();
+                    return;
+                }
+
+                if (item.projectData) {
+                    showProjectView(item);
+                } else { // It's a chat
+                    showChatView(item);
+                }
+                
+                renderSidebar();
+                saveStateForUser();
             }
+
             function resetChatView() {
                 currentChatId = null;
                 dom.chatMessages.innerHTML = '';
                 dom.initialMessageContainer.classList.remove('hidden');
                 dom.projectManagementView.classList.add('hidden');
                 dom.notepadViewContainer.classList.add('hidden');
+                dom.chatMessages.classList.remove('hidden');
                 dom.inputArea.classList.remove('hidden');
                 dom.chatTitle.textContent = "Aula Virtual IBERO";
                 dom.mobileChatTitle.textContent = "Aula Virtual";
                 renderSidebar();
                 saveStateForUser();
             }
-            function showNotepadView(noteId) { /* Placeholder */ }
-            function showProjectView(chat) { /* Placeholder */ }
-            function showChatView(chat) { /* Placeholder */ }
-            function renderKanbanView(chatId) { /* Placeholder */ }
-            function renderListView(chatId) { /* Placeholder */ }
-            function renderCalendarView() { /* Placeholder */ }
-            function loadGamificationState() { /* Placeholder */ }
-            function saveGamificationState() { /* Placeholder */ }
-            function setupNotifications() { /* Placeholder */ }
-            function updateNotificationBadge() { /* Placeholder */ }
-            function setupMotivationInterval() { /* Placeholder */ }
-            function populateVoiceList() { /* Placeholder */ }
-            function updateContextualFooter() { /* Placeholder */ }
+
+            function showChatView(chat) {
+                dom.chatMessages.classList.remove('hidden');
+                dom.inputArea.classList.remove('hidden');
+                dom.chatTitle.textContent = chat.title;
+                dom.mobileChatTitle.textContent = chat.title;
+                dom.chatMessages.innerHTML = '';
+                (chat.messages || []).forEach(msg => addMessageToChat(msg.role, msg.content));
+            }
+
+            function showProjectView(item) {
+                dom.projectManagementView.classList.remove('hidden');
+                dom.projectViewTitle.textContent = item.title;
+                renderKanbanView(item.id);
+            }
+            
+            function showNotepadView() {
+                dom.notepadViewContainer.classList.remove('hidden');
+                // Future: Add logic to render notes list and editor
+            }
+
+            function addMessageToChat(role, content) {
+                const bubble = document.createElement('div');
+                const isUser = role === 'user';
+                bubble.className = `chat-bubble-${isUser ? 'user' : 'bot'} max-w-lg w-fit p-3 rounded-lg mb-3 ${isUser ? 'ml-auto' : ''}`;
+                bubble.innerHTML = marked.parse(content);
+                dom.chatMessages.appendChild(bubble);
+                dom.chatMessages.scrollTop = dom.chatMessages.scrollHeight;
+            }
+            
+            function sendMessage() {
+                const msg = dom.msg.value.trim();
+                if (!msg) return;
+
+                if (!currentChatId || !state.chats[currentChatId]) {
+                    const newId = generateId();
+                    const newChat = { id: newId, title: msg.substring(0, 30), messages: [], type: 'chat' };
+                    state.chats[newId] = newChat;
+                    state.structure.unshift(newChat);
+                    selectChat(newId);
+                    state.chats[newId].messages.push({ role: 'user', content: msg });
+                } else {
+                    state.chats[currentChatId].messages.push({ role: 'user', content: msg });
+                }
+                
+                addMessageToChat('user', msg);
+                dom.msg.value = '';
+
+                setTimeout(() => {
+                    const botResponse = "Esta es una respuesta simulada del tutor. La integración con un modelo de IA real está pendiente.";
+                    addMessageToChat('bot', botResponse);
+                    state.chats[currentChatId].messages.push({ role: 'bot', content: botResponse });
+                    saveStateForUser();
+                }, 1000);
+            }
+
+            function renderKanbanView(chatId) {
+                const project = state.structure.find(item => item.id === chatId);
+                if (!project || !project.projectData) return;
+                
+                dom.kanbanView.innerHTML = '';
+                project.projectData.columns.forEach(col => {
+                    const colEl = document.createElement('div');
+                    colEl.className = 'kanban-column';
+                    colEl.innerHTML = `<h3 class="kanban-column-title">${col.title}</h3><div class="kanban-cards" data-column-id="${col.id}"></div>`;
+                    
+                    const cardsContainer = colEl.querySelector('.kanban-cards');
+                    (project.projectData.tasks || [])
+                        .filter(task => task.columnId === col.id)
+                        .forEach(task => {
+                             const cardEl = document.createElement('div');
+                             cardEl.className = 'kanban-card';
+                             cardEl.dataset.taskId = task.id;
+                             cardEl.draggable = true;
+                             cardEl.innerHTML = `<p>${task.content}</p>`;
+                             cardsContainer.appendChild(cardEl);
+                        });
+                    dom.kanbanView.appendChild(colEl);
+                });
+            }
+
+            function handleWorkflowClick(workflow) {
+                let newId, newItem, title;
+                switch(workflow) {
+                    case 'dashboard':
+                        resetChatView();
+                        break;
+                    case 'my-courses':
+                        newId = generateId();
+                        newItem = {
+                            id: newId,
+                            title: `Nuevo Curso ${state.structure.filter(i => i.projectData).length + 1}`,
+                            projectData: {
+                                columns: [
+                                    { id: generateId(), title: 'Pendiente' },
+                                    { id: generateId(), title: 'En Proceso' },
+                                    { id: generateId(), title: 'Completado' }
+                                ],
+                                tasks: []
+                            }
+                        };
+                        state.structure.unshift(newItem);
+                        selectChat(newId);
+                        break;
+                    case 'notepad-app':
+                        showNotepadView();
+                        break;
+                    default:
+                        newId = generateId();
+                        title = document.querySelector(`[data-workflow="${workflow}"]`).textContent.trim();
+                        newItem = { id: newId, title: title, messages: [], type: 'chat', workflow: workflow };
+                        state.chats[newId] = newItem;
+                        state.structure.unshift(newItem);
+                        selectChat(newId);
+                        break;
+                }
+            }
 
             function setupEventListeners() {
+                // Sidebar and Navigation
                 dom.menuToggle.addEventListener('click', () => {
                     dom.sidebar.classList.toggle('is-open');
                     dom.sidebarOverlay.classList.toggle('opacity-0');
                     dom.sidebarOverlay.classList.toggle('pointer-events-none');
                 });
-                dom.sidebarOverlay.addEventListener('click', () => {
-                    dom.sidebar.classList.remove('is-open');
-                    dom.sidebarOverlay.classList.add('opacity-0');
-                    dom.sidebarOverlay.classList.add('pointer-events-none');
-                });
+                dom.sidebarOverlay.addEventListener('click', () => dom.menuToggle.click());
                 dom.sidebarToggleArrow.addEventListener('click', () => dom.sidebar.classList.toggle('collapsed'));
+
+                // Theme
                 dom.themeToggle.addEventListener('click', () => setTheme(!document.body.classList.contains('dark-theme')));
+
+                // Modals
                 dom.loginBtn.addEventListener('click', () => netlifyIdentity.open());
                 dom.logoutBtn.addEventListener('click', () => netlifyIdentity.logout());
-                dom.settingsBtn.addEventListener('click', () => dom.settingsModal.classList.add('flex'));
-                dom.closeSettingsModal.addEventListener('click', () => dom.settingsModal.classList.remove('flex'));
-                dom.calendarBtn.addEventListener('click', () => dom.calendarModalOverlay.classList.add('flex'));
-                dom.closeCalendarModal.addEventListener('click', () => dom.calendarModalOverlay.classList.remove('flex'));
-                dom.gamificationBtn.addEventListener('click', () => dom.gamificationModal.classList.add('flex'));
-                dom.closeGamificationModal.addEventListener('click', () => dom.gamificationModal.classList.remove('flex'));
+                dom.settingsBtn.addEventListener('click', () => dom.settingsModal.classList.toggle('hidden'));
+                dom.closeSettingsModal.addEventListener('click', () => dom.settingsModal.classList.add('hidden'));
+                dom.calendarBtn.addEventListener('click', () => dom.calendarModalOverlay.classList.toggle('hidden'));
+                dom.closeCalendarModal.addEventListener('click', () => dom.calendarModalOverlay.classList.add('hidden'));
+                dom.gamificationBtn.addEventListener('click', () => dom.gamificationModal.classList.toggle('hidden'));
+                dom.closeGamificationModal.addEventListener('click', () => dom.gamificationModal.classList.add('hidden'));
+
+                // Main Actions
+                dom.send.addEventListener('click', sendMessage);
+                dom.msg.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        sendMessage();
+                    }
+                });
+
                 document.body.addEventListener('click', (e) => {
                     const chatItem = e.target.closest('.chat-item');
                     if (chatItem) {
                         e.preventDefault();
                         selectChat(chatItem.dataset.id);
+                        if(window.innerWidth < 768) dom.menuToggle.click();
+                    }
+
+                    const workflowBtn = e.target.closest('[data-workflow]');
+                    if (workflowBtn) {
+                        handleWorkflowClick(workflowBtn.dataset.workflow);
+                    }
+                    
+                    const workflowHeader = e.target.closest('.workflow-header, .actions-header');
+                    if(workflowHeader && workflowHeader.parentElement.classList.contains('workflow-category')) {
+                        workflowHeader.parentElement.classList.toggle('open');
                     }
                 });
             }
 
-            // --- INITIALIZE --- //
+            const initializeApp = (user) => {
+                currentUser = user;
+                try {
+                    updateUserUI();
+                    loadStateForUser().then(() => {
+                        if (!initFired) {
+                            setupEventListeners();
+                            initFired = true;
+                        }
+                        resetChatView();
+                        dom.appContainer.classList.remove('opacity-0');
+                        dom.loadingOverlay.style.display = 'none';
+                    });
+                } catch (e) {
+                    console.error("Error during initialization:", e);
+                    dom.loadingOverlay.innerHTML = `<div class="text-red-500 text-center">Error al cargar. Recargue la página.</div>`;
+                }
+            };
+
+            // --- INITIALIZATION LOGIC --- //
             const savedLang = localStorage.getItem('ibero-lang') || 'es';
             setLanguage(savedLang);
             setTheme(localStorage.getItem('theme') === 'dark' || (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches));
 
-            // Start by showing the guest interface immediately.
-            finishInitialization(null);
+            initializeApp(null); // Start in guest mode
 
             if (window.netlifyIdentity) {
-                // Then, check if a user is already logged in and update the UI.
                 netlifyIdentity.on('init', user => {
-                    if (user) {
-                        finishInitialization(user);
-                    }
+                    if (user) initializeApp(user);
                 });
-                // Handle future login/logout events by reloading the page.
-                netlifyIdentity.on('login', () => location.reload());
-                netlifyIdentity.on('logout', () => location.reload());
+                netlifyIdentity.on('login', user => {
+                    netlifyIdentity.close();
+                    initializeApp(user);
+                });
+                netlifyIdentity.on('logout', () => {
+                    initializeApp(null);
+                });
                 netlifyIdentity.init();
-            } else {
-                console.warn("Netlify Identity widget not found. Running in guest mode.");
             }
         });
     </script>
