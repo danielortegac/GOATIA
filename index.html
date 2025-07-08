@@ -2370,7 +2370,7 @@
             <button id="close-gamification-rules-modal" class="absolute top-4 right-4 text-gray-400 hover:text-text-light"><i class="fas fa-times fa-lg"></i></button>
         </div>
     </div>
-   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script type="module">
         //<-- START OF SCRIPT -->
         window.addEventListener('DOMContentLoaded', () => {
@@ -2776,17 +2776,25 @@
                 document.querySelectorAll('[data-translate-key]').forEach(el => {
                     const key = el.dataset.translateKey;
                     if (translationData[key]) {
+                        // Check if the element is an icon-only button
+                        const isIconOnlyButton = el.tagName === 'BUTTON' && el.querySelector('i') && !el.querySelector('span');
+                        
                         if (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT') {
-                             if(el.placeholder) el.placeholder = translationData[key];
-                             if(el.title) el.title = translationData[key];
+                            if (el.placeholder) el.placeholder = translationData[key];
+                            // Also set title for inputs that might use it (like file inputs)
+                            if (el.title) el.title = translationData[key];
+                        } else if (isIconOnlyButton) {
+                            // For icon-only buttons, only set the title for tooltips
+                            el.title = translationData[key];
                         } else {
-                            // This logic preserves icons inside buttons/elements
+                            // For other elements (buttons with text, headers, etc.)
                             const icon = el.querySelector('i');
                             const textSpan = el.querySelector('span');
                             if (textSpan) {
+                                // If there's a dedicated span for text, update it
                                 textSpan.textContent = translationData[key];
                             } else if (icon) {
-                                // Find the text node to update
+                                // If there's an icon but no span, find and update the text node
                                 let textNode = null;
                                 for (const node of el.childNodes) {
                                     if (node.nodeType === Node.TEXT_NODE && node.textContent.trim().length > 0) {
@@ -2795,15 +2803,17 @@
                                     }
                                 }
                                 if (textNode) {
+                                    // Preserve the space before the text
                                     textNode.textContent = ` ${translationData[key]}`;
                                 } else {
-                                     el.appendChild(document.createTextNode(` ${translationData[key]}`));
+                                    el.textContent = translationData[key];
                                 }
                             } else {
+                                // If no icon or span, just set the text content
                                 el.textContent = translationData[key];
                             }
                         }
-                     }
+                    }
                 });
                 document.documentElement.lang = lang;
                 localStorage.setItem('goatify-lang', lang);
@@ -2874,9 +2884,12 @@
                     dom.genericModal.querySelector('#modal-cancel').addEventListener('click', () => hideModal({ confirmed: false }), { once: true });
                 }
                 extraButtons.forEach(btn => {
-                    dom.genericModal.querySelector(`#${btn.id}`).addEventListener('click', (e) => {
-                         btn.action(e, modalBody);
-                    });
+                    const buttonElement = dom.genericModal.querySelector(`#${btn.id}`);
+                    if(buttonElement) {
+                        buttonElement.addEventListener('click', (e) => {
+                            btn.action(e, modalBody);
+                        });
+                    }
                 });
                 
                 const confirmButton = dom.genericModal.querySelector('#modal-confirm');
@@ -2985,32 +2998,109 @@
                     timer = setTimeout(closeNotification, duration);
                 }
             }
-
             async function triggerPushNotification(title, body) {
-                // This function should send the data to your backend to be pushed.
-                // It assumes you have a serverless function at '/.netlify/functions/send-push'.
-                console.log("Attempting to trigger push notification...");
+                console.log("Intentando disparar notificación push...");
                 if (!currentUser) {
-                    console.log("No user, cannot send push.");
+                    console.log("No hay usuario logueado, no se puede enviar la notificación push.");
                     return;
                 }
+                
                 try {
-                    await fetch('/.netlify/functions/send-push', {
+                    // Este es el endpoint de tu backend que realmente envía la notificación.
+                    // Debes crearlo (ej. como una Netlify Function o Supabase Edge Function).
+                    const response = await fetch('/.netlify/functions/send-push', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
                         body: JSON.stringify({
-                            userId: currentUser.id, // Send user ID to find the correct subscription
+                            userId: currentUser.id, // Envías el ID del usuario para buscar su suscripción en tu BD
                             title,
-                            body
+                            body,
                         }),
                     });
-                    console.log("Push notification trigger sent to backend.");
+                    
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        console.error("Error desde el backend al enviar la notificación:", errorData);
+                    } else {
+                        console.log("Petición para enviar push al backend fue exitosa.");
+                    }
                 } catch (error) {
-                    console.error("Error sending push notification trigger:", error);
+                    console.error("Error de red al intentar disparar la notificación push:", error);
+                }
+            }
+            
+            // Función de utilidad para convertir la VAPID key a un formato que el navegador necesita.
+            function urlBase64ToUint8Array(base64String) {
+                const padding = '='.repeat((4 - base64String.length % 4) % 4);
+                const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+                const rawData = window.atob(base64);
+                const outputArray = new Uint8Array(rawData.length);
+                for (let i = 0; i < rawData.length; ++i) {
+                    outputArray[i] = rawData.charCodeAt(i);
+                }
+                return outputArray;
+            }
+
+            // Esta función registra el Service Worker y maneja la suscripción a notificaciones.
+            async function registerServiceWorkerAndSubscribe() {
+                if (!('serviceWorker' in navigator && 'PushManager' in window)) {
+                    console.warn("Las notificaciones Push no son soportadas en este navegador.");
+                    notificationsEnabled = false;
+                    return;
+                }
+
+                try {
+                    const registration = await navigator.serviceWorker.register('/service-worker.js', { scope: '/' });
+                    console.log('Service Worker registrado exitosamente.');
+
+                    // El permiso se pide al cambiar el toggle en settings o la primera vez.
+                    // Aquí, procedemos si el permiso ya fue concedido.
+                    if (Notification.permission !== 'granted') {
+                        console.log("El permiso para notificaciones aún no ha sido concedido.");
+                        return;
+                    }
+
+                    let subscription = await registration.pushManager.getSubscription();
+                    if (subscription === null) {
+                        console.log("No se encontró suscripción, creando una nueva.");
+                        
+                        // --- IMPORTANTE ---
+                        // Debes generar tus propias VAPID keys (pública y privada) usando una librería como 'web-push'.
+                        // La clave pública se pone aquí. La clave privada se usa en tu backend y NUNCA debe estar en el frontend.
+                        // Puedes generar tus claves ejecutando `npx web-push generate-vapid-keys` en tu terminal.
+                        const VAPID_PUBLIC_KEY = 'BJ4v02ExA1Tso9D_s2zXJGXWf_Q-wG2t6RkcuU_k9mLyD_i_Ld16Gq2g4Gf4K_V8A2f4g7J1zX9Z8hE3D4A0f5Y'; // REEMPLAZA ESTA CLAVE PÚBLICA DE EJEMPLO
+                        
+                        subscription = await registration.pushManager.subscribe({
+                            userVisibleOnly: true, // Siempre debe ser true para notificaciones web
+                            applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+                        });
+                        console.log('Nueva suscripción creada:', subscription);
+
+                        // Envía la nueva suscripción a tu backend para guardarla asociada al usuario.
+                        await fetch('/.netlify/functions/save-subscription', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                userId: currentUser.id, // Asegúrate de que el usuario esté logueado
+                                subscription: subscription
+                            }),
+                        });
+                        console.log("Suscripción enviada al backend para ser guardada.");
+                    } else {
+                        console.log("Ya existe una suscripción:", subscription);
+                    }
+
+                } catch (error) {
+                    console.error('Falló el registro del Service Worker o la suscripción:', error);
+                    notificationsEnabled = false;
+                    if(dom.notificationsToggle) dom.notificationsToggle.checked = false;
+                    localStorage.setItem('goatify-notifications-enabled', 'false');
                 }
             }
 
-
+            // Función para mostrar notificaciones de tareas (in-app y dispara la notificación push)
             function showTaskNotification(title, body) {
                 dom.taskNotificationModal.classList.remove('hidden');
                 dom.taskNotificationModal.classList.add('flex');
@@ -3019,7 +3109,7 @@
                 const glowingBody = body.replace(/(Es hora de:.*)/, '<span class="glowing-text">$1</span>');
                 dom.taskNotificationBody.innerHTML = glowingBody;
 
-                // Trigger the push notification via backend
+                // Dispara la notificación push a través del backend
                 triggerPushNotification(title, body);
             }
 
@@ -3520,11 +3610,14 @@
                         const notificationTitle = translations[lang].notification_title;
                         const notificationBody = `${translations[lang].notification_task_due} ${task.text} (${task.time})`;
                         
+                        // Muestra la notificación en la app
                         showTaskNotification(notificationTitle, notificationBody);
                         
+                        // Marca la tarea para no notificarla de nuevo en el mismo minuto
                         updateTaskNotifiedFlag(task.id, true);
                     }
                 });
+                // Limpia la bandera de notificación para tareas cuya hora ya pasó
                 allTasksToday.forEach(task => {
                     if (task.notifiedThisMinute && task.time !== currentHourMinute) {
                         updateTaskNotifiedFlag(task.id, false);
@@ -3556,80 +3649,7 @@
                 if (currentCalendarView === 'month') renderMonthView();
             }
 
-            setInterval(checkAndNotifyTasks, 10 * 1000);
-
-            // ==========================================================
-            // === FUNCIONES PARA NOTIFICACIONES PUSH ===================
-            // ==========================================================
-
-            // Esta función convierte la VAPID key de base64url a un formato que el navegador entiende.
-            function urlBase64ToUint8Array(base64String) {
-                const padding = '='.repeat((4 - base64String.length % 4) % 4);
-                const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-                const rawData = window.atob(base64);
-                const outputArray = new Uint8Array(rawData.length);
-                for (let i = 0; i < rawData.length; ++i) {
-                    outputArray[i] = rawData.charCodeAt(i);
-                }
-                return outputArray;
-            }
-
-            async function registerServiceWorkerAndSubscribe() {
-                if (!('serviceWorker' in navigator && 'PushManager' in window)) {
-                    console.warn("Push messaging is not supported");
-                    return;
-                }
-
-                try {
-                    const registration = await navigator.serviceWorker.register('/service-worker.js');
-                    console.log('Service Worker registered successfully.');
-
-                    // Pide permiso para notificaciones
-                    const permission = await Notification.requestPermission();
-                    if (permission !== 'granted') {
-                        console.warn("Permission for notifications was denied.");
-                        notificationsEnabled = false;
-                        localStorage.setItem('goatify-notifications-enabled', 'false');
-                        if(dom.notificationsToggle) dom.notificationsToggle.checked = false;
-                        return;
-                    }
-                    
-                    console.log("Notification permission granted.");
-
-                    // Obtiene la suscripción existente o crea una nueva
-                    let subscription = await registration.pushManager.getSubscription();
-                    if (subscription === null) {
-                        console.log("No subscription found, creating new one.");
-                        // IMPORTANTE: Debes generar tus propias VAPID keys (pública y privada).
-                        // Esta es solo una clave PÚBLICA de ejemplo. La privada NUNCA debe estar aquí.
-                        const VAPID_PUBLIC_KEY = 'BJ4v02ExA1Tso9D_s2zXJGXWf_Q-wG2t6RkcuU_k9mLyD_i_Ld16Gq2g4Gf4K_V8A2f4g7J1zX9Z8hE3D4A0f5Y';
-                        
-                        subscription = await registration.pushManager.subscribe({
-                            userVisibleOnly: true,
-                            applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
-                        });
-                        console.log('New subscription created:', subscription);
-
-                        // Envía la nueva suscripción a tu backend para guardarla.
-                        // Debes crear una función en Netlify/Supabase para manejar esto.
-                        await fetch('/.netlify/functions/save-subscription', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                userId: currentUser.id, // Asegúrate de que el usuario esté logueado
-                                subscription: subscription
-                            }),
-                        });
-                        console.log("Subscription sent to backend.");
-                    } else {
-                        console.log("Existing subscription found:", subscription);
-                    }
-
-                } catch (error) {
-                    console.error('Service Worker registration or subscription failed:', error);
-                }
-            }
-
+            setInterval(checkAndNotifyTasks, 10 * 1000); // Revisa cada 10 segundos para mayor precisión
 
             function speak(text, element) { 
                 if (!text) return;
@@ -3841,7 +3861,7 @@
                             cancelText: 'Más Tarde',
                             extraButtons: [{ // Added extra button for meeting
                                 id: 'guest-meeting-btn',
-                                classes: 'px-4 py-2 rounded bg-primary text-white',
+                                classes: 'px-4 py-2 rounded btn-primary text-white',
                                 text: 'Agendar Reunión',
                                 action: () => {
                                     window.open('https://calendly.com/goatify', '_blank');
@@ -4359,7 +4379,7 @@
                     
                     if (addToFolderBtn) {
                         addToFolderBtn.addEventListener('click', (e) => {
-                            e.preventDefault();
+                            e.preventDefault(); // <-- FIX: Previene la navegación del enlace padre 'a'
                             e.stopPropagation();
                             const dropdown = addToFolderBtn.querySelector('.add-to-folder-dropdown');
                             document.querySelectorAll('.add-to-folder-dropdown').forEach(d => {
@@ -4442,7 +4462,7 @@
 
                     if (addToFolderBtn) {
                         addToFolderBtn.addEventListener('click', (e) => {
-                            e.preventDefault();
+                            e.preventDefault(); // <-- FIX: Previene la navegación del enlace padre 'a'
                             e.stopPropagation();
                             const dropdown = addToFolderBtn.querySelector('.add-to-folder-dropdown');
                             document.querySelectorAll('.add-to-folder-dropdown').forEach(d => {
@@ -5193,13 +5213,15 @@
                         clearInterval(motivationInterval);
                         return;
                     }
+                    const lang = localStorage.getItem('goatify-lang') || 'es';
                     const randomIndex = Math.floor(Math.random() * MOTIVATIONAL_MESSAGES.length);
                     const message = MOTIVATIONAL_MESSAGES[randomIndex];
-                    const title = `<i class="fas fa-lightbulb text-yellow-400 mr-2"></i> ${translations[localStorage.getItem('goatify-lang') || 'es'].motivation_dose_title || '¡Dosis de Motivación!'}`;
+                    const title = `<i class="fas fa-lightbulb text-yellow-400 mr-2"></i> ${translations[lang].motivation_title || 'Dosis de Motivación'}`;
                     const body = `<p class="text-md">${message}</p>`;
 
                     showInAppNotification(title, body, 4000);
-                    triggerPushNotification(translations[localStorage.getItem('goatify-lang') || 'es'].motivation_title, message);
+                    // Dispara la notificación push a través del backend
+                    triggerPushNotification(translations[lang].motivation_title, message);
 
                 }, thirtyMinutes); 
             }
@@ -5534,12 +5556,19 @@
                 dom.settingsThemeToggle?.addEventListener('click', () => {
                     setTheme(!document.body.classList.contains('dark-theme'));
                 });
-                dom.notificationsToggle?.addEventListener('change', () => {
+                dom.notificationsToggle?.addEventListener('change', async () => {
                     notificationsEnabled = dom.notificationsToggle.checked;
                     localStorage.setItem('goatify-notifications-enabled', notificationsEnabled);
-                     if (notificationsEnabled) {
-                        registerServiceWorkerAndSubscribe();
-                     }
+                    if (notificationsEnabled) {
+                        const permission = await Notification.requestPermission();
+                        if (permission === 'granted') {
+                            registerServiceWorkerAndSubscribe();
+                        } else {
+                            notificationsEnabled = false;
+                            dom.notificationsToggle.checked = false;
+                             localStorage.setItem('goatify-notifications-enabled', 'false');
+                        }
+                    }
                 });
                 dom.languageSelector?.addEventListener('change', (e) => {
                     setLanguage(e.target.value);
@@ -5630,14 +5659,11 @@
                 });
                 dom.noteContentEditor?.addEventListener('keydown', (e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
-                        // Prevent default Enter behavior for checklist items, handled by addChecklistItemBtn listener
-                        // Otherwise, allow default browser behavior for new lines
                         const selection = window.getSelection();
                         const range = selection.getRangeAt(0);
                         const currentChecklistItem = range.startContainer.closest('.checklist-item');
                         if (currentChecklistItem) {
                             e.preventDefault();
-                            // Logic to add a new checklist item (already handled by addChecklistItemBtn)
                             applyTextFormat('insertHTML', '<div class="checklist-item"><input type="checkbox" class="checklist-item-checkbox"><span contenteditable="true" class="checklist-item-text"></span></div>');
                         }
                     }
@@ -5657,13 +5683,11 @@
                     updateToolbarButtonStates();
                 });
                 dom.addChecklistItemBtn?.addEventListener('click', () => {
-                    // Get the current selection or cursor position
                     const selection = window.getSelection();
                     const range = selection.getRangeAt(0);
                     const currentContainer = selection.focusNode?.parentElement?.closest('#note-content-editor, .checklist-item-text');
 
                     if (!currentContainer) {
-                         // If no selection or not in editor, append at the end
                         dom.noteContentEditor.innerHTML += `<div class="checklist-item"><input type="checkbox" class="checklist-item-checkbox"><span contenteditable="true" class="checklist-item-text"></span></div>`;
                         const newChecklistItem = dom.noteContentEditor.lastElementChild;
                         const newTextSpan = newChecklistItem.querySelector('.checklist-item-text');
@@ -5677,23 +5701,20 @@
                         const newTextSpan = newChecklistItemContent.nextElementSibling;
 
                         if (currentContainer.classList.contains('checklist-item-text')) {
-                            // If inside an existing checklist item text, create a new checklist item below
                             const parentChecklistItem = currentContainer.closest('.checklist-item');
                             const newChecklistItemWrapper = document.createElement('div');
                             newChecklistItemWrapper.className = 'checklist-item';
                             newChecklistItemWrapper.appendChild(newChecklistItemContent);
-                            newChecklistItemWrapper.appendChild(newTextSpan); // Append the span element
+                            newChecklistItemWrapper.appendChild(newTextSpan); 
 
                             parentChecklistItem.parentNode.insertBefore(newChecklistItemWrapper, parentChecklistItem.nextSibling);
                             newTextSpan.focus();
                         } else {
-                            // If in the main editor, insert at current cursor position
-                            range.deleteContents(); // Remove any selected text
+                            range.deleteContents();
                             const wrapper = document.createElement('div');
                             wrapper.className = 'checklist-item';
                             wrapper.appendChild(newChecklistItemContent);
-                            wrapper.appendChild(newTextSpan); // Append the span element
-
+                            wrapper.appendChild(newTextSpan); 
                             range.insertNode(wrapper);
                             range.setStartAfter(wrapper);
                             range.setEndAfter(wrapper);
@@ -5702,7 +5723,6 @@
                             newTextSpan.focus();
                         }
                     }
-
                     const note = state.notes.find(n => n.id === currentNoteId);
                     if (note) {
                         note.content = dom.noteContentEditor.innerHTML;
@@ -5740,10 +5760,9 @@
                     dom.gamificationModal.querySelector('.modal-content').classList.add('scale-95');
                     setTimeout(() => { dom.gamificationModal.classList.add('hidden'); dom.gamificationModal.classList.remove('flex'); }, 300);
                 });
-                // Event listener for clicking outside the gamification modal content to close it
                 dom.gamificationModal.addEventListener('click', (e) => {
-                    if (e.target === dom.gamificationModal) { // Check if the click was directly on the overlay
-                        dom.closeGamificationModal.click(); // Simulate click on the close button
+                    if (e.target === dom.gamificationModal) {
+                        dom.closeGamificationModal.click();
                     }
                 });
 
@@ -5761,7 +5780,8 @@
                 });
                 dom.gamificationModal.querySelectorAll('.gamification-tab').forEach(tab => {
                     tab.addEventListener('click', () => {
-                        dom.gamificationModal.querySelector('.gamification-tab.active').classList.remove('active');
+                        const currentActive = dom.gamificationModal.querySelector('.gamification-tab.active');
+                        if (currentActive) currentActive.classList.remove('active');
                         tab.classList.add('active');
                         dom.gamificationModal.querySelectorAll('.gamification-tab-content').forEach(content => content.classList.add('hidden'));
                          dom.gamificationModal.querySelector(`#gamification-tab-${tab.dataset.tab}`).classList.remove('hidden');
@@ -5781,15 +5801,8 @@
                         } else if (mission && mission.action === 'generateImage') {
                             generateImage();
                             dom.closeGamificationModal.click();
-                        } else if (mission && mission.id === 'week-organized') {
-                            // This mission is triggered by fulfilling a condition, not a direct action button click
-                            // Clicking "Empezar" should just close the modal
+                        } else {
                             dom.closeGamificationModal.click();
-                        } else if (mission && mission.id === 'project-created') {
-                             // Clicking "Empezar" should just close the modal
-                            dom.closeGamificationModal.click();
-                            // Optionally, navigate to project management view or prompt to create project
-                            selectChat('project-management'); // This assumes project-management chat exists or creates a new one
                         }
                     }
                 });
