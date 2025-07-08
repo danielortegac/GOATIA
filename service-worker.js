@@ -1,4 +1,4 @@
-const CACHE_NAME = 'goatify-ia-cache-v7';
+const CACHE_NAME = 'goatify-ia-cache-v9';
 const urlsToCache = [
   '/',
   '/index.html',
