@@ -2324,7 +2324,7 @@
     <div id="generic-modal" class="fixed inset-0 bg-black bg-opacity-70 hidden items-center justify-center z-50 p-4">
         <div class="modal-content rounded-lg w-full max-w-md p-6 relative">
             <h3 id="modal-title" class="text-lg font-bold mb-4"></h3>
-            <div id="modal-body" class="mb-4 text-text-medium text-sm"></div>
+            <div id="modal-body" class="mb-4 text-text-medium text-sm mi-dia-modal-body"></div>
             <div id="modal-buttons-container" class="flex justify-end space-x-2">
                  </div>
         </div>
@@ -2917,8 +2917,8 @@
                     drawing_tool_circle: "Circle",
                     undo_drawing: "Undo",
                     redo_drawing: "Redo",
-                    download_html: "Download HTML",
-                    copy_code: "Copy Code",
+                    download_html: "Descargar HTML",
+                    copy_code: "Copiar Código",
                     pending_tasks_today: "Pending tasks today:",
                     total_activities_today: "Total activities today:",
                     mi_dia_greeting: "Hello, {userName}! Have an excellent day.",
@@ -5493,7 +5493,121 @@
             setLanguage(savedLang);
             setTheme(localStorage.getItem('theme') === 'dark' || (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches));
 
-            // ... (resto del código de inicialización y listeners de netlify)
+            // --- Lógica de Inicialización y Autenticación ---
+
+            let initFired = false;
+            // La función principal que arranca la app, sea con un usuario o como invitado.
+            const finishInitialization = async (user) => {
+                if (initFired) return;
+                initFired = true;
+                currentUser = user;
+
+                try {
+                    // 1. Carga el estado del juego (puntos, créditos) ANTES de mostrar los contadores.
+                    await loadGamificationState();
+                    // 2. Actualiza la UI para mostrar el estado de login y los contadores de créditos ya cargados.
+                    updateUserUI();
+                    // 3. Carga el estado principal de la app (chats, notas, etc.) y la última vista del usuario.
+                    await loadStateForUser();
+
+                    // Carga y aplica el tamaño de letra guardado.
+                    const savedFontSize = localStorage.getItem('global-font-size');
+                    if(savedFontSize) {
+                        document.body.style.setProperty('--base-font-size', `${savedFontSize}px`);
+                        if(dom.fontSizeSlider) dom.fontSizeSlider.value = savedFontSize;
+                        if(dom.fontSizeValue) dom.fontSizeValue.textContent = `${savedFontSize}px`;
+                    }
+
+                    // Prepara las voces para la función de texto-a-voz.
+                    populateVoiceList();
+                    // Activa todos los event listeners de la aplicación.
+                    setupEventListeners();
+                    
+                    // Si el usuario está logueado y las notificaciones habilitadas, pide permiso y registra el service worker.
+                    if (currentUser && notificationsEnabled) {
+                        const permission = await Notification.requestPermission();
+                        if(permission === 'granted') {
+                            registerServiceWorkerAndSubscribe();
+                        }
+                    }
+
+                    // Inicia el intervalo para notificaciones de motivación.
+                    setupMotivationInterval();
+
+                    // Muestra la aplicación y oculta la pantalla de carga.
+                    dom.appContainer.classList.remove('opacity-0');
+                    dom.loadingOverlay.style.display = 'none';
+
+                    // Actualiza el contador de notificaciones pendientes.
+                    updateNotificationBadge();
+                    
+                    // Muestra el mensaje de motivación al recargar.
+                    showMotivationOnLoad();
+                    
+                } catch (e) {
+                    console.error("Error during finishInitialization:", e);
+                    dom.loadingOverlay.innerHTML = `<div class="text-red-500 text-center">Error al cargar la aplicación.<br>Por favor, recarga la página.<br><small>${e.message}</small></div>`;
+                }
+            };
+
+            // Aplica el idioma y tema guardados al iniciar.
+            const savedLang = localStorage.getItem('goatify-lang') || 'es';
+            setLanguage(savedLang);
+            setTheme(localStorage.getItem('theme') === 'dark' || (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches));
+
+            // Desbloquea el audio en la primera interacción para navegadores móviles.
+            const unlockAudio = () => {
+                const silence = new SpeechSynthesisUtterance('');
+                silence.volume = 0;
+                window.speechSynthesis.speak(silence);
+                document.body.removeEventListener('touchstart', unlockAudio);
+                document.body.removeEventListener('click', unlockAudio);
+            };
+            document.body.addEventListener('touchstart', unlockAudio, { once: true });
+            document.body.addEventListener('click', unlockAudio, { once: true });
+
+            // Listeners para el widget de Netlify Identity.
+            if (window.netlifyIdentity) {
+                // Se dispara cuando el widget está listo.
+                netlifyIdentity.on('init', (user) => finishInitialization(user));
+                
+                // Se dispara cuando un usuario inicia sesión.
+                netlifyIdentity.on('login', (user) => {
+                    netlifyIdentity.close();
+                    window.location.reload(); // Recarga la página para cargar el estado del usuario.
+                });
+
+                // Se dispara cuando un usuario cierra sesión.
+                netlifyIdentity.on('logout', () => {
+                    window.location.reload(); // Recarga la página para volver al estado de invitado.
+                });
+
+                // Maneja errores de autenticación.
+                netlifyIdentity.on('error', (err) => {
+                    console.error("Netlify Identity Error:", err);
+                    if (!initFired) finishInitialization(null); // Inicia como invitado si falla.
+                });
+            } else {
+                 console.warn("Netlify Identity widget not found. Proceeding as guest.");
+                 finishInitialization(null);
+            }
+
+            // Fallback por si el evento 'init' de Netlify no se dispara.
+            setTimeout(() => {
+                if (!initFired) {
+                    console.warn("Netlify Identity 'init' event did not fire within timeout. Forcing app initialization.");
+                    finishInitialization(window.netlifyIdentity ? netlifyIdentity.currentUser() : null);
+                 }
+            }, 3000);
+
+            // Listener para manejar los botones de atrás/adelante del navegador.
+            window.addEventListener('popstate', (event) => {
+                if (event.state && event.state.chatId) {
+                    selectChat(event.state.chatId);
+                } else {
+                    resetChatView();
+                }
+            });
 
             if (window.netlifyIdentity) {
                 netlifyIdentity.on('init', (user) => finishInitialization(user));
