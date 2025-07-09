@@ -5296,6 +5296,24 @@
                         saveState();
                     }
                 }
+
+                function undoDrawing() {
+                if (historyIndex > 0) {
+                    historyIndex--;
+                    const canvas = dom.noteCanvas;
+                    const ctx = canvas.getContext('2d');
+                    const img = new Image();
+                    img.onload = () => {
+                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    };
+                    img.src = drawingHistory[historyIndex];
+                    const activeNote = state.notes.find(n => n.id === currentNoteId);
+                    if (activeNote) {
+                        activeNote.content = drawingHistory[historyIndex];
+                        saveState();
+                    }
+                }
             }
 
             function redoDrawing() {
@@ -5598,10 +5616,16 @@
                     }
                 });
             }
-
+            
+            // --- MEJORA: La visibilidad del selector de voz se maneja por CSS, no por JS ---
             function toggleVoiceSelectorVisibility(show) {
-                // --- MEJORA: La función ya no es necesaria ya que el selector de voz es siempre visible. ---
-                // Se deja la función vacía por si es llamada desde otro lugar, para no romper la ejecución.
+                // Esta función ya no es necesaria para mostrar/ocultar el selector de voz.
+                // Se mantiene por si se necesita para controlar otros elementos en el futuro.
+                if (show) {
+                    dom.micBtn.classList.add('glowing-mic');
+                } else {
+                    dom.micBtn.classList.remove('glowing-mic');
+                }
             }
 
             function showMotivationModal() {
@@ -5984,50 +6008,55 @@
                 dom.logoutBtn?.addEventListener('click', () => { netlifyIdentity.logout(); dom.userMenuPopup.classList.add('hidden');});
 
                 dom.userSettingsIcon?.addEventListener('click', (e) => { e.stopPropagation(); showSettingsModal(); });
-
-                const workflowConfigs = {
-                    'project-management': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_pm, workflow: 'project-management' },
-                    'financial-assistant': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_financial, workflow: 'financial-assistant' },
-                    'notepad-app': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_notepad, workflow: 'notepad-app' },
-                    'create-full-post': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_social_1, workflow: 'create-full-post', initialMessages: [{ role: 'assistant', content: '¡Claro! Vamos a crear un post increíble. ¿Para qué red social lo necesitas (Instagram, Facebook, LinkedIn, etc.)?' }] },
-                    'persuasive-copy': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_social_2, workflow: 'persuasive-copy', initialMessages: [{ role: 'assistant', content: 'Estoy listo para redactar textos que vendan. ¿Para qué necesitas este copy? (ej: Anuncio de Facebook, Post de Venta, Descripción de Producto)' }] },
-                    'post-ideas': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_social_3, workflow: 'post-ideas', initialMessages: [{ role: 'assistant', content: '¡Acabemos con el bloqueo creativo! Dime un tema y te daré 7 ideas de contenido excelentes.' }] },
-                    'brand-strategy': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_social_4, workflow: 'brand-strategy', initialMessages: [{ role: 'assistant', content: 'Definamos el corazón de tu marca. ¿Cuál es el nombre de tu negocio y a qué se dedica?' }] },
-                    'competitor-analysis': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_business_1, workflow: 'competitor-analysis', model: 'sonar', initialMessages: [{ role: 'assistant', content: "Estoy listo para analizar a tu competencia usando el buscador web. Por favor, pega la URL (dirección web) de la página que quieres que investigue para entregarte un análisis DAFO simplificado." }] },
-                    'buyer-persona': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_business_2, workflow: 'buyer-persona', initialMessages: [{ role: 'assistant', content: "Vamos a definir a tu cliente ideal (Buyer Persona). Describe tu producto o servicio, y te haré preguntas para construir el perfil detallado paso a paso." }] },
-                    'brand-names': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_business_3, workflow: 'brand-names', initialMessages: [{ role: 'assistant', content: "¡Excelente! Busquemos un nombre increíble. Describe brevemente tu idea de negocio, tu público y el estilo que buscas (ej. moderno, clásico, divertido) para generar nombres y slogans." }] },
-                    'sales-assistant': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_sales_1, workflow: 'sales-assistant', initialMessages: [{ role: 'assistant', content: 'Para ayudarte a cerrar esa venta, pega aquí el mensaje de tu cliente.' }] },
-                    'email-writing': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_sales_2, workflow: 'email-writing', initialMessages: [{ role: 'assistant', content: 'Creemos un email que convierta. ¿Cuál es el objetivo principal de este correo?' }] },
-                    'english-teacher-translate': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_eng_1, workflow: 'english-teacher-translate', initialMessages: [{ role: 'assistant', content: 'Of course! Please provide the text you want me to translate or correct.' }] },
-                    'english-teacher-vocabulary': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_eng_2, workflow: 'english-teacher-vocabulary', initialMessages: [{ role: 'assistant', content: 'Excellent! Let\'s learn some new vocabulary. What topic are you interested in? (e.g., "business negotiations", "travel")' }] },
-                    'english-teacher-practice': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_eng_3, workflow: 'english-teacher-practice', initialMessages: [{ role: 'assistant', content: 'Great! Let\'s practice our conversation. So, tell me about your day.' }] },
-                    'social-skills': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_sales_4, workflow: 'social-skills', initialMessages: [{ role: 'assistant', content: 'Las habilidades sociales son clave. ¿En qué situación te gustaría mejorar tu comunicación? (Ej: una reunión de networking, una conversación difícil, etc.)' }] },
-                    'design-web': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_sales_3, workflow: 'design-web', model: 'gpt-4o', initialMessages: [{ role: 'assistant', content: 'Estoy listo para diseñar con código. Describe la página o componente que quieres crear, y lo programaré para ti.' }] },
-                    'conflict-resolution': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_expert_2, workflow: 'conflict-resolution', initialMessages: [{ role: 'assistant', content: 'Entiendo. Las situaciones difíciles requieren una comunicación clara. Por favor, describe el conflicto objetivamente: ¿quiénes están involucrados y cuál es el punto principal de desacuerdo?' }] },
-                    'decision-lab': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_expert_1, workflow: 'decision-lab', initialMessages: [{ role: 'assistant', content: 'Bienvenido al Laboratorio de Decisiones. Recuerda que una decisión puede cambiar el rumbo de tu vida. Para ayudarte a analizar tu situación, por favor, dime: ¿Cuál es la decisión que necesitas tomar y qué opciones estás considerando?' }] },
-                };
                 
-                // --- CORRECCIÓN: Se refina el listener para manejar tanto categorías como proyectos individuales ---
-                document.body.addEventListener('click', e => {
-                    const header = e.target.closest('.workflow-header, .actions-header, .folders-header');
-                    if (header && !header.closest('.project')) { // No aplicar a headers de proyectos individuales
-                        const category = header.parentElement;
-                        if (category) {
-                            category.classList.toggle('open');
-                        }
+                // --- CORRECCIÓN: Se refactoriza el listener de los headers para ser más específico y evitar conflictos ---
+                document.querySelectorAll('.workflow-category, .actions-category, .folders-category:not(.project)').forEach(category => {
+                    const header = category.querySelector('.workflow-header, .actions-header, .folders-header');
+                    if (header) {
+                        header.addEventListener('click', () => {
+                            const isOpen = category.classList.toggle('open');
+                            const content = category.querySelector('.workflow-content, .actions-content, .folders-content');
+                            const arrow = category.querySelector('.workflow-arrow, .actions-arrow, .folder-arrow');
+                            if (content) content.style.display = isOpen ? 'block' : 'none';
+                            if (arrow) arrow.style.transform = isOpen ? 'rotate(90deg)' : 'rotate(0deg)';
+                        });
                     }
+                });
+                
+                document.querySelectorAll('[data-workflow]').forEach(workflowButton => {
+                    if (workflowButton.closest('.workflow-content, #sidebar-top-actions')) {
+                         workflowButton.addEventListener('click', () => {
+                            const workflowKey = workflowButton.dataset.workflow;
+                            const config = {
+                                'project-management': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_pm, workflow: 'project-management' },
+                                'financial-assistant': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_financial, workflow: 'financial-assistant' },
+                                'notepad-app': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_notepad, workflow: 'notepad-app' },
+                                'create-full-post': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_social_1, workflow: 'create-full-post', initialMessages: [{ role: 'assistant', content: '¡Claro! Vamos a crear un post increíble. ¿Para qué red social lo necesitas (Instagram, Facebook, LinkedIn, etc.)?' }] },
+                                'persuasive-copy': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_social_2, workflow: 'persuasive-copy', initialMessages: [{ role: 'assistant', content: 'Estoy listo para redactar textos que vendan. ¿Para qué necesitas este copy? (ej: Anuncio de Facebook, Post de Venta, Descripción de Producto)' }] },
+                                'post-ideas': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_social_3, workflow: 'post-ideas', initialMessages: [{ role: 'assistant', content: '¡Acabemos con el bloqueo creativo! Dime un tema y te daré 7 ideas de contenido excelentes.' }] },
+                                'brand-strategy': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_social_4, workflow: 'brand-strategy', initialMessages: [{ role: 'assistant', content: 'Definamos el corazón de tu marca. ¿Cuál es el nombre de tu negocio y a qué se dedica?' }] },
+                                'competitor-analysis': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_business_1, workflow: 'competitor-analysis', model: 'sonar', initialMessages: [{ role: 'assistant', content: "Estoy listo para analizar a tu competencia usando el buscador web. Por favor, pega la URL (dirección web) de la página que quieres que investigue para entregarte un análisis DAFO simplificado." }] },
+                                'buyer-persona': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_business_2, workflow: 'buyer-persona', initialMessages: [{ role: 'assistant', content: "Vamos a definir a tu cliente ideal (Buyer Persona). Describe tu producto o servicio, y te haré preguntas para construir el perfil detallado paso a paso." }] },
+                                'brand-names': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_business_3, workflow: 'brand-names', initialMessages: [{ role: 'assistant', content: "¡Excelente! Busquemos un nombre increíble. Describe brevemente tu idea de negocio, tu público y el estilo que buscas (ej. moderno, clásico, divertido) para generar nombres y slogans." }] },
+                                'sales-assistant': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_sales_1, workflow: 'sales-assistant', initialMessages: [{ role: 'assistant', content: 'Para ayudarte a cerrar esa venta, pega aquí el mensaje de tu cliente.' }] },
+                                'email-writing': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_sales_2, workflow: 'email-writing', initialMessages: [{ role: 'assistant', content: 'Creemos un email que convierta. ¿Cuál es el objetivo principal de este correo?' }] },
+                                'english-teacher-translate': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_eng_1, workflow: 'english-teacher-translate', initialMessages: [{ role: 'assistant', content: 'Of course! Please provide the text you want me to translate or correct.' }] },
+                                'english-teacher-vocabulary': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_eng_2, workflow: 'english-teacher-vocabulary', initialMessages: [{ role: 'assistant', content: 'Excellent! Let\'s learn some new vocabulary. What topic are you interested in? (e.g., "business negotiations", "travel")' }] },
+                                'english-teacher-practice': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_eng_3, workflow: 'english-teacher-practice', initialMessages: [{ role: 'assistant', content: 'Great! Let\'s practice our conversation. So, tell me about your day.' }] },
+                                'social-skills': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_sales_4, workflow: 'social-skills', initialMessages: [{ role: 'assistant', content: 'Las habilidades sociales son clave. ¿En qué situación te gustaría mejorar tu comunicación? (Ej: una reunión de networking, una conversación difícil, etc.)' }] },
+                                'design-web': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_sales_3, workflow: 'design-web', model: 'gpt-4o', initialMessages: [{ role: 'assistant', content: 'Estoy listo para diseñar con código. Describe la página o componente que quieres crear, y lo programaré para ti.' }] },
+                                'conflict-resolution': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_expert_2, workflow: 'conflict-resolution', initialMessages: [{ role: 'assistant', content: 'Entiendo. Las situaciones difíciles requieren una comunicación clara. Por favor, describe el conflicto objetivamente: ¿quiénes están involucrados y cuál es el punto principal de desacuerdo?' }] },
+                                'decision-lab': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_expert_1, workflow: 'decision-lab', initialMessages: [{ role: 'assistant', content: 'Bienvenido al Laboratorio de Decisiones. Recuerda que una decisión puede cambiar el rumbo de tu vida. Para ayudarte a analizar tu situación, por favor, dime: ¿Cuál es la decisión que necesitas tomar y qué opciones estás considerando?' }] },
+                            }[workflowKey];
 
-                    const workflowButton = e.target.closest('[data-workflow]');
-                    if (workflowButton && workflowButton.closest('.workflow-content, #sidebar-top-actions')) {
-                        const workflowKey = workflowButton.dataset.workflow;
-                        const config = workflowConfigs[workflowKey];
-                         if (config) {
-                            if (workflowKey === 'notepad-app') {
-                                selectChat('notepad-app');
-                            } else {
-                                createNewChat(config);
+                            if (config) {
+                                if (workflowKey === 'notepad-app') {
+                                    selectChat('notepad-app');
+                                } else {
+                                    createNewChat(config);
+                                }
                             }
-                        }
+                        });
                     }
                 });
 
@@ -6038,27 +6067,27 @@
                     showModal({ title: offerTitle, body: offerMessage, confirmText: 'Agendar Sesión Estratégica' }).then(res => { if (res.confirmed) { window.open('https://calendly.com/goatify', '_blank'); } });
                 });
                 dom.freeGuidesLink.addEventListener('click', (e) => { e.preventDefault(); const isPaidUser = currentUser && currentUser.app_metadata?.plan && currentUser.app_metadata.plan !== 'free'; if (isPaidUser) { window.open('https://goatify.app/guiasIA', '_blank'); } else { const lang = localStorage.getItem('goatify-lang') || 'es'; const title = 'Acceso Exclusivo para Suscriptores'; const message = 'Estas guías se actualizan semanalmente con estrategias de negocio que te ayudarán a crecer un montón. Son un beneficio exclusivo para nuestros suscriptores. ¡Únete a un plan para desbloquearlas!'; showModal({ title, body: message, confirmText: 'Ver Planes' }).then(res => { if (res.confirmed) { showPricingModal(); } }); } });
+                
+                // --- CORRECCIÓN: Funcionalidad del botón de descarga de HTML ---
                 dom.closeHtmlPreviewModalBtn?.addEventListener('click', () => { dom.htmlPreviewModal.classList.add('hidden'); dom.htmlPreviewModal.classList.remove('flex'); });
-
-                // --- CORRECCIÓN: Se repara la funcionalidad del botón de descarga HTML ---
                 dom.downloadHtmlBtn?.addEventListener('click', () => {
                     const htmlContent = dom.htmlPreviewIframe.srcdoc;
                     const blob = new Blob([htmlContent], { type: 'text/html' });
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = url;
-                    a.download = 'goatify_preview.html';
+                    a.download = 'goatify-page.html';
                     document.body.appendChild(a);
                     a.click();
                     document.body.removeChild(a);
                     URL.revokeObjectURL(url);
-                    showInAppNotification("Descarga Exitosa", "El archivo HTML ha sido descargado.", 1200);
+                    showInAppNotification("Descarga Exitosa", "El archivo HTML ha sido descargado.", 800);
                 });
 
                 dom.copyHtmlBtn?.addEventListener('click', () => {
                     const htmlContent = dom.htmlPreviewIframe.srcdoc;
                     navigator.clipboard.writeText(htmlContent)
-                        .then(() => showInAppNotification("Copiado", "El código HTML ha sido copiado al portapapeles.", 1200))
+                        .then(() => showInAppNotification("Copiado", "El código HTML ha sido copiado al portapapeles.", 800))
                         .catch(err => console.error('Error al copiar el texto: ', err));
                 });
 
@@ -6391,8 +6420,1100 @@
                     }
                 });
             }
-            
-            // --- CORRECCIÓN: Se refina la función de inicialización para cargar el último estado de forma robusta ---
+
+            function renderProjectView(chatId) {
+                const chat = state.chats[chatId];
+                if (!chat) return;
+
+                if (!chat.projectData) {
+                    chat.projectData = {
+                        title: chat.title,
+                        columns: [
+                             { id: 'todo', title: 'Por Hacer', tasks: [] },
+                            { id: 'doing', title: 'En Progreso', tasks: [] },
+                            { id: 'done', title: 'Hecho', tasks: [] }
+                         ],
+                        currentView: 'list'
+                    };
+                }
+
+                dom.projectViewTitle.textContent = chat.projectData.title;
+                const projectChatMessages = document.getElementById('project-chat-messages');
+                if(projectChatMessages) {
+                    projectChatMessages.innerHTML = '';
+                    chat.messages.forEach((msg, index) => addMessageToUI(msg.role, msg.content, msg.image, index, projectChatMessages));
+                }
+
+                if (window.innerWidth < 768) {
+                    dom.projectChatContainer.classList.add('collapsed');
+                } else {
+                    dom.projectChatContainer.classList.remove('collapsed');
+                }
+                renderProjectBoard(chatId);
+
+                const projectModelSelector = document.getElementById('project-model-selector');
+                if (projectModelSelector) {
+                    const goatXProOption = projectModelSelector.querySelector('.goat-x-pro-model');
+                    if (goatXProOption) goatXProOption.disabled = !currentUser;
+                }
+            }
+
+            function renderProjectBoard(chatId) {
+                const chat = state.chats[chatId];
+                if(!chat || !chat.projectData) return;
+                const { projectData } = chat;
+                const isMobile = window.innerWidth < 768;
+
+                const isKanban = projectData.currentView === 'kanban';
+                dom.viewToggleKanban.classList.toggle('active', isKanban);
+                dom.viewToggleList.classList.toggle('active', !isKanban);
+
+                dom.kanbanView.style.display = isKanban ? 'grid' : 'none';
+                dom.listView.style.display = (!isKanban && !isMobile) ? 'flex' : 'none';
+                dom.listViewMobile.style.display = (!isKanban && isMobile) ? 'block' : 'none';
+                dom.addTaskListViewBtn.style.display = isKanban ? 'none' : 'block';
+
+                if (isKanban) {
+                    renderKanbanView(chatId);
+                } else {
+                    if (isMobile) {
+                        renderListViewMobile(chatId);
+                    } else {
+                        renderListView(chatId);
+                    }
+                }
+                renderTagFilter(chatId);
+            }
+
+            function renderKanbanView(chatId) {
+                const { projectData } = state.chats[chatId];
+                dom.kanbanView.innerHTML = '';
+
+                projectData.columns.forEach(column => {
+                    const columnEl = document.createElement('div');
+                    columnEl.className = 'kanban-column';
+                    columnEl.innerHTML = `<h3 class="kanban-column-title">
+                        <span>${column.title}</span>
+                         <button class="add-task-to-column-btn text-lg hover:text-primary" data-column-id="${column.id}">+</button>
+                    </h3><div class="kanban-cards" data-column-id="${column.id}"></div>`;
+
+                    const cardsContainer = columnEl.querySelector('.kanban-cards');
+
+                    const tasksToRender = (column.tasks || []).filter(task => !activeTagFilter || (task.labels && task.labels.includes(activeTagFilter)));
+
+                    tasksToRender.forEach(task => {
+                        const cardEl = document.createElement('div');
+                         cardEl.className = 'kanban-card';
+                        if (task.urgent) cardEl.classList.add('urgent');
+                        if (task.completed) cardEl.classList.add('task-item-completed');
+                        cardEl.draggable = true;
+                        cardEl.dataset.taskId = task.id;
+
+                        const labelsHtml = (task.labels || []).map(label => `<span class="task-label" style="background-color: ${getLabelColor(label)}; color: white;">${label}</span>`).join('');
+                        cardEl.innerHTML = `
+                        <i class="fas fa-times delete-task-icon" data-task-id="${task.id}"></i>
+                        <div class="flex justify-between items-start">
+                            <p>${task.content}</p>
+                            ${task.urgent ? '<i class="fas fa-flag text-red-500 ml-2" title="Urgente"></i>' : ''}
+                        </div>
+                        <div class="task-labels">${labelsHtml}</div>
+                        <div class="card-footer">
+                             <span>${task.dueDate ? `<i class="fas fa-calendar-alt mr-1"></i> ${dayjs(task.dueDate).format('D MMM')}` : ''}</span>
+                            <span>${task.time || ''}</span>
+                        </div>`;
+                        cardEl.addEventListener('dragstart', e => {
+                            e.dataTransfer.setData('text/plain', task.id);
+                            e.dataTransfer.effectAllowed = 'move';
+                        });
+                        cardEl.addEventListener('touchstart', handleTouchStart, {passive: false});
+
+                        cardEl.addEventListener('click', (e) => {
+                            if (e.target.classList.contains('delete-task-icon')) {
+                                e.stopPropagation();
+                                deleteTask(task.id, chatId);
+                            } else {
+                                editProjectTask(chatId, task.id);
+                            }
+                        });
+
+                        cardsContainer.appendChild(cardEl);
+                    });
+
+                    cardsContainer.addEventListener('dragover', e => { e.preventDefault(); cardsContainer.classList.add('drag-over'); });
+                    cardsContainer.addEventListener('dragleave', () => { cardsContainer.classList.remove('drag-over'); });
+                    cardsContainer.addEventListener('drop', e => {
+                        e.preventDefault();
+                        cardsContainer.classList.remove('drag-over');
+                        const taskId = e.dataTransfer.getData('text/plain');
+                        if (!taskId.startsWith('proj-')) return;
+                         moveTask(chatId, taskId, column.id);
+                    });
+                    dom.kanbanView.appendChild(columnEl);
+                });
+
+                dom.kanbanView.querySelectorAll('.add-task-to-column-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const columnId = e.currentTarget.dataset.columnId;
+                        editProjectTask(chatId, null, columnId);
+                    });
+                });
+            }
+
+            function renderListView(chatId) {
+                const { projectData } = state.chats[chatId];
+                dom.listView.innerHTML = '';
+
+                const header = document.createElement('div');
+                header.className = 'list-view-header flex-shrink-0';
+                header.innerHTML = `
+                     <span class="truncate">Nombre</span>
+                    <span class="truncate">Fecha y Hora</span>
+                    <span class="truncate">Prioridad</span>
+                    <span class="truncate">Etiquetas</span>
+                    <span class="truncate"></span>
+                `;
+                dom.listView.appendChild(header);
+
+                const listContent = document.createElement('div');
+                listContent.className = 'list-view-content';
+
+                projectData.columns.forEach(column => {
+                    const columnTitle = document.createElement('h4');
+                    columnTitle.className = 'font-bold text-text-medium p-2 bg-current-bg-light mt-2 rounded cursor-pointer';
+                    columnTitle.textContent = column.title;
+                    columnTitle.addEventListener('dragover', e => { e.preventDefault(); e.currentTarget.style.backgroundColor = 'var(--current-primary)'; });
+                    columnTitle.addEventListener('dragleave', e => { e.currentTarget.style.backgroundColor = ''; });
+                    columnTitle.addEventListener('drop', e => {
+                        e.preventDefault();
+                        e.currentTarget.style.backgroundColor = '';
+                        const taskId = e.dataTransfer.getData('text/plain');
+                        if (taskId) {
+                            moveTask(chatId, taskId, column.id);
+                        }
+                    });
+                    listContent.appendChild(columnTitle);
+
+                    const tasksToRender = (column.tasks || []).filter(task => !activeTagFilter || (task.labels && task.labels.includes(activeTagFilter)));
+
+                    tasksToRender.forEach(task => {
+                        const taskEl = document.createElement('div');
+                        taskEl.className = 'list-view-task';
+                        if(column.id !== 'done') taskEl.draggable = true;
+                        taskEl.dataset.taskId = task.id;
+
+                        const labelsHtml = (task.labels || []).map(label => `<span class="task-label" style="background-color: ${getLabelColor(label)}; color: white;">${label}</span>`).join('');
+
+                        taskEl.innerHTML = `
+                            <span class="truncate task-content-list ${task.urgent ? 'urgent' : ''}" data-task-id="${task.id}"><input type="text" class="w-full bg-transparent border-none outline-none" value="${task.content}"></span>
+                            <span class="text-sm truncate flex items-center gap-2">
+                                <input type="date" class="task-date-input" value="${task.dueDate || ''}" data-task-id="${task.id}">
+                                <input type="time" class="task-time-input" value="${task.time || ''}" data-task-id="${task.id}">
+                            </span>
+                            <div class="priority-cell" data-task-id="${task.id}">
+                                ${task.urgent ? '<i class="fas fa-flag text-red-500" title="Urgente"></i>' : '<i class="far fa-flag text-text-medium" title="No urgente"></i>'}
+                            </div>
+                            <div class="task-labels truncate">${labelsHtml || '–'}</div>
+                            <div class="text-center">
+                                <button class="delete-task-icon text-text-medium hover:text-danger-color text-xs p-1" data-task-id="${task.id}"><i class="fas fa-trash-alt"></i></button>
+                            </div>
+                        `;
+
+                        taskEl.addEventListener('dragstart', (e) => { e.dataTransfer.setData('text/plain', task.id); });
+                        taskEl.addEventListener('touchstart', handleTouchStart, {passive: false});
+                        listContent.appendChild(taskEl);
+                    });
+
+                    const newRowEl = document.createElement('div');
+                    newRowEl.className = 'list-view-task';
+                    newRowEl.innerHTML = `
+                        <button class="add-task-to-list-btn text-left text-text-medium hover:text-primary"><i class="fas fa-plus mr-2"></i>Añadir tarea</button>
+                        <span/><span/><span/><span/>
+                    `;
+                    newRowEl.querySelector('.add-task-to-list-btn').addEventListener('click', () => {
+                        editProjectTask(chatId, null, column.id);
+                    });
+                    listContent.appendChild(newRowEl);
+                });
+
+                dom.listView.appendChild(listContent);
+
+                dom.listView.querySelectorAll('.task-content-list input').forEach(input => {
+                    const save = () => {
+                        const taskId = input.closest('.list-view-task').dataset.taskId;
+                        updateTaskStatus(taskId, { content: input.value });
+                    };
+                    input.addEventListener('blur', save);
+                    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') input.blur(); });
+                });
+                 dom.listView.querySelectorAll('.task-date-input, .task-time-input').forEach(input => {
+                    input.addEventListener('change', (e) => {
+                         const taskId = e.currentTarget.dataset.taskId;
+                         const field = e.currentTarget.classList.contains('task-date-input') ? 'dueDate' : 'time';
+                         updateTaskStatus(taskId, { [field]: e.currentTarget.value });
+                    });
+                });
+                dom.listView.querySelectorAll('.priority-cell').forEach(cell => {
+                     cell.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        const taskId = e.currentTarget.dataset.taskId;
+                        const task = findTask(taskId)?.task;
+                        if(task) updateTaskStatus(taskId, { urgent: !task.urgent });
+                    });
+                });
+                dom.listView.querySelectorAll('.delete-task-icon').forEach(btn => {
+                     btn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        deleteTask(e.currentTarget.dataset.taskId, chatId);
+                    });
+                });
+            }
+
+            function renderListViewMobile(chatId) {
+                const { projectData } = state.chats[chatId];
+                dom.listViewMobile.innerHTML = '';
+
+                projectData.columns.forEach(column => {
+                    const columnEl = document.createElement('div');
+                    columnEl.className = "list-view-column-mobile my-2";
+                    columnEl.dataset.columnId = column.id;
+                    const columnTitle = document.createElement('h4');
+                    columnTitle.className = 'font-bold text-text-medium p-2 bg-current-bg-light mt-2 rounded-t-md';
+                    columnTitle.textContent = column.title;
+                    columnEl.appendChild(columnTitle);
+
+                    const tasksContainer = document.createElement('div');
+                    const tasksToRender = (column.tasks || []).filter(task => !activeTagFilter || (task.labels && task.labels.includes(activeTagFilter)));
+
+                    tasksToRender.forEach(task => {
+                        const taskEl = document.createElement('div');
+                        taskEl.className = 'list-view-task-mobile';
+                        taskEl.draggable = true;
+                        taskEl.dataset.taskId = task.id;
+                         if (task.completed) taskEl.classList.add('task-item-completed');
+
+                        const labelsHtml = (task.labels || []).map(label => `<span class="task-label" style="background-color: ${getLabelColor(label)}; color: white;">${label}</span>`).join('');
+
+                        taskEl.innerHTML = `
+                            <div class="list-view-task-mobile-header">
+                                <span class="task-content-list flex-grow ${task.urgent ? 'urgent' : ''}" data-task-id="${task.id}">${task.content}</span>
+                                <button class="delete-task-icon text-text-medium hover:text-danger-color text-xs p-1 flex-shrink-0" data-task-id="${task.id}"><i class="fas fa-trash-alt"></i></button>
+                            </div>
+                            <div class="list-view-task-mobile-footer">
+                                <div class="task-labels truncate">${labelsHtml || '–'}</div>
+                                <div class="task-time-date-inputs">
+                                     <input type="time" class="task-time-input" value="${task.time || ''}" data-task-id="${task.id}">
+                                     <input type="date" class="task-date-input" value="${task.dueDate || ''}" data-task-id="${task.id}">
+                                </div>
+                            </div>
+                        `;
+                        taskEl.addEventListener('touchstart', handleTouchStart, {passive: false});
+                        tasksContainer.appendChild(taskEl);
+                    });
+
+                    const addTaskBtn = document.createElement('button');
+                    addTaskBtn.className = 'add-task-to-list-btn text-left text-text-medium hover:text-primary p-2 w-full';
+                    addTaskBtn.innerHTML = `<i class="fas fa-plus mr-2"></i>Añadir tarea`;
+                    addTaskBtn.onclick = () => {
+                         editProjectTask(chatId, null, column.id);
+                    };
+                    tasksContainer.appendChild(addTaskBtn);
+
+                    columnEl.appendChild(tasksContainer);
+                    columnEl.addEventListener('dragover', e => { e.preventDefault(); columnEl.style.backgroundColor = 'rgba(138, 79, 255, 0.1)'; });
+                    columnEl.addEventListener('dragleave', e => { columnEl.style.backgroundColor = ''; });
+                    columnEl.addEventListener('drop', e => {
+                         e.preventDefault();
+                         columnEl.style.backgroundColor = '';
+                         const taskId = e.dataTransfer.getData('text/plain');
+                         if(taskId.startsWith('proj-')) {
+                            moveTask(chatId, taskId, column.id);
+                         }
+                    });
+                    dom.listViewMobile.appendChild(columnEl);
+                });
+
+                dom.listViewMobile.querySelectorAll('.task-content-list').forEach(span => {
+                    span.addEventListener('click', (e) => {
+                        const input = document.createElement('input');
+                        input.type = 'text';
+                        input.value = span.textContent;
+                        input.className = 'w-full bg-transparent border-b border-primary';
+                        span.replaceWith(input);
+                        input.focus();
+                        input.addEventListener('blur', () => {
+                            updateTaskStatus(input.closest('.list-view-task-mobile').dataset.taskId, { content: input.value });
+                        });
+                        input.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') input.blur(); });
+                    });
+                });
+                dom.listViewMobile.querySelectorAll('.task-date-input, .task-time-input').forEach(input => {
+                    input.addEventListener('change', (e) => {
+                         const taskId = e.currentTarget.dataset.taskId;
+                         const field = e.currentTarget.classList.contains('task-date-input') ? 'dueDate' : 'time';
+                         updateTaskStatus(taskId, { [field]: e.currentTarget.value });
+                    });
+                });
+                dom.listViewMobile.querySelectorAll('.delete-task-icon').forEach(btn => {
+                     btn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        deleteTask(e.currentTarget.dataset.taskId, chatId);
+                    });
+                });
+            }
+
+            async function deleteTask(taskId, chatId) {
+                const lang = localStorage.getItem('goatify-lang') || 'es';
+                const result = await showModal({
+                    title: translations[lang].delete_task_confirm_title,
+                    body: translations[lang].delete_task_confirm_body,
+                    confirmText: translations[lang].delete_btn,
+                    dangerConfirm: true
+                });
+
+                if (result.confirmed) {
+                    const found = findTask(taskId);
+                    if (!found) return;
+
+                    if (found.type === 'personal') {
+                        const { dayKey, taskIndex } = found;
+                        state.calendar[dayKey].splice(taskIndex, 1);
+                        if(state.calendar[dayKey].length === 0) delete state.calendar[dayKey];
+                    } else if (found.type === 'project') {
+                        const { column, taskIndex } = found;
+                        column.tasks.splice(taskIndex, 1);
+                    }
+                    saveState();
+                    if (dom.calendarModalOverlay.classList.contains('flex')) renderCalendarView();
+                    if (dom.projectManagementView.style.display === 'flex') renderProjectBoard(chatId || currentChatId);
+                }
+            }
+
+            async function editProjectTask(chatId, taskId, columnIdForNew) {
+                const task = taskId ? findTask(taskId)?.task : null;
+                const isNew = !task;
+                const lang = localStorage.getItem('goatify-lang') || 'es';
+
+                const result = await showModal({
+                    title: isNew ? 'Nueva Tarea de Proyecto' : 'Editar Tarea',
+                    body: `
+                        <div class="space-y-4">
+                            <div><label for="task-content-edit" class="block text-sm font-medium text-text-light mb-1">Contenido:</label><textarea id="task-content-edit" class="w-full p-2 rounded bg-input border border-themed h-24">${isNew ? '' : task.content}</textarea></div>
+                            <div class="flex gap-4"><div class="flex-1"><label for="task-due-date" class="block text-sm font-medium text-text-light mb-1">Fecha:</label><input type="date" id="task-due-date" value="${isNew ? '' : task.dueDate || ''}" class="w-full p-2 rounded bg-input border border-themed"></div><div class="flex-1"><label for="task-due-time" class="block text-sm font-medium text-text-light mb-1">Hora:</label><input type="time" id="task-due-time" value="${isNew ? '' : task.time || ''}" class="w-full p-2 rounded bg-input border border-themed"></div></div>
+                            <div><label for="task-labels-input" class="block text-sm font-medium text-text-light mb-1">Etiquetas (separadas por coma):</label><input type="text" id="task-labels-input" value="${isNew ? '' : (task.labels || []).join(', ')}" class="w-full p-2 rounded bg-input border border-themed"></div>
+                            <div><label class="flex items-center cursor-pointer"><input type="checkbox" id="task-urgent-checkbox" class="rounded bg-input border-themed" ${isNew ? '' : (task.urgent ? 'checked' : '')}><span class="ml-2 text-sm text-text-light">Marcar como Urgente</span><i class="fas fa-flag text-red-500 ml-2"></i></label></div>
+                        </div>`,
+                    confirmText: 'Guardar'
+                });
+
+                if (result.confirmed) {
+                    const newContent = result.data['task-content-edit'];
+                    if (newContent.trim()) {
+                        const updatedTaskData = {
+                            content: newContent.trim(),
+                            dueDate: result.data['task-due-date'] || null,
+                            time: result.data['task-due-time'] || null,
+                            labels: result.data['task-labels-input'].split(',').map(l => l.trim()).filter(Boolean),
+                            urgent: result.data['task-urgent-checkbox']
+                        };
+                        if (isNew) {
+                            const column = state.chats[chatId].projectData.columns.find(c => c.id === columnIdForNew);
+                            if (column) {
+                                if (!column.tasks) column.tasks = [];
+                                column.tasks.push({ id: `proj-${crypto.randomUUID()}`, ...updatedTaskData, completed: false });
+                                saveState();
+                                renderProjectBoard(chatId);
+                                completeMission('project-created', chatId);
+                            }
+                        } else {
+                            updateTaskStatus(taskId, updatedTaskData);
+                        }
+                    }
+                }
+            }
+
+            async function editCalendarTask(taskId, preselectedDate = null, preselectedTime = null) {
+                const task = taskId ? findTask(taskId)?.task : null;
+                const taskDayKey = taskId ? findTask(taskId)?.dayKey : null;
+                const isNew = !task;
+                const lang = localStorage.getItem('goatify-lang') || 'es';
+
+                const createProjectFromTask = async (modalBody) => {
+                    const content = modalBody.querySelector('#cal-task-content-edit').value;
+                    if (!content.trim()) return;
+                    hideModal();
+
+                    setTimeout(async () => {
+                         const projResult = await showModal({
+                            title: 'Crear Nuevo Proyecto',
+                            body: `<p>Ingresa un nombre para el nuevo proyecto basado en la tarea "${content.substring(0,30)}...".</p>
+                                <input type="text" id="new-proj-name" class="w-full p-2 rounded bg-input border border-themed mt-2" value="${content.split(' ').slice(0,4).join(' ')}">`,
+                            confirmText: 'Crear Proyecto'
+                        });
+
+                        if(projResult.confirmed && projResult.data['new-proj-name']) {
+                            const newProjectId = 'project-' + crypto.randomUUID();
+                            state.projects[newProjectId] = { id: newProjectId, title: projResult.data['new-proj-name'], itemIds: [] };
+                            state.structure.unshift(newProjectId);
+
+                            const newTaskChatId = createNewChat({title: projResult.data['new-proj-name'], workflow: 'project-management'});
+                            state.projects[newProjectId].itemIds.push(newTaskChatId);
+
+                            const taskDataFromModal = {
+                                content: content,
+                                dueDate: modalBody.querySelector('#cal-task-date').value || null,
+                                time: modalBody.querySelector('#cal-task-time').value || null,
+                                labels: [], urgent: false, completed: false
+                            };
+                            const todoColumn = state.chats[newTaskChatId].projectData.columns.find(c => c.id === 'todo');
+                            todoColumn.tasks.push({ id: `proj-${crypto.randomUUID()}`, ...taskDataFromModal });
+
+                            await saveState();
+                            renderSidebar();
+                            selectChat(newTaskChatId);
+                            completeMission('project-created', newTaskChatId);
+                        }
+                    }, 250);
+                };
+
+                const result = await showModal({
+                    title: isNew ? 'Nueva Tarea Personal' : 'Editar Tarea Personal',
+                    body: `
+                    <div class="space-y-4">
+                        <div><label for="cal-task-content-edit" class="block text-sm font-medium text-text-light mb-1">Contenido:</label><textarea id="cal-task-content-edit" class="w-full p-2 rounded bg-input border border-themed h-24">${isNew ? '' : task.content}</textarea></div>
+                        <div class="flex gap-4"><div class="flex-1"><label for="cal-task-date" class="block text-sm font-medium text-text-light mb-1">Fecha:</label><input type="date" id="cal-task-date" value="${isNew ? preselectedDate || '' : taskDayKey}" class="w-full p-2 rounded bg-input border border-themed"></div><div class="flex-1"><label for="cal-task-time" class="block text-sm font-medium text-text-light mb-1">Hora:</label><input type="time" id="cal-task-time" value="${isNew ? preselectedTime || '' : task.time || ''}" class="w-full p-2 rounded bg-input border border-themed"></div></div>
+                        ${isNew ? `<div><label class="flex items-center cursor-pointer"><input type="checkbox" id="create-project-checkbox" class="rounded bg-input border-themed"><span class="ml-2 text-sm text-text-light">Crear un nuevo tablero de proyecto con esta tarea</span></label></div>` : ''}
+                    </div>`,
+                    confirmText: 'Guardar'
+                });
+
+                if (result.confirmed) {
+                    const newContent = result.data['cal-task-content-edit'];
+                    const newDate = result.data['cal-task-date'];
+
+                    if (newContent.trim() && newDate) {
+                        if(isNew && result.data['create-project-checkbox']) {
+                             const tempModalBody = document.createElement('div');
+                             tempModalBody.innerHTML = dom.genericModal.querySelector('#modal-body').innerHTML;
+                             tempModalBody.querySelector('#cal-task-content-edit').value = newContent;
+                             tempModalBody.querySelector('#cal-task-date').value = newDate;
+                             tempModalBody.querySelector('#cal-task-time').value = result.data['cal-task-time'];
+                             await createProjectFromTask(tempModalBody);
+                             return;
+                        }
+
+                        const updatedTaskData = {
+                            content: newContent.trim(),
+                            time: result.data['cal-task-time'] || null,
+                            date: newDate
+                        };
+
+                        if (isNew) {
+                            const newId = `cal-${crypto.randomUUID()}`;
+                            const newTask = { id: newId, completed: false, ...updatedTaskData };
+                            if (!state.calendar[newDate]) state.calendar[newDate] = [];
+                            state.calendar[newDate].push(newTask);
+                        } else {
+                            updateTaskStatus(taskId, updatedTaskData);
+                        }
+                        saveState();
+                        renderCalendarView();
+                        completeMission('week-organized');
+                    }
+                }
+            }
+
+            function moveTask(chatId, taskId, targetColumnId) {
+                const found = findTask(taskId);
+                if (!found || found.type !== 'project' || found.column.id === targetColumnId) return;
+
+                const [taskToMove] = found.column.tasks.splice(found.taskIndex, 1);
+                taskToMove.completed = targetColumnId === 'done';
+
+                const targetColumn = state.chats[chatId].projectData.columns.find(c => c.id === targetColumnId);
+                if (targetColumn) {
+                    if (!targetColumn.tasks) targetColumn.tasks = [];
+                    targetColumn.tasks.push(taskToMove);
+                }
+
+                saveState();
+                renderProjectBoard(chatId);
+            }
+
+            function getLabelColor(label) {
+                if (label === 'Personal') return 'var(--primary)';
+                if (label === 'default') return 'var(--text-medium)';
+                let hash = 0;
+                for (let i = 0; i < label.length; i++) {
+                    hash = label.charCodeAt(i) + ((hash << 5) - hash);
+                }
+                let color = '#';
+                for (let i = 0; i < 3; i++) {
+                    let value = (hash >> (i * 8)) & 0xCF;
+                    color += ('00' + value.toString(16)).substr(-2);
+                }
+                return color;
+            }
+
+            function renderTagFilter(chatId) {
+                const { projectData } = state.chats[chatId];
+                const allTasks = projectData.columns.flatMap(c => c.tasks || []);
+                const allTags = [...new Set(allTasks.flatMap(t => t.labels || []))];
+
+                dom.tagFilterDropdown.innerHTML = '';
+                const allBtn = document.createElement('button');
+                allBtn.className = 'block w-full text-left p-2 hover:bg-medium rounded-md text-sm';
+                allBtn.textContent = 'Todas las Etiquetas';
+                allBtn.onclick = () => {
+                    activeTagFilter = null;
+                    dom.tagFilterBtn.innerHTML = `<i class="fas fa-tag mr-1"></i> Filtrar`;
+                    dom.tagFilterDropdown.classList.add('hidden');
+                    renderProjectBoard(chatId);
+                };
+                dom.tagFilterDropdown.appendChild(allBtn);
+                allTags.forEach(tag => {
+                    const btn = document.createElement('button');
+                    btn.className = 'block w-full text-left p-2 hover:bg-medium rounded-md text-sm';
+                    btn.innerHTML = `<span class="task-label inline-block mr-2" style="background-color: ${getLabelColor(tag)}; color: white;">${tag}</span>`;
+                     btn.onclick = () => {
+                        activeTagFilter = tag;
+                        dom.tagFilterBtn.innerHTML = `<span class="task-label inline-block mr-2" style="background-color: ${getLabelColor(tag)}; color: white;">${tag}</span>`;
+                        dom.tagFilterDropdown.classList.add('hidden');
+                         renderProjectBoard(chatId);
+                    };
+                    dom.tagFilterDropdown.appendChild(btn);
+                });
+                dom.tagFilterBtn.onclick = () => {
+                    dom.tagFilterDropdown.classList.toggle('hidden');
+                };
+            }
+
+            function renderFinancialAssistant(chatId) {
+                const chat = state.chats[chatId];
+                if (!chat) return;
+
+                dom.financialAssistantView.innerHTML = `
+                     <div id="financial-tools-container" class="flex-1 overflow-y-auto p-4 space-y-4">
+                         <div class="finance-summary">
+                            <div>
+                                <h4>Ingresos Totales</h4>
+                                <p id="total-income" class="text-green-400">$0.00</p>
+                            </div>
+                            <div>
+                                <h4>Gastos Totales</h4>
+                                <p id="total-expenses" class="text-red-400">$0.00</p>
+                            </div>
+                            <div>
+                                <h4>Balance Neto</h4>
+                                <p id="net-balance">$0.00</p>
+                            </div>
+                        </div>
+
+                        <div id="finance-unified-view" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="finance-section">
+                                <div class="finance-section-header">
+                                    <h3 class="text-green-400">Ingresos</h3>
+                                    <button id="add-income-category-btn" class="text-sm btn-primary p-1 px-2"><i class="fas fa-folder-plus mr-1"></i> Nueva Carpeta</button>
+                                </div>
+                                <div id="income-categories-list" class="space-y-3"></div>
+                            </div>
+                            <div class="finance-section">
+                                <div class="finance-section-header">
+                                    <h3 class="text-red-400">Gastos</h3>
+                                    <button id="add-expense-category-btn" class="text-sm btn-primary p-1 px-2"><i class="fas fa-folder-plus mr-1"></i> Nueva Carpeta</button>
+                                </div>
+                                <div id="expense-categories-list" class="space-y-3"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="financial-chat-container">
+                        <div id="financial-chat-header" class="flex justify-between items-center cursor-pointer p-2 border-t md:border-t-0 md:border-b border-themed">
+                            <h3 class="text-lg font-semibold text-primary">Asistente Financiero</h3>
+                            <button id="financial-chat-toggle" class="text-xl p-2"><i class="fas fa-angle-up"></i></button>
+                        </div>
+                        <div class="financial-chat-body">
+                            <div id="financial-chat-messages" class="chat-bubble-bot"></div>
+                            <div id="financial-input-area" class="mt-auto pt-2 p-2">
+                                <div class="pro-controls-bg rounded-lg p-1.5 mb-2">
+                                     <div class="flex items-center space-x-2">
+                                        <label for="financial-model-selector" class="font-medium text-xs text-text-medium pl-2 pr-1">Modelo:</label>
+                                        <div class="model-selector-wrapper">
+                                            <select id="financial-model-selector" class="rounded-md py-1 pl-1.5 focus:outline-none focus:ring-2 focus:ring-primary text-sm bg-transparent text-text-light">
+                                                 <option value="gpt-3.5-turbo-1106">GOAT X</option>
+                                                 <option value="sonar">Búsqueda Web</option>
+                                                 <option value="gpt-4o" class="goat-x-pro-model">GOAT X PRO</option>
+                                             </select>
+                                              <i class="fas fa-chevron-down text-xs"></i>
+                                        </div>
+                                     </div>
+                                </div>
+                                <div class="relative rounded-xl flex items-center bg-input p-1 sm:p-2 input-wrapper">
+                                    <textarea id="financial-msg" placeholder="Pregúntale a la IA sobre tus finanzas..." class="flex-1 bg-transparent p-2 h-10 max-h-28 resize-none outline-none placeholder-themed text-sm"></textarea>
+                                    <button id="financial-send" title="Enviar" class="p-2 sm:p-3 disabled:opacity-50 disabled:cursor-not-allowed text-primary"><i class="fa fa-paper-plane text-lg"></i></button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                renderFinancialData(chatId);
+                attachFinancialListeners(chatId);
+                if (window.innerWidth < 768) {
+                    document.getElementById('financial-chat-container').classList.add('collapsed');
+                }
+
+                const financialModelSelector = document.getElementById('financial-model-selector');
+                if (financialModelSelector) {
+                    const goatXProOption = financialModelSelector.querySelector('.goat-x-pro-model');
+                    if (goatXProOption) goatXProOption.disabled = !currentUser;
+                }
+
+            }
+
+            function renderFinancialData(chatId) {
+                const chat = state.chats[chatId];
+                if (!chat.financialData) {
+                    chat.financialData = { incomeCategories: [], expenseCategories: [] };
+                }
+                const { incomeCategories = [], expenseCategories = [] } = chat.financialData;
+
+                const incomeList = dom.financialAssistantView.querySelector('#income-categories-list');
+                const expenseList = dom.financialAssistantView.querySelector('#expense-categories-list');
+                if(!incomeList || !expenseList) return;
+
+                const renderCategory = (category, type) => {
+                    const categoryEl = document.createElement('div');
+                    categoryEl.className = 'finance-category';
+                    categoryEl.dataset.categoryId = category.id;
+                    categoryEl.dataset.type = type;
+                    const lang = localStorage.getItem('goatify-lang') || 'es';
+
+                    let itemsHTML = (category.items || []).map(item => `
+                        <div class="finance-item-row" data-item-id="${item.id}">
+                            <input type="text" class="finance-item-input" data-field="description" value="${item.description}" placeholder="Descripción...">
+                            <input type="number" class="finance-item-input text-right" data-field="amount" value="${item.amount}" placeholder="0.00">
+                            <button class="delete-finance-item-btn text-red-500 p-1"><i class="fas fa-times"></i></button>
+                        </div>
+                    `).join('');
+
+                    categoryEl.innerHTML = `
+                        <div class="finance-category-header">
+                            <input type="text" class="finance-category-name-input" value="${category.name}">
+                            <div>
+                                <button class="add-finance-item-btn text-primary p-1 mr-2" title="Añadir Item"><i class="fas fa-plus-circle"></i></button>
+                                <button class="delete-finance-category-btn text-red-500 p-1" title="Eliminar Carpeta"><i class="fas fa-trash-alt"></i></button>
+                            </div>
+                        </div>
+                        <div class="finance-category-content">
+                            ${itemsHTML}
+                        </div>`;
+                    return categoryEl;
+                };
+
+                incomeList.innerHTML = '';
+                incomeCategories.forEach(cat => incomeList.appendChild(renderCategory(cat, 'income')));
+                if(incomeList.innerHTML === '') incomeList.innerHTML = `<p class="text-xs text-text-medium italic p-2">Crea carpetas para organizar tus ingresos.</p>`;
+
+                expenseList.innerHTML = '';
+                expenseCategories.forEach(cat => expenseList.appendChild(renderCategory(cat, 'expense')));
+                if(expenseList.innerHTML === '') expenseList.innerHTML = `<p class="text-xs text-text-medium italic p-2">Crea carpetas para organizar tus gastos.</p>`;
+
+                recalculateFinances(chatId);
+            }
+            function attachFinancialListeners(chatId) {
+                const view = dom.financialAssistantView;
+                if (!view) return;
+
+                const chat = state.chats[chatId];
+
+                // Setup send button and Enter key for financial chat
+                const financialInput = view.querySelector('#financial-msg');
+                const financialSendBtn = view.querySelector('#financial-send');
+                if (financialSendBtn) {
+                    financialSendBtn.addEventListener('click', () => sendMessage(false, null, { assistantType: 'financial' }));
+                }
+                if (financialInput) {
+                    financialInput.addEventListener('keydown', (e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            sendMessage(false, null, { assistantType: 'financial' });
+                        }
+                    });
+                }
+
+                view.addEventListener('input', (e) => {
+                    if (e.target.classList.contains('finance-category-name-input')) {
+                        const catEl = e.target.closest('.finance-category');
+                        const catId = catEl.dataset.categoryId;
+                        const type = catEl.dataset.type;
+                        const category = chat.financialData[`${type}Categories`].find(c => c.id === catId);
+                        if (category) {
+                            category.name = e.target.value;
+                            saveState();
+                        }
+                    } else if (e.target.classList.contains('finance-item-input')) {
+                        const itemRow = e.target.closest('.finance-item-row');
+                        const catEl = e.target.closest('.finance-category');
+                        const catId = catEl.dataset.categoryId;
+                        const itemId = itemRow.dataset.itemId;
+                        const type = catEl.dataset.type;
+                        const category = chat.financialData[`${type}Categories`].find(c => c.id === catId);
+                        const item = category?.items.find(i => i.id === itemId);
+                        if (item) {
+                           item[e.target.dataset.field] = e.target.type === 'number' ? parseFloat(e.target.value) || 0 : e.target.value;
+                           recalculateFinances(chatId);
+                           saveState();
+                        }
+                    }
+                });
+
+                view.addEventListener('click', async (e) => {
+                    const chat = state.chats[chatId];
+                    if (!chat || !chat.financialData) return;
+
+                    const addItemBtn = e.target.closest('.add-finance-item-btn');
+                    if(addItemBtn) {
+                        const catEl = addItemBtn.closest('.finance-category');
+                        const catId = catEl.dataset.categoryId;
+                        const type = catEl.dataset.type;
+                        const category = chat.financialData[`${type}Categories`].find(c => c.id === catId);
+                        if (category) {
+                            if (!category.items) category.items = [];
+                            category.items.push({ id: `fin-${crypto.randomUUID()}`, description: '', amount: 0 });
+                            renderFinancialData(chatId);
+                            saveState();
+                        }
+                        return;
+                    }
+
+                    const deleteItemBtn = e.target.closest('.delete-finance-item-btn');
+                    if (deleteItemBtn) {
+                        const itemRow = deleteItemBtn.closest('.finance-item-row');
+                        const catEl = deleteItemBtn.closest('.finance-category');
+                        const catId = catEl.dataset.categoryId;
+                        const itemId = itemRow.dataset.itemId;
+                        const type = catEl.dataset.type;
+                        const category = chat.financialData[`${type}Categories`].find(c => c.id === catId);
+                        if (category) {
+                            category.items = (category.items || []).filter(i => i.id !== itemId);
+                            renderFinancialData(chatId);
+                            saveState();
+                        }
+                        return;
+                    }
+
+                    const deleteCategoryBtn = e.target.closest('.delete-finance-category-btn');
+                    if (deleteCategoryBtn) {
+                        const catEl = deleteCategoryBtn.closest('.finance-category');
+                        const catId = catEl.dataset.categoryId;
+                        const type = catEl.dataset.type;
+                        chat.financialData[`${type}Categories`] = chat.financialData[`${type}Categories`].filter(c => c.id !== catId);
+                        renderFinancialData(chatId);
+                        saveState();
+                        return;
+                    }
+                });
+
+                view.querySelector('#add-income-category-btn')?.addEventListener('click', () => {
+                    const newCategory = { id: `fin-cat-${crypto.randomUUID()}`, name: 'Nueva Carpeta de Ingresos', items: [] };
+                    if (!chat.financialData.incomeCategories) chat.financialData.incomeCategories = [];
+                    chat.financialData.incomeCategories.push(newCategory);
+                    renderFinancialData(chatId);
+                    saveState();
+                });
+
+                view.querySelector('#add-expense-category-btn')?.addEventListener('click', () => {
+                    const newCategory = { id: `fin-cat-${crypto.randomUUID()}`, name: 'Nueva Carpeta de Gastos', items: [] };
+                    if (!chat.financialData.expenseCategories) chat.financialData.expenseCategories = [];
+                    chat.financialData.expenseCategories.push(newCategory);
+                    renderFinancialData(chatId);
+                    saveState();
+                });
+
+                const chatMessagesContainer = view.querySelector('#financial-chat-messages');
+                if (chatMessagesContainer) {
+                    chatMessagesContainer.innerHTML = '';
+                    chat.messages.forEach((msg, index) => addMessageToUI(msg.role, msg.content, msg.image, index, chatMessagesContainer));
+                }
+            }
+
+            function recalculateFinances(chatId) {
+                const view = dom.financialAssistantView;
+                const chat = state.chats[chatId];
+                if (!chat || !chat.financialData || !view.querySelector('#total-income')) return;
+
+                const sumItems = (categories) => (categories || [])
+                    .flatMap(cat => cat.items || [])
+                    .reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
+
+                let totalIncome = sumItems(chat.financialData.incomeCategories);
+                let totalExpenses = sumItems(chat.financialData.expenseCategories);
+
+                const netBalance = totalIncome - totalExpenses;
+
+                view.querySelector('#total-income').textContent = `$${totalIncome.toFixed(2)}`;
+                view.querySelector('#total-expenses').textContent = `$${totalExpenses.toFixed(2)}`;
+                const netBalanceEl = view.querySelector('#net-balance');
+                netBalanceEl.textContent = `$${netBalance.toFixed(2)}`;
+                netBalanceEl.style.color = netBalance >= 0 ? '#22c55e' : '#ef4444';
+            }
+
+            function checkWeekOrganized() {
+                const startOfWeek = dayjs().startOf('isoWeek');
+                for (let i = 0; i < 7; i++) {
+                    const dayKey = startOfWeek.add(i, 'day').format('YYYY-MM-DD');
+                    if (getTasksForDay(dayKey).length === 0) return false;
+                }
+                return true;
+            }
+            function checkProjectCreated(chatId, taskCount) {
+                const chat = state.chats[chatId];
+                if (!chat || !chat.projectData) return false;
+                const totalTasks = chat.projectData.columns.reduce((sum, col) => sum + (col.tasks?.length || 0), 0);
+                return totalTasks >= taskCount;
+            }
+
+            function getDefaultGamificationState() {
+                return {
+                    xp: 0,
+                     credits: 0,
+                    level: 1,
+                    dailyStreak: 0,
+                    lastLogin: null,
+                    completedMissions: [],
+                     unlockedAchievements: []
+                };
+            }
+
+            function loadGamificationState() {
+                if(!currentUser) {
+                    gamificationState = getDefaultGamificationState();
+                    return;
+                }
+                const key = `gamificationState_${currentUser.id}`;
+                const savedState = localStorage.getItem(key);
+                gamificationState = savedState ? JSON.parse(savedState) : getDefaultGamificationState();
+                checkDailyStreak();
+            }
+
+            function saveGamificationState() {
+                if(!currentUser) return;
+                const key = `gamificationState_${currentUser.id}`;
+                localStorage.setItem(key, JSON.stringify(gamificationState));
+                renderGamificationModal();
+                updateCreditCounter();
+            }
+
+            function addXp(amount) {
+                if(!currentUser) return;
+                gamificationState.xp += amount;
+                const currentLevel = gamificationState.level;
+                if (currentLevel >= LEVEL_NAMES.length) return;
+
+                const nextLevelXp = XP_FOR_LEVEL[currentLevel];
+                if (gamificationState.xp >= nextLevelXp) {
+                    gamificationState.level++;
+                    const newLevelName = LEVEL_NAMES[gamificationState.level - 1];
+                    showModal({
+                        title: `<i class="fas fa-sparkles fa-lg text-gold animate-pulse mr-2"></i> ¡Nivel Subido! <i class="fas fa-sparkles fa-lg text-gold animate-pulse ml-2"></i>`,
+                        body: `<div class="text-center">
+                                <p class="text-lg">¡Felicidades! Has ascendido al</p>
+                                <p class="text-3xl font-bold text-primary my-2">Nivel ${gamificationState.level}</p>
+                                <p class="text-2xl font-semibold">${newLevelName}</p>
+                                <p class="mt-4 text-text-medium">¡Sigue así en tu camino para ser un G.O.A.T.!</p>
+                               </div>`,
+                        confirmText: '¡Genial!',
+                        showCancel: false
+                    });
+                }
+                saveGamificationState();
+            }
+
+            function addCredits(amount) {
+                if(!currentUser) return;
+                gamificationState.credits += amount;
+                saveGamificationState();
+            }
+
+            function checkDailyStreak() {
+                if(!currentUser) return;
+                const today = dayjs().format('YYYY-MM-DD');
+                const lastLogin = gamificationState.lastLogin;
+
+                if (lastLogin === today) return;
+
+                const yesterday = dayjs().subtract(1, 'day').format('YYYY-MM-DD');
+                if (lastLogin === yesterday) {
+                    gamificationState.dailyStreak++;
+                } else {
+                    gamificationState.dailyStreak = 1;
+                }
+
+                gamificationState.lastLogin = today;
+                const streak = gamificationState.dailyStreak;
+                let xpReward = 10, creditReward = 5;
+                if (streak > 3 && streak <=6) { xpReward = 20; creditReward = 10; }
+
+                if (streak === 7) {
+                    addXp(100);
+                    openGoatChest();
+                    gamificationState.dailyStreak = 0;
+                } else {
+                    addXp(xpReward);
+                    addCredits(creditReward);
+                }
+
+                if (gamificationState.dailyStreak >= 30) {
+                    unlockAchievement('streak-30');
+                }
+
+                saveGamificationState();
+            }
+
+            function openGoatChest() {
+                const rand = Math.random();
+                let rewardTitle, rewardBody;
+
+                if (rand < 0.01) {
+                    rewardTitle = ' recompensa ¡LEGENDARIA!';
+                    rewardBody = '¡Increíble! Has ganado una <strong>Asesoría Estratégica de 30 minutos GRATIS</strong> con un experto de Goatify. ¡Nos pondremos en contacto contigo!';
+                } else if (rand < 0.1) {
+                    rewardTitle = ' recompensa ¡ÉPICA!';
+                    rewardBody = '¡Genial! Has ganado un <strong>cupón del 25% de descuento</strong> en cualquiera de nuestros servicios.';
+                } else if (rand < 0.4) {
+                    addCredits(150);
+                    rewardTitle = ' recompensa RARA!';
+                    rewardBody = 'Has ganado <strong>150 Créditos de Recompensa</strong> extra. ¡Sigue así!';
+                } else {
+                    addCredits(50);
+                    rewardTitle = ' recompensa COMÚN!';
+                    rewardBody = 'Has ganado <strong>50 Créditos de Recompensa</strong>. ¡Buen trabajo!';
+                }
+
+                showModal({
+                    title: `<i class="fas fa-gift text-gold mr-2"></i>¡Cofre GOAT Abierto!`,
+                    body: `<p class="text-lg text-center">¡Completaste la racha de 7 días y obtuviste una${rewardTitle}</p><p class="mt-4 text-center">${rewardBody}</p>`,
+                    confirmText: '¡Fantástico!',
+                     showCancel: false
+                });
+            }
+
+            function completeMission(missionId, contextId = null) {
+                if (!currentUser || gamificationState.completedMissions.includes(missionId)) return;
+                const mission = MISSIONS[missionId];
+                if (!mission) return;
+
+                let isCompleted = false;
+                if (mission.condition) {
+                    isCompleted = mission.condition(contextId);
+                } else {
+                    const chat = state.chats[contextId];
+                    if (chat && chat.messages.length > 1) {
+                        isCompleted = true;
+                    }
+                }
+
+                if (isCompleted) {
+                    gamificationState.completedMissions.push(missionId);
+                    addXp(mission.xp);
+                    addCredits(mission.credits);
+                    showModal({
+                        title: `<i class="fas fa-check-circle text-green-400 mr-2"></i> Misión Completada`,
+                        body: `<p class="text-lg text-center">¡Completaste "${mission.text}"!</p><p class="text-center font-bold mt-2">+${mission.xp} XP | +${mission.credits} Créditos de Recompensa</p>`,
+                        confirmText: '¡Vamos!',
+                         showCancel: false
+                    });
+                    saveGamificationState();
+                }
+            }
+
+            function unlockAchievement(achievementId) {
+                if (!currentUser || gamificationState.unlockedAchievements.includes(achievementId)) return;
+                const achievement = ACHIEVEMENTS[achievementId];
+                if (!achievement) return;
+
+                gamificationState.unlockedAchievements.push(achievementId);
+                addXp(achievement.xp);
+                if (achievement.credits) addCredits(achievement.credits);
+                showModal({
+                    title: `<i class="fas fa-medal text-gold mr-2"></i> ¡Logro Desbloqueado!`,
+                    body: `<p class="text-xl text-center font-bold">${achievement.title}</p><p class="text-center mt-2">${achievement.description}</p><p class="text-center font-bold mt-4">+${achievement.xp} XP ${achievement.reward ? `| ${achievement.reward}` : ''}</p>`,
+                    confirmText: '¡Impresionante!',
+                     showCancel: false
+                });
+                saveGamificationState();
+            }
+
+            function renderGamificationModal() {
+                if(!currentUser) return;
+                const level = gamificationState.level;
+                const currentXp = gamificationState.xp;
+                const xpForCurrentLevel = XP_FOR_LEVEL[level - 1];
+                const xpForNextLevel = XP_FOR_LEVEL[level];
+                dom.gamificationLevelName.textContent = `Nivel ${level}: ${LEVEL_NAMES[level - 1]}`;
+                dom.gamificationCredits.innerHTML = `<i class="fas fa-coins mr-1"></i>${gamificationState.credits} Créditos`;
+                if (level < LEVEL_NAMES.length) {
+                    const progress = ((currentXp - xpForCurrentLevel) / (xpForNextLevel - xpForCurrentLevel)) * 100;
+                    dom.gamificationXp.textContent = `${currentXp} / ${xpForNextLevel} XP`;
+                    dom.gamificationXpBar.style.width = `${Math.min(100, progress)}%`;
+                } else {
+                    dom.gamificationXp.textContent = '¡Nivel Máximo!';
+                    dom.gamificationXpBar.style.width = `100%`;
+                }
+
+                dom.dailyStreakContainer.innerHTML = '';
+                for (let i = 1; i <= 7; i++) {
+                    const dayEl = document.createElement('div');
+                    dayEl.className = 'streak-day p-4 rounded-lg flex flex-col items-center justify-center';
+                    const isCompleted = i <= gamificationState.dailyStreak;
+                    const isActive = i === gamificationState.dailyStreak + 1 && dayjs().format('YYYY-MM-DD') !== gamificationState.lastLogin;
+
+                    if (isCompleted) dayEl.classList.add('completed');
+                    if (isActive) dayEl.classList.add('active');
+
+                    let rewardText;
+                    if (i <= 3) rewardText = '+10 XP';
+                    else if (i <= 6) rewardText = '+20 XP';
+                    else rewardText = '<i class="fas fa-gift fa-2x"></i>';
+
+                    dayEl.innerHTML = `
+                        <p class="font-bold text-lg">${i === 7 ? '' : `Día ${i}`}</p>
+                        <div class="text-2xl my-2">${rewardText}</div>
+                        <p class="xs">${i <= 3 ? '+5 Créditos' : (i <= 6 ? '+10 Créditos' : 'Cofre GOAT')}</p>
+                    `;
+                    dom.dailyStreakContainer.appendChild(dayEl);
+                }
+
+                dom.missionsContainer.innerHTML = '';
+                Object.values(MISSIONS).forEach(mission => {
+                    const isCompleted = gamificationState.completedMissions.includes(mission.id);
+                    const missionEl = document.createElement('div');
+                    missionEl.className = `mission-item p-4 rounded-lg flex items-center justify-between bg-input ${isCompleted ? 'completed' : ''}`;
+                     missionEl.innerHTML = `
+                        <div>
+                            <p class="font-semibold">${mission.text}</p>
+                            <p class="text-sm text-text-medium">+${mission.xp} XP | +${mission.credits} Créditos</p>
+                         </div>
+                        <button class="btn-primary px-4 py-2 rounded-lg text-sm font-bold" data-mission-id="${mission.id}" ${isCompleted ? 'disabled' : ''}>
+                            ${isCompleted ? 'Hecho' : 'Empezar'}
+                         </button>
+                    `;
+                    dom.missionsContainer.appendChild(missionEl);
+                });
+
+                dom.achievementsContainer.innerHTML = '';
+                Object.values(ACHIEVEMENTS).forEach(ach => {
+                    const isUnlocked = gamificationState.unlockedAchievements.includes(ach.id);
+                    const achEl = document.createElement('div');
+                    achEl.className = `achievement-badge p-4 rounded-lg text-center flex flex-col items-center justify-center ${isUnlocked ? 'unlocked' : ''}`;
+                     achEl.innerHTML = `
+                        <i class="fas ${ach.icon} fa-3x mb-2"></i>
+                        <p class="font-bold">${ach.title}</p>
+                        <p class="text-xs text-text-medium mt-1">${ach.description}</p>
+                     `;
+                    dom.achievementsContainer.appendChild(achEl);
+                });
+            }
+
             let initFired = false;
             const finishInitialization = (user) => {
                 if (initFired) return;
@@ -6401,12 +7522,12 @@
 
                 try {
                     const urlParams = new URLSearchParams(window.location.search);
-                    let chatIdFromUrl = urlParams.get('chat');
+                    const chatIdFromUrl = urlParams.get('chat');
 
                     updateUserUI();
                     loadStateForUser().then(() => {
                         populateVoiceList();
-                        setupEventListeners(); // Llama a todos los listeners después de cargar el estado
+                        setupEventListeners();
                         if (currentUser && notificationsEnabled) {
                              registerServiceWorkerAndSubscribe();
                         }
@@ -6416,16 +7537,26 @@
                         dom.appContainer.classList.remove('opacity-0');
                         dom.loadingOverlay.style.display = 'none';
                         
-                        // --- CORRECCIÓN: Lógica mejorada para seleccionar el chat correcto al cargar ---
-                        let idToSelect = chatIdFromUrl || currentChatId;
-                        const itemExists = idToSelect && (state.chats[idToSelect] || (state.notes || []).find(n => n.id === idToSelect) || idToSelect === 'notepad-app');
+                        // --- CORRECCIÓN: Lógica mejorada para restaurar el último chat activo ---
+                        let idToSelect = chatIdFromUrl;
+
+                        // Si no hay ID en la URL, usar el guardado en el estado
+                        if (!idToSelect) {
+                            idToSelect = currentChatId;
+                        }
+
+                        // Validar que el ID a seleccionar existe, si no, buscar un reemplazo
+                        const idIsValid = idToSelect && (state.chats[idToSelect] || (state.notes || []).find(n => n.id === idToSelect));
                         
-                        if (itemExists) {
+                        if (idIsValid) {
                             selectChat(idToSelect);
                         } else if (state.structure.length > 0) {
-                            selectChat(state.structure[0]); // Fallback al primer item si el guardado es inválido
+                            // Si el ID guardado es inválido, seleccionar el primer elemento de la lista
+                            const firstValidItem = state.structure.find(id => state.chats[id] || state.notes.find(n => n.id === id));
+                            selectChat(firstValidItem);
                         } else {
-                            resetChatView(); // Fallback si no hay nada
+                            // Si no hay nada que seleccionar, resetear la vista
+                            resetChatView();
                         }
 
                         updateNotificationBadge();
