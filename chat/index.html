@@ -296,9 +296,9 @@
                 align-items: center;
                 justify-content: space-between;
                 background-color: var(--current-bg-light);
-                padding: 0.5rem;
+                padding: 0.25rem 0.5rem; /* MODIFIED: Reduced padding */
                 border-radius: 0.75rem;
-                margin-bottom: 0.75rem;
+                margin-bottom: 0.5rem; /* MODIFIED: Reduced margin */
                 width: 100%;
                 box-shadow: 0 1px 3px rgba(0,0,0,0.1);
             }
@@ -311,6 +311,20 @@
                 padding: 0.5rem;
                 width: 100%;
                 box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            }
+            /* ADDED: Centering for model selector */
+            #input-area-model-row .model-selector-wrapper {
+                text-align: center;
+            }
+            #input-area-model-row .model-selector-wrapper select {
+                text-align: center;
+                text-align-last: center; /* For Firefox */
+            }
+             /* ADDED: Firefox specific rule for select padding */
+            @-moz-document url-prefix() {
+                #input-area-model-row .model-selector-wrapper select {
+                   padding-right: 1.5rem;
+                }
             }
         }
 
@@ -360,6 +374,13 @@
         #input-area-chat-row .input-wrapper {
             background-color: transparent;
             padding: 0;
+        }
+        
+        /* ADDED: Ensure TTS toggle is always visible */
+        #tts-toggle {
+            display: inline-flex !important;
+            align-items: center;
+            justify-content: center;
         }
 
 
@@ -1721,6 +1742,77 @@
             border-radius: 0 0 0.75rem 0.75rem;
             border-top: 1px solid var(--current-border-color);
         }
+        
+        /* --- ADDED: New "Mi Día" Card Styles --- */
+        .mi-dia-modal-content {
+            background: linear-gradient(145deg, var(--current-bg-light), var(--current-bg-dark));
+            border: 1px solid var(--current-border-color);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        #modal-welcome-user-greeting {
+            font-weight: 800; /* Extra bold */
+        }
+        #modal-current-time-display {
+            text-shadow: 0 0 10px var(--primary);
+        }
+        .metric-card {
+            background-color: rgba(255, 255, 255, 0.05);
+            border-radius: 0.75rem;
+            padding: 1rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .metric-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 0 15px rgba(138, 79, 255, 0.3);
+        }
+        .metric-card h4 {
+            font-size: 0.875rem; /* 14px */
+            font-weight: 600;
+            color: var(--current-text-medium);
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .metric-card h4 .fa-info-circle {
+            font-size: 0.8em;
+            margin-left: 5px;
+        }
+        .metric-card p {
+            font-size: 1.75rem; /* 28px */
+            font-weight: 800;
+        }
+        #total-credits-display-container {
+            background-color: var(--primary);
+            color: white;
+            padding: 1rem;
+            border-radius: 0.75rem;
+            text-align: center;
+            grid-column: 1 / -1; /* Span across all columns */
+            border: 1px solid var(--primary-hover);
+        }
+        #total-credits-display-container .label {
+            font-size: 1rem;
+            font-weight: 700;
+            display: block;
+            margin-bottom: 0.25rem;
+        }
+        #total-credits-display-container .value {
+            font-size: 2.5rem;
+            font-weight: 800;
+            letter-spacing: -1px;
+            display: block;
+            text-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+        }
+        #total-credits-display-container .breakdown {
+            font-size: 0.75rem;
+            opacity: 0.8;
+            margin-top: 0.5rem;
+        }
+
 
     </style>
     <meta name="description" content="Goatify IA es tu copiloto estratégico, una inteligencia artificial avanzada que combina dirección de proyectos, asistente financiero, y herramientas creativas únicas en el mercado para potenciar tu negocio y productividad.">
@@ -1940,6 +2032,9 @@
                     </div>
 
                     <div class="flex items-center space-x-1 sm:space-x-2 header-right-icons">
+                        <button id="mi-dia-btn" title="Mi Día" class="text-xl p-1 hover:opacity-80 transition-opacity">
+                            <i class="fas fa-sun text-primary"></i>
+                        </button>
                         <div id="message-counter-wrapper" class="flex items-center space-x-2 text-xs font-mono whitespace-nowrap block mx-2 cursor-pointer">
                              <div id="plan-credits-info" class="flex items-center">
                                 <i class="fas fa-trophy text-primary mr-1 text-base"></i> <span id="plan-credits-display">0/0</span>
@@ -2494,6 +2589,57 @@
             <button id="close-gamification-rules-modal" class="absolute top-4 right-4 text-gray-400 hover:text-text-light"><i class="fas fa-times fa-lg"></i></button>
         </div>
     </div>
+    <div id="mi-dia-modal" class="fixed inset-0 bg-black bg-opacity-80 hidden items-center justify-center z-50 p-4">
+        <div class="modal-content mi-dia-modal-content rounded-2xl w-full max-w-lg p-6 relative">
+            <div id="modal-welcome-header" class="text-center mb-6">
+                <h3 id="modal-welcome-user-greeting" class="text-2xl font-bold"></h3>
+                <p id="modal-current-date-display" class="text-md text-text-medium"></p>
+                <p id="modal-current-time-display" class="text-4xl font-extrabold text-primary mt-1"></p>
+            </div>
+
+            <div id="modal-metrics-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
+                <div class="metric-card">
+                    <h4>
+                        <span data-translate-key="tasks_completed_today">Tareas completadas hoy</span>
+                        <i class="fas fa-info-circle" title="Número de tareas que has marcado como completadas hoy."></i>
+                    </h4>
+                    <p id="calendar-info-completed-tasks" class="text-green-400">0/0</p>
+                </div>
+                <div class="metric-card">
+                    <h4>
+                        <span data-translate-key="pending_tasks_today">Tareas pendientes hoy</span>
+                        <i class="fas fa-info-circle" title="Tareas para hoy que aún no se han completado."></i>
+                    </h4>
+                    <p id="calendar-info-pending-tasks" class="text-red-500">0</p>
+                </div>
+                <div class="metric-card sm:col-span-1">
+                    <h4>
+                        <span data-translate-key="total_activities_today">Actividades totales hoy</span>
+                        <i class="fas fa-info-circle" title="Suma de tareas y mensajes en chats de hoy."></i>
+                    </h4>
+                    <p id="calendar-info-total-activities" class="text-yellow-400">0</p>
+                </div>
+                <div id="total-credits-display-container" class="metric-card sm:col-span-3">
+                     <h4 class="label">
+                        <span data-translate-key="total_credits">Créditos Totales Disponibles</span>
+                     </h4>
+                     <p id="calendar-info-total-credits" class="value">0</p>
+                     <p class="breakdown">
+                         <span id="calendar-info-plan-credits-breakdown"></span> + <span id="calendar-info-reward-credits-breakdown"></span>
+                     </p>
+                </div>
+            </div>
+
+            <p id="modal-positive-message" class="text-md font-semibold text-primary text-center mb-6"></p>
+
+            <div id="modal-actions" class="flex justify-center space-x-2">
+                <button id="modal-view-active-plan-btn" class="btn-primary px-4 py-2 rounded" data-translate-key="view_active_plan">Ver mi Plan Activo</button>
+                <button id="modal-learn-about-credits-btn" class="px-4 py-2 rounded bg-gray-600 text-white hover:bg-gray-500" data-translate-key="learn_about_credits">¿Qué son los créditos?</button>
+            </div>
+
+            <button id="close-mi-dia-modal" class="absolute top-4 right-4 text-gray-400 hover:text-text-light"><i class="fas fa-times fa-lg"></i></button>
+        </div>
+    </div>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script type="module">
         //<-- START OF SCRIPT -->
@@ -2522,7 +2668,7 @@
                     welcome_user: "¡Hola, ", welcome_user_2: "! Hoy es un gran día para crear algo increíble.",
                     welcome_guest: "¿Cómo puedo ayudarte hoy?", model: "Modelo:", model_general: "GOAT X",
                     model_web: "Búsqueda Web", voice: "Voz:", placeholder_main: "Escribe tu mensaje...", cancel: "Cancelar",
-                    confirm: "Confirm", plans_title: "Planes Goatify", plan_free_sub: "Para Siempre", plan_free_cta: "Tu Plan Actual",
+                    confirm: "Confirmar", plans_title: "Planes Goatify", plan_free_sub: "Para Siempre", plan_free_cta: "Tu Plan Actual",
                      plan_boost_cta: "Obtener Boost", plan_pro_cta: "Quiero mi Plan Pro + Web",
                     preview: "Vista Previa", settings_email: "Correo Electrónico:", settings_plan: "Plan de Suscripción:",
                     settings_fontsize: "Tamaño de Letra:", settings_theme: "Personalización:", settings_dark_mode: "Modo Oscuro",
@@ -2921,7 +3067,7 @@
                 gamificationXpBar: document.getElementById('gamification-xp-bar'),
                 dailyStreakContainer: document.getElementById('daily-streak-container'),
                 missionsContainer: document.getElementById('gamification-tab-misiones'),
-                achievementsContainer: document.getElementById('gamification-tab-logros'),
+                achievementsContainer: document.getElementById('achievements-container'),
                 gamificationRulesBtn: document.getElementById('gamification-rules-btn'),
                 gamificationRulesModal: document.getElementById('gamification-rules-modal'),
                 closeGamificationRulesModal: document.getElementById('close-gamification-rules-modal'),
@@ -2973,6 +3119,11 @@
                 redoDrawingBtn: document.getElementById('redo-drawing-btn'),
                 currentDateDisplay: document.getElementById('current-date-display'),
                 currentTimeDisplay: document.getElementById('current-time-display'),
+
+                // ADDED: New "Mi Dia" DOM elements
+                miDiaBtn: document.getElementById('mi-dia-btn'),
+                miDiaModal: document.getElementById('mi-dia-modal'),
+                closeMiDiaModal: document.getElementById('close-mi-dia-modal'),
             };
             Object.assign(dom, fullDom);
 
@@ -3329,13 +3480,82 @@
                 if (!currentCalendarView) currentCalendarView = 'month';
                 renderCalendarView();
                 updateCalendarTime(); // Update time when modal opens
-                updateMiDiaInfo(); // Update Mi Día info when modal opens
             }
 
             function hideCalendarModal() {
                 dom.calendarModalOverlay.classList.add('hidden');
                 dom.calendarModalOverlay.classList.remove('flex');
             }
+            
+            // ADDED: New and improved functions for "Mi Día" modal
+            function showMiDiaModal() {
+                updateMiDiaInfo();
+                dom.miDiaModal.classList.remove('hidden');
+                dom.miDiaModal.classList.add('flex');
+            }
+
+            function hideMiDiaModal() {
+                dom.miDiaModal.classList.add('hidden');
+                dom.miDiaModal.classList.remove('flex');
+            }
+
+            function updateMiDiaInfo() {
+                const lang = localStorage.getItem('goatify-lang') || 'es';
+                
+                // Greeting and Time
+                const modalWelcomeGreeting = dom.miDiaModal.querySelector('#modal-welcome-user-greeting');
+                const modalDateDisplay = dom.miDiaModal.querySelector('#modal-current-date-display');
+                const modalTimeDisplay = dom.miDiaModal.querySelector('#modal-current-time-display');
+                const userName = currentUser ? (currentUser.user_metadata?.full_name?.split(' ')[0] || currentUser.email.split('@')[0]) : 'Jefe';
+                let greetingTitle = 'Jefe';
+                if (userName.slice(-1).toLowerCase() === 'a' || ['isabel', 'dolores'].includes(userName.toLowerCase())) {
+                    greetingTitle = 'Jefa';
+                }
+                modalWelcomeGreeting.innerHTML = `¡Hola, <span class="text-primary">${userName}</span>!`;
+                
+                const now = dayjs();
+                modalDateDisplay.textContent = now.format('dddd, D [de] MMMM [de] YYYY');
+                modalTimeDisplay.textContent = now.format('HH:mm:ss');
+
+                // Metrics
+                const todayKey = dayjs().format('YYYY-MM-DD');
+                const allTasksToday = getTasksForDay(todayKey);
+                const completedTasksToday = allTasksToday.filter(task => task.completed).length;
+                const totalPendingTasksToday = allTasksToday.length - completedTasksToday;
+                
+                let totalChatActivities = 0;
+                Object.values(state.chats).forEach(chat => {
+                    (chat.messages || []).forEach(msg => {
+                        if (dayjs(msg.timestamp).isSame(dayjs(), 'day')) {
+                            totalChatActivities++;
+                        }
+                    });
+                });
+                const totalActivitiesToday = allTasksToday.length + Math.floor(totalChatActivities / 2);
+
+                dom.miDiaModal.querySelector('#calendar-info-completed-tasks').textContent = `${completedTasksToday}/${allTasksToday.length}`;
+                dom.miDiaModal.querySelector('#calendar-info-pending-tasks').textContent = `${totalPendingTasksToday}`;
+                dom.miDiaModal.querySelector('#calendar-info-total-activities').textContent = `${totalActivitiesToday}`;
+
+                // Total Credits
+                const { remaining, limit } = getCreditCount();
+                const gamCredits = (currentUser && gamificationState.credits) ? gamificationState.credits : 0;
+                const totalCredits = remaining + gamCredits;
+                
+                dom.miDiaModal.querySelector('#calendar-info-total-credits').textContent = totalCredits;
+                dom.miDiaModal.querySelector('#calendar-info-plan-credits-breakdown').textContent = `${remaining}/${limit === Infinity ? '∞' : limit} Plan`;
+                dom.miDiaModal.querySelector('#calendar-info-reward-credits-breakdown').textContent = `${gamCredits}🪙 Recompensa`;
+
+                // Positive Message
+                const positiveMessages = [
+                    "¡Estás haciendo un trabajo increíble!", "¡Cada pequeño paso te acerca a tu éxito!",
+                    "¡Sigue así, la constancia es clave!", "¡Eres imparable, el GOAT en acción!",
+                    "¡Tu dedicación te lleva lejos!"
+                ];
+                const randomPositiveMessage = positiveMessages[Math.floor(Math.random() * positiveMessages.length)];
+                dom.miDiaModal.querySelector('#modal-positive-message').textContent = randomPositiveMessage;
+            }
+
 
             function updateCalendarTime() {
                 const now = dayjs();
@@ -3344,39 +3564,7 @@
             }
             setInterval(updateCalendarTime, 1000);
 
-            // Function to update "Mi Día" information
-            function updateMiDiaInfo() {
-                const lang = localStorage.getItem('goatify-lang') || 'es';
-                const todayKey = dayjs().format('YYYY-MM-DD');
-                const allTasksToday = getTasksForDay(todayKey);
-                const completedTasksToday = allTasksToday.filter(task => task.completed).length;
-                const totalPendingTasksToday = allTasksToday.filter(task => !task.completed).length;
 
-                let totalChatActivities = 0;
-                Object.values(state.chats).forEach(chat => {
-                    chat.messages.forEach(msg => {
-                        if (dayjs(msg.timestamp).isSame(dayjs(), 'day')) {
-                            totalChatActivities++;
-                        }
-                    });
-                });
-                const totalActivitiesToday = completedTasksToday + totalPendingTasksToday + Math.floor(totalChatActivities / 2); // Roughly messages / 2 for user+assistant pairs
-
-                const planCreditsInfo = getCreditCount();
-                const totalCredits = planCreditsInfo.remaining + (gamificationState.credits || 0);
-
-                const userName = currentUser ? (currentUser.user_metadata?.full_name?.split(' ')[0] || currentUser.email.split('@')[0]) : '';
-                let greetingTitle = 'Jefe';
-                if (userName.slice(-1).toLowerCase() === 'a' || ['isabel', 'dolores'].includes(userName.toLowerCase())) {
-                    greetingTitle = 'Jefa';
-                }
-                document.getElementById('modal-welcome-user-greeting').innerHTML = `¡Hola, <span class="text-primary">${userName || greetingTitle}</span>! Ten un excelente día.`;
-
-                document.getElementById('calendar-info-completed-tasks').textContent = `${completedTasksToday}/${allTasksToday.length}`;
-                document.getElementById('calendar-info-pending-tasks').textContent = `${totalPendingTasksToday}`;
-                document.getElementById('calendar-info-total-activities').textContent = `${totalActivitiesToday}`;
-                document.getElementById('calendar-info-total-credits').textContent = `${totalCredits} (${planCreditsInfo.remaining}/${planCreditsInfo.limit === Infinity ? '∞' : planCreditsInfo.limit} plan + ${gamificationState.credits || 0} 🪙)`;
-            }
             function renderMonthView() {
                 dom.calendarDaysGrid.innerHTML = '';
                 dom.currentMonthYear.textContent = selectedCalendarDate.format('MMMM YYYY');
@@ -3918,8 +4106,7 @@
                             }
                             micWasOnBeforeSpeaking = false;
                         }
-                        // Keep voice selector visible as per new requirement
-                        // toggleVoiceSelectorVisibility(false);
+                        toggleVoiceSelectorVisibility(false);
                     };
                     utterance.onerror = (e) => {
                         console.error('Speech synthesis error:', e);
@@ -3929,8 +4116,7 @@
                             }
                             micWasOnBeforeSpeaking = false;
                         }
-                         // Keep voice selector visible as per new requirement
-                         // toggleVoiceSelectorVisibility(false);
+                         toggleVoiceSelectorVisibility(false);
                     }
                     speechSynthesis.speak(utterance);
                 } else if (element) {
@@ -4164,6 +4350,9 @@
                     const saved = localStorage.getItem(key);
                     return saved ? JSON.parse(saved) : {};
                 };
+                
+                // MODIFIED: Load gamification state early to ensure credits are available for UI update
+                loadGamificationState();
 
                 if (!currentUser) {
                     const guestData = loadLocalStorage('guestState');
@@ -4194,7 +4383,6 @@
                 state.structure = state.structure || [];
                 state.notes = state.notes || [];
 
-                // Ensure notepad-assistant-chat exists and is not deletable
                 if (!state.chats['notepad-assistant-chat']) {
                     state.chats['notepad-assistant-chat'] = {
                         id: 'notepad-assistant-chat',
@@ -4204,22 +4392,11 @@
                         isDeletable: false,
                     };
                 }
-
-                // Initialize goatXProUsage for the current day
+                
                 const today = dayjs().format('YYYY-MM-DD');
                 const proUsageKey = `goat_x_pro_usage_${currentUser?.id || 'guest'}_${today}`;
                 goatXProUsage = parseInt(localStorage.getItem(proUsageKey) || '0');
 
-                loadGamificationState();
-                renderSidebar();
-                // Ensure currentChatId is valid after loading state
-                if (currentChatId && (state.chats[currentChatId] || state.notes.find(n => n.id === currentChatId))) {
-                    selectChat(currentChatId);
-                } else if (state.structure.length > 0) {
-                    selectChat(state.structure[0]); // Select the first item if current one is invalid
-                } else {
-                    resetChatView(); // Fallback if nothing to select
-                }
             }
 
             async function saveState() {
@@ -4405,7 +4582,7 @@
                 }
 
                 updateActiveChatHighlight();
-                saveState();
+                saveState(); // MODIFIED: Ensure state is saved on chat selection for persistence
                 if (window.innerWidth < 768) toggleSidebar(false);
             }
 
@@ -4468,20 +4645,21 @@
                     wrapper.insertBefore(editBtn, wrapper.firstChild);
                 }
 
-                // Always show the preview button if content contains HTML
-                if (role === 'assistant' && /```html\n([\s\S]*?)```/i.test(content)) {
+                // MODIFIED: Improved HTML preview logic
+                const htmlMatch = content.match(/```html\n([\s\S]*?)```/);
+                if (role === 'assistant' && htmlMatch) {
                     const previewButton = document.createElement('button');
                     previewButton.innerHTML = `<i class="fas fa-eye mr-2"></i>${translations[localStorage.getItem('goatify-lang') || 'es'].preview}`;
                     previewButton.className = 'btn-primary text-xs font-semibold px-3 py-1 rounded-md mt-3';
                     previewButton.addEventListener('click', () => {
-                        const match = content.match(/```html\n([\s\S]*?)```/);
-                        const htmlToPreview = match ? match[1] : content;
+                        const htmlToPreview = htmlMatch[1]; // Extract only the code
                         dom.htmlPreviewIframe.srcdoc = htmlToPreview;
                         dom.htmlPreviewModal.classList.remove('hidden');
                         dom.htmlPreviewModal.classList.add('flex');
                     });
                     bubble.appendChild(previewButton);
                 }
+
 
                 wrapper.appendChild(bubble);
                 container.appendChild(wrapper);
@@ -4742,8 +4920,7 @@
                     }
                     button.addEventListener('click', (e) => {
                         e.stopPropagation();
-                        // Prevent page reload here
-                        e.preventDefault(); // Added this to stop default anchor behavior
+                        e.preventDefault(); // Added to be safe
                         moveItemToProject(itemId, folder.id);
                         dropdownElement.classList.add('hidden');
                     });
@@ -4774,8 +4951,7 @@
                 header.addEventListener('click', e => {
                     if (!e.target.closest('.chat-item-actions')) {
                         const isOpen = div.classList.toggle('open');
-                        // No need to explicitly set display: block/none here, as the CSS handles it via .project.open .project-content
-                        // content.style.display = isOpen ? 'block' : 'none'; 
+                        content.style.display = isOpen ? 'block' : 'none';
                         header.querySelector('.project-arrow').style.transform = isOpen ? 'rotate(90deg)' : 'rotate(0deg)';
                         project.isOpen = isOpen;
                         saveState();
@@ -4789,11 +4965,11 @@
 
                 if (project.isOpen) {
                     div.classList.add('open');
-                    // content.style.display is now handled by CSS
+                    content.style.display = 'block';
                     header.querySelector('.project-arrow').style.transform = 'rotate(90deg)';
                 } else {
                     div.classList.remove('open');
-                    // content.style.display is now handled by CSS
+                    content.style.display = 'none';
                     header.querySelector('.project-arrow').style.transform = 'rotate(0deg)';
                 }
                 return div;
@@ -4855,11 +5031,9 @@
 
                 saveState();
                 renderSidebar();
-                // Removed the selectChat(currentChatId) and history.pushState here to prevent page refresh
-                // The original request states "solo debe psarse y ya facil deja el resto como esta"
-                // which implies no further action on the main chat view after moving.
-                // If a re-render of the main chat area (if it was the one moved) is needed,
-                // it should be handled explicitly without a full page reload.
+                if (currentChatId === itemId) {
+                    selectChat(currentChatId);
+                }
             }
 
             async function renameItem(type, id) {
@@ -5528,17 +5702,8 @@
             }
 
             function toggleVoiceSelectorVisibility(show) {
-                // This function is now modified to always show the voice selector
-                dom.voiceSelectorContainer.classList.remove('hidden'); // Always remove hidden class
-                dom.actionButtonsContainer.classList.remove('hidden'); // Ensure action buttons are always visible
-
-                // The 'show' parameter can still be used if there's other logic that needs to change behavior
-                // For example, if you wanted to dim it or change its appearance based on being active/inactive
-                if (show) {
-                    // console.log("Voice selector is active or being highlighted.");
-                } else {
-                    // console.log("Voice selector is inactive or de-highlighted.");
-                }
+                dom.voiceSelectorContainer.classList.toggle('hidden', !show);
+                dom.actionButtonsContainer.classList.toggle('hidden', show);
             }
 
             function showMotivationModal() {
@@ -5546,7 +5711,8 @@
                 dom.motivationModal.classList.add('flex');
 
                 const randomIndex = Math.floor(Math.random() * MOTIVATIONAL_MESSAGES.length);
-                const randomButtonText = MOTIVATION_BUTTON_TEXTS[Math.floor(Math.random() * MOTIVATIONAL_MESSAGES.length)]; // Changed to MOTIVATIONAL_MESSAGES.length
+                const randomButtonText = MOTIVATION_BUTTON_TEXTS[Math.floor(Math.random() * MOTIVATION_BUTTON_TEXTS.length)];
+
                 dom.motivationTitle.style.fontWeight = 'normal';
                 dom.motivationQuote.textContent = MOTIVATIONAL_MESSAGES[randomIndex];
                 dom.motivationQuote.style.fontWeight = 'bold';
@@ -5592,91 +5758,22 @@
                 });
                 dom.taskNotificationCloseBtn?.addEventListener('click', hideTaskNotification);
 
-                dom.planCreditsInfo?.addEventListener('click', () => {
-                    const { remaining, limit } = getCreditCount();
-                    const gamCredits = (currentUser && gamificationState.credits) ? gamificationState.credits : 0;
-                    const lang = localStorage.getItem('goatify-lang') || 'es';
-
-                    const todayKey = dayjs().format('YYYY-MM-DD');
-                    const allTasksToday = getTasksForDay(todayKey);
-                    const completedTasksToday = allTasksToday.filter(task => task.completed).length;
-                    let totalPendingTasksToday = allTasksToday.filter(task => !task.completed).length; // Calculate pending tasks
-                    let totalChatActivities = 0;
-                    Object.values(state.chats).forEach(chat => {
-                        chat.messages.forEach(msg => {
-                            if (dayjs(msg.timestamp).isSame(dayjs(), 'day')) {
-                                totalChatActivities++;
-                            }
-                        });
+                // MODIFIED: Replaced generic modal click with specific modal logic
+                dom.miDiaBtn?.addEventListener('click', showMiDiaModal);
+                dom.closeMiDiaModal?.addEventListener('click', hideMiDiaModal);
+                
+                const miDiaModal = dom.miDiaModal;
+                if(miDiaModal) {
+                    miDiaModal.querySelector('#modal-view-active-plan-btn')?.addEventListener('click', () => {
+                        hideMiDiaModal();
+                        showPricingModal();
                     });
-                    const totalActivitiesToday = completedTasksToday + totalPendingTasksToday + Math.floor(totalChatActivities / 2); // Sum of completed, pending tasks and chat messages
-
-                    const positiveMessages = [
-                        "¡Estás haciendo un trabajo increíble!",
-                        "¡Cada pequeño paso te acerca a tu éxito!",
-                        "¡Sigue así, la constancia es clave!",
-                        "¡Eres imparable, el GOAT en acción!",
-                        "¡Tu dedicación te lleva lejos!"
-                    ];
-                    const randomPositiveMessage = positiveMessages[Math.floor(Math.random() * positiveMessages.length)];
-
-                    let bodyContent = `
-                        <div class="text-center mb-4">
-                            <p id="modal-welcome-user-greeting" class="text-xl font-bold text-primary mb-2"></p>
-                            <p id="modal-current-date-display" class="text-lg text-text-medium"></p>
-                            <p id="modal-current-time-display" class="text-3xl font-extrabold text-primary animate-pulse"></p>
-                        </div>
-                        <div class="grid grid-cols-2 gap-4 text-center mb-4">
-                            <div class="bg-current-bg-light p-4 rounded-lg shadow-md flex flex-col items-center justify-center">
-                                <h4 class="font-semibold text-text-light text-sm mb-1">
-                                    <span data-translate-key="tasks_completed_today">Tareas completadas hoy:</span>
-                                    <i class="fas fa-info-circle text-text-medium ml-1 cursor-pointer" title="Número de tareas que has marcado como completadas en tu calendario o en tus proyectos durante el día de hoy."></i>
-                                </h4>
-                                <p id="calendar-info-completed-tasks" class="text-2xl font-bold text-primary">${completedTasksToday}/${allTasksToday.length}</p>
-                            </div>
-                            <div class="bg-current-bg-light p-4 rounded-lg shadow-md flex flex-col items-center justify-center">
-                                <h4 class="font-semibold text-text-light text-sm mb-1">
-                                    <span data-translate-key="pending_tasks_today">Tareas pendientes hoy:</span>
-                                    <i class="fas fa-info-circle text-text-medium ml-1 cursor-pointer" title="Tareas que tienen fecha de vencimiento hoy y aún no han sido completadas, incluyendo las de tus proyectos."></i>
-                                </h4>
-                                <p id="calendar-info-pending-tasks" class="text-2xl font-bold text-red-500">${totalPendingTasksToday}</p>
-                            </div>
-                            <div class="bg-current-bg-light p-4 rounded-lg shadow-md col-span-2 flex flex-col items-center justify-center">
-                                <h4 class="font-semibold text-text-light text-sm mb-1">
-                                    <span data-translate-key="total_activities_today">Actividades totales hoy:</span>
-                                    <i class="fas fa-info-circle text-text-medium ml-1 cursor-pointer" title="Suma de todas las interacciones del día: tareas completadas, tareas pendientes y mensajes enviados en los chats."></i>
-                                </h4>
-                                <p id="calendar-info-total-activities" class="text-2xl font-bold text-gold">${totalActivitiesToday}</p>
-                            </div>
-                        </div>
-                        <p class="mb-3 text-sm"><strong>${translations[lang].current_plan_details}</strong> ${plan.toUpperCase()}</p>
-                        <p class="mb-4 text-sm"><strong>${translations[lang].credits_breakdown}</strong> ${remaining}/${limit === Infinity ? '∞' : limit} (${gamCredits} 🪙)</p>
-                        <p class="mb-4 text-md font-semibold text-primary text-center">${randomPositiveMessage}</p>
-                    `;
-
-                    showModal({
-                        title: translations[lang].credits_details_title,
-                        body: bodyContent,
-                        showCancel: false,
-                        confirmText: translations[lang].understood_btn,
-                        extraButtons: [{
-                            id: 'modal-view-active-plan-btn',
-                            text: translations[lang].view_active_plan,
-                            classes: 'btn-primary px-4 py-2 rounded',
-                            action: () => {
-                                hideModal();
-                                showPricingModal();
-                            }
-                        },
-                        {
-                            id: 'modal-learn-about-credits-btn',
-                            text: translations[lang].learn_about_credits,
-                            classes: 'px-4 py-2 rounded bg-gray-500 text-white',
-                            action: () => {
-                                hideModal();
-                                showModal({
-                                    title: translations[lang].learn_about_credits,
-                                    body: `<ul class="list-disc list-inside space-y-2 text-sm">
+                    miDiaModal.querySelector('#modal-learn-about-credits-btn')?.addEventListener('click', () => {
+                        hideMiDiaModal();
+                        const lang = localStorage.getItem('goatify-lang') || 'es';
+                        showModal({
+                            title: translations[lang].learn_about_credits,
+                            body: `<ul class="list-disc list-inside space-y-2 text-sm">
                                 <li><strong>GOAT X:</strong> ${COSTS.GENERAL} crédito</li>
                                 <li><strong>Búsqueda Web:</strong> ${COSTS.SEARCH} créditos</li>
                                 <li><strong>Workflows:</strong> ${COSTS.WORKFLOW} créditos</li>
@@ -5686,42 +5783,11 @@
                                 <li><strong>GOAT X PRO (GPT-4o):</strong> ${COSTS.GPT4O} créditos</li>
                                </ul>
                                <p class="mt-4 text-sm italic">${translations[lang].gamification_credits_info}</p>`,
-                                    confirmText: translations[lang].understood_btn,
-                                    showCancel: false
-                                });
-                            }
-                        }]
+                            confirmText: translations[lang].understood_btn,
+                            showCancel: false
+                        });
                     });
-
-                    const modalWelcomeGreeting = document.getElementById('modal-welcome-user-greeting');
-                    const modalDateDisplay = document.getElementById('modal-current-date-display');
-                    const modalTimeDisplay = document.getElementById('modal-current-time-display');
-
-                    const userName = currentUser ? (currentUser.user_metadata?.full_name?.split(' ')[0] || currentUser.email.split('@')[0]) : '';
-                    let greetingTitle = 'Jefe';
-                    if (userName.slice(-1).toLowerCase() === 'a' || ['isabel', 'dolores'].includes(userName.toLowerCase())) {
-                        greetingTitle = 'Jefa';
-                    }
-                    modalWelcomeGreeting.innerHTML = `¡Hola, <span class="text-primary">${userName || greetingTitle}</span>! Ten un excelente día.`;
-
-                    const updateModalTime = () => {
-                        const now = dayjs();
-                        if (modalDateDisplay) modalDateDisplay.textContent = now.format('dddd, D [de] MMMM [de]YYYY');
-                        if (modalTimeDisplay) modalTimeDisplay.textContent = now.format('HH:mm:ss');
-                    };
-                    updateModalTime();
-                    const modalTimeInterval = setInterval(updateModalTime, 1000);
-
-                    const observer = new MutationObserver((mutationsList, observer) => {
-                        for (const mutation of mutationsList) {
-                            if (mutation.attributeName === 'class' && dom.genericModal.classList.contains('hidden')) {
-                                clearInterval(modalTimeInterval);
-                                observer.disconnect();
-                            }
-                        }
-                    });
-                    observer.observe(dom.genericModal, { attributes: true });
-                });
+                }
 
 
                 dom.rewardCreditsInfo?.addEventListener('click', () => {
@@ -5951,8 +6017,6 @@
                             const isOpen = category.classList.toggle('open');
                             const content = category.querySelector('.workflow-content, .actions-content, .folders-content');
                             const arrow = category.querySelector('.workflow-arrow, .actions-arrow, .folder-arrow');
-                            // Ensure display property is set explicitly for consistency,
-                            // even if CSS also has rules based on the 'open' class.
                             if (content) content.style.display = isOpen ? 'block' : 'none';
                             if (arrow) arrow.style.transform = isOpen ? 'rotate(90deg)' : 'rotate(0deg)';
 
@@ -5986,8 +6050,9 @@
                 dom.freeGuidesLink.addEventListener('click', (e) => { e.preventDefault(); const isPaidUser = currentUser && currentUser.app_metadata?.plan && currentUser.app_metadata.plan !== 'free'; if (isPaidUser) { window.open('https://goatify.app/guiasIA', '_blank'); } else { const lang = localStorage.getItem('goatify-lang') || 'es'; const title = 'Acceso Exclusivo para Suscriptores'; const message = 'Estas guías se actualizan semanalmente con estrategias de negocio que te ayudarán a crecer un montón. Son un beneficio exclusivo para nuestros suscriptores. ¡Únete a un plan para desbloquearlas!'; showModal({ title, body: message, confirmText: 'Ver Planes' }).then(res => { if (res.confirmed) { showPricingModal(); } }); } });
                 dom.closeHtmlPreviewModalBtn?.addEventListener('click', () => { dom.htmlPreviewModal.classList.add('hidden'); dom.htmlPreviewModal.classList.remove('flex'); });
 
+                // MODIFIED: Corrected Download and Copy button logic
                 dom.downloadHtmlBtn?.addEventListener('click', () => {
-                    const htmlContent = dom.htmlPreviewIframe.contentDocument.documentElement.outerHTML;
+                    const htmlContent = dom.htmlPreviewIframe.srcdoc;
                     const blob = new Blob([htmlContent], { type: 'text/html' });
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement('a');
@@ -6001,7 +6066,7 @@
                 });
 
                 dom.copyHtmlBtn?.addEventListener('click', () => {
-                    const htmlContent = dom.htmlPreviewIframe.contentDocument.documentElement.outerHTML;
+                    const htmlContent = dom.htmlPreviewIframe.srcdoc;
                     navigator.clipboard.writeText(htmlContent)
                         .then(() => showInAppNotification("Copiado", "El código HTML ha sido copiado al portapapeles.", 800))
                         .catch(err => console.error('Error al copiar el texto: ', err));
@@ -6021,10 +6086,8 @@
                     if (dom.tagFilterDropdown && dom.tagFilterBtn && !dom.tagFilterBtn.contains(e.target) && !dom.tagFilterDropdown.contains(e.target)) {
                         dom.tagFilterDropdown.classList.add('hidden');
                     }
-                    // This block ensures the dropdown for "Add to Folder" closes when clicking outside
                     document.querySelectorAll('.add-to-folder-dropdown').forEach(dropdown => {
-                        const dropdownButton = dropdown.closest('.add-to-folder-btn');
-                        if (dropdownButton && !dropdownButton.contains(e.target) && !dropdown.contains(e.target)) {
+                        if (!e.target.closest('.add-to-folder-btn')) {
                             dropdown.classList.add('hidden');
                         }
                     });
@@ -7331,7 +7394,7 @@
                 }
 
                 if (isCompleted) {
-                    gamificationState.completedMissions.push(mission.id);
+                    gamificationState.completedMissions.push(missionId);
                     addXp(mission.xp);
                     addCredits(mission.credits);
                     showModal({
@@ -7442,8 +7505,9 @@
                     const urlParams = new URLSearchParams(window.location.search);
                     const chatIdFromUrl = urlParams.get('chat');
 
-                    updateUserUI();
+                    // MODIFIED: Load state before updating UI to ensure data is ready
                     loadStateForUser().then(() => {
+                        updateUserUI(); // Now update UI with loaded state data
                         populateVoiceList();
                         setupEventListeners();
                         if (currentUser && notificationsEnabled) {
@@ -7455,17 +7519,20 @@
                         dom.appContainer.classList.remove('opacity-0');
                         dom.loadingOverlay.style.display = 'none';
 
-                        // Ensure voice selector is visible on load
-                        toggleVoiceSelectorVisibility(true);
-
+                        // MODIFIED: Robust chat selection on load
                         if (chatIdFromUrl && (state.chats[chatIdFromUrl] || (state.notes || []).find(n => n.id === chatIdFromUrl))) {
                             selectChat(chatIdFromUrl);
                         } else if (currentChatId && (state.chats[currentChatId] || (state.notes || []).find(n => n.id === currentChatId))) {
                             selectChat(currentChatId);
-                        } else if (state.structure.length > 0) { // If last used chat is invalid, try to select the first one
-                             selectChat(state.structure[0]);
+                        } else if (state.structure.length > 0) {
+                             const firstItem = state.structure[0];
+                             if (itemMap.has(firstItem)) { // Check if the item actually exists
+                                selectChat(firstItem);
+                             } else {
+                                resetChatView();
+                             }
                         } else {
-                            resetChatView(); // Fallback if no chats/notes at all
+                            resetChatView();
                         }
 
                         updateNotificationBadge();
@@ -7502,17 +7569,21 @@
                 netlifyIdentity.on('login', (user) => {
                     netlifyIdentity.close();
                     currentUser = user;
-                    updateUserUI();
-                    loadStateForUser();
-                    if (notificationsEnabled) {
-                         registerServiceWorkerAndSubscribe();
-                    }
+                    // MODIFIED: Ensure state is fully reloaded for the new user
+                    loadStateForUser().then(() => {
+                        updateUserUI();
+                        if (notificationsEnabled) {
+                            registerServiceWorkerAndSubscribe();
+                        }
+                    });
                 });
                 netlifyIdentity.on('logout', () => {
                     currentUser = null;
-                    updateUserUI();
-                    loadStateForUser();
-                    resetChatView();
+                    // MODIFIED: Reload state for guest user and reset view
+                    loadStateForUser().then(() => {
+                        updateUserUI();
+                        resetChatView();
+                    });
                 });
                 netlifyIdentity.on('error', (err) => {
                     console.error("Netlify Identity Error:", err);
