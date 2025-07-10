@@ -12,6 +12,9 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- jsPDF library for PDF export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dayjs@1.10.7/dayjs.min.js"></script>
     <script src="https://npmcdn.com/dayjs@1.10.7/locale/es.js"></script>
@@ -2501,7 +2504,7 @@
         </div>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <script type="module">
+<script type="module">
         //<-- START OF SCRIPT -->
         window.addEventListener('DOMContentLoaded', () => {
             dayjs.extend(window.dayjs_plugin_localizedFormat);
@@ -2971,6 +2974,10 @@
                 boldBtn: document.getElementById('bold-btn'),
                 italicBtn: document.getElementById('italic-btn'),
                 underlineBtn: document.getElementById('underline-btn'),
+                copyBtn: document.getElementById('copy-btn'),
+                cutBtn: document.getElementById('cut-btn'),
+                pasteBtn: document.getElementById('paste-btn'),
+                exportPdfBtn: document.getElementById('export-pdf-btn'),
                 // Removed bulletListBtn and numberedListBtn as they are no longer in use
                 fontFamilySelector: document.getElementById('font-family-selector'),
                 toolLine: document.getElementById('tool-line'),
@@ -2980,6 +2987,11 @@
                 redoDrawingBtn: document.getElementById('redo-drawing-btn'),
                 currentDateDisplay: document.getElementById('current-date-display'),
                 currentTimeDisplay: document.getElementById('current-time-display'),
+                translatorModal: document.getElementById('translator-modal'),
+                closeTranslatorModalBtn: document.getElementById('close-translator-modal'),
+                translatorInput: document.getElementById('translator-input'),
+                translatorOutput: document.getElementById('translator-output'),
+                translateBtn: document.getElementById('translate-btn'),
             };
             Object.assign(dom, fullDom);
 
@@ -4153,8 +4165,7 @@
                 }
                 return true;
             }
-
-            async function loadStateForUser() {
+                        async function loadStateForUser() {
                 const loadLocalStorage = (key) => {
                     const saved = localStorage.getItem(key);
                     try {
@@ -4219,22 +4230,13 @@
 
                 renderSidebar();
 
-                const urlParams = new URLSearchParams(window.location.search);
-                const chatIdFromUrl = urlParams.get('chat');
+                const lastView = localStorage.getItem(`goatify_lastView_${currentUser?.id || 'guest'}`);
 
-                // Logic to determine which chat to select
-                let chatToSelect = null;
-                if (chatIdFromUrl && (state.chats[chatIdFromUrl] || (state.notes || []).find(n => n.id === chatIdFromUrl))) {
-                    chatToSelect = chatIdFromUrl;
-                } else if (currentChatId && (state.chats[currentChatId] || (state.notes || []).find(n => n.id === currentChatId))) {
-                    chatToSelect = currentChatId;
+                if (lastView && (state.chats[lastView] || state.notes.find(n => n.id === lastView) || state.projects[lastView])) {
+                     selectChat(lastView);
                 } else if (state.structure && state.structure.length > 0) {
                      const firstValidItem = state.structure.find(id => state.chats[id] || state.notes.find(n => n.id === id));
-                     chatToSelect = firstValidItem;
-                }
-
-                if (chatToSelect) {
-                    selectChat(chatToSelect);
+                     selectChat(firstValidItem);
                 } else {
                     resetChatView(); // Fallback if nothing to select
                 }
@@ -4242,6 +4244,10 @@
             }
 
             async function saveState() {
+                if (currentChatId) {
+                    localStorage.setItem(`goatify_lastView_${currentUser?.id || 'guest'}`, currentChatId);
+                }
+
                 const stateData = { state, currentChatId };
                 const key = currentUser ? `goatbotState_${currentUser.id}` : 'guestState';
 
@@ -7464,9 +7470,10 @@
 
             let initFired = false;
             const finishInitialization = async (user) => {
-                if (initFired) return;
-                initFired = true;
+                if (initFired && user === currentUser) return;
+                
                 currentUser = user;
+                initFired = true;
 
                 try {
                     updateUserUI(); // Update UI based on logged-in status
