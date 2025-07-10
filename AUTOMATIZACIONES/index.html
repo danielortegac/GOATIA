@@ -1280,16 +1280,13 @@
         /* Translator UI Styles */
         #translator-view {
             display: none; /* Hidden by default */
-            flex-direction: column;
-            height: 100%;
-            padding: 1rem;
-            gap: 1rem;
         }
         #translator-panels {
             display: flex;
             flex-grow: 1;
             gap: 1rem;
             min-height: 0;
+            flex-direction: column; /* Mobile first */
         }
         .translator-panel {
             flex: 1;
@@ -1298,6 +1295,7 @@
             background-color: var(--current-bg-light);
             border-radius: 0.75rem;
             padding: 1rem;
+            min-height: 250px; /* Min height for mobile */
         }
         .translator-panel textarea {
             flex-grow: 1;
@@ -1308,10 +1306,11 @@
             resize: none;
             color: var(--current-text-light);
             outline: none;
+            font-size: 1rem;
         }
         .translator-panel textarea:focus {
             border-color: var(--current-primary);
-            box-shadow: 0 0 5px var(--current-primary);
+            box-shadow: 0 0 8px rgba(138, 79, 255, 0.4);
         }
         #translator-controls {
             display: flex;
@@ -1319,7 +1318,21 @@
             align-items: center;
             gap: 1rem;
             flex-shrink: 0;
+            padding: 0.5rem 0;
         }
+        @media (min-width: 768px) {
+            #translator-panels {
+                flex-direction: row;
+            }
+            #translator-controls {
+                flex-direction: column;
+                padding: 0 0.5rem;
+            }
+            #translate-btn i {
+                transform: rotate(90deg);
+            }
+        }
+
 
         /* In-app notification */
         #in-app-notification {
@@ -2111,27 +2124,43 @@
                     </div>
                 </div>
 
+                <!-- START: Translator View -->
                 <div id="translator-view" class="hidden">
                     <div id="translator-panels">
+                        <!-- Panel de Texto Original -->
                         <div class="translator-panel">
-                            <h3 class="text-lg font-bold mb-2" data-translate-key="original_text_header">Texto Original (Español)</h3>
+                            <h3 class="text-lg font-bold mb-2 flex items-center justify-between">
+                                <span data-translate-key="original_text_header">Texto Original (Español)</span>
+                                <i class="fas fa-paste p-2 rounded-md hover:bg-current-bg-dark cursor-pointer" id="paste-to-translator-btn" title="Pegar texto"></i>
+                            </h3>
                             <textarea id="translator-input-es" placeholder="Escribe o pega tu texto en español aquí..." class="translator-textarea"></textarea>
                         </div>
+                
+                        <!-- Controles Centrales -->
+                        <div id="translator-controls">
+                            <div class="model-selector-wrapper mb-2 md:mb-0">
+                                <select id="translator-model-selector" class="rounded-md py-1 pl-1.5 pr-8 focus:outline-none focus:ring-2 focus:ring-primary text-sm bg-transparent text-text-light">
+                                    <option value="gpt-4o" class="goat-x-pro-model">GOAT X PRO</option>
+                                </select>
+                                <i class="fas fa-chevron-down text-xs"></i>
+                            </div>
+                            <button id="translate-btn" class="btn-primary p-3 rounded-full font-bold transition-transform hover:scale-105" data-translate-key="translate_button" title="Traducir">
+                                <i class="fas fa-arrow-right"></i>
+                            </button>
+                        </div>
+                
+                        <!-- Panel de Texto Traducido -->
                         <div class="translator-panel">
-                            <h3 class="text-lg font-bold mb-2" data-translate-key="translated_text_header">Texto Traducido (Inglés)</h3>
+                            <h3 class="text-lg font-bold mb-2 flex items-center justify-between">
+                                <span data-translate-key="translated_text_header">Texto Traducido (Inglés)</span>
+                                <i class="fas fa-copy p-2 rounded-md hover:bg-current-bg-dark cursor-pointer" id="copy-from-translator-btn" title="Copiar traducción"></i>
+                            </h3>
                             <textarea id="translator-output-en" readonly placeholder="La traducción aparecerá aquí..." class="translator-textarea"></textarea>
                         </div>
                     </div>
-                    <div id="translator-controls">
-                         <div class="model-selector-wrapper">
-                            <select id="translator-model-selector" class="rounded-md py-1 pl-1.5 focus:outline-none focus:ring-2 focus:ring-primary text-sm bg-transparent text-text-light">
-                                <option value="gpt-4o" class="goat-x-pro-model">GOAT X PRO</option>
-                            </select>
-                            <i class="fas fa-chevron-down text-xs"></i>
-                        </div>
-                        <button id="translate-btn" class="btn-primary px-6 py-2 rounded-lg font-bold" data-translate-key="translate_button">Traducir <i class="fas fa-arrow-right ml-2"></i></button>
-                    </div>
                 </div>
+                <!-- END: Translator View -->
+
 
                 <div id="notepad-view-container" class="hidden">
                     <div id="notes-list-panel">
@@ -2661,7 +2690,7 @@
         </div>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-     <script type="module">
+    <script type="module">
 //<-- START OF SCRIPT -->
         window.addEventListener('DOMContentLoaded', () => {
             dayjs.extend(window.dayjs_plugin_localizedFormat);
@@ -3418,7 +3447,8 @@
                     timer = setTimeout(closeNotification, duration);
                 }
             }
-            async function triggerPushNotification(title, body) {
+
+                        async function triggerPushNotification(title, body) {
                 console.log("Intentando disparar notificación push...");
                 if (!currentUser) {
                     console.log("No hay usuario logueado, no se puede enviar la notificación push.");
@@ -3809,8 +3839,7 @@
                     }
                 }
             }
-
-            let draggedCalendarTaskId = null;
+                        let draggedCalendarTaskId = null;
             function handleCalendarDragStart(e) {
                 const target = e.target.closest('[draggable="true"]');
                 if (!target) return;
@@ -4174,7 +4203,7 @@
                 }
             }
 
-                        function populateVoiceList() {
+            function populateVoiceList() {
                 const setVoices = () => {
                     if (typeof speechSynthesis === 'undefined') { return; }
                     availableVoices = speechSynthesis.getVoices().filter(v => v.lang.startsWith('es-') || v.lang.startsWith('en-'));
@@ -4705,7 +4734,7 @@
                 updateContextualFooter(null);
             }
 
-                        function addMessageToUI(role, content, imageSrc, messageIndex, container) {
+            function addMessageToUI(role, content, imageSrc, messageIndex, container) {
                 if (!container) return null;
                 const wrapper = document.createElement('div');
                 wrapper.className = `chat-bubble-wrapper group flex items-start gap-2 my-2 ${role === 'user' ? 'justify-end' : 'justify-start'}`;
@@ -4835,8 +4864,7 @@
                     bubble.appendChild(previewButton);
                 }
             }
-
-            function renderSidebar() {
+                        function renderSidebar() {
                 dom.sidebarContent.innerHTML = '';
                 dom.foldersContainer.innerHTML = '';
                 const fragChats = document.createDocumentFragment();
@@ -5960,7 +5988,40 @@
                 }, thirtyMinutes);
             }
 
-                        function setupEventListeners() {
+            // --- TRANSLATOR FUNCTIONS START ---
+            function showTranslatorView() {
+                dom.translatorView.style.display = 'flex';
+                dom.chatTitle.textContent = translations[localStorage.getItem('goatify-lang') || 'es'].wf_eng_1 || 'Traducir/Corregir Texto';
+                dom.mobileChatTitle.textContent = translations[localStorage.getItem('goatify-lang') || 'es'].wf_eng_1 || 'Traducir/Corregir Texto';
+                updateContextualFooter('english-teacher-translate');
+            }
+
+            function setupTranslatorEventListeners() {
+                const pasteBtn = document.getElementById('paste-to-translator-btn');
+                const copyBtn = document.getElementById('copy-from-translator-btn');
+
+                dom.translateBtn?.addEventListener('click', () => {
+                    sendMessage(false, null, { assistantType: 'translator' });
+                });
+
+                pasteBtn?.addEventListener('click', async () => {
+                    try {
+                        const text = await navigator.clipboard.readText();
+                        dom.translatorInputEs.value = text;
+                    } catch (err) {
+                        console.error('Failed to read clipboard contents: ', err);
+                    }
+                });
+
+                copyBtn?.addEventListener('click', () => {
+                    dom.translatorOutputEn.select();
+                    document.execCommand('copy');
+                    showInAppNotification('Copiado', 'Texto traducido copiado al portapapeles.', 1500);
+                });
+            }
+            // --- TRANSLATOR FUNCTIONS END ---
+
+            function setupEventListeners() {
                 // Event listener for in-app notification close button
                 dom.inAppNotificationClose?.addEventListener('click', (e) => {
                     e.stopPropagation();
@@ -6156,7 +6217,7 @@
                 // Setup assistant inputs for project, notepad, and translator views
                 setupAssistantInput('project-msg', 'project-send', 'project');
                 setupAssistantInput('notepad-msg', 'notepad-send', 'notepad');
-                setupAssistantInput('translator-input-es', 'translate-btn', 'translator');
+                setupTranslatorEventListeners();
 
 
                 // Event listener for main message input (textarea)
@@ -8067,6 +8128,6 @@
                 }
             });
         }); // End of DOMContentLoaded
-        </script>
+     </script>
 </body>
 </html>
