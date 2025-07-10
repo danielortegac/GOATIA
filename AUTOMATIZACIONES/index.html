@@ -5727,7 +5727,7 @@
                 toggle.checked = motivationEnabled;
             }
 
-            function hideMotivationModal() {
+                     function hideMotivationModal() {
                 dom.motivationModal.classList.add('hidden');
                 dom.motivationModal.classList.remove('flex');
             }
@@ -6092,6 +6092,7 @@
                     'project-management': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_pm, workflow: 'project-management' },
                     'financial-assistant': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_financial, workflow: 'financial-assistant' },
                     'notepad-app': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_notepad, workflow: 'notepad-app' },
+                    'english-teacher-translate': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_eng_1, workflow: 'english-teacher-translate' },
                     'create-full-post': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_social_1, workflow: 'create-full-post', initialMessages: [{ role: 'assistant', content: '¡Claro! Vamos a crear un post increíble. ¿Para qué red social lo necesitas (Instagram, Facebook, LinkedIn, etc.)?' }] },
                     'persuasive-copy': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_social_2, workflow: 'persuasive-copy', initialMessages: [{ role: 'assistant', content: 'Estoy listo para redactar textos que vendan. ¿Para qué necesitas este copy? (ej: Anuncio de Facebook, Post de Venta, Descripción de Producto)' }] },
                     'post-ideas': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_social_3, workflow: 'post-ideas', initialMessages: [{ role: 'assistant', content: '¡Acabemos con el bloqueo creativo! Dime un tema y te daré 7 ideas de contenido excelentes.' }] },
@@ -6101,7 +6102,6 @@
                     'brand-names': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_business_3, workflow: 'brand-names', initialMessages: [{ role: 'assistant', content: "¡Excelente! Busquemos un nombre increíble. Describe brevemente tu idea de negocio, tu público y el estilo que buscas (ej. moderno, clásico, divertido) para generar nombres y slogans." }] },
                     'sales-assistant': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_sales_1, workflow: 'sales-assistant', initialMessages: [{ role: 'assistant', content: 'Para ayudarte a cerrar esa venta, pega aquí el mensaje de tu cliente.' }] },
                     'email-writing': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_sales_2, workflow: 'email-writing', initialMessages: [{ role: 'assistant', content: 'Creemos un email que convierta. ¿Cuál es el objetivo principal de este correo?' }] },
-                    'english-teacher-translate': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_eng_1, workflow: 'english-teacher-translate', initialMessages: [{ role: 'assistant', content: 'Of course! Please provide the text you want me to translate or correct.' }] },
                     'english-teacher-vocabulary': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_eng_2, workflow: 'english-teacher-vocabulary', initialMessages: [{ role: 'assistant', content: 'Excellent! Let\'s learn some new vocabulary. What topic are you interested in? (e.g., "business negotiations", "travel")' }] },
                     'english-teacher-practice': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_eng_3, workflow: 'english-teacher-practice', initialMessages: [{ role: 'assistant', content: 'Great! Let\'s practice our conversation. So, tell me about your day.' }] },
                     'social-skills': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_sales_4, workflow: 'social-skills', initialMessages: [{ role: 'assistant', content: 'Las habilidades sociales son clave. ¿En qué situación te gustaría mejorar tu comunicación? (Ej: una reunión de networking, una conversación difícil, etc.)' }] },
@@ -6114,8 +6114,10 @@
                     const header = e.target.closest('.workflow-header, .actions-header, .folders-header');
                     if (header) {
                         const category = header.parentElement;
-                        if (category) {
-                            category.classList.toggle('open');
+                        if (category && (category.classList.contains('workflow-category') || category.classList.contains('actions-category') || category.classList.contains('folders-category'))) {
+                            if (!e.target.closest('.chat-item-actions')) {
+                                category.classList.toggle('open');
+                            }
                         }
                     }
 
@@ -6126,7 +6128,10 @@
                          if (config) {
                             if (workflowKey === 'notepad-app') {
                                 selectChat('notepad-app');
-                            } else {
+                            } else if (workflowKey === 'english-teacher-translate') {
+                                selectChat('translator-view');
+                            }
+                            else {
                                 createNewChat(config);
                             }
                         }
@@ -6355,6 +6360,37 @@
                 dom.boldBtn?.addEventListener('click', () => applyTextFormat('bold'));
                 dom.italicBtn?.addEventListener('click', () => applyTextFormat('italic'));
                 dom.underlineBtn?.addEventListener('click', () => applyTextFormat('underline'));
+                dom.copyBtn?.addEventListener('click', () => document.execCommand('copy'));
+                dom.cutBtn?.addEventListener('click', () => document.execCommand('cut'));
+                dom.pasteBtn?.addEventListener('click', () => document.execCommand('paste'));
+                dom.alignLeftBtn?.addEventListener('click', () => applyTextFormat('justifyLeft'));
+                dom.alignCenterBtn?.addEventListener('click', () => applyTextFormat('justifyCenter'));
+                dom.alignRightBtn?.addEventListener('click', () => applyTextFormat('justifyRight'));
+
+                dom.exportPdfBtn?.addEventListener('click', () => {
+                    const { jsPDF } = window.jspdf;
+                    const note = state.notes.find(n => n.id === currentNoteId);
+                    if (!note) return;
+
+                    const doc = new jsPDF();
+                    const contentElement = dom.noteContentEditor;
+
+                    doc.setFontSize(18);
+                    doc.text(note.title, 14, 22);
+                    doc.setFontSize(11);
+                    doc.setTextColor(100);
+
+                    html2canvas(contentElement).then(canvas => {
+                        const imgData = canvas.toDataURL('image/png');
+                        const imgProps= doc.getImageProperties(imgData);
+                        const pdfWidth = doc.internal.pageSize.getWidth();
+                        const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+                        doc.addImage(imgData, 'PNG', 14, 30, pdfWidth - 28, pdfHeight);
+                        doc.save(`${note.title.replace(/ /g, '_')}.pdf`);
+                    });
+                });
+
+
                 dom.fontFamilySelector?.addEventListener('change', (e) => {
                     const selectedFont = e.target.value;
                     dom.noteContentEditor.style.fontFamily = selectedFont;
@@ -6908,8 +6944,7 @@
                     }
                 }
             }
-
-            async function editCalendarTask(taskId, preselectedDate = null, preselectedTime = null) {
+                        async function editCalendarTask(taskId, preselectedDate = null, preselectedTime = null) {
                 const task = taskId ? findTask(taskId)?.task : null;
                 const taskDayKey = taskId ? findTask(taskId)?.dayKey : null;
                 const isNew = !task;
@@ -7534,14 +7569,14 @@
                 saveGamificationState();
             }
 
-            function renderGamificationModal() {
+                        function renderGamificationModal() {
                 if(!currentUser || !dom.gamificationModal) return;
                 const level = gamificationState.level;
                 const currentXp = gamificationState.xp;
                 const xpForCurrentLevel = XP_FOR_LEVEL[level - 1];
                 const xpForNextLevel = XP_FOR_LEVEL[level];
                 dom.gamificationLevelName.textContent = `Nivel ${level}: ${LEVEL_NAMES[level - 1]}`;
-                dom.gamificationCredits.innerHTML = `<i class="fas fa-coins mr-1"></i>${gamificationState.credits} Créditos`;
+                dom.gamificationCredits.innerHTML = `<i class="fas fa-coins mr-1"></i>${gamificationState.credits || 0} Créditos`;
                 if (level < LEVEL_NAMES.length) {
                     const progress = ((currentXp - xpForCurrentLevel) / (xpForNextLevel - xpForCurrentLevel)) * 100;
                     dom.gamificationXp.textContent = `${currentXp} / ${xpForNextLevel} XP`;
@@ -7605,9 +7640,30 @@
                 });
             }
 
+            function renderTranslatorView(chatId) {
+                const chat = state.chats[chatId];
+                if (!chat) return;
+
+                dom.translatorView.style.display = 'flex';
+                dom.chatMessages.style.display = 'none';
+                dom.projectManagementView.style.display = 'none';
+                dom.financialAssistantView.style.display = 'none';
+                dom.notepadViewContainer.style.display = 'none';
+                dom.inputArea.style.display = 'none';
+
+                dom.chatTitle.textContent = chat.title;
+                dom.mobileChatTitle.textContent = chat.title;
+
+                const translateBtn = document.getElementById('translate-btn');
+                translateBtn.onclick = () => {
+                    sendMessage(false, null, { assistantType: 'translator' });
+                };
+            }
+
             let initFired = false;
             const finishInitialization = async (user) => {
-                if (initFired) return;
+                // Prevent re-initialization if the user object hasn't changed.
+                if (initFired && currentUser?.id === user?.id) return;
                 initFired = true;
                 currentUser = user;
 
@@ -7618,32 +7674,182 @@
                     // Now update all UI elements that depend on the loaded state
                     updateUserUI(); // This now implicitly updates credits correctly
                     populateVoiceList();
-                    setupEventListeners();
+                    setupEventListeners(); // This needs to be called after DOM elements are potentially recreated
+                    
+                    // Setup notifications only if enabled and user is logged in
                     if (currentUser && notificationsEnabled) {
-                         registerServiceWorkerAndSubscribe();
+                        const permission = await Notification.requestPermission();
+                        if (permission === 'granted') {
+                            registerServiceWorkerAndSubscribe();
+                        } else {
+                            notificationsEnabled = false;
+                            dom.notificationsToggle.checked = false;
+                        }
+                    } else {
+                        dom.notificationsToggle.checked = notificationsEnabled;
                     }
+
                     updateContextualFooter(state.chats[currentChatId]?.workflow);
                     setupMotivationInterval();
-
-                    // Show a motivational message on every load
-                    const randomMotivation = MOTIVATIONAL_MESSAGES[Math.floor(Math.random() * MOTIVATIONAL_MESSAGES.length)];
-                    showInAppNotification(`<i class="fas fa-lightbulb text-yellow-400"></i> Motivación`, randomMotivation, 3000);
-
 
                     // Make the app visible
                     dom.appContainer.classList.remove('opacity-0');
                     dom.loadingOverlay.style.display = 'none';
 
-                    // Restore the last view
-                    const lastView = state.lastView;
-                    if (lastView && lastView.id) {
-                        selectChat(lastView.id);
-                    } else if (currentChatId) { // Fallback to old currentChatId
-                        selectChat(currentChatId);
-                    } else {
-                        resetChatView();
+                    // Show a motivational message on every load for logged-in users
+                    if (currentUser) {
+                        const randomMotivation = MOTIVATIONAL_MESSAGES[Math.floor(Math.random() * MOTIVATIONAL_MESSAGES.length)];
+                        showInAppNotification(`<i class="fas fa-lightbulb text-yellow-400"></i> Motivación`, randomMotivation, 3000);
                     }
 
+                    updateNotificationBadge();
+                    if (currentUser && !localStorage.getItem('goatify-gamification-rules-seen')) {
+                        setTimeout(() => {
+                            dom.gamificationRulesModal.classList.remove('hidden');
+                            dom.gamificationRulesModal.classList.add('flex');
+                            localStorage.setItem('goatify-gamification-rules-seen', 'true');
+                        }, 2000);
+                    }
+                } catch (e) {
+                    console.error("Error during finishInitialization:", e);
+                    dom.loadingOverlay.innerHTML = `<div class="text-red-500 text-center">Error al cargar la aplicación.<br>Por favor, recarga la página.<br><small>${e.message}</small></div>`;
+                }
+            };
+                        function renderGamificationModal() {
+                if(!currentUser || !dom.gamificationModal) return;
+                const level = gamificationState.level;
+                const currentXp = gamificationState.xp;
+                const xpForCurrentLevel = XP_FOR_LEVEL[level - 1];
+                const xpForNextLevel = XP_FOR_LEVEL[level];
+                dom.gamificationLevelName.textContent = `Nivel ${level}: ${LEVEL_NAMES[level - 1]}`;
+                dom.gamificationCredits.innerHTML = `<i class="fas fa-coins mr-1"></i>${gamificationState.credits || 0} Créditos`;
+                if (level < LEVEL_NAMES.length) {
+                    const progress = ((currentXp - xpForCurrentLevel) / (xpForNextLevel - xpForCurrentLevel)) * 100;
+                    dom.gamificationXp.textContent = `${currentXp} / ${xpForNextLevel} XP`;
+                    dom.gamificationXpBar.style.width = `${Math.min(100, progress)}%`;
+                } else {
+                    dom.gamificationXp.textContent = '¡Nivel Máximo!';
+                    dom.gamificationXpBar.style.width = `100%`;
+                }
+
+                dom.dailyStreakContainer.innerHTML = '';
+                for (let i = 1; i <= 7; i++) {
+                    const dayEl = document.createElement('div');
+                    dayEl.className = 'streak-day p-4 rounded-lg flex flex-col items-center justify-center';
+                    const isCompleted = i <= gamificationState.dailyStreak;
+                    const isActive = i === gamificationState.dailyStreak + 1 && dayjs().format('YYYY-MM-DD') !== gamificationState.lastLogin;
+
+                    if (isCompleted) dayEl.classList.add('completed');
+                    if (isActive) dayEl.classList.add('active');
+
+                    let rewardText;
+                    if (i === 7) rewardText = '<i class="fas fa-gift fa-2x"></i>';
+                    else if (i > 3) rewardText = '+20 XP';
+                    else rewardText = '+10 XP';
+
+                    dayEl.innerHTML = `
+                        <p class="font-bold text-lg">${i === 7 ? '' : `Día ${i}`}</p>
+                        <div class="text-2xl my-2">${rewardText}</div>
+                        <p class="text-xs">${i === 7 ? 'Cofre GOAT' : (i > 3 ? '+10 Créditos' : '+5 Créditos')}</p>
+                    `;
+                    dom.dailyStreakContainer.appendChild(dayEl);
+                }
+
+                dom.missionsContainer.innerHTML = '';
+                Object.values(MISSIONS).forEach(mission => {
+                    const isCompleted = gamificationState.completedMissions.includes(mission.id);
+                    const missionEl = document.createElement('div');
+                    missionEl.className = `mission-item p-4 rounded-lg flex items-center justify-between bg-input ${isCompleted ? 'completed' : ''}`;
+                     missionEl.innerHTML = `
+                        <div>
+                            <p class="font-semibold">${mission.text}</p>
+                            <p class="text-sm text-text-medium">+${mission.xp} XP | +${mission.credits} Créditos</p>
+                         </div>
+                        <button class="btn-primary px-4 py-2 rounded-lg text-sm font-bold" data-mission-id="${mission.id}" ${isCompleted ? 'disabled' : ''}>
+                            ${isCompleted ? 'Hecho' : 'Empezar'}
+                         </button>
+                    `;
+                    dom.missionsContainer.appendChild(missionEl);
+                });
+
+                dom.achievementsContainer.innerHTML = '';
+                Object.values(ACHIEVEMENTS).forEach(ach => {
+                    const isUnlocked = gamificationState.unlockedAchievements.includes(ach.id);
+                    const achEl = document.createElement('div');
+                    achEl.className = `achievement-badge p-4 rounded-lg text-center flex flex-col items-center justify-center ${isUnlocked ? 'unlocked' : ''}`;
+                     achEl.innerHTML = `
+                        <i class="fas ${ach.icon} fa-3x mb-2"></i>
+                        <p class="font-bold">${ach.title}</p>
+                        <p class="text-xs text-text-medium mt-1">${ach.description}</p>
+                     `;
+                    dom.achievementsContainer.appendChild(achEl);
+                });
+            }
+
+            function renderTranslatorView(chatId) {
+                const chat = state.chats[chatId];
+                if (!chat) return;
+
+                dom.translatorView.style.display = 'flex';
+                dom.chatMessages.style.display = 'none';
+                dom.projectManagementView.style.display = 'none';
+                dom.financialAssistantView.style.display = 'none';
+                dom.notepadViewContainer.style.display = 'none';
+                dom.inputArea.style.display = 'none';
+
+                dom.chatTitle.textContent = chat.title;
+                dom.mobileChatTitle.textContent = chat.title;
+
+                const translateBtn = document.getElementById('translate-btn');
+                translateBtn.onclick = () => {
+                    sendMessage(false, null, { assistantType: 'translator' });
+                };
+            }
+
+            let initFired = false;
+            const finishInitialization = async (user) => {
+                // Prevent re-initialization if the user object hasn't changed.
+                if (initFired && currentUser?.id === user?.id) return;
+                initFired = true;
+                currentUser = user;
+
+                try {
+                    // Load all state data first, including gamification
+                    await loadStateForUser();
+
+                    // Now update all UI elements that depend on the loaded state
+                    updateUserUI(); // This now implicitly updates credits correctly
+                    populateVoiceList();
+                    setupEventListeners(); // This needs to be called after DOM elements are potentially recreated
+                    
+                    // Setup notifications only if enabled and user is logged in
+                    if (currentUser) {
+                        notificationsEnabled = true;
+                        dom.notificationsToggle.checked = true;
+                        const permission = await Notification.requestPermission();
+                        if (permission === 'granted') {
+                            registerServiceWorkerAndSubscribe();
+                        } else {
+                            notificationsEnabled = false;
+                            dom.notificationsToggle.checked = false;
+                        }
+                    } else {
+                        dom.notificationsToggle.checked = false;
+                        notificationsEnabled = false;
+                    }
+
+                    updateContextualFooter(state.chats[currentChatId]?.workflow);
+                    setupMotivationInterval();
+
+                    // Make the app visible
+                    dom.appContainer.classList.remove('opacity-0');
+                    dom.loadingOverlay.style.display = 'none';
+
+                    // Show a motivational message on every load for logged-in users
+                    if (currentUser) {
+                        const randomMotivation = MOTIVATIONAL_MESSAGES[Math.floor(Math.random() * MOTIVATIONAL_MESSAGES.length)];
+                        showInAppNotification(`<i class="fas fa-lightbulb text-yellow-400"></i> Motivación`, randomMotivation, 3000);
+                    }
 
                     updateNotificationBadge();
                     if (currentUser && !localStorage.getItem('goatify-gamification-rules-seen')) {
@@ -7681,10 +7887,17 @@
                 netlifyIdentity.on('init', (user) => finishInitialization(user));
                 netlifyIdentity.on('login', (user) => {
                     netlifyIdentity.close();
-                    window.location.reload();
+                    finishInitialization(user);
                 });
                 netlifyIdentity.on('logout', () => {
-                    window.location.reload();
+                    // Clear user-specific data before re-initializing as guest
+                    const guestState = { state: { chats: {}, projects: {}, structure: [], calendar: {}, notes: [] }, currentChatId: null };
+                    localStorage.setItem('guestState', JSON.stringify(guestState));
+                    localStorage.removeItem(`goatbotState_${currentUser.id}`);
+                    localStorage.removeItem(`gamificationState_${currentUser.id}`);
+                    localStorage.removeItem(`reward_credits_${currentUser.id}`);
+                    localStorage.removeItem('lastView');
+                    finishInitialization(null);
                 });
                 netlifyIdentity.on('error', (err) => {
                     console.error("Netlify Identity Error:", err);
@@ -7703,8 +7916,8 @@
             }, 3000);
 
             window.addEventListener('popstate', (event) => {
-                if (event.state && event.state.viewId) {
-                    selectChat(event.state.viewId);
+                if (event.state && event.state.chatId) {
+                    selectChat(event.state.chatId);
                 } else {
                     resetChatView();
                 }
