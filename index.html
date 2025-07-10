@@ -12,7 +12,12 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- PDF Generation Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- PDF Reading Library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js"></script>
+    <!-- Date/Time Library -->
     <script src="https://cdn.jsdelivr.net/npm/dayjs@1.10.7/dayjs.min.js"></script>
     <script src="https://npmcdn.com/dayjs@1.10.7/locale/es.js"></script>
     <script src="https://npmcdn.com/dayjs@1.10.7/plugin/localizedFormat.js"></script>
@@ -229,7 +234,7 @@
 
 
         #main-chat-area, .modal-content { background-color: var(--current-bg-medium); }
-        .chat-bubble-bot, .bg-input, #pdf-preview-container, .chat-item, .project-header, #user-menu-popup, #services-menu { background-color: var(--current-bg-light); }
+        .chat-bubble-bot, .bg-input, #pdf-preview-container, .chat-item, .project-header, #user-menu-popup, #services-menu, .note-item { background-color: var(--current-bg-light); }
         .border-themed { border-color: var(--current-border-color); }
         .chat-bubble-user { background-color: var(--current-primary); color: white; }
         .btn-primary { background-color: var(--current-primary); color: white; }
@@ -254,7 +259,7 @@
         #sidebar-overlay { transition: opacity 0.3s ease-in-out; }
         #app-container { height: 100vh; height: -webkit-fill-available; }
         #pricing-modal .modal-content-body { max-height: 80vh; overflow-y: auto; }
-        .chat-item.selected-for-delete { background-color: var(--primary) !important; color: white; }
+        .chat-item.selected-for-delete, .note-item.selected-for-delete { background-color: var(--primary) !important; color: white; }
 
         .model-selector-wrapper {
             position: relative;
@@ -421,15 +426,18 @@
 
         .btn-disabled { background-color: #3a3a3a !important; color: #888 !important; cursor: not-allowed !important; border-color: #3a3a3a !important;}
 
-        .chat-item.selected-chat {
+        .chat-item.selected-chat, .note-item.active {
             background-color: var(--current-primary);
             color: white !important;
         }
-        .chat-item.selected-chat .text-sm {
+        .chat-item.selected-chat .text-sm, .note-item.active * {
             color: white !important;
         }
-        .light-theme .chat-item {
+        .light-theme .chat-item, .light-theme .note-item {
             color: var(--light-text-dark);
+        }
+        .note-item:hover {
+            background-color: var(--current-bg-dark);
         }
 
         /* Calendar styles */
@@ -1463,6 +1471,17 @@
                 display: flex;
                 flex-direction: column;
             }
+            /* On mobile, the notepad assistant should be collapsed by default */
+            #notepad-chat-container {
+                height: 50px !important;
+            }
+            #notepad-chat-container.collapsed {
+                 height: 50px !important;
+            }
+            #notepad-chat-container:not(.collapsed) {
+                 height: 60% !important; /* Or a suitable height */
+            }
+
 
             #kanban-view {
                 grid-template-columns: repeat(3, 1fr);
@@ -1582,7 +1601,7 @@
             .achievement-badge .fa-3x { font-size: 1.75em; }
 
             /* Mobile chat item icons always visible */
-            .chat-item .chat-item-actions {
+            .chat-item .chat-item-actions, .note-item .chat-item-actions {
                 opacity: 1 !important;
             }
             #notes-list-panel.collapsed #notes-list-toggle { /* Hide notepad toggle on mobile, regardless of state */
@@ -1653,14 +1672,14 @@
             opacity: 1;
         }
         /* Make chat items links for right-click functionality */
-        .chat-item {
+        .chat-item, .note-item {
             display: block;
             text-decoration: none;
         }
-        .chat-item, a.chat-item:hover {
+        .chat-item, a.chat-item:hover, .note-item, a.note-item:hover {
             color: var(--current-text-light);
         }
-        .light-theme .chat-item, .light-theme a.chat-item:hover {
+        .light-theme .chat-item, .light-theme a.chat-item:hover, .light-theme .note-item, .light-theme a.note-item:hover {
             color: var(--light-text-dark);
         }
         /* New style for add to folder dropdown */
@@ -1683,6 +1702,12 @@
         }
         .add-to-folder-dropdown button:hover {
             background-color: var(--current-bg-medium);
+        }
+        .light-theme .add-to-folder-dropdown button {
+            color: var(--light-text-dark);
+        }
+        .light-theme .add-to-folder-dropdown button:hover {
+            background-color: var(--light-bg-light);
         }
 
         /* HTML Preview Modal Styles */
@@ -1727,6 +1752,50 @@
             background-color: var(--current-bg-light);
             border-radius: 0 0 0.75rem 0.75rem;
             border-top: 1px solid var(--current-border-color);
+        }
+
+        /* Translator UI Styles */
+        #translator-view {
+            display: none; /* Hidden by default */
+            flex-direction: column;
+            height: 100%;
+            padding: 1rem;
+            gap: 1rem;
+        }
+        #translator-panels {
+            display: flex;
+            flex-grow: 1;
+            gap: 1rem;
+            min-height: 0;
+        }
+        .translator-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background-color: var(--current-bg-light);
+            border-radius: 0.75rem;
+            padding: 1rem;
+        }
+        .translator-panel textarea {
+            flex-grow: 1;
+            background-color: var(--current-bg-medium);
+            border: 1px solid var(--current-border-color);
+            border-radius: 0.5rem;
+            padding: 0.75rem;
+            resize: none;
+            color: var(--current-text-light);
+            outline: none;
+        }
+        .translator-panel textarea:focus {
+            border-color: var(--current-primary);
+            box-shadow: 0 0 5px var(--current-primary);
+        }
+        #translator-controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 1rem;
+            flex-shrink: 0;
         }
 
     </style>
@@ -1863,13 +1932,13 @@
                             </div>
                         </div>
 
-                        <div class="folders-category border-t border-themed pt-4 open">
+                        <div id="folders-category" class="folders-category border-t border-themed pt-4 open">
                             <div class="folders-header flex items-center p-2 rounded-md cursor-pointer hover:bg-light">
                                 <i class="fas fa-chevron-right folder-arrow mr-2 transition-transform text-xs"></i>
                                 <span class="text-sm font-bold" data-translate-key="my_projects">Mis Proyectos</span>
                                 <button id="add-project-folder-btn" title="Nueva Carpeta de Proyectos" class="ml-2 text-primary hover:text-primary-hover"><i class="fas fa-plus-circle"></i></button>
                             </div>
-                            <div id="folders-container" class="folders-content pl-4 pt-2 space-y-1"></div>
+                            <div id="folders-container" class="folders-content pl-4 pt-2 space-y-1 block"></div>
                         </div>
 
                         <div class="border-t border-themed pt-2 mt-4">
@@ -1997,6 +2066,22 @@
                     </div>
                 </div>
 
+                <div id="translator-view">
+                    <div id="translator-panels">
+                        <div class="translator-panel">
+                            <h3 class="text-lg font-bold mb-2">Español</h3>
+                            <textarea id="translator-input-es" placeholder="Escribe o pega texto aquí..."></textarea>
+                        </div>
+                        <div class="translator-panel">
+                            <h3 class="text-lg font-bold mb-2">Inglés</h3>
+                            <textarea id="translator-output-en" readonly placeholder="Traducción..."></textarea>
+                        </div>
+                    </div>
+                    <div id="translator-controls">
+                        <button id="translate-btn" class="btn-primary px-6 py-2">Traducir <i class="fas fa-arrow-right ml-2"></i></button>
+                    </div>
+                </div>
+
                 <div id="notepad-view-container" class="hidden">
                     <div id="notes-list-panel">
                         <div id="notes-list-header" class="flex items-center gap-2">
@@ -2011,9 +2096,16 @@
                                 <input id="note-title-input" type="text" placeholder="Título de la nota..." data-translate-key="note_title_placeholder">
                                 <div id="text-tools" class="flex items-center gap-2 ml-auto">
                                     <div class="text-editor-controls">
+                                        <!-- New Text Tools -->
+                                        <button id="copy-btn" title="Copiar" data-translate-key="copy_text"><i class="fas fa-copy"></i></button>
+                                        <button id="cut-btn" title="Cortar" data-translate-key="cut_text"><i class="fas fa-cut"></i></button>
+                                        <button id="paste-btn" title="Pegar" data-translate-key="paste_text"><i class="fas fa-paste"></i></button>
                                         <button id="bold-btn" title="Negrita" data-translate-key="bold_text"><i class="fas fa-bold"></i></button>
                                         <button id="italic-btn" title="Cursiva" data-translate-key="italic_text"><i class="fas fa-italic"></i></button>
                                         <button id="underline-btn" title="Subrayar" data-translate-key="underline_text"><i class="fas fa-underline"></i></button>
+                                        <button id="align-left-btn" title="Alinear Izquierda"><i class="fas fa-align-left"></i></button>
+                                        <button id="align-center-btn" title="Alinear Centro"><i class="fas fa-align-center"></i></button>
+                                        <button id="align-right-btn" title="Alinear Derecha"><i class="fas fa-align-right"></i></button>
                                         <select id="font-family-selector" class="rounded-md py-1 px-2 focus:outline-none focus:ring-2 focus:ring-primary text-sm bg-transparent text-text-light">
                                             <option value="Montserrat, sans-serif">Montserrat</option>
                                             <option value="Arial, sans-serif">Arial</option>
@@ -2035,6 +2127,8 @@
                                     <button id="undo-drawing-btn" class="drawing-tool" title="Deshacer" data-translate-key="undo_drawing"><i class="fas fa-undo"></i></button>
                                     <button id="redo-drawing-btn" class="drawing-tool" title="Rehacer" data-translate-key="redo_drawing"><i class="fas fa-redo"></i></button>
                                 </div>
+                                 <!-- New Export/Share Buttons -->
+                                <button id="export-pdf-btn" title="Exportar como PDF" class="p-2 ml-2" data-translate-key="export_pdf_btn"><i class="fas fa-file-pdf"></i></button>
                                 <button id="share-note-btn" title="Compartir / Colaborar" class="p-2 ml-2" data-translate-key="share_note_btn"><i class="fas fa-user-plus"></i></button>
                                 <button id="delete-note-btn" title="Eliminar Nota" class="p-2 text-red-500 hover:text-red-400 transition-colors" data-translate-key="delete_note_btn"><i class="fas fa-trash-alt"></i></button>
                             </div>
@@ -2043,7 +2137,7 @@
                                 <canvas id="note-canvas" class="absolute top-0 left-0 hidden"></canvas>
                             </div>
                         </div>
-                        <div id="notepad-chat-container" class="hidden md:flex">
+                        <div id="notepad-chat-container" class="hidden md:flex collapsed">
                             <div id="notepad-chat-header" class="flex justify-between items-center cursor-pointer p-2">
                                 <h3 class="text-lg font-semibold text-primary" data-translate-key="writing_assistant">Asistente de Redacción</h3>
                                 <button id="notepad-chat-toggle" class="text-xl p-2"><i class="fas fa-angle-up"></i></button>
@@ -2231,7 +2325,7 @@
                         <p class="text-5xl font-extrabold my-3">$0</p>
                         <p class="text-sm text-text-medium mb-4" data-translate-key="plan_free_sub">Para Siempre</p>
                          <ul class="text-sm space-y-2 mb-4 text-left">
-                            <li><i class="fas fa-check-circle mr-2"></i>50 Créditos/mes</li>
+                            <li><i class="fas fa-check-circle mr-2"></i>5 Créditos de Prueba</li>
                             <li><i class="fas fa-check-circle mr-2"></i>Acceso a Modelos Básicos</li>
                              <li><i class="fas fa-check-circle mr-2"></i>Workflows Limitados</li>
                         </ul>
@@ -2502,7 +2596,7 @@
     </div>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script type="module">
-        //<-- START OF SCRIPT -->
+//<-- START OF SCRIPT -->
         window.addEventListener('DOMContentLoaded', () => {
             dayjs.extend(window.dayjs_plugin_localizedFormat);
             dayjs.extend(window.dayjs_plugin_isoWeek);
@@ -2640,6 +2734,11 @@
                     copy_code: "Copiar Código",
                     pending_tasks_today: "Tareas pendientes hoy:",
                     total_activities_today: "Actividades totales hoy:",
+                    copy_text: "Copiar", cut_text: "Cortar", paste_text: "Pegar",
+                    export_pdf_btn: "Exportar como PDF",
+                    login_for_credits_title: "¡Más Poder para Ti!",
+                    login_for_credits_body: "Has agotado tus 5 créditos de prueba. ¡No te preocupes! <strong>Inicia sesión para obtener 100 créditos más</strong> y seguir creando. O, si lo prefieres, explora nuestros planes para un acceso ilimitado.",
+                    login_now_btn: "Iniciar Sesión",
                 },
                 en: {
                     initializing: "Initializing...", new_chat: "New Chat", new_folder: "New Folder",
@@ -2773,10 +2872,15 @@
                     copy_code: "Copy Code",
                     pending_tasks_today: "Pending tasks today:",
                     total_activities_today: "Total activities today:",
+                    copy_text: "Copy", cut_text: "Cut", paste_text: "Paste",
+                    export_pdf_btn: "Export as PDF",
+                    login_for_credits_title: "More Power to You!",
+                    login_for_credits_body: "You've used up your 5 trial credits. Don't worry! <strong>Log in to get 100 more credits</strong> and keep creating. Or, if you prefer, explore our plans for unlimited access.",
+                    login_now_btn: "Log In",
                 }
             };
             const GUEST_CREDIT_LIMIT = 5;
-            const FREE_PLAN_CREDIT_LIMIT = 50;
+            const LOGGED_IN_FREE_CREDITS = 100;
             const BOOST_PLAN_CREDIT_LIMIT = 500;
             const PRO_PLAN_CREDIT_LIMIT = 2000;
 
@@ -2816,6 +2920,7 @@
             let goatXProUsage = 0; // Daily usage counter for GPT-4o
             const GOAT_X_PRO_DAILY_LIMIT = 10; // Daily limit for GPT-4o
 
+            // Set notifications to be enabled by default for all users.
             let notificationsEnabled = localStorage.getItem('goatify-notifications-enabled') === null ? true : localStorage.getItem('goatify-notifications-enabled') === 'true';
             let motivationEnabled = localStorage.getItem('goatify-motivation-enabled') === null ? true : localStorage.getItem('goatify-motivation-enabled') === 'true';
 
@@ -2841,6 +2946,7 @@
                 viewContainer: document.getElementById('view-container'),
                 chatMessages: document.getElementById('chat-messages'),
                 notepadViewContainer: document.getElementById('notepad-view-container'),
+                translatorView: document.getElementById('translator-view'),
                 chatTitle: document.getElementById('chat-title'), mobileChatTitle: document.getElementById('mobile-chat-title'),
                 desktopChatTitleWrapper: document.getElementById('desktop-chat-title-wrapper'), mobileChatTitleWrapper: document.getElementById('mobile-chat-title-wrapper'),
                 initialMessageContainer: document.getElementById('initial-message-container'), themeToggle: document.getElementById('theme-toggle'), themeIcon: document.getElementById('theme-icon'),
@@ -2971,7 +3077,13 @@
                 boldBtn: document.getElementById('bold-btn'),
                 italicBtn: document.getElementById('italic-btn'),
                 underlineBtn: document.getElementById('underline-btn'),
-                // Removed bulletListBtn and numberedListBtn as they are no longer in use
+                copyBtn: document.getElementById('copy-btn'),
+                cutBtn: document.getElementById('cut-btn'),
+                pasteBtn: document.getElementById('paste-btn'),
+                alignLeftBtn: document.getElementById('align-left-btn'),
+                alignCenterBtn: document.getElementById('align-center-btn'),
+                alignRightBtn: document.getElementById('align-right-btn'),
+                exportPdfBtn: document.getElementById('export-pdf-btn'),
                 fontFamilySelector: document.getElementById('font-family-selector'),
                 toolLine: document.getElementById('tool-line'),
                 toolRect: document.getElementById('tool-rect'),
@@ -3064,6 +3176,7 @@
                     'financial-assistant': 'Modo Financiero: Usa la tabla para registrar transacciones. Pídeme análisis en el chat.',
                     'notepad-app': 'Bloc de Notas: Organiza tus ideas, todo se guarda automáticamente. Usa el chat para pedir ideas o correcciones.',
                     'notepad-assistant': 'Asistente de Redacción: Pide ideas, resúmenes o ayuda para mejorar y corregir la ortografía de tu texto actual.',
+                    'english-teacher-translate': 'Modo Traductor: Escribe en un panel para ver la traducción en el otro.'
                 };
                 const currentChat = state.chats[currentChatId];
                 const key = workflowKey || (currentChat ? currentChat.workflow : (currentChatId === 'notepad-app' ? 'notepad-app' : null));
@@ -4015,6 +4128,8 @@
                     case 'notepad':
                         selector = document.getElementById('notepad-model-selector');
                         break;
+                    case 'translator':
+                        return 'gpt-4o'; // Always use GOAT X PRO for translator
                     default:
                         selector = dom.modelSelector;
                 }
@@ -4072,7 +4187,7 @@
                 switch (plan) {
                     case 'boost': limit = BOOST_PLAN_CREDIT_LIMIT; break;
                     case 'pro': limit = PRO_PLAN_CREDIT_LIMIT; break;
-                    default: limit = FREE_PLAN_CREDIT_LIMIT;
+                    default: limit = LOGGED_IN_FREE_CREDITS;
                 }
 
                 const usageKey = `usage_monthly_${currentUser.id}`;
@@ -4087,7 +4202,7 @@
             }
 
             function spendCredits(cost, modelUsed) {
-                if (modelUsed === 'gpt-4o') {
+                if (modelUsed === 'gpt-4o' && currentUser) {
                     const today = dayjs().format('YYYY-MM-DD');
                     const proUsageKey = `goat_x_pro_usage_${currentUser?.id || 'guest'}_${today}`;
                     goatXProUsage = parseInt(localStorage.getItem(proUsageKey) || '0');
@@ -4109,13 +4224,30 @@
                 }
 
                 const { remaining } = getCreditCount();
+                const gamCredits = (gamificationState.credits || 0);
 
-                if (remaining < cost && gamificationState.credits < cost) {
-                    showModal({
-                        title: 'Créditos Insuficientes',
-                        body: 'No tienes suficientes créditos de tu plan ni créditos de recompensa. Mejora tu plan para obtener más o espera al próximo mes.',
-                        confirmText: 'Ver Planes'
-                    }).then(res => { if (res.confirmed) showPricingModal(); });
+                if (remaining < cost && gamCredits < cost) {
+                    const lang = localStorage.getItem('goatify-lang') || 'es';
+                    if (!currentUser) {
+                         showModal({
+                            title: translations[lang].login_for_credits_title,
+                            body: translations[lang].login_for_credits_body,
+                            confirmText: translations[lang].login_now_btn,
+                            cancelText: translations[lang].view_plans_btn,
+                        }).then(res => {
+                            if (res.confirmed) {
+                                netlifyIdentity.open('login');
+                            } else {
+                                showPricingModal();
+                            }
+                        });
+                    } else {
+                        showModal({
+                            title: 'Créditos Insuficientes',
+                            body: 'No tienes suficientes créditos de tu plan ni créditos de recompensa. Mejora tu plan para obtener más o espera al próximo mes.',
+                            confirmText: 'Ver Planes'
+                        }).then(res => { if (res.confirmed) showPricingModal(); });
+                    }
                     return false;
                 }
 
@@ -4192,6 +4324,13 @@
                     }
                 }
 
+                // Restore last view from localStorage
+                const lastView = localStorage.getItem('lastView');
+                if (lastView) {
+                    currentChatId = lastView;
+                }
+
+
                 state.calendar = state.calendar || {};
                 state.projects = state.projects || {};
                 state.chats = state.chats || {};
@@ -4226,7 +4365,7 @@
                 let chatToSelect = null;
                 if (chatIdFromUrl && (state.chats[chatIdFromUrl] || (state.notes || []).find(n => n.id === chatIdFromUrl))) {
                     chatToSelect = chatIdFromUrl;
-                } else if (currentChatId && (state.chats[currentChatId] || (state.notes || []).find(n => n.id === currentChatId))) {
+                } else if (currentChatId && (state.chats[currentChatId] || (state.notes || []).find(n => n.id === currentChatId) || currentChatId.startsWith('note-') || currentChatId === 'notepad-app' || currentChatId === 'translator-view')) {
                     chatToSelect = currentChatId;
                 } else if (state.structure && state.structure.length > 0) {
                      const firstValidItem = state.structure.find(id => state.chats[id] || state.notes.find(n => n.id === id));
@@ -4238,7 +4377,6 @@
                 } else {
                     resetChatView(); // Fallback if nothing to select
                 }
-
             }
 
             async function saveState() {
@@ -4247,6 +4385,9 @@
 
                 try {
                     localStorage.setItem(key, JSON.stringify(stateData));
+                    // Save last view
+                    localStorage.setItem('lastView', currentChatId);
+
                     if(currentUser) {
                         // Debounce this call if it becomes too frequent
                         await fetch('/.netlify/functions/save-chats', {
@@ -4287,7 +4428,7 @@
 
             function updateCreditCounter() {
                 const { remaining, limit } = getCreditCount();
-                const gamCredits = (currentUser && gamificationState && gamificationState.credits) ? gamificationState.credits : 0;
+                const gamCredits = (gamificationState && gamificationState.credits) ? gamificationState.credits : 0;
                 let displayLimit = limit === Infinity ? '∞' : limit;
 
                 dom.planCreditsDisplay.textContent = `${remaining}/${displayLimit}`;
@@ -4295,6 +4436,7 @@
 
                 dom.messageCounterWrapper.classList.remove('hidden');
             }
+
 
             function setTheme(isDark) {
                 document.body.className = 'w-screen overflow-x-hidden';
@@ -4374,23 +4516,28 @@
 
             function selectChat(chatId) {
                 currentChatId = chatId;
+                localStorage.setItem('lastView', chatId); // Save last view
                 history.pushState({ chatId }, '', `?chat=${chatId}`);
                 if (isSelectModeActive) return;
 
                 dom.notepadViewContainer.classList.remove('mobile-editor-active');
 
-                if (!chatId || (!state.chats[chatId] && !state.notes.find(n => n.id === chatId) && chatId !== 'notepad-app')) {
-                    resetChatView();
-                    return;
-                }
-
+                // Hide all views first
                 dom.chatMessages.style.display = 'none';
                 dom.projectManagementView.style.display = 'none';
                 dom.financialAssistantView.style.display = 'none';
                 dom.notepadViewContainer.style.display = 'none';
-                dom.inputArea.style.display = 'none';
+                dom.translatorView.style.display = 'none';
+                dom.inputArea.style.display = 'none'; // Hide main input area by default
 
-                if (chatId.startsWith('note-') || chatId === 'notepad-app') {
+                if (!chatId) {
+                    resetChatView();
+                    return;
+                }
+
+                if (chatId === 'translator-view') {
+                    showTranslatorView();
+                } else if (chatId.startsWith('note-') || chatId === 'notepad-app') {
                     dom.chatTitle.textContent = translations[localStorage.getItem('goatify-lang') || 'es'].wf_notepad;
                     dom.mobileChatTitle.textContent = translations[localStorage.getItem('goatify-lang') || 'es'].wf_notepad;
                     showNotepadView();
@@ -4404,7 +4551,7 @@
                             dom.noteEditorPanel.classList.add('hidden');
                         }
                     }
-                } else {
+                } else if (state.chats[chatId]) {
                     const chat = state.chats[chatId];
                     if (chat.workflow === 'project-management') {
                         dom.projectManagementView.style.display = 'flex';
@@ -4424,7 +4571,10 @@
                     dom.mobileChatTitle.textContent = chat.title;
                     dom.modelSelector.value = chat.model || 'gpt-3.5-turbo-1106';
                     updateContextualFooter(chat.workflow);
+                } else {
+                     resetChatView();
                 }
+
 
                 updateActiveChatHighlight();
                 saveState();
@@ -4433,25 +4583,30 @@
 
             function resetChatView() {
                 currentChatId = null;
+                localStorage.removeItem('lastView');
                 history.pushState({ chatId: null }, '', window.location.pathname);
                 dom.chatTitle.textContent = "Goatify IA";
                 dom.mobileChatTitle.textContent = "Goatify IA";
 
-                dom.chatMessages.style.display = 'block';
-                dom.inputArea.style.display = 'flex';
+                // Hide all specific views
                 dom.projectManagementView.style.display = 'none';
                 dom.financialAssistantView.style.display = 'none';
                 dom.notepadViewContainer.style.display = 'none';
+                dom.translatorView.style.display = 'none';
 
+                // Show default chat view
+                dom.chatMessages.style.display = 'block';
+                dom.inputArea.style.display = 'flex';
                 dom.chatMessages.innerHTML = '';
                 dom.initialMessageContainer.style.display = 'flex';
+
                 updateUserUI();
                 updateActiveChatHighlight();
                 dom.modelSelector.value = 'gpt-3.5-turbo-1106';
                 updateContextualFooter(null);
             }
 
-            function addMessageToUI(role, content, imageSrc, messageIndex, container) {
+                        function addMessageToUI(role, content, imageSrc, messageIndex, container) {
                 if (!container) return null;
                 const wrapper = document.createElement('div');
                 wrapper.className = `chat-bubble-wrapper group flex items-start gap-2 my-2 ${role === 'user' ? 'justify-end' : 'justify-start'}`;
@@ -4491,7 +4646,6 @@
                     wrapper.insertBefore(editBtn, wrapper.firstChild);
                 }
 
-                // Always show preview button if content contains HTML/code blocks
                 const hasCode = /```html|```css|```javascript|<pre|<code/.test(content);
                 if (role === 'assistant' && hasCode) {
                     const previewButton = document.createElement('button');
@@ -4501,7 +4655,6 @@
                         const match = content.match(/```(html|css|javascript)\n([\s\S]*?)```/s);
                         let htmlToPreview = content;
                         if(match) {
-                            // If it's not HTML, wrap it for display
                             if (match[1] !== 'html') {
                                 htmlToPreview = `<pre><code class="language-${match[1]}">${match[2]}</code></pre>`;
                             } else {
@@ -4561,7 +4714,6 @@
 
                 bubble.appendChild(contentDiv);
 
-                // Re-check for code and add preview button on update
                 const hasCode = /```html|```css|```javascript|<pre|<code/.test(content);
                 if (hasCode) {
                     const previewButton = document.createElement('button');
@@ -4593,7 +4745,7 @@
 
                 const itemMap = new Map();
                 Object.values(state.chats).forEach(chat => itemMap.set(chat.id, { type: 'chat', data: chat }));
-                state.notes.forEach(note => itemMap.set(note.id, { type: 'note', data: note }));
+                (state.notes || []).forEach(note => itemMap.set(note.id, { type: 'note', data: note }));
                 Object.values(state.projects).forEach(proj => itemMap.set(proj.id, { type: 'project', data: proj }));
 
                 const unfiledItems = new Set(state.structure);
@@ -4622,7 +4774,7 @@
                 const chat = state.chats[id];
                 if (!chat || chat.isDeletable === false) return document.createDocumentFragment();
 
-                const item = document.createElement('div'); // Changed from <a> to <div>
+                const item = document.createElement('div');
                 item.className = `chat-item group flex items-center justify-between p-2 rounded-md cursor-pointer hover:bg-light ${isSubItem ? 'pl-8' : ''}`;
                 item.dataset.id = id;
                 item.dataset.type = 'chat';
@@ -4699,7 +4851,7 @@
                 const note = state.notes.find(n => n.id === id);
                 if (!note) return document.createDocumentFragment();
 
-                const item = document.createElement('div'); // Changed from <a>
+                const item = document.createElement('div');
                 item.className = 'note-item group flex items-center justify-between p-2 rounded-md cursor-pointer';
                 if (isSubItem) item.classList.add('pl-8');
                 item.dataset.id = note.id;
@@ -4826,8 +4978,6 @@
                 header.addEventListener('click', e => {
                     if (!e.target.closest('.chat-item-actions')) {
                         const isOpen = div.classList.toggle('open');
-                        // content.style.display = isOpen ? 'block' : 'none'; // This is handled by the .open class now
-                        // header.querySelector('.project-arrow').style.transform = isOpen ? 'rotate(90deg)' : 'rotate(0deg)'; // Handled by .open class
                         project.isOpen = isOpen;
                         saveState();
                     }
@@ -5025,6 +5175,11 @@
                         noteContent = dom.noteContentEditor.innerHTML;
                         modelToUse = getModelForRequest(state.chats[chatIdToUpdate]?.workflow, false, 'notepad');
                         break;
+                    case 'translator':
+                        inputEl = document.getElementById('translator-input-es');
+                        messageContainer = document.getElementById('translator-output-en'); // Special case
+                        modelToUse = getModelForRequest(null, false, 'translator');
+                        break;
                     default:
                         inputEl = dom.msgInput;
                         messageContainer = dom.chatMessages;
@@ -5036,47 +5191,59 @@
                 if (!userMessage && !selectedImageBase64 && !selectedPdfText) return;
 
                 const currentChat = state.chats[chatIdToUpdate];
-                if (!currentChat) return;
+                if (!currentChat && assistantType !== 'translator') return;
 
                 const webSearchTriggers = ['busca', 'investiga', 'en internet', 'tiempo real', 'qué día es hoy', 'qué fecha es hoy', 'cuál es el precio de', 'quién es', 'qué es', 'noticias sobre'];
                 const requiresWebSearch = webSearchTriggers.some(trigger => userMessage.toLowerCase().startsWith(trigger));
-                if (requiresWebSearch && !hasFile() && !currentChat.workflow) { modelToUse = 'sonar'; }
+                if (requiresWebSearch && !hasFile() && currentChat && !currentChat.workflow) { modelToUse = 'sonar'; }
 
                 let cost = COSTS.GENERAL;
                 if(modelToUse === 'sonar') cost = COSTS.SEARCH;
-                if(currentChat.workflow) cost = COSTS.WORKFLOW;
+                if(currentChat && currentChat.workflow) cost = COSTS.WORKFLOW;
                 if(selectedPdfText) cost = COSTS.PDF_ANALYSIS;
                 if(selectedImageBase64) cost = COSTS.IMAGE_ANALYSIS;
                 if(modelToUse === 'gpt-4o') cost = COSTS.GPT4O;
 
                 if (!spendCredits(cost, modelToUse)) return;
 
-                if(currentChat.title === (translations[localStorage.getItem('goatify-lang') || 'es'].default_chat_title || 'Conversación Cósmica') && userMessage.length > 5 && assistantType === 'main') {
+                if(currentChat && currentChat.title === (translations[localStorage.getItem('goatify-lang') || 'es'].default_chat_title || 'Conversación Cósmica') && userMessage.length > 5 && assistantType === 'main') {
                     currentChat.title = userMessage.split(' ').slice(0, 4).join(' ');
                     renderSidebar();
                 }
 
-                const [image, pdf] = [selectedImageBase64, selectedPdfText];
-                currentChat.messages.push({ role: 'user', content: userMessage, image, pdfText: pdf });
-                addMessageToUI('user', userMessage, image, currentChat.messages.length - 1, messageContainer);
-                const thinkingBubble = addMessageToUI('assistant', '…', null, null, messageContainer);
-                inputEl.value = '';
-                inputEl.style.height = 'auto';
-                if(assistantType === 'main') {
-                    clearImageData();
-                    clearPdfData();
+                let thinkingBubble;
+                if (assistantType !== 'translator') {
+                    const [image, pdf] = [selectedImageBase64, selectedPdfText];
+                    currentChat.messages.push({ role: 'user', content: userMessage, image, pdfText: pdf });
+                    addMessageToUI('user', userMessage, image, currentChat.messages.length - 1, messageContainer);
+                    thinkingBubble = addMessageToUI('assistant', '…', null, null, messageContainer);
+                    inputEl.value = '';
+                    inputEl.style.height = 'auto';
+                    if(assistantType === 'main') {
+                        clearImageData();
+                        clearPdfData();
+                    }
+                } else {
+                    messageContainer.value = '…';
                 }
+
 
                 try {
                     const userNameForCall = currentUser ? (currentUser.user_metadata.full_name || currentUser.email) : 'viajero';
-                    const responseData = await getAIResponse(userMessage, currentChat.messages.slice(0, -1), image, pdf, modelToUse, currentChat.workflow, userNameForCall, financialData, noteContent);
+                    const responseData = await getAIResponse(userMessage, currentChat?.messages.slice(0, -1), selectedImageBase64, selectedPdfText, modelToUse, currentChat?.workflow, userNameForCall, financialData, noteContent);
 
                     updateCreditCounter();
-                    currentChat.messages.push({ role: 'assistant', content: responseData.reply });
-                    updateMessageInUI(thinkingBubble, responseData.reply, null, messageContainer);
-                    speak(responseData.reply);
 
-                    if (currentChat.workflow && currentChat.workflow !== 'notepad-assistant') {
+                    if (assistantType === 'translator') {
+                        messageContainer.value = responseData.reply;
+                    } else {
+                        currentChat.messages.push({ role: 'assistant', content: responseData.reply });
+                        updateMessageInUI(thinkingBubble, responseData.reply, null, messageContainer);
+                        speak(responseData.reply);
+                    }
+
+
+                    if (currentChat && currentChat.workflow && currentChat.workflow !== 'notepad-assistant') {
                         completeMission(currentChat.workflow, chatIdToUpdate);
                     }
 
@@ -5093,10 +5260,14 @@
 
                     saveState();
                 } catch (error) {
-                    updateMessageInUI(thinkingBubble, `❌ **Error de Conexión**<br><small>${error.message || 'No se pudo conectar al servidor.'}</small>`, null, messageContainer);
+                     if (assistantType === 'translator') {
+                        messageContainer.value = `❌ Error: ${error.message || 'No se pudo conectar al servidor.'}`;
+                    } else {
+                        updateMessageInUI(thinkingBubble, `❌ **Error de Conexión**<br><small>${error.message || 'No se pudo conectar al servidor.'}</small>`, null, messageContainer);
+                    }
                 }
             }
-            async function generateImage() {
+                        async function generateImage() {
                 const result = await showModal({ title: translations[localStorage.getItem('goatify-lang') || 'es'].create_image_title || 'Crear Imagen', body: `${translations[localStorage.getItem('goatify-lang') || 'es'].image_prompt_desc || 'Describe la imagen que quieres crear:'}<br><input type="text" id="img-prompt" class="w-full p-2 rounded bg-input border border-themed mt-2" placeholder="${translations[localStorage.getItem('goatify-lang') || 'es'].image_prompt_placeholder || 'Ej: Un astronauta en un caballo cósmico'}">`, confirmText: translations[localStorage.getItem('goatify-lang') || 'es'].generate_btn || 'Generar' });
                 if (!result.confirmed || !result.data['img-prompt']) return;
 
@@ -5293,7 +5464,15 @@
 
             function showNotepadView() {
                 dom.notepadViewContainer.style.display = 'flex';
+                // On mobile, always start with the assistant collapsed
+                if (window.innerWidth < 768) {
+                    dom.notepadChatContainer.classList.add('collapsed');
+                } else {
+                    dom.notepadChatContainer.classList.remove('collapsed');
+                }
                 dom.notepadChatContainer.classList.toggle('hidden', window.innerWidth < 768);
+
+
                 updateContextualFooter('notepad-app');
 
                 const notepadChat = state.chats['notepad-assistant-chat'];
@@ -5330,21 +5509,24 @@
             }
 
             function createNewNote(type = 'text') {
+                const lang = localStorage.getItem('goatify-lang') || 'es';
                 const newNote = {
                     id: 'note-' + crypto.randomUUID(),
-                    title: type === 'text' ? translations[localStorage.getItem('goatify-lang') || 'es'].new_note : translations[localStorage.getItem('goatify-lang') || 'es'].new_drawing_title,
+                    title: type === 'text' ? (translations[lang].new_note || 'Nueva Nota') : (translations[lang].new_drawing_title || 'Nuevo Dibujo'),
                     content: type === 'text' ? '' : null,
                     type: type,
                     createdAt: new Date().toISOString()
                 };
                 state.notes.unshift(newNote);
                 state.structure.unshift(newNote.id);
-                selectChat(newNote.id);
+                saveState(); // Save state immediately
+                renderSidebar(); // Re-render sidebar to show the new note
+                selectChat(newNote.id); // Select the new note
 
                 if (window.innerWidth < 768) {
                     dom.notepadViewContainer.classList.add('mobile-editor-active');
                 }
-                showInAppNotification(translations[localStorage.getItem('goatify-lang') || 'es'].success_title || "Éxito", `${translations[localStorage.getItem('goatify-lang') || 'es'].note_created_message || "Se ha creado:"} "${newNote.title}"`, 800);
+                showInAppNotification(translations[lang].success_title || "Éxito", `${translations[lang].note_created_message || "Se ha creado:"} "${newNote.title}"`, 800);
             }
 
             function loadNoteIntoEditor(noteId) {
@@ -5622,7 +5804,8 @@
 
                 }, thirtyMinutes);
             }
-            function setupEventListeners() {
+
+                        function setupEventListeners() {
                 dom.inAppNotificationClose?.addEventListener('click', (e) => {
                     e.stopPropagation();
                     dom.inAppNotification.classList.remove('show');
@@ -5637,16 +5820,16 @@
                     const todayKey = dayjs().format('YYYY-MM-DD');
                     const allTasksToday = getTasksForDay(todayKey);
                     const completedTasksToday = allTasksToday.filter(task => task.completed).length;
-                    let totalPendingTasksToday = allTasksToday.filter(task => !task.completed).length; // Calculate pending tasks
+                    let totalPendingTasksToday = allTasksToday.filter(task => !task.completed).length; 
                     let totalChatActivities = 0;
                     Object.values(state.chats).forEach(chat => {
-                        chat.messages.forEach(msg => {
+                        (chat.messages || []).forEach(msg => {
                             if (dayjs(msg.timestamp).isSame(dayjs(), 'day')) {
                                 totalChatActivities++;
                             }
                         });
                     });
-                    const totalActivitiesToday = completedTasksToday + totalPendingTasksToday + Math.floor(totalChatActivities / 2); // Sum of completed, pending tasks and chat messages
+                    const totalActivitiesToday = completedTasksToday + totalPendingTasksToday + Math.floor(totalChatActivities / 2);
 
                     const positiveMessages = [
                         "¡Estás haciendo un trabajo increíble!",
@@ -5811,6 +5994,7 @@
 
                 setupAssistantInput('project-msg', 'project-send', 'project');
                 setupAssistantInput('notepad-msg', 'notepad-send', 'notepad');
+                setupAssistantInput('translator-input-es', 'translate-btn', 'translator');
 
 
                 dom.msgInput?.addEventListener('keydown', (e) => {
@@ -5953,7 +6137,11 @@
                 });
 
                 dom.userMenuBtn?.addEventListener('click', (e) => { e.stopPropagation(); dom.userMenuPopup.classList.toggle('hidden'); });
-                dom.logoutBtn?.addEventListener('click', () => { netlifyIdentity.logout(); dom.userMenuPopup.classList.add('hidden');});
+                dom.logoutBtn?.addEventListener('click', () => {
+                    if (netlifyIdentity) {
+                        netlifyIdentity.logout();
+                    }
+                });
 
                 dom.userSettingsIcon?.addEventListener('click', (e) => { e.stopPropagation(); showSettingsModal(); });
 
@@ -5961,6 +6149,7 @@
                     'project-management': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_pm, workflow: 'project-management' },
                     'financial-assistant': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_financial, workflow: 'financial-assistant' },
                     'notepad-app': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_notepad, workflow: 'notepad-app' },
+                    'english-teacher-translate': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_eng_1, workflow: 'english-teacher-translate' },
                     'create-full-post': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_social_1, workflow: 'create-full-post', initialMessages: [{ role: 'assistant', content: '¡Claro! Vamos a crear un post increíble. ¿Para qué red social lo necesitas (Instagram, Facebook, LinkedIn, etc.)?' }] },
                     'persuasive-copy': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_social_2, workflow: 'persuasive-copy', initialMessages: [{ role: 'assistant', content: 'Estoy listo para redactar textos que vendan. ¿Para qué necesitas este copy? (ej: Anuncio de Facebook, Post de Venta, Descripción de Producto)' }] },
                     'post-ideas': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_social_3, workflow: 'post-ideas', initialMessages: [{ role: 'assistant', content: '¡Acabemos con el bloqueo creativo! Dime un tema y te daré 7 ideas de contenido excelentes.' }] },
@@ -5970,7 +6159,6 @@
                     'brand-names': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_business_3, workflow: 'brand-names', initialMessages: [{ role: 'assistant', content: "¡Excelente! Busquemos un nombre increíble. Describe brevemente tu idea de negocio, tu público y el estilo que buscas (ej. moderno, clásico, divertido) para generar nombres y slogans." }] },
                     'sales-assistant': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_sales_1, workflow: 'sales-assistant', initialMessages: [{ role: 'assistant', content: 'Para ayudarte a cerrar esa venta, pega aquí el mensaje de tu cliente.' }] },
                     'email-writing': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_sales_2, workflow: 'email-writing', initialMessages: [{ role: 'assistant', content: 'Creemos un email que convierta. ¿Cuál es el objetivo principal de este correo?' }] },
-                    'english-teacher-translate': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_eng_1, workflow: 'english-teacher-translate', initialMessages: [{ role: 'assistant', content: 'Of course! Please provide the text you want me to translate or correct.' }] },
                     'english-teacher-vocabulary': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_eng_2, workflow: 'english-teacher-vocabulary', initialMessages: [{ role: 'assistant', content: 'Excellent! Let\'s learn some new vocabulary. What topic are you interested in? (e.g., "business negotiations", "travel")' }] },
                     'english-teacher-practice': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_eng_3, workflow: 'english-teacher-practice', initialMessages: [{ role: 'assistant', content: 'Great! Let\'s practice our conversation. So, tell me about your day.' }] },
                     'social-skills': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_sales_4, workflow: 'social-skills', initialMessages: [{ role: 'assistant', content: 'Las habilidades sociales son clave. ¿En qué situación te gustaría mejorar tu comunicación? (Ej: una reunión de networking, una conversación difícil, etc.)' }] },
@@ -5983,17 +6171,9 @@
                     const header = e.target.closest('.workflow-header, .actions-header, .folders-header');
                     if (header) {
                         const category = header.parentElement;
-                        if (category) {
-                            // This check prevents the project-folder click from double-toggling
+                        if (category && (category.classList.contains('workflow-category') || category.classList.contains('actions-category') || category.classList.contains('folders-category'))) {
                             if (!e.target.closest('.chat-item-actions')) {
-                                const isOpen = category.classList.toggle('open');
-                                if (category.classList.contains('project')) {
-                                    const project = state.projects[category.dataset.id];
-                                    if(project) {
-                                        project.isOpen = isOpen;
-                                        saveState();
-                                    }
-                                }
+                                category.classList.toggle('open');
                             }
                         }
                     }
@@ -6005,7 +6185,10 @@
                          if (config) {
                             if (workflowKey === 'notepad-app') {
                                 selectChat('notepad-app');
-                            } else {
+                            } else if (workflowKey === 'english-teacher-translate') {
+                                selectChat('translator-view');
+                            }
+                            else {
                                 createNewChat(config);
                             }
                         }
@@ -6228,6 +6411,37 @@
                 dom.boldBtn?.addEventListener('click', () => applyTextFormat('bold'));
                 dom.italicBtn?.addEventListener('click', () => applyTextFormat('italic'));
                 dom.underlineBtn?.addEventListener('click', () => applyTextFormat('underline'));
+                dom.copyBtn?.addEventListener('click', () => document.execCommand('copy'));
+                dom.cutBtn?.addEventListener('click', () => document.execCommand('cut'));
+                dom.pasteBtn?.addEventListener('click', () => document.execCommand('paste'));
+                dom.alignLeftBtn?.addEventListener('click', () => applyTextFormat('justifyLeft'));
+                dom.alignCenterBtn?.addEventListener('click', () => applyTextFormat('justifyCenter'));
+                dom.alignRightBtn?.addEventListener('click', () => applyTextFormat('justifyRight'));
+
+                dom.exportPdfBtn?.addEventListener('click', () => {
+                    const { jsPDF } = window.jspdf;
+                    const note = state.notes.find(n => n.id === currentNoteId);
+                    if (!note) return;
+
+                    const doc = new jsPDF();
+                    const contentElement = dom.noteContentEditor;
+
+                    doc.setFontSize(18);
+                    doc.text(note.title, 14, 22);
+                    doc.setFontSize(11);
+                    doc.setTextColor(100);
+
+                    html2canvas(contentElement).then(canvas => {
+                        const imgData = canvas.toDataURL('image/png');
+                        const imgProps= doc.getImageProperties(imgData);
+                        const pdfWidth = doc.internal.pageSize.getWidth();
+                        const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+                        doc.addImage(imgData, 'PNG', 14, 30, pdfWidth - 28, pdfHeight);
+                        doc.save(`${note.title.replace(/ /g, '_')}.pdf`);
+                    });
+                });
+
+
                 dom.fontFamilySelector?.addEventListener('change', (e) => {
                     const selectedFont = e.target.value;
                     dom.noteContentEditor.style.fontFamily = selectedFont;
@@ -7244,6 +7458,13 @@
                 const key = `gamificationState_${currentUser.id}`;
                 const savedState = localStorage.getItem(key);
                 gamificationState = savedState ? JSON.parse(savedState) : getDefaultGamificationState();
+
+                // Load reward credits from local storage if they exist
+                const savedRewardCredits = localStorage.getItem(`reward_credits_${currentUser.id}`);
+                if (savedRewardCredits !== null) {
+                    gamificationState.credits = parseInt(savedRewardCredits, 10);
+                }
+
                 await checkDailyStreak();
             }
 
@@ -7251,6 +7472,8 @@
                 if(!currentUser) return;
                 const key = `gamificationState_${currentUser.id}`;
                 localStorage.setItem(key, JSON.stringify(gamificationState));
+                // Persist reward credits separately as well
+                localStorage.setItem(`reward_credits_${currentUser.id}`, gamificationState.credits);
                 renderGamificationModal();
                 updateCreditCounter();
             }
@@ -7464,13 +7687,14 @@
 
             let initFired = false;
             const finishInitialization = async (user) => {
-                if (initFired) return;
+                if (initFired && user?.id === currentUser?.id) return;
                 initFired = true;
+                const wasGuest = !currentUser;
                 currentUser = user;
 
                 try {
-                    updateUserUI(); // Update UI based on logged-in status
-                    await loadStateForUser(); // Load state from DB/localStorage, which includes loading gamification
+                    await loadStateForUser();
+                    updateUserUI();
                     populateVoiceList();
                     setupEventListeners();
                     if (currentUser && notificationsEnabled) {
@@ -7483,6 +7707,11 @@
                     dom.loadingOverlay.style.display = 'none';
 
                     updateNotificationBadge();
+
+                    if (wasGuest && currentUser) {
+                        showMotivationModal();
+                    }
+
                     if (currentUser && !localStorage.getItem('goatify-gamification-rules-seen')) {
                         setTimeout(() => {
                             dom.gamificationRulesModal.classList.remove('hidden');
@@ -7547,3 +7776,4 @@
     </script>
 </body>
 </html>
+    
