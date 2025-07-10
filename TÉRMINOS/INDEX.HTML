@@ -8022,7 +8022,26 @@
                     resetChatView();
                 }
             });
-                 netlifyIdentity.on('error', (err) => {
+
+             if (window.netlifyIdentity) {
+                netlifyIdentity.on('init', (user) => finishInitialization(user));
+                netlifyIdentity.on('login', (user) => {
+                    netlifyIdentity.close();
+                    finishInitialization(user);
+                });
+                netlifyIdentity.on('logout', () => {
+                    // This is the correct place to handle logout logic
+                    // Clear all local storage related to user data on logout
+                    localStorage.removeItem('goatbotState_' + currentUser?.id);
+                    localStorage.removeItem('gamificationState_' + currentUser?.id);
+                    localStorage.removeItem(`goat_x_pro_usage_${currentUser?.id}_${dayjs().format('YYYY-MM-DD')}`);
+                    localStorage.removeItem(`usage_monthly_${currentUser?.id}`);
+                    currentUser = null; // Explicitly set currentUser to null
+                    resetChatView(); // Reset UI state
+                    updateUserUI(); // Update UI elements that depend on user login
+                    showInAppNotification("Sesión Cerrada", "Has cerrado sesión correctamente.", 2000);
+                });
+                netlifyIdentity.on('error', (err) => {
                     console.error("Netlify Identity Error:", err);
                     if (!initFired) finishInitialization(null);
                 });
