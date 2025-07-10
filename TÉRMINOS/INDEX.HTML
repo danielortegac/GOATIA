@@ -5960,7 +5960,7 @@
                 }, thirtyMinutes);
             }
 
-                        function setupEventListeners() {
+                                    function setupEventListeners() {
                 // Event listener for in-app notification close button
                 dom.inAppNotificationClose?.addEventListener('click', (e) => {
                     e.stopPropagation();
@@ -6405,26 +6405,24 @@
                     'decision-lab': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_expert_1, workflow: 'decision-lab', initialMessages: [{ role: 'assistant', content: 'Bienvenido al Laboratorio de Decisiones. Recuerda que una decisión puede cambiar el rumbo de tu vida. Para ayudarte a analizar tu situación, por favor, dime: ¿Cuál es la decisión que necesitas tomar y qué opciones estás considerando?' }] },
                 };
 
+                // REVISED ACCORDION LOGIC
                 document.body.addEventListener('click', e => {
-                    const header = e.target.closest('.workflow-header, .actions-header, .folders-header');
-                    if (header) {
-                        const category = header.parentElement;
-                        if (category && (category.classList.contains('workflow-category') || category.classList.contains('actions-category') || category.classList.contains('folders-category'))) {
-                            // Only toggle if the click is not on a child action button (like rename/delete)
-                            if (!e.target.closest('.chat-item-actions') && !e.target.closest('#add-project-folder-btn')) {
-                                const isOpen = category.classList.toggle('open');
-                                // Rotate arrow icon
-                                const arrowIcon = category.querySelector('.workflow-arrow, .actions-arrow, .folder-arrow');
-                                if (arrowIcon) {
-                                    arrowIcon.style.transform = isOpen ? 'rotate(90deg)' : 'rotate(0deg)';
-                                }
-                                // For project folders, persist their open/closed state
-                                if (category.classList.contains('project')) {
-                                    const project = state.projects[category.dataset.id];
-                                    if(project) {
-                                        project.isOpen = isOpen;
-                                        saveState();
-                                    }
+                    const header = e.target.closest('.workflow-header, .actions-header, .folders-header, .project-header');
+                    if (header && !e.target.closest('.chat-item-actions, #add-project-folder-btn')) {
+                        const parentElement = header.parentElement;
+                        // Only toggle if it's a category or a project, not other elements.
+                        if (parentElement.classList.contains('workflow-category') || parentElement.classList.contains('actions-category') || parentElement.classList.contains('folders-category') || parentElement.classList.contains('project')) {
+                            const isOpen = parentElement.classList.toggle('open');
+                            const arrow = header.querySelector('.workflow-arrow, .actions-arrow, .folder-arrow, .project-arrow');
+                            if (arrow) {
+                                arrow.style.transform = isOpen ? 'rotate(90deg)' : 'rotate(0deg)';
+                            }
+                            // Persist open/closed state for project folders
+                            if (parentElement.classList.contains('project')) {
+                                const project = state.projects[parentElement.dataset.id];
+                                if (project) {
+                                    project.isOpen = isOpen;
+                                    saveState();
                                 }
                             }
                         }
@@ -6446,6 +6444,7 @@
                         }
                     }
                 });
+
 
                 dom.webLaunchOfferBtn.addEventListener('click', () => {
                     const lang = localStorage.getItem('goatify-lang') || 'es';
