@@ -13,6 +13,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dayjs@1.10.7/dayjs.min.js"></script>
     <script src="https://npmcdn.com/dayjs@1.10.7/locale/es.js"></script>
     <script src="https://npmcdn.com/dayjs@1.10.7/plugin/localizedFormat.js"></script>
@@ -2019,6 +2020,9 @@
                                 <input id="note-title-input" type="text" placeholder="Título de la nota..." data-translate-key="note_title_placeholder">
                                 <div id="text-tools" class="flex items-center gap-2 ml-auto">
                                     <div class="text-editor-controls">
+                                        <button id="copy-btn" title="Copiar"><i class="fas fa-copy"></i></button>
+                                        <button id="paste-btn" title="Pegar"><i class="fas fa-paste"></i></button>
+                                        <button id="cut-btn" title="Cortar"><i class="fas fa-cut"></i></button>
                                         <button id="bold-btn" title="Negrita" data-translate-key="bold_text"><i class="fas fa-bold"></i></button>
                                         <button id="italic-btn" title="Cursiva" data-translate-key="italic_text"><i class="fas fa-italic"></i></button>
                                         <button id="underline-btn" title="Subrayar" data-translate-key="underline_text"><i class="fas fa-underline"></i></button>
@@ -2043,7 +2047,8 @@
                                     <button id="undo-drawing-btn" class="drawing-tool" title="Deshacer" data-translate-key="undo_drawing"><i class="fas fa-undo"></i></button>
                                     <button id="redo-drawing-btn" class="drawing-tool" title="Rehacer" data-translate-key="redo_drawing"><i class="fas fa-redo"></i></button>
                                 </div>
-                                <button id="share-note-btn" title="Compartir / Colaborar" class="p-2 ml-2" data-translate-key="share_note_btn"><i class="fas fa-user-plus"></i></button>
+                                <button id="share-note-pdf-btn" title="Compartir como PDF" class="p-2 ml-2"><i class="fas fa-file-pdf"></i></button>
+                                <button id="share-note-btn" title="Compartir / Colaborar" class="p-2" data-translate-key="share_note_btn"><i class="fas fa-user-plus"></i></button>
                                 <button id="delete-note-btn" title="Eliminar Nota" class="p-2 text-red-500 hover:text-red-400 transition-colors" data-translate-key="delete_note_btn"><i class="fas fa-trash-alt"></i></button>
                             </div>
                             <div id="note-content-area" class="relative flex-grow">
@@ -2425,7 +2430,7 @@
             <button id="close-calendar-modal" class="absolute top-4 right-4 text-gray-400 hover:text-text-light"><i class="fas fa-times fa-lg"></i></button>
         </div>
     </div>
-    <div id="task-notification-modal" class="fixed inset-0 bg-black bg-opacity-80 hidden items-center justify-center z-[110] p-4">
+        <div id="task-notification-modal" class="fixed inset-0 bg-black bg-opacity-80 hidden items-center justify-center z-[110] p-4">
         <div class="modal-content text-center rounded-lg w-full max-w-md p-8 relative">
             <h3 id="task-notification-title" class="text-2xl font-bold mb-4"></h3>
             <div id="task-notification-body" class="text-lg text-text-light mb-8"></div>
@@ -5999,7 +6004,15 @@
                 dom.modelSelector?.addEventListener('change', () => {
                     const selectedValue = dom.modelSelector.value;
                     if (selectedValue === 'gpt-4o' && (!currentUser || (currentUser.app_metadata?.plan || 'free') === 'free')) {
-                        showInAppNotification(translations[localStorage.getItem('goatify-lang') || 'es'].restricted_access_title || "Acceso Restringido", translations[localStorage.getItem('goatify-lang') || 'es'].restricted_access_message || "El modelo GOAT X PRO está disponible solo para usuarios con un plan de pago.", 3000);
+                        showModal({
+                            title: translations[localStorage.getItem('goatify-lang') || 'es'].restricted_access_title,
+                            body: translations[localStorage.getItem('goatify-lang') || 'es'].restricted_access_message,
+                            confirmText: 'Ver Planes',
+                            showCancel: true,
+                            cancelText: 'Entendido'
+                        }).then(res => {
+                            if (res.confirmed) showPricingModal();
+                        });
                         dom.modelSelector.value = 'gpt-3.5-turbo-1106';
                     }
                 });
@@ -6047,7 +6060,7 @@
                     'brand-names': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_business_3, workflow: 'brand-names', initialMessages: [{ role: 'assistant', content: "¡Excelente! Busquemos un nombre increíble. Describe brevemente tu idea de negocio, tu público y el estilo que buscas (ej. moderno, clásico, divertido) para generar nombres y slogans." }] },
                     'sales-assistant': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_sales_1, workflow: 'sales-assistant', initialMessages: [{ role: 'assistant', content: 'Para ayudarte a cerrar esa venta, pega aquí el mensaje de tu cliente.' }] },
                     'email-writing': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_sales_2, workflow: 'email-writing', initialMessages: [{ role: 'assistant', content: 'Creemos un email que convierta. ¿Cuál es el objetivo principal de este correo?' }] },
-                    'english-teacher-translate': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_eng_1, workflow: 'english-teacher-translate', initialMessages: [{ role: 'assistant', content: 'Of course! Please provide the text you want me to translate or correct.' }] },
+                    'english-teacher-translate': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_eng_1, workflow: 'english-teacher-translate', model: 'gpt-4o', initialMessages: [{ role: 'assistant', content: 'Welcome to the GOAT X PRO translator. Type your text in the left box.' }] },
                     'english-teacher-vocabulary': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_eng_2, workflow: 'english-teacher-vocabulary', initialMessages: [{ role: 'assistant', content: 'Excellent! Let\'s learn some new vocabulary. What topic are you interested in? (e.g., "business negotiations", "travel")' }] },
                     'english-teacher-practice': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_eng_3, workflow: 'english-teacher-practice', initialMessages: [{ role: 'assistant', content: 'Great! Let\'s practice our conversation. So, tell me about your day.' }] },
                     'social-skills': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_sales_4, workflow: 'social-skills', initialMessages: [{ role: 'assistant', content: 'Las habilidades sociales son clave. ¿En qué situación te gustaría mejorar tu comunicación? (Ej: una reunión de networking, una conversación difícil, etc.)' }] },
