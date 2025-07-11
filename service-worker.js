@@ -1,4 +1,4 @@
-const CACHE_NAME = 'goatify-ia-cache-v14'; // ¡INCREMENTADO DE NUEVO!
+const CACHE_NAME = 'goatify-ia-cache-v15'; // ¡INCREMENTADO DE NUEVO!
 const urlsToCache = [
   '/',
   '/index.html',
@@ -13,6 +13,9 @@ self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => {
       return cache.addAll(urlsToCache);
+    }).then(() => {
+      // Forzar la activación del nuevo Service Worker inmediatamente
+      self.skipWaiting();
     })
   );
 });
@@ -28,6 +31,9 @@ self.addEventListener('activate', event => {
           }
         })
       );
+    }).then(() => {
+      // Tomar el control de las pestañas existentes inmediatamente
+      self.clients.claim();
     })
   );
 });
@@ -42,13 +48,13 @@ self.addEventListener('fetch', event => {
 });
 
 // ==================================================================
-// === CÓDIGO NUEVO PARA RECIBIR Y MOSTRAR NOTIFICACIONES PUSH AÑADIDO AQUÍ ===
+// === CÓDIGO PARA RECIBIR Y MOSTRAR NOTIFICACIONES PUSH ===
 // ==================================================================
 
 self.addEventListener('push', event => {
   console.log('¡Notificación Push Recibida!');
 
-  // Lee los datos que enviaste desde tu servidor (Supabase Edge Function)
+  // Lee los datos que enviaste desde tu servidor
   const data = event.data.json();
   const title = data.title || 'Goatify IA';
   const options = {
