@@ -245,7 +245,7 @@
         .btn-danger:hover { background-color: #b91c1c; }
         .plan-card-highlight { border-color: var(--current-primary); box-shadow: 0 0 15px rgba(138, 79, 255, 0.3); }
         .placeholder-themed::placeholder { color: var(--current-text-medium); }
-        .text-primary, .workflow-header i:not(.workflow-arrow) { color: var(--current-primary) !important; }
+        .text-primary, .workflow-header i:not(.workflow-arrow) { color: var(--primary) !important; }
         .glowing-mic { animation: pulse 1.5s infinite; color: var(--primary) !important; }
 
         @keyframes pulse {
@@ -700,7 +700,6 @@
 
         #project-chat-container, #financial-chat-container, #notepad-chat-container {
             display: flex;
-            flex-direction: column;
             border-top: 1px solid var(--current-border-color);
             padding-top: 1rem;
             transition: all 0.3s ease;
@@ -2382,7 +2381,7 @@
         </div>
     </div>
 
-    <!-- New Credit Limit Modal -->
+    <!-- New Credit Limit Modal - For Guest Usage Limits -->
     <div id="credit-limit-modal" class="fixed inset-0 bg-black bg-opacity-70 hidden items-center justify-center z-50 p-4">
         <div class="modal-content rounded-lg w-full max-w-md p-6 relative text-center">
             <i class="fas fa-gem text-primary text-4xl mb-4"></i>
@@ -2697,8 +2696,6 @@
             <button id="close-gamification-rules-modal" class="absolute top-4 right-4 text-gray-400 hover:text-text-light"><i class="fas fa-times fa-lg"></i></button>
         </div>
     </div>
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <script type="module">
 //<-- START OF SCRIPT -->
         window.addEventListener('DOMContentLoaded', () => {
             dayjs.extend(window.dayjs_plugin_localizedFormat);
@@ -4573,7 +4570,7 @@
                 }
                 const body = {
                     prompt, history, model,
-                    workflow, userName: name, title,
+                    workflow, userName, title,
                     imageData: image, pdfText: pdf,
                     financialData, noteContent,
                  };
@@ -4725,6 +4722,15 @@
                     const proUsageKey = `goat_x_pro_usage_${currentUser.id}_${today}`;
                     goatXProUsage++;
                     localStorage.setItem(proUsageKey, goatXProUsage.toString());
+                }
+                return true;
+            }
+                            // Increment GOAT X PRO daily usage counter
+                if (modelUsed === 'gpt-4o' && currentUser) {
+                    const today = dayjs().format('YYYY-MM-DD');
+                    const proUsageKey = `goat_x_pro_usage_${currentUser.id}_${today}`;
+                    goatXProUsage++;
+                    localStorage.setItem(proUsageKey, proUsageKey.toString());
                 }
                 return true;
             }
@@ -5190,28 +5196,6 @@
             }
 
             /**
-             * Handles editing a user message in the main chat.
-             * Opens a modal to allow editing the message content.
-             * @param {number} index - The index of the message in the current chat's messages array.
-             */
-            async function handleEditMessage(index) {
-                const chat = state.chats[currentChatId];
-                if (!chat || !chat.messages[index]) return;
-                const originalContent = chat.messages[index].content;
-                const result = await showModal({
-                    title: translations[localStorage.getItem('goatify-lang') || 'es'].edit_message_title || 'Editar Mensaje',
-                    body: `<textarea id="edit-msg-textarea" class="w-full p-2 rounded bg-input border border-themed h-28">${originalContent}</textarea>`,
-                    confirmText: translations[localStorage.getItem('goatify-lang') || 'es'].save_changes_btn || 'Guardar Cambios'
-                 });
-                // If confirmed and content changed, update message and re-render chat
-                if (result.confirmed && result.data['edit-msg-textarea'] && result.data['edit-msg-textarea'].trim() !== originalContent.trim()) {
-                    chat.messages[index].content = result.data['edit-msg-textarea'].trim();
-                    await saveState();
-                    selectChat(currentChatId);
-                }
-            }
-
-            /**
              * Updates the content of an existing message bubble in the UI.
              * Used for updating "thinking" bubbles with the final AI response.
              * @param {HTMLElement} bubble - The message bubble element to update.
@@ -5267,7 +5251,29 @@
                     bubble.appendChild(previewButton);
                 }
             }
-                        /**
+            /**
+             * Handles editing a user message in the main chat.
+             * Opens a modal to allow editing the message content.
+             * @param {number} index - The index of the message in the current chat's message array.
+             */
+            async function handleEditMessage(index) {
+                const chat = state.chats[currentChatId];
+                if (!chat || !chat.messages[index]) return;
+                const originalContent = chat.messages[index].content;
+                const result = await showModal({
+                    title: translations[localStorage.getItem('goatify-lang') || 'es'].edit_message_title || 'Editar Mensaje',
+                    body: `<textarea id="edit-msg-textarea" class="w-full p-2 rounded bg-input border border-themed h-28">${originalContent}</textarea>`,
+                    confirmText: translations[localStorage.getItem('goatify-lang') || 'es'].save_changes_btn || 'Guardar Cambios'
+                 });
+                // If confirmed and content changed, update message and re-render chat
+                if (result.confirmed && result.data['edit-msg-textarea'] && result.data['edit-msg-textarea'].trim() !== originalContent.trim()) {
+                    chat.messages[index].content = result.data['edit-msg-textarea'].trim();
+                    await saveState();
+                    selectChat(currentChatId);
+                }
+            }
+
+            /**
              * Updates the content of an existing message bubble in the UI.
              * Used for updating "thinking" bubbles with the final AI response.
              * @param {HTMLElement} bubble - The message bubble element to update.
@@ -6751,6 +6757,13 @@
                 });
             }
             // --- TRANSLATOR FUNCTIONS END ---
+                copyBtn?.addEventListener('click', () => {
+                    dom.translatorOutputEn.select(); // Select text in output
+                    document.execCommand('copy'); // Copy to clipboard
+                    showInAppNotification('Copiado', 'Texto traducido copiado al portapapeles.', 1500);
+                });
+            }
+            // --- TRANSLATOR FUNCTIONS END ---
 
             /**
              * Sets up all global event listeners for the application.
@@ -7249,9 +7262,9 @@
                     const lang = localStorage.getItem('goatify-lang') || 'es';
                     const offerTitle = `<i class="fas fa-gift mr-2"></i>${'Tu Oferta de Lanzamiento Exclusiva'}`;
                     const offerMessage = `<p class="font-bold mb-2">${'Al suscribirte a nuestro Plan Pro por $17/mes, desbloqueas:'}</p><ul class="list-disc list-inside space-y-2 text-left"><li><strong>${'Acceso Ilimitado a Goatify IA:'}</strong> ${'Todos los modelos y workflows sin restricciones.'}</li><li><strong>${'Construcción de tu Página Web Profesional:'}</strong> ${'Nosotros construiremos la primera versión, ¡gratis!'}</li></ul><p class="font-bold mt-4 mb-2">${'¿Cómo funciona?'}</p><ol class="list-decimal list-inside space-y-1 text-left"><li><strong>${'Agenda tu Sesión Estratégica:'}</strong> ${'Al confirmar, agenda tu llamada de 20 min.'}</li><li><strong>${'Co-creación:'}</strong> ${'En la llamada definiremos objetivos y crearemos el borrador con IA.'}</li><li><strong>${'Entrega:'}</strong> ${'Nuestro equipo lo pulirá y te entregará una web de una sección, lista.'}</li></ol><p class="text-xs mt-4 italic"><strong>${'Importante:'}</strong> ${'La web es tuya para siempre. Para mantenerla online con nuestro hosting, necesitas tu suscripción Pro activa. Si cancelas, te entregamos el código completo.'}</p>`;
-                    showModal({ title: offerTitle, body: offerMessage, confirmText: 'Agendar Sesión Estratégica' }).then(res => { if (res.confirmed) { window.open('[https://calendly.com/goatify](https://calendly.com/goatify)', '_blank'); } });
+                    showModal({ title: offerTitle, body: offerMessage, confirmText: 'Agendar Sesión Estratégica' }).then(res => { if (res.confirmed) { window.open('https://calendly.com/goatify', '_blank'); } });
                 });
-                dom.freeGuidesLink.addEventListener('click', (e) => { e.preventDefault(); const isPaidUser = currentUser && currentUser.app_metadata?.plan && currentUser.app_metadata.plan !== 'free'; if (isPaidUser) { window.open('[https://goatify.app/guiasIA](https://goatify.app/guiasIA)', '_blank'); } else { const lang = localStorage.getItem('goatify-lang') || 'es'; const title = 'Acceso Exclusivo para Suscriptores'; const message = 'Estas guías se actualizan semanalmente con estrategias de negocio que te ayudarán a crecer un montón. Son un beneficio exclusivo para nuestros suscriptores. ¡Únete a un plan para desbloquearlas!'; showModal({ title, body: message, confirmText: 'Ver Planes' }).then(res => { if (res.confirmed) { showPricingModal(); } }); } });
+                dom.freeGuidesLink.addEventListener('click', (e) => { e.preventDefault(); const isPaidUser = currentUser && currentUser.app_metadata?.plan && currentUser.app_metadata.plan !== 'free'; if (isPaidUser) { window.open('https://goatify.app/guiasIA', '_blank'); } else { const lang = localStorage.getItem('goatify-lang') || 'es'; const title = 'Acceso Exclusivo para Suscriptores'; const message = 'Estas guías se actualizan semanalmente con estrategias de negocio que te ayudarán a crecer un montón. Son un beneficio exclusivo para nuestros suscriptores. ¡Únete a un plan para desbloquearlas!'; showModal({ title, body: message, confirmText: 'Ver Planes' }).then(res => { if (res.confirmed) { showPricingModal(); } }); } });
                 dom.closeHtmlPreviewModalBtn?.addEventListener('click', () => { dom.htmlPreviewModal.classList.add('hidden'); dom.htmlPreviewModal.classList.remove('flex'); });
 
                 dom.downloadHtmlBtn?.addEventListener('click', () => {
@@ -7373,10 +7386,10 @@
                     setLanguage(e.target.value);
                 });
                 dom.connectWhatsappBtn?.addEventListener('click', () => {
-                    window.open('[https://wa.me/17439106116?text=Hola%2C%20me%20gustar%C3%ADa%20conectar%20mi%20cuenta%20de%20Goatify%20IA%20a%20WhatsApp](https://wa.me/17439106116?text=Hola%2C%20me%20gustar%C3%ADa%20conectar%20mi%20cuenta%20de%20Goatify%20IA%20a%20WhatsApp).', '_blank');
+                    window.open('https://wa.me/17439106116?text=Hola%2C%20me%20gustar%C3%ADa%20conectar%20mi%20cuenta%20de%20Goatify%20IA%20a%20WhatsApp', '_blank');
                 });
                 dom.scheduleMeetingBtn?.addEventListener('click', () => {
-                    window.open('[https://calendly.com/goatify](https://calendly.com/goatify)', '_blank');
+                    window.open('https://calendly.com/goatify', '_blank');
                 });
                 dom.freePlanButton?.addEventListener('click', showPricingModal);
 
@@ -8845,82 +8858,6 @@
             }
 
             /**
-             * Renders the gamification modal with current level, XP, streak, missions, and achievements.
-             */
-            function renderGamificationModal() {
-                if(!currentUser || !dom.gamificationModal) return;
-                const level = gamificationState.level;
-                const currentXp = gamificationState.xp;
-                const xpForCurrentLevel = XP_FOR_LEVEL[level - 1];
-                const xpForNextLevel = XP_FOR_LEVEL[level];
-                dom.gamificationLevelName.textContent = `Nivel ${level}: ${LEVEL_NAMES[level - 1]}`;
-                dom.gamificationCredits.innerHTML = `<i class="fas fa-coins mr-1"></i>${gamificationState.credits} Créditos`;
-                if (level < LEVEL_NAMES.length) {
-                    const progress = ((currentXp - xpForCurrentLevel) / (xpForNextLevel - xpForCurrentLevel)) * 100;
-                    dom.gamificationXp.textContent = `${currentXp} / ${xpForNextLevel} XP`;
-                    dom.gamificationXpBar.style.width = `${Math.min(100, progress)}%`; // Update XP bar width
-                } else {
-                    dom.gamificationXp.textContent = '¡Nivel Máximo!'; // Max level reached
-                    dom.gamificationXpBar.style.width = `100%`;
-                }
-
-                // Render daily streak display
-                dom.dailyStreakContainer.innerHTML = '';
-                for (let i = 1; i <= 7; i++) {
-                    const dayEl = document.createElement('div');
-                    dayEl.className = 'streak-day p-4 rounded-lg flex flex-col items-center justify-center';
-                    const isCompleted = i <= gamificationState.dailyStreak; // Check if day in streak is completed
-                    const isActive = i === gamificationState.dailyStreak + 1 && dayjs().format('YYYY-MM-DD') !== gamificationState.lastLogin; // Check if next day is active
-
-                    if (isCompleted) dayEl.classList.add('completed');
-                    if (isActive) dayEl.classList.add('active');
-
-                    let rewardText;
-                    if (i === 7) rewardText = '<i class="fas fa-gift fa-2x"></i>'; // Special icon for day 7
-                    else if (i > 3) rewardText = '+20 XP';
-                    else rewardText = '+10 XP';
-
-                    dayEl.innerHTML = `
-                        <p class="font-bold text-lg">${i === 7 ? '' : `Día ${i}`}</p>
-                        <div class="text-2xl my-2">${rewardText}</div>
-                        <p class="text-xs">${i === 7 ? 'Cofre GOAT' : (i > 3 ? '+10 Créditos' : '+5 Créditos')}</p>
-                    `;
-                    dom.dailyStreakContainer.appendChild(dayEl);
-                }
-
-                // Render missions display
-                dom.missionsContainer.innerHTML = '';
-                Object.values(MISSIONS).forEach(mission => {
-                    const isCompleted = gamificationState.completedMissions.includes(mission.id);
-                    const missionEl = document.createElement('div');
-                    missionEl.className = `mission-item p-4 rounded-lg flex items-center justify-between bg-input ${isCompleted ? 'completed' : ''}`;
-                     missionEl.innerHTML = `
-                        <div>
-                            <p class="font-semibold">${mission.text}</p>
-                            <p class="text-sm text-text-medium">+${mission.xp} XP | +${mission.credits} Créditos</p>
-                         </div>
-                        <button class="btn-primary px-4 py-2 rounded-lg text-sm font-bold" data-mission-id="${mission.id}" ${isCompleted ? 'disabled' : ''}>
-                            ${isCompleted ? 'Hecho' : 'Empezar'}
-                         </button>
-                    `;
-                    dom.missionsContainer.appendChild(missionEl);
-                });
-
-                // Render achievements display
-                dom.achievementsContainer.innerHTML = '';
-                Object.values(ACHIEVEMENTS).forEach(ach => {
-                    const isUnlocked = gamificationState.unlockedAchievements.includes(ach.id);
-                    const achEl = document.createElement('div');
-                    achEl.className = `achievement-badge p-4 rounded-lg text-center flex flex-col items-center justify-center ${isUnlocked ? 'unlocked' : ''}`;
-                     achEl.innerHTML = `
-                        <i class="fas ${ach.icon} fa-3x mb-2"></i>
-                        <p class="font-bold">${ach.title}</p>
-                        <p class="text-xs text-text-medium mt-1">${ach.description}</p>
-                     `;
-                    dom.achievementsContainer.appendChild(achEl);
-                });
-            }
-                        /**
              * Renders the gamification modal with current level, XP, streak, missions, and achievements.
              */
             function renderGamificationModal() {
