@@ -700,6 +700,7 @@
 
         #project-chat-container, #financial-chat-container, #notepad-chat-container {
             display: flex;
+            flex-direction: column;
             border-top: 1px solid var(--current-border-color);
             padding-top: 1rem;
             transition: all 0.3s ease;
@@ -1435,9 +1436,7 @@
                 flex-basis: 50px;
                 height: 100% !important;
             }
-            #project-chat-container-header, #financial-chat-header, #notepad-chat-header { cursor: pointer; }
-
-            #project-chat-container.collapsed .project-chat-body,
+            #project-chat-container .project-chat-body,
             #project-chat-container.collapsed #project-chat-container-header h3,
             #financial-chat-container.collapsed .financial-chat-body,
             #financial-chat-container.collapsed #financial-chat-header h3,
@@ -2381,7 +2380,7 @@
         </div>
     </div>
 
-    <!-- New Credit Limit Modal - For Guest Usage Limits -->
+    <!-- New Credit Limit Modal -->
     <div id="credit-limit-modal" class="fixed inset-0 bg-black bg-opacity-70 hidden items-center justify-center z-50 p-4">
         <div class="modal-content rounded-lg w-full max-w-md p-6 relative text-center">
             <i class="fas fa-gem text-primary text-4xl mb-4"></i>
@@ -2696,7 +2695,7 @@
             <button id="close-gamification-rules-modal" class="absolute top-4 right-4 text-gray-400 hover:text-text-light"><i class="fas fa-times fa-lg"></i></button>
         </div>
     </div>
-     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script type="module">
 //<-- START OF SCRIPT -->
         window.addEventListener('DOMContentLoaded', () => {
@@ -2792,7 +2791,7 @@
                     default_chat_title: "Conversación Cósmica",
                     rename_title: "Renombrar",
                     delete_title: "Eliminar",
-                    add_to_folder: "Mover a Carpeta", // Updated to reflect common usage
+                    add_to_folder: "Mover a Carpeta", // Actualizado para reflejar el uso común
                     tasks_completed_today: "Tareas completadas hoy:",
                     activities_today: "Actividades hoy:",
                     positive_message: "¡Cada pequeño paso te acerca a tu éxito!",
@@ -2934,7 +2933,7 @@
                     default_chat_title: "Cosmic Conversation",
                     rename_title: "Rename",
                     delete_title: "Delete",
-                    add_to_folder: "Move to Folder", // Updated to reflect common usage
+                    add_to_folder: "Move to Folder", // Actualizado para reflejar el uso común
                     tasks_completed_today: "Tasks completed today:",
                     activities_today: "Activities today:",
                     positive_message: "Every small step brings you closer to success!",
@@ -2990,24 +2989,24 @@
                     translate_button: "Translate",
                 }
             };
-            // Constants for credit limits based on user plan
+            // Constantes para límites de crédito basados en el plan del usuario
             const GUEST_CREDIT_LIMIT = 5;
             const LOGGED_IN_FREE_CREDITS = 100;
             const BOOST_PLAN_CREDIT_LIMIT = 500;
             const PRO_PLAN_CREDIT_LIMIT = 2000;
 
-            // Costs associated with different AI model usages
+            // Costos asociados con los diferentes usos del modelo de IA
             const COSTS = {
-                GENERAL: 1, // Cost for general chat model (e.g., GPT-3.5)
-                SEARCH: 2,  // Cost for web search model (e.g., Sonar)
-                WORKFLOW: 2, // Cost for specific workflow usage
-                PDF_ANALYSIS: 2, // Cost for PDF analysis
-                IMAGE_ANALYSIS: 2, // Cost for image analysis
-                IMAGE_GENERATION: 5, // Cost for image generation (e.g., DALL-E)
-                GPT4O: 3 // Cost for GPT-4o model
+                GENERAL: 1, // Costo para el modelo de chat general (ej. GPT-3.5)
+                SEARCH: 2,  // Costo para el modelo de búsqueda web (ej. Sonar)
+                WORKFLOW: 2, // Costo para el uso de un flujo de trabajo específico
+                PDF_ANALYSIS: 2, // Costo para el análisis de PDF
+                IMAGE_ANALYSIS: 2, // Costo para el análisis de imágenes
+                IMAGE_GENERATION: 5, // Costo para la generación de imágenes (ej. DALL-E)
+                GPT4O: 3 // Costo para el modelo GPT-4o
             };
 
-            // Motivational messages for the motivation modal
+            // Mensajes motivacionales para el modal de motivación
             const MOTIVATIONAL_MESSAGES = [
                 "Eres una persona increíble, ¡never lo dudes!",
                 "Hoy es tu día para brillar. ¡Ve por ello!",
@@ -3021,40 +3020,40 @@
                 "No importa lo lento que vayas, siempre y cuando no te detengas.",
                 "La única forma de hacer un gran trabajo es amar lo que haces."
             ];
-            // Button texts for the motivation modal
+            // Textos de los botones para el modal de motivación
             const MOTIVATION_BUTTON_TEXTS = ["¡Listo!", "¡Vamos a darle!", "¡Perfecto!", "¡Sí, yo puedo!", "¡Vamos!", "¡Entendido!", "¡A por todas!"];
 
-            // Global state variables for the application
+            // Variables de estado globales para la aplicación
             let state = { chats: {}, projects: {}, structure: [], calendar: {}, notes: [] };
-            let gamificationState = {}; // State for gamification features
-            let currentChatId = null; // ID of the currently selected chat
-            let currentUser = null; // Current authenticated user
-            let speechOn = false; // Flag for text-to-speech
-            let availableVoices = []; // List of available voices for speech synthesis
-            let selectedVoice = null; // Currently selected voice for speech synthesis
-            let isRecognizing = false; // Flag for speech recognition in progress
-            let selectedImageBase64 = null; // Base64 encoded string of the uploaded image
-            let selectedPdfText = null; // Extracted text from the uploaded PDF
-            let micWasOnBeforeSpeaking = false; // Flag to restart mic after TTS
-            let modalResolve = null; // Promise resolver for generic modal
-            let modalKeydownHandler = null; // To handle Enter key on modals
-            let isSelectModeActive = false; // Flag for multi-chat selection mode
-            let chatsToDelete = new Set(); // Set of chat IDs selected for deletion
-            let currentNoteId = null; // ID of the currently selected note
-            let goatXProUsage = 0; // Daily usage counter for GPT-4o model
-            const GOAT_X_PRO_DAILY_LIMIT = 10; // Daily limit for GPT-4o model
+            let gamificationState = {}; // Estado para las características de gamificación
+            let currentChatId = null; // ID del chat actualmente seleccionado
+            let currentUser = null; // Usuario autenticado actual
+            let speechOn = false; // Bandera para la síntesis de voz
+            let availableVoices = []; // Lista de voces disponibles para la síntesis de voz
+            let selectedVoice = null; // Voz actualmente seleccionada para la síntesis de voz
+            let isRecognizing = false; // Bandera para el reconocimiento de voz en progreso
+            let selectedImageBase64 = null; // Cadena codificada en Base64 de la imagen cargada
+            let selectedPdfText = null; // Texto extraído del PDF cargado
+            let micWasOnBeforeSpeaking = false; // Bandera para reiniciar el micrófono después del TTS
+            let modalResolve = null; // Resolvedor de promesas para el modal genérico
+            let modalKeydownHandler = null; // Para manejar la tecla Enter en los modales
+            let isSelectModeActive = false; // Bandera para el modo de selección múltiple de chat
+            let chatsToDelete = new Set(); // Conjunto de IDs de chat seleccionados para eliminar
+            let currentNoteId = null; // ID de la nota actualmente seleccionada
+            let goatXProUsage = 0; // Contador de uso diario para el modelo GPT-4o
+            const GOAT_X_PRO_DAILY_LIMIT = 10; // Límite diario para el modelo GPT-4o
 
-            // Default notification settings, active by default as per requirements
+            // Configuración de notificaciones predeterminadas, activas por defecto según los requisitos
             let notificationsEnabled = localStorage.getItem('goatify-notifications-enabled') === null ? true : localStorage.getItem('goatify-notifications-enabled') === 'true';
             let motivationEnabled = localStorage.getItem('goatify-motivation-enabled') === null ? true : localStorage.getItem('goatify-motivation-enabled') === 'true';
 
-            // Calendar related state
-            let selectedCalendarDate = dayjs(); // The date currently selected in the calendar
-            let currentCalendarView = 'month'; // Current view of the calendar (day, week, month)
-            let activeTagFilter = null; // Filter for project tasks by tag
-            let motivationInterval = null; // Interval for periodic motivation notifications
+            // Estado relacionado con el calendario
+            let selectedCalendarDate = dayjs(); // La fecha actualmente seleccionada en el calendario
+            let currentCalendarView = 'month'; // Vista actual del calendario (día, semana, mes)
+            let activeTagFilter = null; // Filtro para tareas de proyecto por etiqueta
+            let motivationInterval = null; // Intervalo para notificaciones de motivación periódicas
 
-            // Mapeo de elementos del DOM para un acceso más fácil
+            // Mapeo de elementos DOM para un acceso más fácil
             const dom = {};
             const fullDom = {
                 appContainer: document.getElementById('app-container'),
@@ -3151,7 +3150,7 @@
                 tagFilterBtn: document.getElementById('tag-filter-btn'),
                 tagFilterDropdown: document.getElementById('tag-filter-dropdown'),
                 financialAssistantView: document.getElementById('financial-assistant-view'),
-                gamificationBtn: document.getElementById('gamification-btn'), // Este botón no existe en el HTML, pero se mantiene para lógica
+                gamificationBtn: document.getElementById('gamification-btn'), // Este botón no existe en HTML
                 gamificationModal: document.getElementById('gamification-modal'),
                 closeGamificationModal: document.getElementById('close-gamification-modal'),
                 gamificationLevelName: document.getElementById('gamification-level-name'),
@@ -3175,7 +3174,7 @@
                 foldersContainer: document.getElementById('folders-container'),
                 addProjectFolderBtn: document.getElementById('add-project-folder-btn'),
 
-                // Elementos del DOM del Bloc de Notas
+                // Elementos DOM del Bloc de Notas
                 notesListPanel: document.getElementById('notes-list-panel'),
                 notesListHeader: document.getElementById('notes-list-header'),
                 noteEditorPanel: document.getElementById('note-editor-panel'),
@@ -3221,7 +3220,7 @@
                 currentTimeDisplay: document.getElementById('current-time-display'),
                 drawingFullscreenBtn: document.getElementById('drawing-fullscreen-btn'),
 
-                // Elementos del DOM del Traductor
+                // Elementos DOM del Traductor
                 translatorInputEs: document.getElementById('translator-input-es'),
                 translatorOutputEn: document.getElementById('translator-output-en'),
                 translateBtn: document.getElementById('translate-btn'),
@@ -3230,7 +3229,7 @@
             // Asignar propiedades de fullDom al objeto 'dom' para mayor comodidad
             Object.assign(dom, fullDom);
 
-            // Puntos de experiencia requeridos para cada nivel de gamificación
+            // Puntos de experiencia de gamificación requeridos para cada nivel
             const XP_FOR_LEVEL = [0, 250, 750, 2000, 5000, Infinity];
             // Nombres para cada nivel de gamificación
             const LEVEL_NAMES = ["Iniciador Digital", "Creador de Contenido", "Estratega de Marketing", "CEO Digital", "G.O.A.T."];
@@ -3289,18 +3288,18 @@
                                 if (textNode) {
                                     textNode.textContent = ` ${translationData[key]}`; // Anteponer espacio para icono + texto
                                 } else {
-                                    el.textContent = translationData[key]; // Actualizar contenido de texto completo
+                                    el.textContent = translationData[key]; // Actualizar el contenido de texto completo
                                 }
                             } else {
-                                el.textContent = translationData[key]; // Actualizar contenido de texto completo
+                                el.textContent = translationData[key]; // Actualizar el contenido de texto completo
                             }
                         }
                     }
                 });
-                document.documentElement.lang = lang; // Establecer el atributo lang del HTML
-                localStorage.setItem('goatify-lang', lang); // Guardar preferencia de idioma
-                renderCalendarView(); // Volver a renderizar el calendario para aplicar cambios de idioma
-                renderSidebar(); // Volver a renderizar la barra lateral para aplicar cambios de idioma
+                document.documentElement.lang = lang; // Establecer el atributo lang de HTML
+                localStorage.setItem('goatify-lang', lang); // Guardar la preferencia de idioma
+                renderCalendarView(); // Volver a renderizar el calendario para aplicar los cambios de idioma
+                renderSidebar(); // Volver a renderizar la barra lateral para aplicar los cambios de idioma
                 renderGamificationModal(); // Volver a renderizar el modal de gamificación
                 updateCreditCounter(); // Actualizar el contador de créditos
             }
@@ -3334,7 +3333,7 @@
                 dom.contextualFooter.textContent = workflowTexts[key] || 'Tu copiloto de IA para hacer crecer tu negocio.';
             }
 
-            // API de voz web para reconocimiento de voz
+            // API de voz web para el reconocimiento de voz
             const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
             let recognition;
 
@@ -3345,10 +3344,10 @@
              * @param {string} options.body - El contenido HTML para el cuerpo del modal.
              * @param {string} [options.confirmText='Confirmar'] - Texto para el botón de confirmar.
              * @param {string} [options.cancelText='Cancelar'] - Texto para el botón de cancelar.
-             * @param {boolean} [options.showCancel=true] - Si mostrar el botón de cancelar.
-             * @param {boolean} [options.showConfirm=true] - Si mostrar el botón de confirmar.
+             * @param {boolean} [options.showCancel=true] - Si se muestra el botón de cancelar.
+             * @param {boolean} [options.showConfirm=true] - Si se muestra el botón de confirmar.
              * @param {Array<object>} [options.extraButtons=[]] - Array de botones extra para añadir.
-             * @param {boolean} [options.dangerConfirm=false] - Si es true, hace que el botón de confirmar sea rojo.
+             * @param {boolean} [options.dangerConfirm=false] - Si es verdadero, hace que el botón de confirmar sea rojo.
              * @returns {Promise<object>} Una promesa que se resuelve con { confirmed: boolean, data: object } cuando el modal se cierra.
              */
             function showModal({ title, body, confirmText = 'Confirmar', cancelText = 'Cancelar', showCancel = true, showConfirm = true, extraButtons = [], dangerConfirm = false }) {
@@ -3396,7 +3395,7 @@
                     }
                 });
 
-                // Manejar la tecla Enter presionada en el modal para activar la confirmación
+                // Manejar la pulsación de la tecla Enter en el modal para activar la confirmación
                 const confirmButton = dom.genericModal.querySelector('#modal-confirm');
                 modalKeydownHandler = (e) => {
                     if (e.key === 'Enter') {
@@ -3419,7 +3418,7 @@
 
             /**
              * Oculta el modal genérico y resuelve su promesa.
-             * @param {object} [resolveWith=null] - El valor con el que se resolverá la promesa del modal.
+             * @param {object} [resolveWith=null] - El valor con el que se resuelve la promesa del modal.
              */
             function hideModal(resolveWith = null) {
                 // Eliminar el escuchador de keydown si existe
@@ -3479,7 +3478,7 @@
                     dom.settingsUserEmail.textContent = currentUser.email;
                     const userPlan = currentUser.app_metadata?.plan || 'free';
                     dom.settingsUserPlan.textContent = userPlan.charAt(0).toUpperCase() + userPlan.slice(1);
-                    dom.settingsUpgradePlanBtn.classList.toggle('hidden', userPlan !== 'free'); // Ocultar botón de actualización si no es gratis
+                    dom.settingsUpgradePlanBtn.classList.toggle('hidden', userPlan !== 'free'); // Ocultar el botón de actualización si no es gratis
                 } else {
                     dom.settingsUserEmail.textContent = 'No ha iniciado sesión';
                     dom.settingsUserPlan.textContent = 'Gratis (Invitado)';
@@ -3522,14 +3521,14 @@
                     if (event && event.target.closest('button, a')) {
                         return;
                     }
-                    if(timer) clearTimeout(timer); // Limpiar cualquier temporizador de ocultación automática existente
+                    if(timer) clearTimeout(timer); // Borrar cualquier temporizador de ocultación automática existente
                     dom.inAppNotification.classList.remove('show');
                     dom.inAppNotification.removeEventListener('click', closeNotification); // Eliminar el escuchador de eventos para evitar múltiples llamadas
                     dom.inAppNotificationClose.removeEventListener('click', closeFromX); // Eliminar el escuchador de eventos para el botón 'X'
                 };
 
                 const closeFromX = (event) => {
-                    event.stopPropagation(); // Evitar que el clic se propague a la notificación misma
+                    event.stopPropagation(); // Evitar que el clic se propague a la propia notificación
                     closeNotification();
                 };
 
@@ -3542,7 +3541,7 @@
             }
 
             /**
-             * Activa una notificación push al dispositivo del usuario a través de una función de Netlify.
+             * Activa una notificación push en el dispositivo del usuario a través de una función de Netlify.
              * Requiere que el usuario haya iniciado sesión y esté suscrito a las notificaciones push.
              * @param {string} title - El título de la notificación push.
              * @param {string} body - El contenido del cuerpo de la notificación push.
@@ -3579,8 +3578,8 @@
             }
 
             /**
-             * Convierte una cadena base64 segura para URL a un Uint8Array.
-             * Se utiliza para la conversión de la clave pública VAPID para la API Push.
+             * Convierte una cadena base64 segura para URL en un Uint8Array.
+             * Se utiliza para la conversión de claves públicas VAPID para la API Push.
              * @param {string} base64String - La cadena base64 segura para URL.
              * @returns {Uint8Array} El Uint8Array convertido.
              */
@@ -3596,14 +3595,14 @@
             }
 
             /**
-             * Registra el Service Worker y suscribe al usuario para notificaciones push.
-             * Maneja las solicitudes de permiso y envía los detalles de la suscripción al backend.
+             * Registra el Service Worker y suscribe al usuario para las notificaciones push.
+             * Maneja las solicitudes de permisos y envía los detalles de la suscripción al backend.
              */
             async function registerServiceWorkerAndSubscribe() {
                 // Comprobar si el Service Worker y la API Push son compatibles con el navegador
                 if (!('serviceWorker' in navigator && 'PushManager' in window)) {
                     console.warn("Las notificaciones Push no son soportadas en este navegador.");
-                    notificationsEnabled = false; // Desactivar notificaciones si no son compatibles
+                    notificationsEnabled = false; // Desactivar las notificaciones si no son compatibles
                     return;
                 }
 
@@ -3625,21 +3624,21 @@
                         }
                     }
 
-                    // Obtener suscripción existente o crear una nueva
+                    // Obtener la suscripción existente o crear una nueva
                     let subscription = await registration.pushManager.getSubscription();
                     if (subscription === null) {
                         console.log("No se encontró suscripción, creando una nueva.");
 
-                        // Clave pública VAPID (reemplazar con tu clave real si es diferente)
-                        const VAPID_PUBLIC_KEY = 'BJ4v02ExA1Tso9D_s2zXJGXWf_Q-wG2t6RkcuU_k9mLyD_i_Ld16Gq2g4Gf4K_V8A2f4g7J1zX9Z8hE3D4A0f5Y';
+                        // Clave pública VAPID (reemplazar con su clave real si es diferente)
+                        const VAPID_PUBLIC_KEY = 'BJ4v02ExA1Tso9D_s2zXJGXWf_Q-wG2t6RkcuT_k9mLyD_i_Ld16Gq2g4Gf4K_V8A2f4g7J1zX9Z8hE3D4A0f5Y';
 
                         subscription = await registration.pushManager.subscribe({
-                            userVisibleOnly: true, // Requerido para notificaciones visibles por el usuario
-                            applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) // Tu clave pública VAPID
+                            userVisibleOnly: true, // Requerido para notificaciones visibles para el usuario
+                            applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) // Su clave pública VAPID
                         });
                         console.log('Nueva suscripción creada:', subscription);
 
-                        // Enviar la nueva suscripción a tu backend para guardarla
+                        // Enviar la nueva suscripción a su backend para guardarla
                         await fetch('/.netlify/functions/save-subscription', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
@@ -3655,16 +3654,16 @@
 
                 } catch (error) {
                     console.error('Falló el registro del Service Worker o la suscripción:', error);
-                    notificationsEnabled = false; // Desactivar notificaciones en caso de error
+                    notificationsEnabled = false; // Desactivar las notificaciones en caso de error
                     if(dom.notificationsToggle) dom.notificationsToggle.checked = false;
                     localStorage.setItem('goatify-notifications-enabled', 'false');
                 }
             }
 
             /**
-             * Muestra un modal de notificación específico de tarea.
-             * @param {string} title - El título de la notificación de tarea.
-             * @param {string} body - El contenido del cuerpo de la notificación de tarea.
+             * Muestra un modal de notificación específico de la tarea.
+             * @param {string} title - El título de la notificación de la tarea.
+             * @param {string} body - El contenido del cuerpo de la notificación de la tarea.
              */
             function showTaskNotification(title, body) {
                 dom.taskNotificationModal.classList.remove('hidden');
@@ -3680,7 +3679,7 @@
             }
 
             /**
-             * Oculta el modal de notificación de tarea.
+             * Oculta el modal de notificación de tareas.
              */
             function hideTaskNotification() {
                 dom.taskNotificationModal.classList.add('hidden');
@@ -3693,7 +3692,7 @@
             function showCalendarModal() {
                 dom.calendarModalOverlay.classList.remove('hidden');
                 dom.calendarModalOverlay.classList.add('flex');
-                if (!currentCalendarView) currentCalendarView = 'month'; // Por defecto, vista de mes
+                if (!currentCalendarView) currentCalendarView = 'month'; // Por defecto a la vista de mes
                 renderCalendarView(); // Renderizar la vista actual del calendario
                 updateCalendarTime(); // Actualizar la hora cuando se abre el modal
                 updateMiDiaInfo(); // Actualizar la información de "Mi Día" cuando se abre el modal
@@ -3729,7 +3728,7 @@
                 const totalPendingTasksToday = allTasksToday.filter(task => !task.completed).length;
 
                 let totalChatActivities = 0;
-                // Contar mensajes de chat enviados hoy
+                // Contar los mensajes de chat enviados hoy
                 Object.values(state.chats).forEach(chat => {
                     (chat.messages || []).forEach(msg => {
                         if (dayjs(msg.timestamp).isSame(dayjs(), 'day')) {
@@ -3737,13 +3736,13 @@
                         }
                     });
                 });
-                // Calcular actividades totales (tareas + la mitad de los mensajes de chat para simplificar)
+                // Calcular las actividades totales (tareas + la mitad de los mensajes de chat para simplificar)
                 const totalActivitiesToday = completedTasksToday + totalPendingTasksToday + Math.floor(totalChatActivities / 2);
 
                 const planCreditsInfo = getCreditCount();
                 const totalCredits = planCreditsInfo.remaining + (gamificationState.credits || 0);
 
-                // Personalizar mensaje de bienvenida en el modal
+                // Personalizar el mensaje de bienvenida en el modal
                 const userName = currentUser ? (currentUser.user_metadata?.full_name?.split(' ')[0] || currentUser.email.split('@')[0]) : '';
                 let greetingTitle = 'Jefe';
                 if (userName.slice(-1).toLowerCase() === 'a' || ['isabel', 'dolores'].includes(userName.toLowerCase())) {
@@ -3774,7 +3773,7 @@
              */
             function renderMonthView() {
                 dom.calendarDaysGrid.innerHTML = ''; // Limpiar días anteriores
-                dom.currentMonthYear.textContent = selectedCalendarDate.format('MMMM YYYY'); // Actualizar visualización de mes/año
+                dom.currentMonthYear.textContent = selectedCalendarDate.format('MMMM YYYY'); // Actualizar la visualización de mes/año
                 const startDay = selectedCalendarDate.startOf('month').startOf('isoWeek'); // Obtener el primer día de la semana para el primer día del mes
 
                 // Bucle para renderizar 42 días (6 semanas) para llenar la cuadrícula del calendario
@@ -3782,7 +3781,7 @@
                     const day = startDay.add(i, 'day');
                     const dayEl = document.createElement('div');
                     dayEl.className = 'calendar-day';
-                    dayEl.dataset.date = day.format('YYYY-MM-DD'); // Almacenar fecha para facilitar el acceso
+                    dayEl.dataset.date = day.format('YYYY-MM-DD'); // Almacenar la fecha para un fácil acceso
 
                     dayEl.innerHTML = `<span class="calendar-day-number">${day.date()}</span><div class="calendar-day-tasks"></div>`;
 
@@ -3803,7 +3802,7 @@
                         const taskEl = document.createElement('div');
                         taskEl.className = 'calendar-day-task';
                         taskEl.textContent = task.text;
-                        // Establecer color de fondo según el origen/etiqueta de la tarea
+                        // Establecer el color de fondo según la fuente/etiqueta de la tarea
                         const bgColor = task.source === 'Personal' ? getLabelColor('Personal') : (task.labels && task.labels[0] ? getLabelColor(task.labels[0]) : 'grey');
                         taskEl.style.backgroundColor = bgColor;
                         taskEl.draggable = true; // Hacer las tareas arrastrables
@@ -3844,11 +3843,11 @@
              * Renderiza la vista de semana del calendario.
              */
             function renderWeekView() {
-                dom.weekDaysContent.innerHTML = ''; // Limpiar contenido de la semana anterior
+                dom.weekDaysContent.innerHTML = ''; // Limpiar el contenido de la semana anterior
                 let startOfWeek = selectedCalendarDate.startOf('isoWeek'); // Obtener el inicio de la semana actual
 
                 const endOfWeek = startOfWeek.add(6, 'day');
-                dom.currentWeekRange.textContent = `${startOfWeek.format('D MMM')} - ${endOfWeek.format('D MMM, YYYY')}`; // Actualizar visualización del rango de la semana
+                dom.currentWeekRange.textContent = `${startOfWeek.format('D MMM')} - ${endOfWeek.format('D MMM, YYYY')}`; // Actualizar la visualización del rango de la semana
 
             for (let i = 0; i < 7; i++) {
                     const day = startOfWeek.add(i, 'day');
@@ -3858,9 +3857,9 @@
                     const displayDate = day.format('dddd, D MMM');
                     const daySection = document.createElement('div');
                     daySection.className = 'week-day-section';
-                    daySection.dataset.date = dayKey; // Almacenar fecha para facilitar el acceso
+                    daySection.dataset.date = dayKey; // Almacenar la fecha para un fácil acceso
 
-                    // Construir HTML para cada sección de día, incluyendo tareas
+                    // Construir HTML para cada sección del día, incluyendo las tareas
                     daySection.innerHTML = `
                         <h5>
                             <span>${displayDate}</span>
@@ -3883,7 +3882,7 @@
                         </div>
                      `;
                     dom.weekDaysContent.appendChild(daySection);
-                    // Escuchadores de eventos de arrastrar y soltar para las secciones de días de la semana
+                    // Escuchadores de eventos de arrastrar y soltar para las secciones de los días de la semana
                     daySection.addEventListener('dragover', e => { e.preventDefault(); e.currentTarget.style.backgroundColor = 'var(--current-bg-light)'; });
                     daySection.addEventListener('dragleave', e => { e.currentTarget.style.backgroundColor = ''; });
                     daySection.addEventListener('drop', handleCalendarDrop);
@@ -3895,7 +3894,7 @@
                     });
                 }
 
-                // Adjuntar escuchadores de eventos a elementos creados dinámicamente
+                // Adjuntar escuchadores de eventos a los elementos creados dinámicamente
                 dom.weekDaysContent.querySelectorAll('.task-checkbox').forEach(checkbox => {
                     checkbox.addEventListener('click', (e) => {
                         e.stopPropagation(); // Evitar la propagación
@@ -3905,7 +3904,7 @@
 
                 dom.weekDaysContent.querySelectorAll('.task-item').forEach(item => {
                     item.addEventListener('dragstart', handleCalendarDragStart); // Hacer las tareas arrastrables
-                    item.addEventListener('touchstart', handleTouchStart, {passive: false}); // Arrastrar con toque para móvil
+                    item.addEventListener('touchstart', handleTouchStart, {passive: false}); // Arrastre táctil para móvil
                     item.addEventListener('click', (e) => {
                         if (e.target.closest('.delete-task-icon')) {
                             e.stopPropagation();
@@ -3929,16 +3928,16 @@
              * Renderiza la vista de día del calendario.
              */
             function renderDayView() {
-                dom.currentDayDisplay.textContent = selectedCalendarDate.format('dddd, D [de] MMMM'); // Actualizar visualización del día
-                dom.dayViewTimeline.innerHTML = ''; // Limpiar contenido del día anterior
+                dom.currentDayDisplay.textContent = selectedCalendarDate.format('dddd, D [de] MMMM'); // Actualizar la visualización del día
+                dom.dayViewTimeline.innerHTML = ''; // Limpiar el contenido del día anterior
                 const tasksForDay = getTasksForDay(selectedCalendarDate.format('YYYY-MM-DD'));
 
-                // Bucle para recorrer las 24 horas y crear la línea de tiempo
+                // Recorrer las 24 horas para crear la línea de tiempo
                 for (let hour = 0; hour < 24; hour++) {
                     const hourEl = document.createElement('div');
                     hourEl.className = 'day-view-hour';
                     const hourLabel = (hour < 10 ? '0' : '') + hour + ':00';
-                    hourEl.dataset.time = hourLabel.substring(0,2); // Almacenar hora para el objetivo de soltar
+                    hourEl.dataset.time = hourLabel.substring(0,2); // Almacenar la hora para el objetivo de soltar
                     const tasksInHour = tasksForDay.filter(t => t.time && t.time.startsWith((hour < 10 ? '0' : '') + hour));
                     hourEl.innerHTML = `
                         <div class="day-view-hour-label">${hourLabel}</div>
@@ -3970,7 +3969,7 @@
                         }
                     });
                 }
-                // Adjuntar escuchadores de eventos a elementos creados dinámicamente
+                // Adjuntar escuchadores de eventos a los elementos creados dinámicamente
                 dom.dayViewTimeline.querySelectorAll('.add-task-to-time-btn').forEach(btn => {
                     btn.addEventListener('click', (e) => {
                         e.stopPropagation();
@@ -3987,7 +3986,7 @@
                 });
                 dom.dayViewTimeline.querySelectorAll('.task-item').forEach(item => {
                     item.addEventListener('dragstart', handleCalendarDragStart); // Hacer las tareas arrastrables
-                    item.addEventListener('touchstart', handleTouchStart, {passive: false}); // Arrastrar con toque para móvil
+                    item.addEventListener('touchstart', handleTouchStart, {passive: false}); // Arrastre táctil para móvil
                     item.addEventListener('click', (e) => {
                          if (e.target.closest('.delete-task-icon')) {
                             e.stopPropagation();
@@ -4001,15 +4000,15 @@
             }
 
             /**
-             * Maneja el clic en un elemento de tarea, redirigiendo a la función de edición adecuada según el origen de la tarea.
+             * Maneja el clic en un elemento de tarea, redirigiendo a la función de edición adecuada según la fuente de la tarea.
              * @param {string} taskId - El ID de la tarea.
-             * @param {string} taskSource - El origen de la tarea ('Personal' o título del proyecto).
+             * @param {string} taskSource - La fuente de la tarea ('Personal' o título del proyecto).
              */
             function handleTaskClick(taskId, taskSource) {
                  if (taskSource === 'Personal') {
                     editCalendarTask(taskId);
                 } else {
-                    // Encontrar el chat del proyecto asociado con el origen de la tarea
+                    // Encontrar el chat del proyecto asociado con la fuente de la tarea
                     const projectChat = Object.values(state.chats).find(c => c.projectData && c.projectData.title === taskSource);
                     if (projectChat) {
                         editProjectTask(projectChat.id, taskId);
@@ -4042,8 +4041,8 @@
                 if (!taskId) return;
 
                 const dropZone = e.currentTarget;
-                const newDate = dropZone.dataset.date; // Obtener nueva fecha de la zona de soltar
-                let newTime = dropZone.dataset.time || findTask(taskId)?.task?.time || null; // Obtener nueva hora o mantener la antigua
+                const newDate = dropZone.dataset.date; // Obtener la nueva fecha de la zona de soltar
+                let newTime = dropZone.dataset.time || findTask(taskId)?.task?.time || null; // Obtener la nueva hora o mantener la hora anterior
 
                 // Ajustar el formato de la hora si solo se proporciona la hora
                 if (newTime && newTime.length === 2) {
@@ -4053,7 +4052,7 @@
                 }
 
                 const updates = { date: newDate, time: newTime };
-                updateTaskStatus(taskId, updates); // Actualizar tarea con nueva fecha/hora
+                updateTaskStatus(taskId, updates); // Actualizar la tarea con la nueva fecha/hora
             }
 
             let touchDragElement = null, ghostElement = null; // Elementos para arrastrar y soltar basados en el tacto
@@ -4097,7 +4096,7 @@
              */
             function handleTouchMove(e) {
                 if (e.touches.length !== 1 || !ghostElement) return;
-                e.preventDefault(); // Evitar el desplazamiento mientras se arrastra
+                e.preventDefault(); // Evitar el desplazamiento durante el arrastre
                 const touch = e.touches[0];
                 ghostElement.style.left = `${touch.pageX - ghostElement.offsetWidth / 2}px`;
                 ghostElement.style.top = `${touch.pageY - ghostElement.offsetHeight / 2}px`;
@@ -4111,10 +4110,10 @@
             function handleTouchEnd(e) {
                 if (!ghostElement) return;
 
-                ghostElement.style.display = 'none'; // Ocultar elemento fantasma
+                ghostElement.style.display = 'none'; // Ocultar el elemento fantasma
                 // Determinar el elemento en la posición de soltar
                 const dropTarget = document.elementFromPoint(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
-                ghostElement.remove(); // Eliminar elemento fantasma del DOM
+                ghostElement.remove(); // Eliminar el elemento fantasma del DOM
 
                 if (dropTarget) {
                     // Encontrar la zona de soltar válida más cercana
@@ -4150,7 +4149,7 @@
                             }
                         }
                         else {
-                            // Por defecto, actualizar tarea del calendario
+                            // Por defecto, actualizar la tarea del calendario
                             const newDate = dropZone.dataset.date;
                             let newTime = dropZone.dataset.time || findTask(taskId)?.task?.time || null;
                             if (newTime && newTime.length === 2) {
@@ -4170,13 +4169,13 @@
             }
 
             /**
-             * Busca una tarea por su ID, ya sea una tarea personal del calendario o una tarea de proyecto.
+             * Busca una tarea por su ID, ya sea una tarea de calendario personal o una tarea de proyecto.
              * @param {string} taskId - El ID de la tarea a buscar.
              * @returns {object|null} Un objeto que contiene los detalles de la tarea y su ubicación, o null si no se encuentra.
              */
             function findTask(taskId) {
                 if (!taskId) return null;
-                // Comprobar tareas personales del calendario
+                // Comprobar las tareas del calendario personal
                 if (taskId.startsWith('cal-')) {
                     for (const dayKey in state.calendar) {
                         const taskIndex = (state.calendar[dayKey] || []).findIndex(t => t.id === taskId);
@@ -4185,7 +4184,7 @@
                         }
                     }
                 }
-                // Comprobar tareas del proyecto en todos los proyectos y columnas
+                // Comprobar las tareas del proyecto en todos los proyectos y columnas
                 else if (taskId.startsWith('proj-')) {
                     for (const chat of Object.values(state.chats)) {
                         if (chat.projectData && chat.projectData.columns) {
@@ -4217,12 +4216,12 @@
                     const newDate = updates.date || oldDate;
 
                     if (oldDate !== newDate) {
-                        // Si la fecha cambia, mover la tarea a la matriz de la nueva fecha
+                        // Si la fecha cambia, mover la tarea al array de la nueva fecha
                         const taskIndex = state.calendar[oldDate].findIndex(t => t.id === taskId);
                         const [taskToMove] = state.calendar[oldDate].splice(taskIndex, 1);
-                        if(state.calendar[oldDate].length === 0) delete state.calendar[oldDate]; // Eliminar la entrada del día si está vacía
+                        if(state.calendar[oldDate].length === 0) delete state.calendar[oldDate]; // Eliminar el array de días vacío
 
-                        if (!state.calendar[newDate]) state.calendar[newDate] = []; // Crear una nueva matriz de día si no existe
+                        if (!state.calendar[newDate]) state.calendar[newDate] = []; // Crear un nuevo array de días si no existe
                         Object.assign(taskToMove, updates); // Aplicar actualizaciones a la tarea
                         delete taskToMove.date; // Eliminar la propiedad 'date' redundante
                         state.calendar[newDate].push(taskToMove); // Añadir tarea a la nueva fecha
@@ -4235,7 +4234,7 @@
                     const { task, chat } = found;
                     const originalCompleted = task.completed; // Almacenar el estado de finalización original
 
-                    // Si 'date' se proporciona en las actualizaciones, significa que es una fecha de vencimiento para las tareas del proyecto
+                    // Si se proporciona 'date' en las actualizaciones, significa que es una dueDate para las tareas del proyecto
                     if (updates.date) {
                         updates.dueDate = updates.date;
                         delete updates.date;
@@ -4243,7 +4242,7 @@
 
                     Object.assign(task, updates); // Aplicar actualizaciones a la tarea del proyecto
 
-                    // Si el estado de finalización cambió, mover la tarea entre columnas (ej. a 'done' o 'todo')
+                    // Si el estado de finalización cambió, mover la tarea entre columnas (ej. a 'hecho' o 'por hacer')
                     if (updates.completed !== undefined && updates.completed !== originalCompleted) {
                         let sourceColumn, taskIndex;
                         // Encontrar la columna de origen de la tarea
@@ -4257,17 +4256,17 @@
                         }
 
                         if (sourceColumn) {
-                            const [taskToMove] = sourceColumn.tasks.splice(taskIndex, 1); // Eliminar tarea de la columna de origen
+                            const [taskToMove] = sourceColumn.tasks.splice(taskIndex, 1); // Eliminar la tarea de la columna de origen
                             if (task.completed) {
-                                // Si está completada, mover a la columna 'done'
+                                // Si está completada, mover a la columna 'hecho'
                                 const doneColumn = chat.projectData.columns.find(c => c.id === 'done');
                                 if (doneColumn && sourceColumn.id !== 'done') doneColumn.tasks.push(taskToMove);
-                                else sourceColumn.tasks.push(taskToMove); // Si ya está en 'done' o no hay columna 'done', mantener en su lugar
+                                else sourceColumn.tasks.push(taskToMove); // Si ya está en 'hecho' o no hay columna 'hecho', mantener en su lugar
                             } else {
-                                // Si no está completada, mover a la columna 'todo'
+                                // Si no está completada, mover a la columna 'por hacer'
                                 const todoColumn = chat.projectData.columns.find(c => c.id === 'todo');
                                 if (todoColumn && sourceColumn.id === 'done') todoColumn.tasks.push(taskToMove);
-                                else sourceColumn.tasks.push(taskToMove); // Si no está en 'done' o no hay columna 'todo', mantener en su lugar
+                                else sourceColumn.tasks.push(taskToMove); // Si no está en 'hecho' o no hay columna 'por hacer', mantener en su lugar
                             }
                         }
                     }
@@ -4293,7 +4292,7 @@
                 // Obtener tareas personales para el día
                 const calendarTasks = (state.calendar[dayKey] || []).map(t => ({...t, text: t.content, source: 'Personal', labels: ['Personal']}));
                 const projectTasks = [];
-                // Iterar a través de todos los chats de proyectos para encontrar tareas con vencimiento en este día
+                // Iterar a través de todos los chats de proyecto para encontrar tareas con vencimiento en este día
                 Object.values(state.chats).forEach(chat => {
                     if (chat.projectData && chat.projectData.columns) {
                         chat.projectData.columns.forEach(column => {
@@ -4305,7 +4304,7 @@
                         });
                     }
                 });
-                // Combinar y ordenar tareas por hora
+                // Combinar y ordenar las tareas por hora
                 return [...calendarTasks, ...projectTasks].sort((a, b) => (a.time || '23:59').localeCompare(b.time || '23:59'));
             }
 
@@ -4353,7 +4352,7 @@
             }
 
             /**
-             * Comprueba y activa notificaciones para tareas que están pendientes.
+             * Comprueba y activa las notificaciones para las tareas que están pendientes.
              * Se ejecuta periódicamente.
              */
             function checkAndNotifyTasks() {
@@ -4363,7 +4362,7 @@
                 const currentHourMinute = now.format('HH:mm');
                 const allTasksToday = getTasksForDay(todayKey);
                 allTasksToday.forEach(task => {
-                    // Comprobar si la tarea está pendiente ahora y no ha sido notificada para este minuto
+                    // Comprobar si la tarea está pendiente ahora y no ha sido notificada en este minuto
                     if (!task.completed && task.time === currentHourMinute && !task.notifiedThisMinute) {
                         const lang = localStorage.getItem('goatify-lang') || 'es';
                         const notificationTitle = translations[lang].notification_title;
@@ -4371,10 +4370,10 @@
 
                         showTaskNotification(notificationTitle, notificationBody);
 
-                        updateTaskNotifiedFlag(task.id, true); // Marcar como notificada para este minuto
+                        updateTaskNotifiedFlag(task.id, true); // Marcar como notificado para este minuto
                     }
                 });
-                // Restablecer el indicador de notificación para las tareas que fueron notificadas en minutos pasados
+                // Restablecer la bandera de notificación para las tareas que fueron notificadas en minutos anteriores
                 for (const dayKey in state.calendar) {
                     state.calendar[dayKey].forEach(task => {
                         const taskDate = dayjs(dayKey);
@@ -4384,14 +4383,14 @@
                         }
                     });
                 }
-                saveState(); // Guardar el estado después de actualizar los indicadores de notificación
+                saveState(); // Guardar el estado después de actualizar las banderas de notificación
                 updateNotificationBadge(); // Actualizar el recuento de la insignia
             }
 
             /**
-             * Actualiza el indicador 'notifiedThisMinute' para una tarea específica.
+             * Actualiza la bandera 'notifiedThisMinute' para una tarea específica.
              * @param {string} taskId - El ID de la tarea.
-             * @param {boolean} isNotified - El nuevo valor para el indicador.
+             * @param {boolean} isNotified - El nuevo valor para la bandera.
              */
             function updateTaskNotifiedFlag(taskId, isNotified) {
                 const found = findTask(taskId);
@@ -4432,7 +4431,7 @@
                 if (!text) return;
 
                 if (speechOn) { // Si la voz global está habilitada
-                    if (!('speechSynthesis' in window)) return; // Comprobar compatibilidad con la API SpeechSynthesis
+                    if (!('speechSynthesis' in window)) return; // Comprobar la compatibilidad con la API SpeechSynthesis
                     speechSynthesis.cancel(); // Detener cualquier voz en curso
                     micWasOnBeforeSpeaking = isRecognizing; // Almacenar el estado del micrófono
                     if (isRecognizing) { recognition.stop(); } // Detener el reconocimiento de voz si está activo
@@ -4455,7 +4454,7 @@
                         // Reiniciar el reconocimiento de voz incluso en caso de error
                         if (micWasOnBeforeSpeaking) {
                             if (recognition && !isRecognizing) {
-                               try { recognition.start(); } catch(e) { console.error("Error al reiniciar el reconocimiento por error:", e); }
+                               try { recognition.start(); } catch(e) { console.error("Error al reiniciar el reconocimiento en caso de error:", e); }
                             }
                             micWasOnBeforeSpeaking = false;
                         }
@@ -4478,7 +4477,7 @@
             function populateVoiceList() {
                 const setVoices = () => {
                     if (typeof speechSynthesis === 'undefined') { return; }
-                    // Filtrar voces en español e inglés
+                    // Filtrar las voces en español e inglés
                     availableVoices = speechSynthesis.getVoices().filter(v => v.lang.startsWith('es-') || v.lang.startsWith('en-'));
                     // Priorizar ciertas voces para una mejor experiencia de usuario
                     const preferredVoices = [ "Microsoft Sabina Online (Natural) - Spanish (Mexico)", "Paulina", "Google español de Estados Unidos", "Google español" ];
@@ -4490,10 +4489,10 @@
                     });
 
                     if (availableVoices.length > 0) {
-                        dom.voiceSelector.innerHTML = ''; // Limpiar opciones existentes
+                        dom.voiceSelector.innerHTML = ''; // Limpiar las opciones existentes
                         availableVoices.forEach(voice => {
                             const option = document.createElement('option');
-                            // Limpiar nombres de voz para mostrar
+                            // Limpiar los nombres de las voces para la visualización
                             const displayName = voice.name.replace('Microsoft', '').replace('Online (Natural) -', '').replace('Google', '').replace('Spanish (Mexico)','Mex').trim();
                             option.textContent = `${displayName || voice.lang} (${voice.lang})`;
                             option.value = voice.name;
@@ -4511,10 +4510,10 @@
             }
 
             /**
-             * Determina el modelo de IA a usar para una solicitud basada en el flujo de trabajo, la presencia de archivos y el plan del usuario.
+             * Determina el modelo de IA a utilizar para una solicitud en función del flujo de trabajo, la presencia de archivos y el plan del usuario.
              * Maneja las restricciones de acceso a "GOAT X PRO" para usuarios gratuitos.
              * @param {string} workflow - El flujo de trabajo actual (ej. 'design-web').
-             * @param {boolean} hasFile - True si se adjunta una imagen o PDF.
+             * @param {boolean} hasFile - Verdadero si hay una imagen o PDF adjunto.
              * @param {string} assistantType - El tipo de asistente ('main', 'project', 'financial', 'notepad', 'translator').
              * @returns {string} El ID del modelo seleccionado.
              */
@@ -4537,7 +4536,7 @@
                         selector = dom.modelSelector; // Selector de modelo de chat principal
                 }
 
-                // Anulaciones de modelo específicas para ciertos flujos de trabajo o tipos de archivo
+                // Anulaciones de modelos específicos para ciertos flujos de trabajo o tipos de archivo
                 if (workflow === "design-web") return "gpt-4o-mini"; // Usar modelo específico para diseño web
                 if (hasFile) return "gpt-4o-mini"; // Usar modelo específico para análisis de archivos
 
@@ -4552,14 +4551,14 @@
             }
 
             /**
-             * Envía una solicitud a la función de backend de Netlify para obtener una respuesta de IA.
+             * Envía una solicitud a la función de Netlify del backend para obtener una respuesta de IA.
              * @param {string} prompt - La entrada del usuario.
              * @param {Array<object>} history - El historial de chat.
              * @param {string} image - Datos de imagen codificados en Base64 (opcional).
              * @param {string} pdf - Texto PDF extraído (opcional).
-             * @param {string} model - El modelo de IA a usar.
+             * @param {string} model - El modelo de IA a utilizar.
              * @param {string} workflow - El flujo de trabajo activo (opcional).
-             * @param {string} userName - El nombre del usuario.
+             * @param {string} userName - El nombre de usuario.
              * @param {object} financialData - Datos financieros para el asistente financiero (opcional).
              * @param {string} noteContent - Contenido de la nota actual para el asistente del bloc de notas (opcional).
              * @returns {Promise<object>} Una promesa que se resuelve con la respuesta de la IA.
@@ -4572,7 +4571,7 @@
                 }
                 const body = {
                     prompt, history, model,
-                    workflow, userName, title,
+                    workflow, userName: name, title,
                     imageData: image, pdfText: pdf,
                     financialData, noteContent,
                  };
@@ -4584,7 +4583,7 @@
                     });
                     if (!response.ok) {
                         const errorData = await response.json().catch(() => ({details: 'Error desconocido en el servidor'}));
-                        console.error("Error de Backend:", errorData);
+                        console.error("Error del Backend:", errorData);
                         throw new Error(errorData.details || `Error del servidor: ${response.status}.`);
                     }
                     return await response.json();
@@ -4595,7 +4594,7 @@
             }
 
             /**
-             * Calcula el recuento actual de créditos para el usuario.
+             * Calcula el recuento de créditos actual para el usuario.
              * Maneja usuarios invitados y diferentes planes de suscripción.
              * @returns {object} Un objeto que contiene los créditos restantes, el límite total y el plan.
              */
@@ -4606,7 +4605,7 @@
                     return { remaining: Math.max(0, GUEST_CREDIT_LIMIT - usageData.count), limit: GUEST_CREDIT_LIMIT, plan: 'free (guest)' };
                 }
 
-                // Lógica para usuarios registrados
+                // Lógica para usuarios que han iniciado sesión
                 const plan = currentUser.app_metadata?.plan || 'free';
                 let limit;
                 switch (plan) {
@@ -4619,7 +4618,7 @@
                 const currentMonth = dayjs().format('YYYY-MM');
                 const usageData = JSON.parse(localStorage.getItem(usageKey)) || { count: 0, month: '' };
 
-                // Reiniciar el uso mensual si es un nuevo mes
+                // Reiniciar el uso mensual si es un mes nuevo
                 if (usageData.month !== currentMonth) {
                     return { remaining: limit, limit, plan };
                 }
@@ -4629,13 +4628,13 @@
 
             /**
              * Deduce créditos según el costo de la operación y el modelo utilizado.
-             * Muestra modales por créditos insuficientes o límite diario de GOAT X PRO.
+             * Muestra modales para créditos insuficientes o límite diario de GOAT X PRO.
              * @param {number} cost - El número de créditos a gastar.
              * @param {string} modelUsed - El ID del modelo utilizado (ej. 'gpt-4o').
-             * @returns {boolean} True si los créditos se gastaron con éxito, false en caso contrario.
+             * @returns {boolean} Verdadero si los créditos se gastaron correctamente, falso en caso contrario.
              */
             function spendCredits(cost, modelUsed) {
-                // Comprobar el límite diario de GOAT X PRO para usuarios registrados
+                // Comprobar el límite diario de GOAT X PRO para usuarios que han iniciado sesión
                 if (modelUsed === 'gpt-4o' && currentUser) {
                     const today = dayjs().format('YYYY-MM-DD');
                     const proUsageKey = `goat_x_pro_usage_${currentUser?.id || 'guest'}_${today}`;
@@ -4673,13 +4672,13 @@
                             cancelText: translations[lang].view_plans_btn,
                         }).then(res => {
                             if (res.confirmed) {
-                                netlifyIdentity.open('login'); // Abrir inicio de sesión de Netlify Identity
+                                netlifyIdentity.open('login'); // Abrir el inicio de sesión de Netlify Identity
                             } else {
                                 showPricingModal(); // Mostrar planes de precios
                             }
                         });
                     } else {
-                        // Mostrar modal de créditos insuficientes para usuarios registrados
+                        // Mostrar modal de créditos insuficientes para usuarios que han iniciado sesión
                         showModal({
                             title: 'Créditos Insuficientes',
                             body: 'No tienes suficientes créditos de tu plan ni créditos de recompensa. Mejora tu plan para obtener más o espera al próximo mes.',
@@ -4689,7 +4688,7 @@
                     return false;
                 }
 
-                // Priorizar créditos del plan, luego créditos de recompensa
+                // Priorizar los créditos del plan, luego los créditos de recompensa
                 if (remaining >= cost) {
                     if (!currentUser) {
                         // Actualizar el uso de invitados en el almacenamiento local
@@ -4698,12 +4697,12 @@
                         usageData.count += cost;
                         localStorage.setItem(usageKey, JSON.stringify(usageData));
                     } else {
-                        // Actualizar el uso mensual del usuario registrado en el almacenamiento local
+                        // Actualizar el uso mensual del usuario que ha iniciado sesión en el almacenamiento local
                         const usageKey = `usage_monthly_${currentUser.id}`;
                         const currentMonth = dayjs().format('YYYY-MM');
                         let usageData = JSON.parse(localStorage.getItem(usageKey)) || { count: 0, month: '' };
                         if (usageData.month !== currentMonth) {
-                            usageData = { count: 0, month: currentMonth }; // Restablecer para el nuevo mes
+                            usageData = { count: 0, month: currentMonth }; // Reiniciar para el nuevo mes
                         }
                         usageData.count += cost;
                         localStorage.setItem(usageKey, JSON.stringify(usageData));
@@ -4728,24 +4727,12 @@
                 return true;
             }
 
-                            localStorage.setItem(usageKey, JSON.stringify(usageData));
-                    }
-                } else {
-                    // Usar créditos de recompensa si los créditos del plan son insuficientes
-                    gamificationState.credits -= cost;
-                    saveGamificationState(); // Guardar el estado de gamificación actualizado
-                    showInAppNotification("Crédito de Recompensa Usado", `Se ha utilizado un crédito de recompensa. Te quedan ${gamificationState.credits}.`, 2000);
-                }
-
-
-                updateCreditCounter(); // Actualizar la visualización de créditos en la interfaz de usuario
-
             /**
-             * Carga el estado de la aplicación desde el almacenamiento local o el backend (para usuarios registrados).
+             * Carga el estado de la aplicación desde el almacenamiento local o el backend (para usuarios que han iniciado sesión).
              * Inicializa los chats predeterminados si no existen.
              */
             async function loadStateForUser() {
-                // Función auxiliar para cargar y parsear JSON de forma segura desde el almacenamiento local
+                // Ayudante para cargar y analizar JSON de forma segura desde el almacenamiento local
                 const loadLocalStorage = (key) => {
                     const saved = localStorage.getItem(key);
                     try {
@@ -4754,8 +4741,8 @@
                             return JSON.parse(saved);
                         }
                     } catch (e) {
-                        console.error("Error al parsear los datos de localStorage para la clave:", key, e);
-                        localStorage.removeItem(key); // Limpiar datos corruptos
+                        console.error("Error al analizar los datos de localStorage para la clave:", key, e);
+                        localStorage.removeItem(key); // Borrar datos corruptos
                     }
                     return {};
                 };
@@ -4767,7 +4754,7 @@
                     currentChatId = guestData.currentChatId || null;
                 } else {
                      try {
-                        // Intentar cargar el estado desde el backend (función de Netlify) para usuarios registrados
+                        // Intentar cargar el estado desde el backend (función de Netlify) para usuarios que han iniciado sesión
                         const response = await fetch('/.netlify/functions/load-chats', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
@@ -4779,7 +4766,7 @@
                         currentChatId = dbState.currentChatId;
                     } catch (error) {
                         // Volver al almacenamiento local si la carga del backend falla
-                        console.error("No se pudo cargar desde la DB, volviendo a localStorage:", error);
+                        console.error("No se pudo cargar desde la base de datos, volviendo a localStorage:", error);
                         const userLocalData = loadLocalStorage(`goatbotState_${currentUser.id}`);
                         state = userLocalData.state || { chats: {}, projects: {}, structure: [], calendar: {}, notes: [] };
                         currentChatId = userLocalData.currentChatId;
@@ -4793,7 +4780,7 @@
                 }
 
 
-                // Asegurarse de que todas las propiedades de estado de nivel superior existan
+                // Asegurarse de que existan todas las propiedades de estado de nivel superior
                 state.calendar = state.calendar || {};
                 state.projects = state.projects || {};
                 state.chats = state.chats || {};
@@ -4853,7 +4840,7 @@
             }
 
             /**
-             * Guarda el estado actual de la aplicación en el almacenamiento local y (para usuarios registrados) en el backend.
+             * Guarda el estado actual de la aplicación en el almacenamiento local y (para usuarios que han iniciado sesión) en el backend.
              */
             async function saveState() {
                 const stateData = { state, currentChatId };
@@ -4864,7 +4851,7 @@
                     localStorage.setItem('lastView', currentChatId); // Guardar el último elemento visto
 
                     if(currentUser) {
-                        // Enviar el estado al backend para almacenamiento persistente (con debounce si es necesario para el rendimiento)
+                        // Enviar el estado al backend para un almacenamiento persistente (con debounce si es necesario para el rendimiento)
                         await fetch('/.netlify/functions/save-chats', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
@@ -4872,19 +4859,19 @@
                         });
                     }
                 } catch (error) {
-                    console.error("Error al guardar el estado:", error);
-                    // Implementar un manejo de errores más robusto, tal vez una cola para guardados fallidos
+                    console.error("No se pudo guardar el estado:", error);
+                    // Implementar un manejo de errores más robusto, quizás una cola para los guardados fallidos
                 }
             }
 
             /**
              * Actualiza los elementos de la interfaz de usuario relacionados con el estado de inicio de sesión y el plan del usuario.
-             * Oculta/muestra el menú de inicio de sesión/usuario, personaliza el mensaje de bienvenida y actualiza el selector de modelo.
+             * Oculta/muestra el inicio de sesión/menú de usuario, personaliza el mensaje de bienvenida y actualiza el selector de modelo.
              */
             function updateUserUI() {
                 const goatXProModels = document.querySelectorAll('.goat-x-pro-model');
                 if (currentUser) {
-                    // Interfaz de usuario para usuario registrado
+                    // Interfaz de usuario del usuario que ha iniciado sesión
                     dom.loginView.classList.add('hidden');
                     dom.userMenuView.classList.remove('hidden');
                     dom.genericWelcome.classList.add('hidden');
@@ -4892,18 +4879,18 @@
                     const userName = currentUser.user_metadata?.full_name?.split(' ')[0] || currentUser.email.split('@')[0];
                     dom.userEmail.textContent = currentUser.user_metadata?.full_name || currentUser.email;
                     dom.userName.textContent = userName;
-                    // Mostrar el contenedor de actualización de plan solo si el usuario está en el plan 'free'
+                    // Mostrar el contenedor del plan de actualización solo si el usuario está en el plan 'gratis'
                     dom.upgradePlanContainer.classList.toggle('hidden', (currentUser.app_metadata?.plan || 'free') !== 'free');
-                    goatXProModels.forEach(option => option.disabled = false); // Habilitar GOAT X PRO para usuarios registrados
+                    goatXProModels.forEach(option => option.disabled = false); // Habilitar GOAT X PRO para usuarios que han iniciado sesión
 
                 } else {
-                    // Interfaz de usuario para usuario invitado
+                    // Interfaz de usuario del usuario invitado
                     dom.loginView.classList.remove('hidden');
                     dom.userMenuView.classList.add('hidden');
                     dom.genericWelcome.classList.remove('hidden');
                     dom.personalizedWelcome.classList.add('hidden');
                     dom.upgradePlanContainer.classList.add('hidden');
-                    goatXProModels.forEach(option => option.disabled = true); // Deshabilitar GOAT X PRO para invitados
+                    goatXProModels.forEach(option => option.disabled = true); // Desactivar GOAT X PRO para invitados
                 }
                 updateCreditCounter(); // Siempre actualizar el contador de créditos después de los cambios en la interfaz de usuario del usuario
             }
@@ -4926,19 +4913,19 @@
             /**
              * Establece el tema de la aplicación (oscuro o claro).
              * Actualiza las clases del cuerpo y el icono del tema.
-             * @param {boolean} isDark - True para tema oscuro, false para tema claro.
+             * @param {boolean} isDark - Verdadero para tema oscuro, falso para tema claro.
              */
             function setTheme(isDark) {
                 document.body.className = 'w-screen overflow-x-hidden'; // Restablecer la clase para eliminar el tema anterior
                 document.body.classList.add(isDark ? 'dark-theme' : 'light-theme'); // Aplicar la nueva clase de tema
                 dom.themeIcon.className = `fas fa-${isDark ? 'sun' : 'moon'}`; // Actualizar el icono principal de alternancia de tema
                 if (dom.settingsThemeIcon) dom.settingsThemeIcon.className = `fas fa-${isDark ? 'moon' : 'sun'} mr-2`; // Actualizar el icono del tema del modal de configuración
-                localStorage.setItem('theme', isDark ? 'dark' : 'light'); // Guardar preferencia de tema
+                localStorage.setItem('theme', isDark ? 'dark' : 'light'); // Guardar la preferencia de tema
             }
 
             /**
-             * Alterna la visibilidad y el estado colapsado de la barra lateral.
-             * @param {boolean} show - True para mostrar/expandir, false para ocultar/colapsar.
+             * Alterna la visibilidad y el estado contraído de la barra lateral.
+             * @param {boolean} show - Verdadero para mostrar/expandir, falso para ocultar/contraer.
              */
             function toggleSidebar(show) {
                 const sidebar = dom.sidebar;
@@ -4948,7 +4935,7 @@
                     dom.sidebarOverlay.classList.remove('opacity-0', 'pointer-events-none'); // Mostrar superposición en móvil
                     dom.sidebarToggleArrow.querySelector('i').classList.replace('fa-chevron-right', 'fa-chevron-left'); // Actualizar la flecha de alternancia
                 } else {
-                    sidebar.classList.remove('is-open'); // Para móvil: se desliza
+                    sidebar.classList.remove('is-open'); // Para móvil: se desliza hacia afuera
                     dom.sidebarOverlay.classList.add('opacity-0', 'pointer-events-none'); // Ocultar superposición en móvil
                     dom.sidebarToggleArrow.querySelector('i').classList.replace('fa-chevron-left', 'fa-chevron-right'); // Actualizar la flecha de alternancia
                 }
@@ -4968,7 +4955,7 @@
                 }
 
                 let initialMessages;
-                // Establecer mensajes iniciales basados en el flujo de trabajo o por defecto
+                // Establecer mensajes iniciales basados en el flujo de trabajo o predeterminados
                 initialMessages = options.initialMessages ||
                 [{
                     role: 'assistant',
@@ -5004,7 +4991,7 @@
                     };
                 }
 
-                state.structure.unshift(id); // Añadir nuevo chat al principio de la estructura
+                state.structure.unshift(id); // Añadir nuevo chat a la parte superior de la estructura
                 selectChat(id); // Seleccionar el nuevo chat
                 saveState(); // Guardar el estado actualizado
                 renderSidebar(); // Volver a renderizar la barra lateral para mostrar el nuevo chat
@@ -5018,8 +5005,8 @@
             }
 
             /**
-             * Selecciona un chat o una vista de flujo de trabajo y actualiza la interfaz de usuario en consecuencia.
-             * @param {string} chatId - El ID del chat o la vista especial a seleccionar.
+             * Selecciona un chat o vista de flujo de trabajo y actualiza la interfaz de usuario en consecuencia.
+             * @param {string} chatId - El ID del chat o vista especial a seleccionar.
              */
             function selectChat(chatId) {
                 currentChatId = chatId;
@@ -5077,10 +5064,10 @@
                         dom.initialMessageContainer.style.display = 'none'; // Ocultar mensaje de bienvenida
                     }
 
-                    dom.chatTitle.textContent = chat.title; // Actualizar título del chat en el encabezado
+                    dom.chatTitle.textContent = chat.title; // Actualizar el título del chat en el encabezado
                     dom.mobileChatTitle.textContent = chat.title;
-                    dom.modelSelector.value = chat.model || 'gpt-3.5-turbo-1106'; // Establecer selector de modelo
-                    updateContextualFooter(chat.workflow); // Actualizar mensaje de pie de página
+                    dom.modelSelector.value = chat.model || 'gpt-3.5-turbo-1106'; // Establecer el selector de modelo
+                    updateContextualFooter(chat.workflow); // Actualizar el mensaje del pie de página
                 } else {
                      resetChatView(); // Si no se encuentra el chat, restablecer la vista
                 }
@@ -5092,7 +5079,7 @@
             }
 
             /**
-             * Restablece el área de chat principal al mensaje de bienvenida predeterminado.
+             * Restablece el área principal del chat al mensaje de bienvenida predeterminado.
              */
             function resetChatView() {
                 currentChatId = null;
@@ -5116,7 +5103,7 @@
                 updateUserUI(); // Actualizar la interfaz de usuario relacionada con el usuario
                 updateActiveChatHighlight(); // Borrar el resaltado de la barra lateral
                 dom.modelSelector.value = 'gpt-3.5-turbo-1106'; // Restablecer el selector de modelo
-                updateContextualFooter(null); // Restablecer el mensaje de pie de página
+                updateContextualFooter(null); // Restablecer el mensaje del pie de página
             }
 
             /**
@@ -5125,8 +5112,8 @@
              * @param {string} content - El contenido del mensaje (puede contener Markdown).
              * @param {string} [imageSrc=null] - Fuente de imagen base64 opcional para mostrar.
              * @param {number} messageIndex - El índice del mensaje en el array de mensajes del chat.
-             * @param {HTMLElement} container - El elemento DOM al que se añadirá el mensaje.
-             * @returns {HTMLElement} El elemento de burbuja de mensaje creado.
+             * @param {HTMLElement} container - El elemento DOM al que se adjunta el mensaje.
+             * @returns {HTMLElement} El elemento de la burbuja de mensaje creado.
              */
             function addMessageToUI(role, content, imageSrc, messageIndex, container) {
                 if (!container) return null;
@@ -5143,7 +5130,7 @@
                 }
                 const contentDiv = document.createElement('div');
                 contentDiv.className = 'markdown-content';
-                // Renderizar contenido Markdown, mostrar puntos suspensivos para el estado de "pensando"
+                // Renderizar contenido Markdown, mostrar puntos suspensivos para el estado de pensamiento
                 const parsedContent = content === '…' ? `<div class="flex items-center space-x-2"><div class="w-2 h-2 bg-gray-400 rounded-full animate-pulse"></div><div class="w-2 h-2 bg-gray-400 rounded-full animate-pulse" style="animation-delay: .2s;"></div><div class="w-2 h-2 bg-gray-400 rounded-full animate-pulse" style="animation-delay: .4s;"></div></div>` : marked.parse(content || "");
                 contentDiv.innerHTML = parsedContent;
 
@@ -5196,66 +5183,10 @@
 
                 wrapper.appendChild(bubble);
                 container.appendChild(wrapper);
-                container.scrollTop = container.scrollHeight; // Desplazarse al final
+                container.scrollTop = container.scrollHeight; // Desplazarse hacia abajo
                 return bubble;
             }
 
-            /**
-             * Actualiza el contenido de una burbuja de mensaje existente en la interfaz de usuario.
-             * Se utiliza para actualizar las burbujas de "pensando" con la respuesta real de la IA.
-             * @param {HTMLElement} bubble - El elemento de la burbuja de mensaje a actualizar.
-             * @param {string} content - El nuevo contenido del mensaje (puede contener Markdown).
-             * @param {string} [imageSrc=null] - Fuente de imagen base64 opcional para mostrar.
-             * @param {HTMLElement} container - El contenedor padre de la burbuja de mensaje.
-             */
-            function updateMessageInUI(bubble, content, imageSrc, container) {
-                if (!bubble) return;
-                const wrapper = bubble.parentElement;
-                if (!wrapper) return;
-
-                bubble.innerHTML = ''; // Limpiar contenido existente
-                 if (imageSrc) {
-                    const img = document.createElement('img');
-                    img.src = imageSrc;
-                    img.className = 'rounded-lg mb-2 max-w-full h-auto';
-                    bubble.appendChild(img);
-                }
-                const contentDiv = document.createElement('div');
-                contentDiv.className = 'markdown-content';
-                contentDiv.innerHTML = marked.parse(content || ""); // Parsear y renderizar Markdown
-
-                // Añadir icono de altavoz para mensajes del asistente
-                const speakerIcon = document.createElement('i');
-                speakerIcon.className = 'fas fa-volume-up speaker-icon';
-                speakerIcon.title = translations[localStorage.getItem('goatify-lang') || 'es'].read_aloud_title || 'Leer en voz alta';
-                speakerIcon.onclick = (e) => { e.stopPropagation(); speak(content, e.target); };
-                contentDiv.appendChild(speakerIcon);
-
-                bubble.appendChild(contentDiv);
-
-                // Añadir botón de vista previa para contenido de código
-                const hasCode = /```html|```css|```javascript|<pre|<code/.test(content);
-                if (hasCode) {
-                    const previewButton = document.createElement('button');
-                    previewButton.innerHTML = `<i class="fas fa-eye mr-2"></i>${translations[localStorage.getItem('goatify-lang') || 'es'].preview}`;
-                    previewButton.className = 'btn-primary text-xs font-semibold px-3 py-1 rounded-md mt-3';
-                    previewButton.addEventListener('click', () => {
-                         const match = content.match(/```(html|css|javascript)\n([\s\S]*?)```/s);
-                        let htmlToPreview = content;
-                        if(match) {
-                            if (match[1] !== 'html') {
-                                htmlToPreview = `<pre><code class="language-${match[1]}">${match[2]}</code></pre>`;
-                            } else {
-                                htmlToPreview = match[2];
-                            }
-                        }
-                        dom.htmlPreviewIframe.srcdoc = htmlToPreview;
-                        dom.htmlPreviewModal.classList.remove('hidden');
-                        dom.htmlPreviewModal.classList.add('flex');
-                    });
-                    bubble.appendChild(previewButton);
-                }
-            }
             /**
              * Maneja la edición de un mensaje de usuario en el chat principal.
              * Abre un modal para permitir la edición del contenido del mensaje.
@@ -5270,7 +5201,7 @@
                     body: `<textarea id="edit-msg-textarea" class="w-full p-2 rounded bg-input border border-themed h-28">${originalContent}</textarea>`,
                     confirmText: translations[localStorage.getItem('goatify-lang') || 'es'].save_changes_btn || 'Guardar Cambios'
                  });
-                // Si se confirma y el contenido cambió, actualizar el mensaje y volver a renderizar el chat
+                // Si se confirma y el contenido cambia, actualizar el mensaje y volver a renderizar el chat
                 if (result.confirmed && result.data['edit-msg-textarea'] && result.data['edit-msg-textarea'].trim() !== originalContent.trim()) {
                     chat.messages[index].content = result.data['edit-msg-textarea'].trim();
                     await saveState();
@@ -5280,7 +5211,7 @@
 
             /**
              * Actualiza el contenido de una burbuja de mensaje existente en la interfaz de usuario.
-             * Se utiliza para actualizar las burbujas de "pensando" con la respuesta real de la IA.
+             * Se utiliza para actualizar las burbujas de "pensando" con la respuesta final de la IA.
              * @param {HTMLElement} bubble - El elemento de la burbuja de mensaje a actualizar.
              * @param {string} content - El nuevo contenido del mensaje (puede contener Markdown).
              * @param {string} [imageSrc=null] - Fuente de imagen base64 opcional para mostrar.
@@ -5291,7 +5222,7 @@
                 const wrapper = bubble.parentElement;
                 if (!wrapper) return;
 
-                bubble.innerHTML = ''; // Limpiar contenido existente
+                bubble.innerHTML = ''; // Borrar el contenido existente
                  if (imageSrc) {
                     const img = document.createElement('img');
                     img.src = imageSrc;
@@ -5300,7 +5231,7 @@
                 }
                 const contentDiv = document.createElement('div');
                 contentDiv.className = 'markdown-content';
-                contentDiv.innerHTML = marked.parse(content || ""); // Parsear y renderizar Markdown
+                contentDiv.innerHTML = marked.parse(content || ""); // Analizar y renderizar Markdown
 
                 // Añadir icono de altavoz para mensajes del asistente
                 const speakerIcon = document.createElement('i');
@@ -5335,8 +5266,64 @@
                 }
             }
             /**
+             * Actualiza el contenido de una burbuja de mensaje existente en la interfaz de usuario.
+             * Se utiliza para actualizar las burbujas de "pensando" con la respuesta final de la IA.
+             * @param {HTMLElement} bubble - El elemento de la burbuja de mensaje a actualizar.
+             * @param {string} content - El nuevo contenido del mensaje (puede contener Markdown).
+             * @param {string} [imageSrc=null] - Fuente de imagen base64 opcional para mostrar.
+             * @param {HTMLElement} container - El contenedor padre de la burbuja de mensaje.
+             */
+            function updateMessageInUI(bubble, content, imageSrc, container) {
+                if (!bubble) return;
+                const wrapper = bubble.parentElement;
+                if (!wrapper) return;
+
+                bubble.innerHTML = ''; // Borrar el contenido existente
+                 if (imageSrc) {
+                    const img = document.createElement('img');
+                    img.src = imageSrc;
+                    img.className = 'rounded-lg mb-2 max-w-full h-auto';
+                    bubble.appendChild(img);
+                }
+                const contentDiv = document.createElement('div');
+                contentDiv.className = 'markdown-content';
+                contentDiv.innerHTML = marked.parse(content || ""); // Analizar y renderizar Markdown
+
+                // Añadir icono de altavoz para mensajes del asistente
+                const speakerIcon = document.createElement('i');
+                speakerIcon.className = 'fas fa-volume-up speaker-icon';
+                speakerIcon.title = translations[localStorage.getItem('goatify-lang') || 'es'].read_aloud_title || 'Leer en voz alta';
+                speakerIcon.onclick = (e) => { e.stopPropagation(); speak(content, e.target); };
+                contentDiv.appendChild(speakerIcon);
+
+                bubble.appendChild(contentDiv);
+
+                // Añadir botón de vista previa para contenido de código
+                const hasCode = /```html|```css|```javascript|<pre|<code/.test(content);
+                if (hasCode) {
+                    const previewButton = document.createElement('button');
+                    previewButton.innerHTML = `<i class="fas fa-eye mr-2"></i>${translations[localStorage.getItem('goatify-lang') || 'es'].preview}`;
+                    previewButton.className = 'btn-primary text-xs font-semibold px-3 py-1 rounded-md mt-3';
+                    previewButton.addEventListener('click', () => {
+                         const match = content.match(/```(html|css|javascript)\n([\s\S]*?)```/s);
+                        let htmlToPreview = content;
+                        if(match) {
+                            if (match[1] !== 'html') {
+                                htmlToPreview = `<pre><code class="language-${match[1]}">${match[2]}</code></pre>`;
+                            } else {
+                                htmlToPreview = match[2];
+                            }
+                        }
+                        dom.htmlPreviewIframe.srcdoc = htmlToPreview;
+                        dom.htmlPreviewModal.classList.remove('hidden');
+                        dom.htmlPreviewModal.classList.add('flex');
+                    });
+                    bubble.appendChild(previewButton);
+                }
+            }
+                        /**
              * Renderiza el contenido de la barra lateral, incluyendo chats, notas y carpetas de proyectos.
-             * Organiza los elementos basándose en la `state.structure`.
+             * Organiza los elementos en función de la `state.structure`.
              */
             function renderSidebar() {
                 dom.sidebarContent.innerHTML = ''; // Limpiar chats existentes
@@ -5357,7 +5344,7 @@
                 Object.values(state.projects).forEach(proj => {
                     const projectEl = createProjectElement(proj.id);
                     fragFolders.appendChild(projectEl);
-                    unfiledItems.delete(proj.id); // Eliminar el propio proyecto de los no archivados
+                    unfiledItems.delete(proj.id); // Eliminar el proyecto de los no archivados
                     (proj.itemIds || []).forEach(childId => unfiledItems.delete(childId)); // Eliminar hijos de los no archivados
                 });
 
@@ -5370,7 +5357,7 @@
                     if (item.type === 'note') fragChats.appendChild(createNoteItemElement(id, false));
                 });
 
-                // Añadir fragmentos a sus respectivos contenedores
+                // Adjuntar fragmentos a sus respectivos contenedores
                 dom.foldersContainer.appendChild(fragFolders);
                 dom.sidebarContent.appendChild(fragChats);
                 updateActiveChatHighlight(); // Asegurarse de que el elemento actualmente seleccionado esté resaltado
@@ -5380,8 +5367,8 @@
              * Crea un elemento DOM para un elemento de chat en la barra lateral.
              * Admite el modo de selección y la interacción regular.
              * @param {string} id - El ID del chat.
-             * @param {boolean} isSubItem - True si el chat es un subelemento dentro de una carpeta.
-             * @returns {HTMLElement|DocumentFragment} El elemento de chat creado o un fragmento vacío si el chat no es eliminable.
+             * @param {boolean} isSubItem - Verdadero si el chat es un subelemento dentro de una carpeta.
+             * @returns {HTMLElement|DocumentFragment} El elemento de chat creado o un fragmento vacío si el chat no se puede eliminar.
              */
             function createChatItemElement(id, isSubItem = false) {
                 const chat = state.chats[id];
@@ -5409,12 +5396,12 @@
                             item.querySelector('i').classList.replace('fa-square', 'fa-check-square');
                             item.classList.add('selected-for-delete');
                         }
-                        dom.deleteSelectedBtn.disabled = chatsToDelete.size === 0; // Habilitar/deshabilitar botón de eliminación
+                        dom.deleteSelectedBtn.disabled = chatsToDelete.size === 0; // Habilitar/deshabilitar el botón de eliminar
                     });
                 } else {
                     // Renderizar para el modo de interacción regular
                     const isMobileView = window.innerWidth < 768;
-                    const actionsOpacityClass = isMobileView ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'; // Siempre mostrar acciones en móvil
+                    const actionsOpacityClass = isMobileView ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'; // Mostrar siempre las acciones en móvil
 
                     item.draggable = true;
                     item.innerHTML = `
@@ -5467,7 +5454,7 @@
              * Crea un elemento DOM para un elemento de nota en la barra lateral.
              * Admite el modo de selección y la interacción regular.
              * @param {string} id - El ID de la nota.
-             * @param {boolean} isSubItem - True si la nota es un subelemento dentro de una carpeta.
+             * @param {boolean} isSubItem - Verdadero si la nota es un subelemento dentro de una carpeta.
              * @returns {HTMLElement|DocumentFragment} El elemento de nota creado o un fragmento vacío si no se encuentra la nota.
              */
             function createNoteItemElement(id, isSubItem = false) {
@@ -5619,7 +5606,7 @@
                         saveState();
                     }
                 });
-                // Escuchadores de arrastrar y soltar para los encabezados de proyectos (para soltar elementos en carpetas)
+                // Escuchadores de arrastrar y soltar para los encabezados de proyecto (para soltar elementos en carpetas)
                 header.addEventListener('dragover', e => handleDragOver(e, header));
                 header.addEventListener('dragleave', e => handleDragLeave(e, header));
                 header.addEventListener('drop', e => handleDrop(e, id, header));
@@ -5643,7 +5630,7 @@
             function handleDragStart(e, id) {
                 draggedItemId = id;
                 e.dataTransfer.effectAllowed = 'move';
-                e.dataTransfer.setData('text/plain', id); // Establecer datos de texto plano para compatibilidad
+                e.dataTransfer.setData('text/plain', id); // Establecer datos de texto sin formato para compatibilidad
                 // Si está en modo de selección, transferir todos los elementos seleccionados
                 if (isSelectModeActive && chatsToDelete.has(id)) {
                     e.dataTransfer.setData('application/json', JSON.stringify(Array.from(chatsToDelete)));
@@ -5653,21 +5640,21 @@
                 }
             }
             /**
-             * Maneja el evento de arrastrar sobre un objetivo de soltar.
+             * Maneja el evento de arrastre sobre un objetivo de soltar.
              * @param {DragEvent} e - El evento de arrastre.
-             * @param {HTMLElement} el - El elemento sobre el que se está arrastrando.
+             * @param {HTMLElement} el - El elemento sobre el que se arrastra.
              */
             function handleDragOver(e, el) { e.preventDefault(); el.classList.add('drag-over'); }
             /**
-             * Maneja el evento de arrastrar y salir de un objetivo de soltar.
+             * Maneja el evento de arrastre al salir de un objetivo de soltar.
              * @param {DragEvent} e - El evento de arrastre.
-             * @param {HTMLElement} el - El elemento que se está abandonando.
+             * @param {HTMLElement} el - El elemento que se abandona.
              */
             function handleDragLeave(e, el) { el.classList.remove('drag-over'); }
             /**
              * Maneja el evento de soltar para un elemento de la barra lateral en una carpeta de proyecto.
              * @param {DragEvent} e - El evento de soltar.
-             * @param {string} targetProjectId - El ID de la carpeta de proyecto a la que soltar.
+             * @param {string} targetProjectId - El ID de la carpeta de proyecto en la que se va a soltar.
              * @param {HTMLElement} targetElement - El elemento del encabezado del proyecto.
              */
             function handleDrop(e, targetProjectId, targetElement) {
@@ -5681,7 +5668,7 @@
                         const droppedItems = JSON.parse(e.dataTransfer.getData('application/json'));
                         itemsToMove = droppedItems.filter(id => (id.startsWith('chat-') && state.chats[id]) || (id.startsWith('note-') && state.notes.find(n => n.id === id)));
                     } catch (error) {
-                        console.error("Error al parsear los datos de arrastre JSON:", error);
+                        console.error("Error al analizar los datos de arrastre JSON:", error);
                         // Volver a un solo elemento si el análisis JSON falla
                         itemsToMove = [e.dataTransfer.getData('text/plain')].filter(id => (id.startsWith('chat-') && state.chats[id]) || (id.startsWith('note-') && state.notes.find(n => n.id === id)));
                     }
@@ -5703,8 +5690,8 @@
                 }
             }
             /**
-             * Mueve un chat o un elemento de nota a una carpeta de proyecto especificada.
-             * Si `targetProjectId` es null, el elemento se mueve al nivel superior (sin archivar).
+             * Mueve un elemento de chat o nota a una carpeta de proyecto especificada.
+             * Si `targetProjectId` es null, el elemento se mueve al nivel superior (no archivado).
              * @param {string} itemId - El ID del elemento a mover.
              * @param {string|null} targetProjectId - El ID de la carpeta de proyecto de destino, o null.
              */
@@ -5719,7 +5706,7 @@
                     if(!state.projects[targetProjectId].itemIds) state.projects[targetProjectId].itemIds = [];
                     state.projects[targetProjectId].itemIds.unshift(itemId);
                 } else {
-                    // Añadir el elemento al nivel superior (sin archivar)
+                    // Añadir el elemento al nivel superior (no archivado)
                     state.structure.unshift(itemId);
                 }
 
@@ -5797,9 +5784,9 @@
                     const idsToDelete = [id, ...childrenIds]; // Incluir hijos para la eliminación del proyecto
                     idsToDelete.forEach(deleteId => {
                         state.structure = state.structure.filter(i => i !== deleteId); // Eliminar de la estructura principal
-                        if (deleteId.startsWith('chat-')) delete state.chats[deleteId]; // Eliminar objeto de chat
-                        if (deleteId.startsWith('note-')) state.notes = state.notes.filter(n => n.id !== deleteId); // Filtrar nota
-                        if (deleteId.startsWith('project-')) delete state.projects[deleteId]; // Eliminar objeto de proyecto
+                        if (deleteId.startsWith('chat-')) delete state.chats[deleteId]; // Eliminar el objeto de chat
+                        if (deleteId.startsWith('note-')) state.notes = state.notes.filter(n => n.id !== deleteId); // Filtrar la nota
+                        if (deleteId.startsWith('project-')) delete state.projects[deleteId]; // Eliminar el objeto de proyecto
 
                         // Eliminar de cualquier otra carpeta de proyecto en la que pueda estar
                         Object.values(state.projects).forEach(p => {
@@ -5833,31 +5820,31 @@
              * Borra los datos de la imagen seleccionada y oculta la vista previa de la imagen.
              */
             function clearImageData() {
-                dom.imageUploadInput.value = ''; // Borrar entrada de archivo
-                dom.imagePreviewContainer.classList.add('hidden'); // Ocultar contenedor de vista previa
+                dom.imageUploadInput.value = ''; // Borrar la entrada de archivo
+                dom.imagePreviewContainer.classList.add('hidden'); // Ocultar el contenedor de vista previa
                 dom.filePreviewArea.style.display = "none"; // Ocultar el área general de vista previa de archivos
-                selectedImageBase64 = null; // Borrar datos de la imagen
+                selectedImageBase64 = null; // Borrar los datos de la imagen
             }
             /**
              * Borra los datos del PDF seleccionado y oculta la vista previa del PDF.
              */
             function clearPdfData() {
-                dom.pdfUploadInput.value = ''; // Borrar entrada de archivo
-                dom.pdfPreviewContainer.classList.add('hidden'); // Ocultar contenedor de vista previa
+                dom.pdfUploadInput.value = ''; // Borrar la entrada de archivo
+                dom.pdfPreviewContainer.classList.add('hidden'); // Ocultar el contenedor de vista previa
                 dom.filePreviewArea.style.display = "none"; // Ocultar el área general de vista previa de archivos
-                selectedPdfText = null; // Borrar datos de texto del PDF
+                selectedPdfText = null; // Borrar los datos de texto del PDF
             }
             /**
-             * Comprueba si hay algún archivo (imagen o PDF) seleccionado actualmente.
-             * @returns {boolean} True si hay un archivo seleccionado, false en caso contrario.
+             * Comprueba si hay algún archivo (imagen o PDF) actualmente seleccionado.
+             * @returns {boolean} Verdadero si se selecciona un archivo, falso en caso contrario.
              */
             function hasFile() { return selectedImageBase64 || selectedPdfText; }
 
             /**
              * Envía un mensaje a la IA.
-             * Maneja diferentes tipos de asistente (principal, proyecto, financiero, bloc de notas, traductor).
+             * Maneja diferentes tipos de asistentes (principal, proyecto, financiero, bloc de notas, traductor).
              * Gestiona la deducción de créditos, las actualizaciones de la interfaz de usuario y la finalización de misiones.
-             * @param {boolean} forceSend - Si forzar el envío incluso si la entrada está vacía (ej. para mensajes solo de archivo).
+             * @param {boolean} forceSend - Si se debe forzar el envío incluso si la entrada está vacía (ej. para mensajes solo de archivo).
              * @param {string|null} spokenMessage - Mensaje del reconocimiento de voz (opcional).
              * @param {object} options - Objeto de opciones.
              * @param {string} [options.assistantType='main'] - El tipo de asistente que envía el mensaje.
@@ -5883,13 +5870,13 @@
                     case 'notepad':
                         inputEl = dom.notepadMsgInput;
                         messageContainer = dom.notepadChatMessages;
-                        chatIdToUpdate = 'notepad-assistant-chat'; // Siempre usar el chat de asistente de bloc de notas dedicado
+                        chatIdToUpdate = 'notepad-assistant-chat'; // Siempre usar el chat dedicado del asistente del bloc de notas
                         noteContent = dom.noteContentEditor.innerHTML; // Pasar el contenido de la nota actual
                         modelToUse = getModelForRequest(state.chats[chatIdToUpdate]?.workflow, false, 'notepad');
                         break;
                     case 'translator':
                         inputEl = dom.translatorInputEs;
-                        messageContainer = dom.translatorOutputEn; // Caso especial: la salida es directamente a un textarea
+                        messageContainer = dom.translatorOutputEn; // Caso especial: la salida es directamente al textarea
                         modelToUse = getModelForRequest(null, false, 'translator'); // El traductor siempre usa GPT-4o
                         break;
                     default:
@@ -5904,14 +5891,14 @@
                 if (!userMessage && !selectedImageBase64 && !selectedPdfText) return;
 
                 const currentChat = state.chats[chatIdToUpdate];
-                if (!currentChat && assistantType !== 'translator') return; // Asegurarse de que el chat exista para tipos que no sean traductor
+                if (!currentChat && assistantType !== 'translator') return; // Asegurarse de que el chat exista para tipos que no son traductores
 
-                // Determinar si se necesita búsqueda web basada en palabras clave
+                // Determinar si se necesita una búsqueda web en función de las palabras clave
                 const webSearchTriggers = ['busca', 'investiga', 'en internet', 'tiempo real', 'qué día es hoy', 'qué fecha es hoy', 'cuál es el precio de', 'quién es', 'qué es', 'noticias sobre'];
                 const requiresWebSearch = webSearchTriggers.some(trigger => userMessage.toLowerCase().startsWith(trigger));
                 if (requiresWebSearch && !hasFile() && currentChat && !currentChat.workflow) { modelToUse = 'sonar'; }
 
-                // Determinar el costo del crédito basado en el modelo y los tipos de archivo
+                // Determinar el costo del crédito en función del modelo y los tipos de archivo
                 let cost = COSTS.GENERAL;
                 if(modelToUse === 'sonar') cost = COSTS.SEARCH;
                 if(currentChat && currentChat.workflow) cost = COSTS.WORKFLOW;
@@ -5919,7 +5906,7 @@
                 if(selectedImageBase64) cost = COSTS.IMAGE_ANALYSIS;
                 if(modelToUse === 'gpt-4o') cost = COSTS.GPT4O;
 
-                // Intentar gastar créditos; si no tiene éxito, dejar de enviar el mensaje
+                // Intentar gastar créditos; si no tiene éxito, detener el envío del mensaje
                 if (!spendCredits(cost, modelToUse)) return;
 
                 // Renombrar automáticamente el título del chat para nuevos chats generales
@@ -5933,15 +5920,15 @@
                     const [image, pdf] = [selectedImageBase64, selectedPdfText];
                     currentChat.messages.push({ role: 'user', content: userMessage, image, pdfText: pdf }); // Añadir mensaje de usuario al historial de chat
                     addMessageToUI('user', userMessage, image, currentChat.messages.length - 1, messageContainer); // Mostrar mensaje de usuario
-                    thinkingBubble = addMessageToUI('assistant', '…', null, null, messageContainer); // Mostrar indicador de "pensando"
-                    inputEl.value = ''; // Borrar campo de entrada
-                    inputEl.style.height = 'auto'; // Restablecer altura de entrada
+                    thinkingBubble = addMessageToUI('assistant', '…', null, null, messageContainer); // Mostrar indicador de pensamiento
+                    inputEl.value = ''; // Borrar el campo de entrada
+                    inputEl.style.height = 'auto'; // Restablecer la altura de entrada
                     if(assistantType === 'main') {
-                        clearImageData(); // Borrar vista previa de imagen
-                        clearPdfData(); // Borrar vista previa de PDF
+                        clearImageData(); // Borrar la vista previa de la imagen
+                        clearPdfData(); // Borrar la vista previa del PDF
                     }
                 } else {
-                    messageContainer.value = '…'; // Mostrar indicador de "pensando" para el traductor
+                    messageContainer.value = '…'; // Mostrar indicador de pensamiento para el traductor
                 }
 
 
@@ -5953,14 +5940,14 @@
                     updateCreditCounter(); // Actualizar la visualización de créditos después de la respuesta
 
                     if (assistantType === 'translator') {
-                        messageContainer.value = responseData.reply; // Mostrar traducción directamente
+                        messageContainer.value = responseData.reply; // Mostrar la traducción directamente
                     } else {
-                        currentChat.messages.push({ role: 'assistant', content: responseData.reply }); // Añadir respuesta de IA al historial de chat
-                        updateMessageInUI(thinkingBubble, responseData.reply, null, messageContainer); // Actualizar la burbuja de "pensando" con la respuesta real
+                        currentChat.messages.push({ role: 'assistant', content: responseData.reply }); // Añadir la respuesta de la IA al historial de chat
+                        updateMessageInUI(thinkingBubble, responseData.reply, null, messageContainer); // Actualizar la burbuja de pensamiento con la respuesta real
                         speak(responseData.reply); // Hablar la respuesta de la IA
                     }
 
-                    // Completar misión de gamificación si aplica
+                    // Completar la misión de gamificación si corresponde
                     if (currentChat && currentChat.workflow && currentChat.workflow !== 'notepad-assistant') {
                         completeMission(currentChat.workflow, chatIdToUpdate);
                     }
@@ -5999,12 +5986,12 @@
                 // Deducir créditos para la generación de imágenes
                 if (!spendCredits(COSTS.IMAGE_GENERATION, 'dall-e-2')) return;
 
-                let chatIdToUpdate = currentChatId || createNewChat({}); // Usar chat actual o crear uno nuevo
+                let chatIdToUpdate = currentChatId || createNewChat({}); // Usar el chat actual o crear uno nuevo
                 const currentChat = state.chats[chatIdToUpdate];
                 // Añadir la solicitud de generación de imagen del usuario al historial de chat
                 currentChat.messages.push({ role: 'user', content: `${translations[localStorage.getItem('goatify-lang') || 'es'].generate_image_message || 'Generar imagen:'} "${result.data['img-prompt']}"` });
                 addMessageToUI('user', `${translations[localStorage.getItem('goatify-lang') || 'es'].generate_image_message || 'Generar imagen:'} "${result.data['img-prompt']}"`, null, currentChat.messages.length - 1, dom.chatMessages);
-                const thinkingBubble = addMessageToUI('assistant', '…', null, null, dom.chatMessages); // Mostrar indicador de "pensando"
+                const thinkingBubble = addMessageToUI('assistant', '…', null, null, dom.chatMessages); // Mostrar indicador de pensamiento
                 try {
                     // Llamar al backend para generar la imagen
                     const response = await fetch('/.netlify/functions/generate-image', {
@@ -6015,10 +6002,10 @@
                     if (!response.ok) { throw new Error((await response.json()).error || 'Error del servidor'); }
                     const { imageData } = await response.json();
                     const imageContent = translations[localStorage.getItem('goatify-lang') || 'es'].image_creation_success || '¡Aquí está tu creación, Jefe/a!';
-                    // Actualizar la burbuja de "pensando" con la imagen generada
+                    // Actualizar la burbuja de pensamiento con la imagen generada
                     currentChat.messages.push({ role: 'assistant', content: imageContent, image: imageData });
                     updateMessageInUI(thinkingBubble, imageContent, imageData, dom.chatMessages);
-                    completeMission('image-generated'); // Completar misión de gamificación
+                    completeMission('image-generated'); // Completar la misión de gamificación
                     saveState(); // Guardar el estado actualizado
                 } catch (error) {
                     // Mostrar mensaje de error si la generación de imágenes falla
@@ -6027,15 +6014,15 @@
             }
             /**
              * Alterna el modo de selección múltiple para chats/notas en la barra lateral.
-             * @param {boolean} active - True para activar el modo de selección, false para desactivar.
+             * @param {boolean} active - Verdadero para activar el modo de selección, falso para desactivar.
              */
             function toggleSelectMode(active) {
                 isSelectModeActive = active;
-                dom.selectChatsBtn.classList.toggle('hidden', active); // Ocultar/mostrar botón de selección
-                dom.deleteModeControls.classList.toggle('hidden', !active); // Mostrar/ocultar controles de eliminación
+                dom.selectChatsBtn.classList.toggle('hidden', active); // Ocultar/mostrar el botón de selección
+                dom.deleteModeControls.classList.toggle('hidden', !active); // Mostrar/ocultar los controles de eliminación
                 if (!active) {
                     chatsToDelete.clear(); // Borrar elementos seleccionados
-                    dom.deleteSelectedBtn.disabled = true; // Deshabilitar botón de eliminación
+                    dom.deleteSelectedBtn.disabled = true; // Deshabilitar el botón de eliminar
                 }
                 renderSidebar(); // Volver a renderizar la barra lateral para aplicar el estilo del modo de selección
 
@@ -6048,13 +6035,13 @@
                 }
             }
 
-            let isDraggingForSelection = false; // Indicador de arrastre-selección en progreso
-            let selectionRect = null; // El elemento visual del rectángulo de selección
+            let isDraggingForSelection = false; // Bandera para la selección de arrastre en progreso
+            let selectionRect = null; // El elemento del rectángulo de selección visual
             let initialSelectionX = 0; // Coordenada X inicial para la selección de arrastre
             let initialSelectionY = 0; // Coordenada Y inicial para la selección de arrastre
 
             /**
-             * Maneja el evento de presionar el ratón para iniciar la selección de arrastre en la barra lateral.
+             * Maneja el evento de presionar el botón del ratón para iniciar la selección de arrastre en la barra lateral.
              * @param {MouseEvent} e - El evento del ratón.
              */
             function handleMouseDownForSelection(e) {
@@ -6079,7 +6066,7 @@
             }
 
             /**
-             * Maneja el evento de mover el ratón durante la selección de arrastre.
+             * Maneja el evento de movimiento del ratón durante la selección de arrastre.
              * Actualiza el tamaño y la posición del rectángulo de selección y resalta los elementos superpuestos.
              * @param {MouseEvent} e - El evento del ratón.
              */
@@ -6129,11 +6116,11 @@
                         }
                     }
                 });
-                dom.deleteSelectedBtn.disabled = chatsToDelete.size === 0; // Actualizar el estado del botón de eliminación
+                dom.deleteSelectedBtn.disabled = chatsToDelete.size === 0; // Actualizar el estado del botón de eliminar
             }
 
             /**
-             * Maneja el evento de soltar el ratón después de la selección de arrastre.
+             * Maneja el evento de soltar el botón del ratón después de la selección de arrastre.
              * Limpia el rectángulo de selección y los escuchadores de eventos.
              */
             function handleMouseUpForSelection() {
@@ -6144,7 +6131,7 @@
                 }
                 document.removeEventListener('mousemove', handleMouseMoveForSelection);
                 document.removeEventListener('mouseup', handleMouseUpForSelection);
-                dom.deleteSelectedBtn.disabled = chatsToDelete.size === 0; // Actualización final del botón de eliminación
+                dom.deleteSelectedBtn.disabled = chatsToDelete.size === 0; // Actualización final para el botón de eliminar
             }
 
             /**
@@ -6157,8 +6144,18 @@
                     if (checkboxIcon) checkboxIcon.classList.replace('fa-check-square', 'fa-square');
                 });
             }
+                        /**
+             * Borra todos los resaltados visuales de los elementos seleccionados en la barra lateral.
+             */
+            function clearSelectionVisuals() {
+                document.querySelectorAll('.chat-item.selected-for-delete, .note-item.selected-for-delete').forEach(item => {
+                    item.classList.remove('selected-for-delete');
+                    const checkboxIcon = item.querySelector('i.fa-check-square');
+                    if (checkboxIcon) checkboxIcon.classList.replace('fa-check-square', 'fa-square');
+                });
+            }
 
-            // --- FUNCIONES DEL BLOC DE NOTAS INICIO ---
+            // --- NOTEPAD FUNCTIONS START ---
 
             let drawingHistory = []; // Almacena los estados del lienzo para deshacer/rehacer
             let historyIndex = -1; // Posición actual en el historial de dibujo
@@ -6180,7 +6177,7 @@
 
                 const activeNote = state.notes.find(n => n.id === currentNoteId);
                 if (activeNote) {
-                    activeNote.content = imageData; // Guardar datos de imagen en el contenido de la nota
+                    activeNote.content = imageData; // Guardar los datos de la imagen en el contenido de la nota
                     saveState();
                 }
             }
@@ -6195,8 +6192,8 @@
                     const ctx = canvas.getContext('2d');
                     const img = new Image();
                     img.onload = () => {
-                        ctx.clearRect(0, 0, canvas.width, canvas.height); // Limpiar lienzo
-                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height); // Volver a dibujar el estado anterior
+                        ctx.clearRect(0, 0, canvas.width, canvas.height); // Borrar lienzo
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height); // Redibujar el estado anterior
                     };
                     img.src = drawingHistory[historyIndex];
                     const activeNote = state.notes.find(n => n.id === currentNoteId);
@@ -6236,17 +6233,17 @@
              */
             function showNotepadView() {
                 dom.notepadViewContainer.style.display = 'flex';
-                // En móvil, siempre iniciar con el asistente colapsado
+                // En móvil, siempre comenzar con el asistente contraído
                 if (window.innerWidth < 768) {
                     dom.notepadChatContainer.classList.add('collapsed');
                 } else {
                     dom.notepadChatContainer.classList.remove('collapsed');
                 }
-                // Ocultar el contenedor de chat del bloc de notas en móvil inicialmente, se revelará al expandir
+                // Ocultar el contenedor de chat del bloc de notas en móvil inicialmente, se revelará al expandirse
                 dom.notepadChatContainer.classList.toggle('hidden', window.innerWidth < 768);
 
 
-                updateContextualFooter('notepad-app'); // Actualizar mensaje de pie de página
+                updateContextualFooter('notepad-app'); // Actualizar el mensaje del pie de página
 
                 const notepadChat = state.chats['notepad-assistant-chat'];
                 dom.notepadChatMessages.innerHTML = ''; // Limpiar mensajes existentes
@@ -6284,7 +6281,7 @@
                 dom.noteEditorPanel.classList.remove('hidden'); // Mostrar panel del editor
                 currentNoteId = noteId;
                 loadNoteIntoEditor(noteId); // Cargar contenido de la nota
-                updateActiveChatHighlight(); // Resaltar la nota seleccionada en la barra lateral
+                updateActiveChatHighlight(); // Resaltar nota seleccionada en la barra lateral
             }
 
             /**
@@ -6325,12 +6322,12 @@
                 dom.noteTitleInput.value = note.title; // Establecer título de la nota
                 const isDrawing = note.type === 'drawing';
 
-                // Alternar visibilidad del editor de texto vs. lienzo
+                // Alternar la visibilidad del editor de texto vs. el lienzo
                 dom.noteContentEditor.style.display = isDrawing ? 'none' : 'block';
                 dom.noteCanvas.style.display = isDrawing ? 'block' : 'none';
                 dom.noteContentEditor.innerHTML = isDrawing ? '' : note.content; // Establecer contenido de texto o borrar para dibujar
 
-                // Alternar visibilidad de herramientas de texto vs. herramientas de dibujo
+                // Alternar la visibilidad de las herramientas de texto vs. las herramientas de dibujo
                 dom.textTools.style.display = isDrawing ? 'none' : 'flex';
                 dom.drawingTools.style.display = isDrawing ? 'flex' : 'none';
                 dom.drawingFullscreenBtn.style.display = isDrawing ? 'block' : 'none'; // Mostrar pantalla completa solo para dibujos
@@ -6352,23 +6349,23 @@
                 const ctx = canvas.getContext('2d');
                 const toolbar = dom.drawingTools;
 
-                let isDrawing = false; // Indicador de dibujo activo
+                let isDrawing = false; // Bandera para dibujo activo
                 let lastX = 0; // Última coordenada X para la ruta de dibujo
                 let lastY = 0; // Última coordenada Y para la ruta de dibujo
-                let startX = 0; // Coordenada X de inicio para formas
-                let startY = 0; // Coordenada Y de inicio para formas
+                let startX = 0; // Coordenada X inicial para formas
+                let startY = 0; // Coordenada Y inicial para formas
                 let currentTool = 'pencil'; // Herramienta de dibujo activa actual
-                let currentSnapshot = null; // Instantánea del lienzo para dibujar formas (para redibujar el fondo)
+                let currentSnapshot = null; // Instantánea del lienzo para el dibujo de formas (para redibujar el fondo)
 
                 drawingHistory = []; // Restablecer historial de dibujo
-                historyIndex = -1; // Restablecer índice del historial
+                historyIndex = -1; // Restablecer índice de historial
 
                 // Función para redimensionar el lienzo y redibujar el contenido
                 const resizeCanvas = () => {
                     const rect = canvas.parentElement.getBoundingClientRect();
                     canvas.width = rect.width;
                     canvas.height = rect.height;
-                    // Redibujar contenido desde datos de imagen guardados después de redimensionar
+                    // Redibujar el contenido de los datos de la imagen guardados después de redimensionar
                     if (note.content) {
                         const img = new Image();
                         img.onload = () => {
@@ -6400,7 +6397,7 @@
                 }
 
 
-                // Función auxiliar para obtener coordenadas relativas al lienzo
+                // Ayudante para obtener coordenadas relativas al lienzo
                 const getCoords = (e) => {
                     const event = e.touches ? e.touches[0] : e;
                     const canvasRect = canvas.getBoundingClientRect();
@@ -6420,7 +6417,7 @@
                         currentSnapshot = ctx.getImageData(0, 0, canvas.width, canvas.height); // Guardar estado del lienzo antes de dibujar la forma
                     }
                 };
-                // Acción de dibujar
+                // Acción de dibujo
                 const draw = (e) => {
                     if (!isDrawing) return;
                     e.preventDefault();
@@ -6430,7 +6427,7 @@
                     ctx.lineWidth = toolbar.querySelector('#drawing-line-width').value; // Establecer ancho de línea
                     ctx.lineCap = 'round';
                     ctx.lineJoin = 'round';
-                    // Establecer operación de composición para efecto de borrador
+                    // Establecer la operación de composición para el efecto de borrador
                     ctx.globalCompositeOperation = currentTool === 'eraser' ? 'destination-out' : 'source-over';
 
                     if (currentTool === 'pencil' || currentTool === 'eraser') {
@@ -6459,7 +6456,7 @@
                     if (currentTool === 'pencil' || currentTool === 'eraser') {
                         ctx.closePath();
                     }
-                    saveDrawingState(); // Guardar estado actual en el historial
+                    saveDrawingState(); // Guardar el estado actual en el historial
                     currentSnapshot = null; // Borrar instantánea
                 };
 
@@ -6472,34 +6469,34 @@
                 canvas.ontouchmove = draw;
                 canvas.ontouchend = stopDrawing;
 
-                // Función auxiliar para establecer la herramienta activa y actualizar la interfaz de usuario
+                // Ayudante para establecer la herramienta activa y actualizar la interfaz de usuario
                 const setActiveTool = (toolId) => {
                     toolbar.querySelectorAll('.drawing-tool').forEach(t => t.classList.remove('active'));
                     toolbar.querySelector(`#${toolId}`).classList.add('active');
                     currentTool = toolId.replace('tool-', '');
                 }
 
-                // Adjuntar escuchadores de eventos a los botones de herramientas de dibujo
+                // Adjuntar escuchadores de eventos a los botones de la herramienta de dibujo
                 toolbar.querySelector('#tool-pencil').onclick = () => setActiveTool('tool-pencil');
                 toolbar.querySelector('#tool-eraser').onclick = () => setActiveTool('tool-eraser');
                 toolbar.querySelector('#tool-line').onclick = () => setActiveTool('tool-line');
                 toolbar.querySelector('#tool-rect').onclick = () => setActiveTool('tool-rect');
                 toolbar.querySelector('#tool-circle').onclick = () => setActiveTool('tool-circle');
                 toolbar.querySelector('#clear-canvas-btn').onclick = () => {
-                     ctx.clearRect(0, 0, canvas.width, canvas.height); // Limpiar todo el lienzo
+                     ctx.clearRect(0, 0, canvas.width, canvas.height); // Borrar todo el lienzo
                      const activeNote = state.notes.find(n => n.id === currentNoteId);
                      if (activeNote) {
-                         activeNote.content = null; // Limpiar contenido de la nota
+                         activeNote.content = null; // Borrar contenido de la nota
                          saveState();
                      }
-                     drawingHistory = []; // Limpiar historial
+                     drawingHistory = []; // Borrar historial
                      historyIndex = -1;
                      saveDrawingState(); // Guardar estado vacío en el historial
                 };
                 toolbar.querySelector('#undo-drawing-btn').onclick = undoDrawing;
                 toolbar.querySelector('#redo-drawing-btn').onclick = redoDrawing;
 
-                // Botón de pantalla completa para el lienzo
+                // Botón de pantalla completa para lienzo
                 dom.drawingFullscreenBtn.onclick = () => {
                     if (document.fullscreenElement) {
                         document.exitFullscreen();
@@ -6512,24 +6509,24 @@
             }
 
             /**
-             * Aplica un comando de formato de texto al editor editable de contenido.
+             * Aplica un comando de formato de texto al editor de contenido editable.
              * @param {string} command - El comando document.execCommand (ej. 'bold', 'italic').
              * @param {string|null} [value=null] - El valor para el comando (ej. nombre de fuente).
              */
             function applyTextFormat(command, value = null) {
                 document.execCommand(command, false, value);
                 dom.noteContentEditor.focus(); // Mantener el foco en el editor
-                updateToolbarButtonStates(); // Actualizar estados de los botones de la barra de herramientas
+                updateToolbarButtonStates(); // Actualizar los estados activos de los botones de la barra de herramientas
                 const note = state.notes.find(n => n.id === currentNoteId);
                 if (note && note.type === 'text') {
-                    note.content = dom.noteContentEditor.innerHTML; // Guardar contenido después del formato
+                    note.content = dom.noteContentEditor.innerHTML; // Guardar contenido después de formatear
                     saveState();
                 }
             }
 
             /**
              * Actualiza los estados activo/inactivo de los botones de la barra de herramientas de formato de texto
-             * basándose en el formato de la selección actual.
+             * en función del formato de la selección actual.
              */
             function updateToolbarButtonStates() {
                 dom.boldBtn.classList.toggle('active', document.queryCommandState('bold'));
@@ -6575,14 +6572,14 @@
                 });
 
                 if (result.confirmed && result.data['share-email-input']) {
-                    console.log(`(DEMO) Compartiendo nota ${currentNoteId} con ${result.data['share-email-input']}. Se necesita implementación de backend.`);
+                    console.log(`(DEMO) Compartiendo nota ${currentNoteId} con ${result.data['share-email-input']}. Se necesita implementación backend.`);
                     showInAppNotification(translations[lang].feature_in_dev_title || "Función en Desarrollo", translations[lang].feature_in_dev_message || "La colaboración en tiempo real estará disponible pronto.", 800);
                 }
             }
 
             /**
              * Exporta la nota actual como un PDF.
-             * Maneja tanto las notas de texto (usando html2canvas) como las notas de dibujo (desde la imagen del lienzo).
+             * Maneja tanto notas de texto (usando html2canvas) como notas de dibujo (desde la imagen del lienzo).
              */
             async function exportNoteAsPdf() {
                 const note = state.notes.find(n => n.id === currentNoteId);
@@ -6625,7 +6622,7 @@
                 showInAppNotification("Exportado", "La nota ha sido exportada como PDF.", 800);
             }
 
-            // --- FUNCIONES DEL BLOC DE NOTAS FIN ---
+            // --- NOTEPAD FUNCTIONS END ---
 
 
             /**
@@ -6645,7 +6642,7 @@
             /**
              * Alterna la visibilidad del contenedor del selector de voz.
              * (Actualmente, el selector de voz siempre está visible según el CSS).
-             * @param {boolean} show - True para mostrar, false para ocultar.
+             * @param {boolean} show - Verdadero para mostrar, falso para ocultar.
              */
             function toggleVoiceSelectorVisibility(show) {
                 // dom.voiceSelectorContainer.classList.toggle('hidden', !show);
@@ -6688,7 +6685,7 @@
              * Configura un intervalo periódico para las notificaciones de motivación si están habilitadas.
              */
             function setupMotivationInterval() {
-                if (motivationInterval) clearInterval(motivationInterval); // Limpiar cualquier intervalo existente
+                if (motivationInterval) clearInterval(motivationInterval); // Borrar cualquier intervalo existente
                 if (!motivationEnabled) return; // Salir si las notificaciones de motivación están deshabilitadas
 
                 const thirtyMinutes = 30 * 60 * 1000; // 30 minutos en milisegundos
@@ -6709,7 +6706,7 @@
                 }, thirtyMinutes);
             }
 
-            // --- FUNCIONES DEL TRADUCTOR INICIO ---
+            // --- TRANSLATOR FUNCTIONS START ---
             /**
              * Muestra la vista del traductor y configura su estado inicial.
              */
@@ -6718,9 +6715,9 @@
                 // Actualizar los títulos del chat para reflejar el flujo de trabajo del traductor
                 dom.chatTitle.textContent = translations[localStorage.getItem('goatify-lang') || 'es'].wf_eng_1 || 'Traducir/Corregir Texto';
                 dom.mobileChatTitle.textContent = translations[localStorage.getItem('goatify-lang') || 'es'].wf_eng_1 || 'Traducir/Corregir Texto';
-                updateContextualFooter('english-teacher-translate'); // Actualizar mensaje de pie de página
+                updateContextualFooter('english-teacher-translate'); // Actualizar el mensaje del pie de página
 
-                // Establecer el texto del marcador de posición predeterminado como solicitado (en negrita)
+                // Establecer el texto de marcador de posición predeterminado como se solicitó (en negrita)
                 dom.translatorInputEs.value = '**Pega o escribe aquí lo que quieras y traduce correctamente al ingles:**\n\n';
 
                 // Asegurarse de que la opción del modelo GOAT X esté disponible en el selector de modelo del traductor
@@ -6749,19 +6746,19 @@
                 pasteBtn?.addEventListener('click', async () => {
                     try {
                         const text = await navigator.clipboard.readText(); // Leer del portapapeles
-                        dom.translatorInputEs.value += text; // Añadir al campo de entrada
+                        dom.translatorInputEs.value += text; // Añadir al input
                     } catch (err) {
-                        console.error('Error al leer el contenido del portapapeles: ', err);
+                        console.error('No se pudo leer el contenido del portapapeles: ', err);
                     }
                 });
 
-                                copyBtn?.addEventListener('click', () => {
+                copyBtn?.addEventListener('click', () => {
                     dom.translatorOutputEn.select(); // Seleccionar texto en la salida
                     document.execCommand('copy'); // Copiar al portapapeles
                     showInAppNotification('Copiado', 'Texto traducido copiado al portapapeles.', 1500);
                 });
             }
-            // --- FUNCIONES DEL TRADUCTOR FIN ---
+            // --- TRANSLATOR FUNCTIONS END ---
 
             /**
              * Configura todos los escuchadores de eventos globales para la aplicación.
@@ -6772,7 +6769,7 @@
                     e.stopPropagation();
                     dom.inAppNotification.classList.remove('show');
                 });
-                // Escuchador de eventos para el botón de cerrar la notificación de tarea
+                // Escuchador de eventos para el botón de cerrar la notificación de tareas
                 dom.taskNotificationCloseBtn?.addEventListener('click', hideTaskNotification);
 
                 // Escuchador de eventos para hacer clic en la información de créditos del plan para mostrar detalles
@@ -6936,10 +6933,10 @@
                     }
                 });
 
-                // Escuchador de eventos para el botón de enviar principal
+                // Escuchador de eventos para el botón principal de enviar
                 dom.sendBtn?.addEventListener('click', () => sendMessage(false, null, { assistantType: 'main' }));
 
-                // Función auxiliar para configurar escuchadores de eventos para las entradas del asistente
+                // Función auxiliar para configurar escuchadores de eventos para entradas de asistente
                 const setupAssistantInput = (inputId, sendId, assistantType) => {
                     const inputEl = document.getElementById(inputId);
                     const sendBtn = document.getElementById(sendId);
@@ -6959,7 +6956,7 @@
                      }
                 };
 
-                // Configurar entradas del asistente para las vistas de proyecto, bloc de notas y traductor
+                // Configurar entradas de asistente para las vistas de proyecto, bloc de notas y traductor
                 setupAssistantInput('project-msg', 'project-send', 'project');
                 setupAssistantInput('notepad-msg', 'notepad-send', 'notepad');
                 setupTranslatorEventListeners();
@@ -7029,7 +7026,7 @@
                 });
 
 
-                // Escuchadores de eventos para la alternancia de precios y temas
+                // Escuchadores de eventos para alternar precios y temas
                 dom.upgradePlanBtn?.addEventListener('click', showPricingModal);
                 dom.closePricingModalBtn?.addEventListener('click', hidePricingModal);
                 dom.themeToggle?.addEventListener('click', () => setTheme(!document.body.classList.contains('dark-theme')));
@@ -7096,7 +7093,7 @@
                     }
                  });
 
-                // Escuchador de cambios del selector de modelo
+                // Escuchador de cambio de selector de modelo
                 dom.modelSelector?.addEventListener('change', () => {
                     const selectedValue = dom.modelSelector.value;
                     if (selectedValue === 'gpt-4o' && (!currentUser || (currentUser.app_metadata?.plan || 'free') === 'free')) {
@@ -7119,7 +7116,7 @@
                             selectedImageBase64 = ev.target.result;
                             dom.imagePreview.src = selectedImageBase64;
                             dom.imagePreviewContainer.classList.remove('hidden'); // Mostrar contenedor de vista previa de imagen
-                            dom.imageName.textContent = e.target.files[0].name; // Mostrar nombre de la imagen
+                            dom.imageName.textContent = e.target.files[0].name; // Mostrar nombre de imagen
                         };
                         reader.readAsDataURL(e.target.files[0]);
                     }
@@ -7152,7 +7149,7 @@
                             console.error("Error al procesar el PDF:", err);
                             dom.pdfStatusEl.textContent = `❌ ${translations[localStorage.getItem('goatify-lang') || 'es'].pdf_error_status || 'Error al leer PDF.'}`;
                             selectedPdfText = null;
-                            setTimeout(clearPdfData, 2000); // Borrar datos de PDF después del error
+                            setTimeout(clearPdfData, 2000); // Borrar datos del PDF después del error
                         }
                     };
                     reader.readAsArrayBuffer(file);
@@ -7260,9 +7257,9 @@
                     const lang = localStorage.getItem('goatify-lang') || 'es';
                     const offerTitle = `<i class="fas fa-gift mr-2"></i>${'Tu Oferta de Lanzamiento Exclusiva'}`;
                     const offerMessage = `<p class="font-bold mb-2">${'Al suscribirte a nuestro Plan Pro por $17/mes, desbloqueas:'}</p><ul class="list-disc list-inside space-y-2 text-left"><li><strong>${'Acceso Ilimitado a Goatify IA:'}</strong> ${'Todos los modelos y workflows sin restricciones.'}</li><li><strong>${'Construcción de tu Página Web Profesional:'}</strong> ${'Nosotros construiremos la primera versión, ¡gratis!'}</li></ul><p class="font-bold mt-4 mb-2">${'¿Cómo funciona?'}</p><ol class="list-decimal list-inside space-y-1 text-left"><li><strong>${'Agenda tu Sesión Estratégica:'}</strong> ${'Al confirmar, agenda tu llamada de 20 min.'}</li><li><strong>${'Co-creación:'}</strong> ${'En la llamada definiremos objetivos y crearemos el borrador con IA.'}</li><li><strong>${'Entrega:'}</strong> ${'Nuestro equipo lo pulirá y te entregará una web de una sección, lista.'}</li></ol><p class="text-xs mt-4 italic"><strong>${'Importante:'}</strong> ${'La web es tuya para siempre. Para mantenerla online con nuestro hosting, necesitas tu suscripción Pro activa. Si cancelas, te entregamos el código completo.'}</p>`;
-                    showModal({ title: offerTitle, body: offerMessage, confirmText: 'Agendar Sesión Estratégica' }).then(res => { if (res.confirmed) { window.open('https://calendly.com/goatify', '_blank'); } });
+                    showModal({ title: offerTitle, body: offerMessage, confirmText: 'Agendar Sesión Estratégica' }).then(res => { if (res.confirmed) { window.open('[https://calendly.com/goatify](https://calendly.com/goatify)', '_blank'); } });
                 });
-                dom.freeGuidesLink.addEventListener('click', (e) => { e.preventDefault(); const isPaidUser = currentUser && currentUser.app_metadata?.plan && currentUser.app_metadata.plan !== 'free'; if (isPaidUser) { window.open('https://goatify.app/guiasIA', '_blank'); } else { const lang = localStorage.getItem('goatify-lang') || 'es'; const title = 'Acceso Exclusivo para Suscriptores'; const message = 'Estas guías se actualizan semanalmente con estrategias de negocio que te ayudarán a crecer un montón. Son un beneficio exclusivo para nuestros suscriptores. ¡Únete a un plan para desbloquearlas!'; showModal({ title, body: message, confirmText: 'Ver Planes' }).then(res => { if (res.confirmed) { showPricingModal(); } }); } });
+                dom.freeGuidesLink.addEventListener('click', (e) => { e.preventDefault(); const isPaidUser = currentUser && currentUser.app_metadata?.plan && currentUser.app_metadata.plan !== 'free'; if (isPaidUser) { window.open('[https://goatify.app/guiasIA](https://goatify.app/guiasIA)', '_blank'); } else { const lang = localStorage.getItem('goatify-lang') || 'es'; const title = 'Acceso Exclusivo para Suscriptores'; const message = 'Estas guías se actualizan semanalmente con estrategias de negocio que te ayudarán a crecer un montón. Son un beneficio exclusivo para nuestros suscriptores. ¡Únete a un plan para desbloquearlas!'; showModal({ title, body: message, confirmText: 'Ver Planes' }).then(res => { if (res.confirmed) { showPricingModal(); } }); } });
                 dom.closeHtmlPreviewModalBtn?.addEventListener('click', () => { dom.htmlPreviewModal.classList.add('hidden'); dom.htmlPreviewModal.classList.remove('flex'); });
 
                 dom.downloadHtmlBtn?.addEventListener('click', () => {
@@ -7359,7 +7356,7 @@
                 dom.settingsUpgradePlanBtn?.addEventListener('click', () => { hideSettingsModal(); showPricingModal(); });
                 dom.fontSizeSlider?.addEventListener('input', (e) => {
                     const fontSize = e.target.value;
-                    document.body.style.setProperty('--base-font-size', `${fontSize}px`); // Actualizar variable CSS para el tamaño de fuente
+                    document.body.style.setProperty('--base-font-size', `${fontSize}px`); // Actualizar la variable CSS para el tamaño de fuente
                     dom.fontSizeValue.textContent = `${fontSize}px`;
                 });
                 dom.settingsThemeToggle?.addEventListener('click', () => {
@@ -7371,7 +7368,7 @@
                     if (notificationsEnabled) {
                         const permission = await Notification.requestPermission(); // Solicitar permiso de notificación
                         if (permission === 'granted') {
-                            registerServiceWorkerAndSubscribe(); // Registrar SW y suscribirse para notificaciones push
+                            registerServiceWorkerAndSubscribe(); // Registrar SW y suscribirse para push
                         } else {
                             // Si el permiso es denegado, revertir el interruptor y deshabilitar las notificaciones
                             notificationsEnabled = false;
@@ -7384,10 +7381,10 @@
                     setLanguage(e.target.value);
                 });
                 dom.connectWhatsappBtn?.addEventListener('click', () => {
-                    window.open('https://wa.me/17439106116?text=Hola%2C%20me%20gustar%C3%ADa%20conectar%20mi%20cuenta%20de%20Goatify%20IA%20a%20WhatsApp', '_blank');
+                    window.open('[https://wa.me/17439106116?text=Hola%2C%20me%20gustar%C3%ADa%20conectar%20mi%20cuenta%20de%20Goatify%20IA%20a%20WhatsApp](https://wa.me/17439106116?text=Hola%2C%20me%20gustar%C3%ADa%20conectar%20mi%20cuenta%20de%20Goatify%20IA%20a%20WhatsApp).', '_blank');
                 });
                 dom.scheduleMeetingBtn?.addEventListener('click', () => {
-                    window.open('https://calendly.com/goatify', '_blank');
+                    window.open('[https://calendly.com/goatify](https://calendly.com/goatify)', '_blank');
                 });
                 dom.freePlanButton?.addEventListener('click', showPricingModal);
 
@@ -7516,8 +7513,8 @@
                 });
 
 
-                dom.noteContentEditor?.addEventListener('mouseup', updateToolbarButtonStates); // Actualizar estados de los botones al cambiar la selección
-                dom.noteContentEditor?.addEventListener('keyup', updateToolbarButtonStates); // Actualizar estados de los botones al soltar una tecla
+                dom.noteContentEditor?.addEventListener('mouseup', updateToolbarButtonStates); // Actualizar estados de botones al cambiar la selección
+                dom.noteContentEditor?.addEventListener('keyup', updateToolbarButtonStates); // Actualizar estados de botones al soltar la tecla
                 dom.noteContentEditor?.addEventListener('click', e => {
                     handleChecklistItem(e.target); // Manejar clics en elementos de la lista de verificación
                     updateToolbarButtonStates();
@@ -7572,7 +7569,7 @@
                     }
                 });
 
-                // Escuchadores de eventos para la alternancia de detalles del plan de precios
+                // Escuchadores de eventos para alternar los detalles del plan de precios
                 document.querySelectorAll('.plan-details-toggle').forEach(button => {
                     button.addEventListener('click', () => {
                         const details = button.nextElementSibling;
@@ -7595,7 +7592,7 @@
                     showPricingModal();
                 });
 
-                // Escuchadores de modal de gamificación
+                // Escuchadores de modales de gamificación
                 dom.gamificationBtn?.addEventListener('click', () => {
                     if(!currentUser) {
                         showInAppNotification(translations[localStorage.getItem('goatify-lang') || 'es'].exclusive_feature_title || "Función Exclusiva", translations[localStorage.getItem('goatify-lang') || 'es'].exclusive_feature_message || "La gamificación está disponible para usuarios logueados.", 3000);
@@ -7649,11 +7646,11 @@
                         if (mission && mission.workflow) {
                             const workflowButton = document.querySelector(`[data-workflow="${mission.workflow}"]`);
                             if(workflowButton) {
-                                workflowButton.click(); // Simular clic en el botón de flujo de trabajo
-                                dom.closeGamificationModal.click(); // Cerrar modal de gamificación
+                                workflowButton.click(); // Simular clic en el botón del flujo de trabajo
+                                dom.closeGamificationModal.click(); // Cerrar el modal de gamificación
                             }
                         } else if (mission && mission.action === 'generateImage') {
-                            generateImage(); // Activar generación de imagen
+                            generateImage(); // Activar la generación de imágenes
                             dom.closeGamificationModal.click();
                         } else {
                             dom.closeGamificationModal.click();
@@ -7698,7 +7695,7 @@
                 } else {
                     dom.projectChatContainer.classList.remove('collapsed');
                 }
-                renderProjectBoard(chatId); // Renderizar el tablero Kanban o de lista
+                renderProjectBoard(chatId); // Renderizar el tablero Kanban o Lista
 
                 // Deshabilitar la opción GOAT X PRO para usuarios no registrados en el selector de modelo del proyecto
                 const projectModelSelector = document.getElementById('project-model-selector');
@@ -7709,7 +7706,7 @@
             }
 
             /**
-             * Renderiza el tablero del proyecto (vista Kanban o Lista) para un chat de proyecto dado.
+             * Renderiza el tablero del proyecto (vista Kanban o Lista) para un chat de proyecto determinado.
              * @param {string} chatId - El ID del chat del proyecto.
              */
             function renderProjectBoard(chatId) {
@@ -7722,11 +7719,11 @@
                 dom.viewToggleKanban.classList.toggle('active', isKanban);
                 dom.viewToggleList.classList.toggle('active', !isKanban);
 
-                // Alternar visibilidad de las vistas Kanban, Lista de escritorio y Lista móvil
+                // Alternar la visibilidad de las vistas Kanban, Lista de escritorio y Lista de móvil
                 dom.kanbanView.style.display = isKanban ? 'grid' : 'none';
                 dom.listView.style.display = (!isKanban && !isMobile) ? 'flex' : 'none';
                 dom.listViewMobile.style.display = (!isKanban && isMobile) ? 'block' : 'none';
-                dom.addTaskListViewBtn.style.display = isKanban ? 'none' : 'block'; // Mostrar/ocultar botón de añadir tarea
+                dom.addTaskListViewBtn.style.display = isKanban ? 'none' : 'block'; // Mostrar/ocultar el botón de añadir tarea
 
                 if (isKanban) {
                     renderKanbanView(chatId);
@@ -7737,7 +7734,7 @@
                         renderListView(chatId);
                     }
                 }
-                renderTagFilter(chatId); // Renderizar el menú desplegable de filtro de etiquetas
+                renderTagFilter(chatId); // Renderizar filtro de etiquetas
             }
 
             /**
@@ -7746,7 +7743,7 @@
              */
             function renderKanbanView(chatId) {
                 const { projectData } = state.chats[chatId];
-                dom.kanbanView.innerHTML = ''; // Limpiar contenido Kanban existente
+                dom.kanbanView.innerHTML = ''; // Limpiar el contenido Kanban existente
 
                 projectData.columns.forEach(column => {
                     const columnEl = document.createElement('div');
@@ -7785,7 +7782,7 @@
                             e.dataTransfer.setData('text/plain', task.id);
                             e.dataTransfer.effectAllowed = 'move';
                         });
-                        cardEl.addEventListener('touchstart', handleTouchStart, {passive: false}); // Arrastrar con toque para móvil
+                        cardEl.addEventListener('touchstart', handleTouchStart, {passive: false}); // Arrastre táctil para móvil
 
                         cardEl.addEventListener('click', (e) => {
                             if (e.target.classList.contains('delete-task-icon')) {
@@ -7812,7 +7809,7 @@
                     dom.kanbanView.appendChild(columnEl);
                 });
 
-                // Añadir botón de tarea para cada columna
+                // Botón de añadir tarea para cada columna
                 dom.kanbanView.querySelectorAll('.add-task-to-column-btn').forEach(btn => {
                     btn.addEventListener('click', (e) => {
                         const columnId = e.currentTarget.dataset.columnId;
@@ -7822,12 +7819,12 @@
             }
 
             /**
-             * Renderiza la vista de lista para un proyecto (versión de escritorio).
+             * Renderiza la vista de Lista para un proyecto (versión de escritorio).
              * @param {string} chatId - El ID del chat del proyecto.
              */
             function renderListView(chatId) {
                 const { projectData } = state.chats[chatId];
-                dom.listView.innerHTML = ''; // Limpiar contenido de lista existente
+                dom.listView.innerHTML = ''; // Limpiar el contenido de la lista existente
 
                 const header = document.createElement('div');
                 header.className = 'list-view-header flex-shrink-0';
@@ -7887,7 +7884,7 @@
                         `;
 
                         taskEl.addEventListener('dragstart', (e) => { e.dataTransfer.setData('text/plain', task.id); });
-                        taskEl.addEventListener('touchstart', handleTouchStart, {passive: false}); // Arrastrar con toque para móvil
+                        taskEl.addEventListener('touchstart', handleTouchStart, {passive: false}); // Arrastre táctil para móvil
                         listContent.appendChild(taskEl);
                     });
 
@@ -7926,7 +7923,7 @@
                         e.stopPropagation();
                         const taskId = e.currentTarget.dataset.taskId;
                         const task = findTask(taskId)?.task;
-                        if(task) updateTaskStatus(taskId, { urgent: !task.urgent }); // Alternar estado de urgente
+                        if(task) updateTaskStatus(taskId, { urgent: !task.urgent }); // Alternar estado urgente
                     });
                 });
                 dom.listView.querySelectorAll('.delete-task-icon').forEach(btn => {
@@ -7938,12 +7935,12 @@
             }
 
             /**
-             * Renderiza la vista de lista para un proyecto (versión móvil).
+             * Renderiza la vista de Lista para un proyecto (versión móvil).
              * @param {string} chatId - El ID del chat del proyecto.
              */
             function renderListViewMobile(chatId) {
                 const { projectData } = state.chats[chatId];
-                dom.listViewMobile.innerHTML = ''; // Limpiar contenido de lista móvil existente
+                dom.listViewMobile.innerHTML = ''; // Limpiar el contenido de la lista móvil existente
 
                 projectData.columns.forEach(column => {
                     const columnEl = document.createElement('div');
@@ -7980,7 +7977,7 @@
                                 </div>
                             </div>
                         `;
-                        taskEl.addEventListener('touchstart', handleTouchStart, {passive: false}); // Arrastrar con toque para móvil
+                        taskEl.addEventListener('touchstart', handleTouchStart, {passive: false}); // Arrastre táctil para móvil
                         tasksContainer.appendChild(taskEl);
                     });
 
@@ -7993,7 +7990,7 @@
                     tasksContainer.appendChild(addTaskBtn);
 
                     columnEl.appendChild(tasksContainer);
-                    // Escuchadores de arrastrar y soltar para las columnas de lista móvil
+                    // Escuchadores de arrastrar y soltar para columnas de lista móvil
                     columnEl.addEventListener('dragover', e => { e.preventDefault(); columnEl.style.backgroundColor = 'rgba(138, 79, 255, 0.1)'; });
                     columnEl.addEventListener('dragleave', e => { columnEl.style.backgroundColor = ''; });
                     columnEl.addEventListener('drop', e => {
@@ -8041,7 +8038,7 @@
              * Elimina una tarea del calendario personal o de un proyecto.
              * Confirma la eliminación con el usuario.
              * @param {string} taskId - El ID de la tarea a eliminar.
-             * @param {string} [chatId] - El ID del chat del proyecto (si es una tarea de proyecto).
+             * @param {string} [chatId] - El ID del chat del proyecto (si es una tarea del proyecto).
              */
             async function deleteTask(taskId, chatId) {
                 const lang = localStorage.getItem('goatify-lang') || 'es';
@@ -8059,7 +8056,7 @@
                     if (found.type === 'personal') {
                         const { dayKey, taskIndex } = found;
                         state.calendar[dayKey].splice(taskIndex, 1); // Eliminar del calendario personal
-                        if(state.calendar[dayKey].length === 0) delete state.calendar[dayKey]; // Eliminar la entrada del día si está vacía
+                        if(state.calendar[dayKey].length === 0) delete state.calendar[dayKey]; // Eliminar entrada del día si está vacía
                     } else if (found.type === 'project') {
                         const { column, taskIndex } = found;
                         column.tasks.splice(taskIndex, 1); // Eliminar de la columna del proyecto
@@ -8189,7 +8186,7 @@
 
                     if (newContent.trim() && newDate) {
                         if(isNew && result.data['create-project-checkbox']) {
-                             // Si se está creando un nuevo proyecto, pasar los datos del modal actual a la función de creación de proyecto
+                             // Si se crea un nuevo proyecto, pasar los datos del modal actual a la función de creación del proyecto
                              const tempModalBody = document.createElement('div');
                              tempModalBody.innerHTML = dom.genericModal.querySelector('#modal-body').innerHTML;
                              tempModalBody.querySelector('#cal-task-content-edit').value = newContent;
@@ -8215,7 +8212,7 @@
                         }
                         saveState();
                         renderCalendarView();
-                        completeMission('week-organized'); // Completar misión para organizar la semana
+                        completeMission('week-organized'); // Completar misión por organizar la semana
                     }
                 }
             }
@@ -8231,8 +8228,8 @@
                 // Asegurarse de que sea una tarea de proyecto y que no se esté moviendo a su columna actual
                 if (!found || found.type !== 'project' || found.column.id === targetColumnId) return;
 
-                const [taskToMove] = found.column.tasks.splice(found.taskIndex, 1); // Eliminar tarea de la columna actual
-                taskToMove.completed = targetColumnId === 'done'; // Establecer estado de completado si se mueve a 'done'
+                const [taskToMove] = found.column.tasks.splice(found.taskIndex, 1); // Eliminar la tarea de la columna actual
+                taskToMove.completed = targetColumnId === 'done'; // Establecer el estado de finalización si se mueve a 'done'
 
                 const targetColumn = state.chats[chatId].projectData.columns.find(c => c.id === targetColumnId);
                 if (targetColumn) {
@@ -8298,7 +8295,7 @@
                     dom.tagFilterDropdown.appendChild(btn);
                 });
                 dom.tagFilterBtn.onclick = () => {
-                    dom.tagFilterDropdown.classList.toggle('hidden'); // Alternar visibilidad del menú desplegable
+                    dom.tagFilterDropdown.classList.toggle('hidden'); // Alternar la visibilidad del menú desplegable
                 };
             }
 
@@ -8406,7 +8403,7 @@
                 const expenseList = dom.financialAssistantView.querySelector('#expense-categories-list');
                 if(!incomeList || !expenseList) return;
 
-                // Función auxiliar para renderizar una sola categoría financiera
+                // Ayudante para renderizar una sola categoría financiera
                 const renderCategory = (category, type) => {
                     const categoryEl = document.createElement('div');
                     categoryEl.className = 'finance-category';
@@ -8426,7 +8423,7 @@
                         <div class="finance-category-header">
                             <input type="text" class="finance-category-name-input" value="${category.name}">
                             <div>
-                                <button class="add-finance-item-btn text-primary p-1 mr-2" title="Añadir Item"><i class="fas fa-plus-circle"></i></button>
+                                <button class="add-finance-item-btn text-primary p-1 mr-2" title="Añadir Item"><i class="fas fa-folder-plus mr-1"></i></button>
                                 <button class="delete-finance-category-btn text-red-500 p-1" title="Eliminar Carpeta"><i class="fas fa-trash-alt"></i></button>
                             </div>
                         </div>
@@ -8474,7 +8471,7 @@
                     });
                 }
 
-                // Escuchador de eventos para cambios en la entrada (nombres de categoría, descripciones/cantidades de elementos)
+                // Escuchador de eventos para cambios en la entrada (nombres de categorías, descripciones/cantidades de elementos)
                 view.addEventListener('input', (e) => {
                     if (e.target.classList.contains('finance-category-name-input')) {
                         const catEl = e.target.closest('.finance-category');
@@ -8513,30 +8510,6 @@
                         const type = catEl.dataset.type;
                         const category = chat.financialData[`${type}Categories`].find(c => c.id === catId);
                         if (category) {
-                            // Límites de uso para invitados: Asistente Financiero - Límite de creación de 1 categoría de ingresos y 1 de gastos, con un máximo de 3 ítems en total por invitado.
-                            if (!currentUser) {
-                                const guestUsageKey = 'guest_financial_usage';
-                                let guestUsage = JSON.parse(localStorage.getItem(guestUsageKey)) || { incomeCategories: 0, expenseCategories: 0, items: 0 };
-
-                                if (guestUsage.items >= 3) {
-                                    showModal({
-                                        title: translations[localStorage.getItem('goatify-lang') || 'es'].login_for_credits_title,
-                                        body: translations[localStorage.getItem('goatify-lang') || 'es'].login_for_credits_body,
-                                        confirmText: translations[localStorage.getItem('goatify-lang') || 'es'].login_now_btn,
-                                        cancelText: translations[localStorage.getItem('goatify-lang') || 'es'].view_plans_btn,
-                                    }).then(res => {
-                                        if (res.confirmed) {
-                                            netlifyIdentity.open('login');
-                                        } else {
-                                            showPricingModal();
-                                        }
-                                    });
-                                    return;
-                                }
-                                guestUsage.items++;
-                                localStorage.setItem(guestUsageKey, JSON.stringify(guestUsage));
-                            }
-
                             if (!category.items) category.items = [];
                             category.items.push({ id: `fin-${crypto.randomUUID()}`, description: '', amount: 0 });
                             renderFinancialData(chatId); // Volver a renderizar para mostrar el nuevo elemento
@@ -8573,32 +8546,8 @@
                     }
                 });
 
-                // Botones de añadir categoría
+                // Añadir botones de categoría
                 view.querySelector('#add-income-category-btn')?.addEventListener('click', () => {
-                    // Límites de uso para invitados: Asistente Financiero - Límite de creación de 1 categoría de ingresos y 1 de gastos
-                    if (!currentUser) {
-                        const guestUsageKey = 'guest_financial_usage';
-                        let guestUsage = JSON.parse(localStorage.getItem(guestUsageKey)) || { incomeCategories: 0, expenseCategories: 0, items: 0 };
-
-                        if (guestUsage.incomeCategories >= 1) {
-                            showModal({
-                                title: translations[localStorage.getItem('goatify-lang') || 'es'].login_for_credits_title,
-                                body: translations[localStorage.getItem('goatify-lang') || 'es'].login_for_credits_body,
-                                confirmText: translations[localStorage.getItem('goatify-lang') || 'es'].login_now_btn,
-                                cancelText: translations[localStorage.getItem('goatify-lang') || 'es'].view_plans_btn,
-                            }).then(res => {
-                                if (res.confirmed) {
-                                    netlifyIdentity.open('login');
-                                } else {
-                                    showPricingModal();
-                                }
-                            });
-                            return;
-                        }
-                        guestUsage.incomeCategories++;
-                        localStorage.setItem(guestUsageKey, JSON.stringify(guestUsage));
-                    }
-
                     const newCategory = { id: `fin-cat-${crypto.randomUUID()}`, name: 'Nueva Carpeta de Ingresos', items: [] };
                     if (!chat.financialData.incomeCategories) chat.financialData.incomeCategories = [];
                     chat.financialData.incomeCategories.push(newCategory);
@@ -8607,30 +8556,6 @@
                 });
 
                 view.querySelector('#add-expense-category-btn')?.addEventListener('click', () => {
-                    // Límites de uso para invitados: Asistente Financiero - Límite de creación de 1 categoría de ingresos y 1 de gastos
-                    if (!currentUser) {
-                        const guestUsageKey = 'guest_financial_usage';
-                        let guestUsage = JSON.parse(localStorage.getItem(guestUsageKey)) || { incomeCategories: 0, expenseCategories: 0, items: 0 };
-
-                        if (guestUsage.expenseCategories >= 1) {
-                            showModal({
-                                title: translations[localStorage.getItem('goatify-lang') || 'es'].login_for_credits_title,
-                                body: translations[localStorage.getItem('goatify-lang') || 'es'].login_for_credits_body,
-                                confirmText: translations[localStorage.getItem('goatify-lang') || 'es'].login_now_btn,
-                                cancelText: translations[localStorage.getItem('goatify-lang') || 'es'].view_plans_btn,
-                            }).then(res => {
-                                if (res.confirmed) {
-                                    netlifyIdentity.open('login');
-                                } else {
-                                    showPricingModal();
-                                }
-                            });
-                            return;
-                        }
-                        guestUsage.expenseCategories++;
-                        localStorage.setItem(guestUsageKey, JSON.stringify(guestUsage));
-                    }
-
                     const newCategory = { id: `fin-cat-${crypto.randomUUID()}`, name: 'Nueva Carpeta de Gastos', items: [] };
                     if (!chat.financialData.expenseCategories) chat.financialData.expenseCategories = [];
                     chat.financialData.expenseCategories.push(newCategory);
@@ -8655,7 +8580,7 @@
                 const chat = state.chats[chatId];
                 if (!chat || !chat.financialData || !view.querySelector('#total-income')) return;
 
-                // Función auxiliar para sumar cantidades de todos los elementos dentro de las categorías
+                // Ayudante para sumar las cantidades de todos los elementos dentro de las categorías
                 const sumItems = (categories) => (categories || [])
                     .flatMap(cat => cat.items || [])
                     .reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
@@ -8670,13 +8595,13 @@
                 view.querySelector('#total-expenses').textContent = `$${totalExpenses.toFixed(2)}`;
                 const netBalanceEl = view.querySelector('#net-balance');
                 netBalanceEl.textContent = `$${netBalance.toFixed(2)}`;
-                netBalanceEl.style.color = netBalance >= 0 ? '#22c55e' : '#ef4444'; // Color basado en saldo positivo/negativo
+                netBalanceEl.style.color = netBalance >= 0 ? '#22c55e' : '#ef4444'; // Color según el saldo positivo/negativo
             }
 
             /**
              * Comprueba si la misión "semana organizada" está completada.
              * Requiere al menos una tarea para cada día de la semana actual.
-             * @returns {boolean} True si la misión está completada, false en caso contrario.
+             * @returns {boolean} Verdadero si la misión está completada, falso en caso contrario.
              */
             function checkWeekOrganized() {
                 const startOfWeek = dayjs().startOf('isoWeek');
@@ -8691,7 +8616,7 @@
              * Requiere un número específico de tareas en un proyecto dado.
              * @param {string} chatId - El ID del chat del proyecto.
              * @param {number} taskCount - El número mínimo de tareas requeridas.
-             * @returns {boolean} True si la misión está completada, false en caso contrario.
+             * @returns {boolean} Verdadero si la misión está completada, falso en caso contrario.
              */
             function checkProjectCreated(chatId, taskCount) {
                 const chat = state.chats[chatId];
@@ -8740,13 +8665,13 @@
             }
 
             /**
-             * Guarda el estado de gamificación actual en el almacenamiento local.
+             * Guarda el estado actual de gamificación en el almacenamiento local.
              */
             function saveGamificationState() {
                 if(!currentUser) return;
                 const key = `gamificationState_${currentUser.id}`;
                 localStorage.setItem(key, JSON.stringify(gamificationState));
-                // Persistir créditos de recompensa por separado también (para compatibilidad/simplicidad)
+                // Persistir créditos de recompensa por separado también (para compatibilidad con versiones anteriores/simplicidad)
                 localStorage.setItem(`reward_credits_${currentUser.id}`, gamificationState.credits);
                 renderGamificationModal(); // Volver a renderizar el modal de gamificación
                 updateCreditCounter(); // Actualizar la visualización de créditos
@@ -8795,7 +8720,7 @@
 
             /**
              * Comprueba y actualiza la racha diaria del usuario.
-             * Otorga XP y créditos según la duración de la racha.
+             * Otorga XP y créditos en función de la duración de la racha.
              * Activa la apertura del Cofre GOAT el día 7.
              */
             async function checkDailyStreak() {
@@ -8807,7 +8732,7 @@
                 const lastLogin = gamificationState.lastLogin;
 
                 if (lastLogin === today) {
-                    console.log("Ya se procesó la racha de hoy.");
+                    console.log("Racha ya procesada para hoy.");
                     return; // Ya procesado para hoy
                 }
 
@@ -8816,9 +8741,9 @@
                     gamificationState.dailyStreak++; // Incrementar racha si inició sesión ayer
                 } else {
                     if (lastLogin !== null) {
-                        console.log("Racha diaria reiniciada.");
+                        console.log("Racha diaria restablecida.");
                     }
-                    gamificationState.dailyStreak = 1; // Reiniciar racha si no es consecutiva
+                    gamificationState.dailyStreak = 1; // Restablecer racha si no es consecutiva
                 }
 
                 gamificationState.lastLogin = today; // Actualizar la fecha del último inicio de sesión
@@ -8880,7 +8805,7 @@
              * @param {string|null} [contextId=null] - ID de contexto opcional (ej. ID de chat para misión de proyecto).
              */
             function completeMission(missionId, contextId = null) {
-                if (!currentUser || gamificationState.completedMissions.includes(missionId)) return; // Ya completado o no hay usuario
+                if (!currentUser || gamificationState.completedMissions.includes(missionId)) return; // Ya completado o sin usuario
                 const mission = MISSIONS[missionId];
                 if (!mission) return;
 
@@ -8892,7 +8817,7 @@
                 }
 
                 if (isCompleted) {
-                    gamificationState.completedMissions.push(missionId); // Marcar como completada
+                    gamificationState.completedMissions.push(missionId); // Marcar como completado
                     addXp(mission.xp); // Añadir XP
                     addCredits(mission.credits); // Añadir créditos
                     showModal({
@@ -8911,7 +8836,7 @@
              * @param {string} achievementId - El ID del logro a desbloquear.
              */
             function unlockAchievement(achievementId) {
-                if (!currentUser || gamificationState.unlockedAchievements.includes(achievementId)) return; // Ya desbloqueado o no hay usuario
+                if (!currentUser || gamificationState.unlockedAchievements.includes(achievementId)) return; // Ya desbloqueado o sin usuario
                 const achievement = ACHIEVEMENTS[achievementId];
                 if (!achievement) return;
 
@@ -8941,7 +8866,7 @@
                 if (level < LEVEL_NAMES.length) {
                     const progress = ((currentXp - xpForCurrentLevel) / (xpForNextLevel - xpForCurrentLevel)) * 100;
                     dom.gamificationXp.textContent = `${currentXp} / ${xpForNextLevel} XP`;
-                    dom.gamificationXpBar.style.width = `${Math.min(100, progress)}%`; // Actualizar ancho de la barra de XP
+                    dom.gamificationXpBar.style.width = `${Math.min(100, progress)}%`; // Actualizar la anchura de la barra de XP
                 } else {
                     dom.gamificationXp.textContent = '¡Nivel Máximo!'; // Nivel máximo alcanzado
                     dom.gamificationXpBar.style.width = `100%`;
@@ -9004,7 +8929,7 @@
                 });
             }
 
-            let initFired = false; // Indicador para asegurar que la inicialización solo se ejecute una vez
+            let initFired = false; // Bandera para asegurar que la inicialización solo se ejecute una vez
             /**
              * Completa el proceso de inicialización de la aplicación.
              * Carga el estado del usuario, actualiza la interfaz de usuario, configura los servicios y maneja las notificaciones iniciales.
@@ -9014,7 +8939,7 @@
                 // Evitar la reinicialización si ya se activó para el mismo usuario
                 if (initFired && user?.id === currentUser?.id) return;
                 initFired = true;
-                const wasGuest = !currentUser; // Comprobar si el usuario era anteriormente un invitado
+                const wasGuest = !currentUser; // Comprobar si el usuario era previamente un invitado
                 currentUser = user; // Establecer el usuario actual
 
                 try {
@@ -9023,24 +8948,24 @@
                     populateVoiceList(); // Rellenar voces de texto a voz
                     setupEventListeners(); // Adjuntar todos los escuchadores de eventos globales
 
-                    // Registrar Service Worker y suscribirse para notificaciones push si las notificaciones están habilitadas y el usuario ha iniciado sesión
+                    // Registrar Service Worker y suscribirse a las notificaciones push si las notificaciones están habilitadas y el usuario ha iniciado sesión
                     if (currentUser && notificationsEnabled) {
                          registerServiceWorkerAndSubscribe();
                     }
-                    updateContextualFooter(state.chats[currentChatId]?.workflow); // Actualizar el mensaje de pie de página contextual inicial
+                    updateContextualFooter(state.chats[currentChatId]?.workflow); // Actualizar el mensaje inicial del pie de página contextual
                     setupMotivationInterval(); // Iniciar notificaciones de motivación periódicas
 
-                    dom.appContainer.classList.remove('opacity-0'); // Desvanecer el contenedor principal de la aplicación
+                    dom.appContainer.classList.remove('opacity-0'); // Mostrar el contenedor principal de la aplicación
                     dom.loadingOverlay.style.display = 'none'; // Ocultar la superposición de carga
 
                     updateNotificationBadge(); // Actualizar la insignia de notificación de tareas
 
-                    // Mostrar modal de motivación para nuevos usuarios registrados
+                    // Mostrar modal de motivación para nuevos usuarios que han iniciado sesión
                     if (wasGuest && currentUser) {
                         showMotivationModal();
                     }
 
-                    // Mostrar modal de reglas de gamificación para nuevos usuarios registrados que no lo hayan visto
+                    // Mostrar modal de reglas de gamificación para nuevos usuarios que han iniciado sesión y no lo han visto
                     if (currentUser && !localStorage.getItem('goatify-gamification-rules-seen')) {
                         setTimeout(() => {
                             dom.gamificationRulesModal.classList.remove('hidden');
@@ -9099,7 +9024,7 @@
                 // Manejar errores de Netlify Identity
                 netlifyIdentity.on('error', (err) => {
                     console.error("Error de Netlify Identity:", err);
-                    if (!initFired) finishInitialization(null); // Volver al modo invitado si hay un error durante la inicialización inicial
+                    if (!initFired) finishInitialization(null); // Volver al modo de invitado si hay un error durante la inicialización inicial
                 });
             } else {
                  console.warn("Widget de Netlify Identity no encontrado. Procediendo como invitado.");
