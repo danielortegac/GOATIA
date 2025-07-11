@@ -1,4 +1,4 @@
-const CACHE_NAME = 'goatify-ia-cache-v13'; // ¡VERSIÓN INCREMENTADA!
+const CACHE_NAME = 'goatify-ia-cache-v14'; // ¡VERSIÓN INCREMENTADA!
 const urlsToCache = [
   '/',
   '/index.html',
