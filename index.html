@@ -2697,6 +2697,7 @@
     </div>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script type="module">
+    <script type="module">
 //<-- START OF SCRIPT -->
         window.addEventListener('DOMContentLoaded', () => {
             dayjs.extend(window.dayjs_plugin_localizedFormat);
@@ -2739,7 +2740,7 @@
                     notification_task_due: "Es hora de: ", notification_title: "Goatify IA - ¡Hora de tu Tarea!",
                     tasks_for: "Tareas para", add_task_for: "Añadir Tarea para",
                     delete_task_confirm_title: "Confirmar Eliminación", delete_task_confirm_body: "¿Estás seguro de que quieres eliminar esta tarea?",
-                    delete_btn: "Eliminar", done_btn: "Listo",
+                    delete_btn: "Borrar", done_btn: "Listo",
                     share_note: "Compartir Nota",
                     share_note_desc: "Ingresa el email del usuario de Goatify con quien quieres colaborar en esta nota.",
                     share_note_email_placeholder: "ejemplo@email.com",
@@ -3630,7 +3631,7 @@
                         console.log("No se encontró suscripción, creando una nueva.");
 
                         // Clave pública VAPID (reemplazar con su clave real si es diferente)
-                        const VAPID_PUBLIC_KEY = 'BJ4v02ExA1Tso9D_s2zXJGXWf_Q-wG2t6RkcuU_k9mLyD_i_Ld16Gq2g4Gf4K_V8A2f4g7J1zX9Z8hE3D4A0f5Y';
+                        const VAPID_PUBLIC_KEY = 'BJ4v02ExA1Tso9D_s2zXJGXWf_Q-wG2t6RkcuT_k9mLyD_i_Ld16Gq2g4Gf4K_V8A2f4g7J1zX9Z8hE3D4A0f5Y';
 
                         subscription = await registration.pushManager.subscribe({
                             userVisibleOnly: true, // Requerido para notificaciones visibles para el usuario
@@ -4081,8 +4082,8 @@
                 const touch = e.touches[0];
                 startX = touch.pageX;
                 startY = touch.pageY;
-                ghostElement.style.left = `${touch.pageX - ghostElement.offsetWidth / 2}px`;
-                ghostElement.style.top = `${touch.pageY - ghostElement.offsetHeight / 2}px`;
+                ghostElement.style.left = `${startX - ghostElement.offsetWidth / 2}px`;
+                ghostElement.style.top = `${startY - ghostElement.offsetHeight / 2}px`;
 
                 // Añadir escuchadores de touchmove y touchend globalmente
                 document.addEventListener('touchmove', handleTouchMove, {passive: false});
@@ -4207,7 +4208,7 @@
              * @param {object} updates - Un objeto que contiene las propiedades a actualizar.
              */
             function updateTaskStatus(taskId, updates) {
-                const found = find(taskId);
+                const found = findTask(taskId);
                 if (!found) return; // Tarea no encontrada
 
                 if (found.type === 'personal') {
@@ -4538,8 +4539,7 @@
 
                 // Anulaciones de modelos específicos para ciertos flujos de trabajo o tipos de archivo
                 if (workflow === "design-web") return "gpt-4o-mini"; // Usar modelo específico para diseño web
-                // MODIFICACIÓN: Para análisis de PDF/Imagen, siempre usar GOAT X PRO (gpt-4o)
-                if (hasFile) return "gpt-4o";
+                if (hasFile) return "gpt-4o-mini"; // Usar modelo específico para análisis de archivos
 
                 const selectedModel = selector.value;
                 // Restringir el acceso a "GOAT X PRO" (gpt-4o) para usuarios gratuitos
@@ -4602,18 +4602,7 @@
             function getCreditCount() {
                 if (!currentUser) {
                     // Lógica para usuarios invitados
-                    // MODIFICACIÓN: Cargar el uso de invitados de forma persistente
-                    const guestUsageKey = 'guest_usage_v2'; // Usar una nueva clave para evitar conflictos con versiones anteriores
-                    let usageData = JSON.parse(localStorage.getItem(guestUsageKey)) || { count: 0, lastActivity: new Date().toISOString() };
-
-                    // Opcional: Reiniciar el contador de invitados después de un período de inactividad largo (ej. 30 días)
-                    const thirtyDaysAgo = dayjs().subtract(30, 'day');
-                    if (dayjs(usageData.lastActivity).isBefore(thirtyDaysAgo)) {
-                        usageData = { count: 0, lastActivity: new Date().toISOString() };
-                    }
-                    usageData.lastActivity = new Date().toISOString(); // Actualizar la última actividad
-                    localStorage.setItem(guestUsageKey, JSON.stringify(usageData)); // Guardar el estado actualizado
-
+                    const usageData = JSON.parse(localStorage.getItem('guest_usage')) || { count: 0 };
                     return { remaining: Math.max(0, GUEST_CREDIT_LIMIT - usageData.count), limit: GUEST_CREDIT_LIMIT, plan: 'free (guest)' };
                 }
 
@@ -4628,12 +4617,11 @@
 
                 const usageKey = `usage_monthly_${currentUser.id}`;
                 const currentMonth = dayjs().format('YYYY-MM');
-                let usageData = JSON.parse(localStorage.getItem(usageKey)) || { count: 0, month: '' };
+                const usageData = JSON.parse(localStorage.getItem(usageKey)) || { count: 0, month: '' };
 
-                // MODIFICACIÓN: Reiniciar el uso mensual si es un mes nuevo
+                // Reiniciar el uso mensual si es un mes nuevo
                 if (usageData.month !== currentMonth) {
-                    usageData = { count: 0, month: currentMonth }; // Reiniciar para el nuevo mes
-                    localStorage.setItem(usageKey, JSON.stringify(usageData)); // Guardar el nuevo estado
+                    return { remaining: limit, limit, plan };
                 }
 
                 return { remaining: Math.max(0, limit - usageData.count), limit, plan };
@@ -4701,19 +4689,14 @@
                     return false;
                 }
 
-                // MODIFICACIÓN: Priorizar los créditos de recompensa, luego los créditos del plan
-                if (gamCredits >= cost) {
-                    gamificationState.credits -= cost;
-                    saveGamificationState(); // Guardar el estado de gamificación actualizado
-                    showInAppNotification("Crédito de Recompensa Usado", `Se ha utilizado un crédito de recompensa. Te quedan ${gamificationState.credits}.`, 2000);
-                } else if (remaining >= cost) {
+                // Priorizar los créditos del plan, luego los créditos de recompensa
+                if (remaining >= cost) {
                     if (!currentUser) {
                         // Actualizar el uso de invitados en el almacenamiento local
-                        const guestUsageKey = 'guest_usage_v2';
-                        let usageData = JSON.parse(localStorage.getItem(guestUsageKey)) || { count: 0, lastActivity: new Date().toISOString() };
+                        const usageKey = 'guest_usage';
+                        let usageData = JSON.parse(localStorage.getItem(usageKey)) || { count: 0 };
                         usageData.count += cost;
-                        usageData.lastActivity = new Date().toISOString(); // Actualizar la última actividad
-                        localStorage.setItem(guestUsageKey, JSON.stringify(usageData));
+                        localStorage.setItem(usageKey, JSON.stringify(usageData));
                     } else {
                         // Actualizar el uso mensual del usuario que ha iniciado sesión en el almacenamiento local
                         const usageKey = `usage_monthly_${currentUser.id}`;
@@ -4726,11 +4709,12 @@
                         localStorage.setItem(usageKey, JSON.stringify(usageData));
                     }
                 } else {
-                    // Esto debería ser inalcanzable si el primer chequeo de `if (remaining < cost && gamCredits < cost)` funciona correctamente.
-                    // Sin embargo, como fallback, si por alguna razón se llega aquí, significa que no hay suficientes créditos de ningún tipo.
-                    console.error("Error lógico: Se intentó gastar créditos sin suficientes fondos después de la verificación inicial.");
-                    return false;
+                    // Usar créditos de recompensa si los créditos del plan son insuficientes
+                    gamificationState.credits -= cost;
+                    saveGamificationState(); // Guardar el estado de gamificación actualizado
+                    showInAppNotification("Crédito de Recompensa Usado", `Se ha utilizado un crédito de recompensa. Te quedan ${gamificationState.credits}.`, 2000);
                 }
+
 
                 updateCreditCounter(); // Actualizar la visualización de créditos en la interfaz de usuario
 
@@ -4765,16 +4749,10 @@
                 };
 
                 if (!currentUser) {
-                    // Lógica para usuarios invitados
-                    // MODIFICACIÓN: Usar la nueva clave para el uso de invitados para asegurar persistencia
-                    const guestData = loadLocalStorage('guestState_v2');
+                    // Cargar el estado para usuarios invitados desde el almacenamiento local
+                    const guestData = loadLocalStorage('guestState');
                     state = guestData.state || { chats: {}, projects: {}, structure: [], calendar: {}, notes: [] };
                     currentChatId = guestData.currentChatId || null;
-
-                    // Asegurar que el contador de uso de invitados se inicialice si no existe
-                    const guestUsageKey = 'guest_usage_v2';
-                    let usageData = JSON.parse(localStorage.getItem(guestUsageKey)) || { count: 0, lastActivity: new Date().toISOString() };
-                    localStorage.setItem(guestUsageKey, JSON.stringify(usageData)); // Guardar para asegurar que exista
                 } else {
                      try {
                         // Intentar cargar el estado desde el backend (función de Netlify) para usuarios que han iniciado sesión
@@ -4787,30 +4765,12 @@
                         const dbState = await response.json();
                         state = dbState.state || { chats: {}, projects: {}, structure: [], calendar: {}, notes: [] };
                         currentChatId = dbState.currentChatId;
-
-                        // MODIFICACIÓN: Asegurar que el uso mensual se inicialice/reinicie correctamente al cargar
-                        const usageKey = `usage_monthly_${currentUser.id}`;
-                        const currentMonth = dayjs().format('YYYY-MM');
-                        let usageData = JSON.parse(localStorage.getItem(usageKey)) || { count: 0, month: '' };
-                        if (usageData.month !== currentMonth) {
-                            usageData = { count: 0, month: currentMonth }; // Reiniciar para el nuevo mes
-                            localStorage.setItem(usageKey, JSON.stringify(usageData));
-                        }
                     } catch (error) {
                         // Volver al almacenamiento local si la carga del backend falla
                         console.error("No se pudo cargar desde la base de datos, volviendo a localStorage:", error);
                         const userLocalData = loadLocalStorage(`goatbotState_${currentUser.id}`);
                         state = userLocalData.state || { chats: {}, projects: {}, structure: [], calendar: {}, notes: [] };
                         currentChatId = userLocalData.currentChatId;
-
-                        // MODIFICACIÓN: Asegurar que el uso mensual se inicialice/reinicie correctamente al cargar (incluso en fallback)
-                        const usageKey = `usage_monthly_${currentUser.id}`;
-                        const currentMonth = dayjs().format('YYYY-MM');
-                        let usageData = JSON.parse(localStorage.getItem(usageKey)) || { count: 0, month: '' };
-                        if (usageData.month !== currentMonth) {
-                            usageData = { count: 0, month: currentMonth }; // Reiniciar para el nuevo mes
-                            localStorage.setItem(usageKey, JSON.stringify(usageData));
-                        }
                     }
                 }
 
@@ -4885,7 +4845,7 @@
              */
             async function saveState() {
                 const stateData = { state, currentChatId };
-                const key = currentUser ? `goatbotState_${currentUser.id}` : 'guestState_v2'; // MODIFICACIÓN: Usar nueva clave para invitados
+                const key = currentUser ? `goatbotState_${currentUser.id}` : 'guestState';
 
                 try {
                     localStorage.setItem(key, JSON.stringify(stateData)); // Guardar en el almacenamiento local
@@ -4931,14 +4891,7 @@
                     dom.genericWelcome.classList.remove('hidden');
                     dom.personalizedWelcome.classList.add('hidden');
                     dom.upgradePlanContainer.classList.add('hidden');
-                    // MODIFICACIÓN: Deshabilitar GOAT X PRO para invitados, pero permitir que se seleccione si se carga un archivo
-                    goatXProModels.forEach(option => {
-                        if (!selectedImageBase64 && !selectedPdfText) { // Solo deshabilitar si no hay archivo cargado
-                            option.disabled = true;
-                        } else {
-                            option.disabled = false; // Habilitar si hay archivo cargado, la verificación de créditos se hará al enviar
-                        }
-                    });
+                    goatXProModels.forEach(option => option.disabled = true); // Desactivar GOAT X PRO para invitados
                 }
                 updateCreditCounter(); // Siempre actualizar el contador de créditos después de los cambios en la interfaz de usuario del usuario
             }
@@ -4951,11 +4904,12 @@
                 const gamCredits = (gamificationState && gamificationState.credits) ? gamificationState.credits : 0;
                 let displayLimit = limit === Infinity ? '∞' : limit; // Mostrar '∞' para créditos ilimitados
 
-                               dom.planCreditsDisplay.textContent = `${remaining}/${displayLimit}`;
+                dom.planCreditsDisplay.textContent = `${remaining}/${displayLimit}`;
                 dom.rewardCreditsDisplay.textContent = `${gamCredits}`;
 
                 dom.messageCounterWrapper.classList.remove('hidden'); // Asegurarse de que el contador de créditos sea visible
             }
+
 
             /**
              * Establece el tema de la aplicación (oscuro o claro).
@@ -5312,7 +5266,63 @@
                     bubble.appendChild(previewButton);
                 }
             }
-            /**
+                        /**
+             * Actualiza el contenido de una burbuja de mensaje existente en la interfaz de usuario.
+             * Se utiliza para actualizar las burbujas de "pensando" con la respuesta final de la IA.
+             * @param {HTMLElement} bubble - El elemento de la burbuja de mensaje a actualizar.
+             * @param {string} content - El nuevo contenido del mensaje (puede contener Markdown).
+             * @param {string} [imageSrc=null] - Fuente de imagen base64 opcional para mostrar.
+             * @param {HTMLElement} container - El contenedor padre de la burbuja de mensaje.
+             */
+            function updateMessageInUI(bubble, content, imageSrc, container) {
+                if (!bubble) return;
+                const wrapper = bubble.parentElement;
+                if (!wrapper) return;
+
+                bubble.innerHTML = ''; // Borrar el contenido existente
+                 if (imageSrc) {
+                    const img = document.createElement('img');
+                    img.src = imageSrc;
+                    img.className = 'rounded-lg mb-2 max-w-full h-auto';
+                    bubble.appendChild(img);
+                }
+                const contentDiv = document.createElement('div');
+                contentDiv.className = 'markdown-content';
+                contentDiv.innerHTML = marked.parse(content || ""); // Analizar y renderizar Markdown
+
+                // Añadir icono de altavoz para mensajes del asistente
+                const speakerIcon = document.createElement('i');
+                speakerIcon.className = 'fas fa-volume-up speaker-icon';
+                speakerIcon.title = translations[localStorage.getItem('goatify-lang') || 'es'].read_aloud_title || 'Leer en voz alta';
+                speakerIcon.onclick = (e) => { e.stopPropagation(); speak(content, e.target); };
+                contentDiv.appendChild(speakerIcon);
+
+                bubble.appendChild(contentDiv);
+
+                // Añadir botón de vista previa para contenido de código
+                const hasCode = /```html|```css|```javascript|<pre|<code/.test(content);
+                if (hasCode) {
+                    const previewButton = document.createElement('button');
+                    previewButton.innerHTML = `<i class="fas fa-eye mr-2"></i>${translations[localStorage.getItem('goatify-lang') || 'es'].preview}`;
+                    previewButton.className = 'btn-primary text-xs font-semibold px-3 py-1 rounded-md mt-3';
+                    previewButton.addEventListener('click', () => {
+                         const match = content.match(/```(html|css|javascript)\n([\s\S]*?)```/s);
+                        let htmlToPreview = content;
+                        if(match) {
+                            if (match[1] !== 'html') {
+                                htmlToPreview = `<pre><code class="language-${match[1]}">${match[2]}</code></pre>`;
+                            } else {
+                                htmlToPreview = match[2];
+                            }
+                        }
+                        dom.htmlPreviewIframe.srcdoc = htmlToPreview;
+                        dom.htmlPreviewModal.classList.remove('hidden');
+                        dom.htmlPreviewModal.classList.add('flex');
+                    });
+                    bubble.appendChild(previewButton);
+                }
+            }
+                        /**
              * Renderiza el contenido de la barra lateral, incluyendo chats, notas y carpetas de proyectos.
              * Organiza los elementos en función de la `state.structure`.
              */
@@ -5965,7 +5975,7 @@
                     }
                 }
             }
-            /**
+                        /**
              * Inicia el proceso de generación de imágenes.
              * Solicita al usuario una descripción y llama al backend para generar la imagen.
              */
@@ -6125,7 +6135,7 @@
                 dom.deleteSelectedBtn.disabled = chatsToDelete.size === 0; // Actualización final para el botón de eliminar
             }
 
-                        /**
+            /**
              * Borra todos los resaltados visuales de los elementos seleccionados en la barra lateral.
              */
             function clearSelectionVisuals() {
@@ -6135,8 +6145,7 @@
                     if (checkboxIcon) checkboxIcon.classList.replace('fa-check-square', 'fa-square');
                 });
             }
-
-            // --- NOTEPAD FUNCTIONS START ---
+                        // --- NOTEPAD FUNCTIONS START ---
 
             let drawingHistory = []; // Almacena los estados del lienzo para deshacer/rehacer
             let historyIndex = -1; // Posición actual en el historial de dibujo
@@ -6605,8 +6614,7 @@
 
             // --- NOTEPAD FUNCTIONS END ---
 
-
-            /**
+                        /**
              * Configura los escuchadores de eventos para cerrar un modal al hacer clic fuera de su contenido.
              * @param {HTMLElement} modalElement - El elemento contenedor principal del modal.
              * @param {Function} hideFunction - La función a llamar para ocultar el modal.
@@ -6639,7 +6647,7 @@
                 dom.motivationModal.classList.add('flex');
 
                 const randomIndex = Math.floor(Math.random() * MOTIVATIONAL_MESSAGES.length);
-                const randomButtonText = MOTIVATION_BUTTON_TEXTS[Math.floor(Math.random() * MOTIVATION_BUTTON_TEXTS.length)];
+                const randomButtonText = MOTIVATION_BUTTON_TEXTS[Math.floor(Math.random() * MOTIVATIONAL_BUTTON_TEXTS.length)];
 
                 // Mostrar cita aleatoria y texto del botón
                 dom.motivationTitle.style.fontWeight = 'normal'; // Restablecer peso
@@ -7098,10 +7106,6 @@
                             dom.imagePreview.src = selectedImageBase64;
                             dom.imagePreviewContainer.classList.remove('hidden'); // Mostrar contenedor de vista previa de imagen
                             dom.imageName.textContent = e.target.files[0].name; // Mostrar nombre de imagen
-                            // Forzar la selección del modelo GOAT X PRO para análisis de imágenes
-                            dom.modelSelector.value = 'gpt-4o';
-                            // Actualizar el estado de la UI para reflejar la selección del modelo
-                            updateUserUI();
                         };
                         reader.readAsDataURL(e.target.files[0]);
                     }
@@ -7130,10 +7134,6 @@
                             }
                             selectedPdfText = text;
                             dom.pdfStatusEl.textContent = `✅ ${translations[localStorage.getItem('goatify-lang') || 'es'].pdf_ready_status || 'Listo'} (${pdf.numPages} ${translations[localStorage.getItem('goatify-lang') || 'es'].pages_short || 'pág.'})`;
-                            // Forzar la selección del modelo GOAT X PRO para análisis de PDF
-                            dom.modelSelector.value = 'gpt-4o';
-                            // Actualizar el estado de la UI para reflejar la selección del modelo
-                            updateUserUI();
                         } catch (err) {
                             console.error("Error al procesar el PDF:", err);
                             dom.pdfStatusEl.textContent = `❌ ${translations[localStorage.getItem('goatify-lang') || 'es'].pdf_error_status || 'Error al leer PDF.'}`;
@@ -7647,8 +7647,7 @@
                     }
                 });
             }
-
-            /**
+                        /**
              * Renderiza la vista de gestión de proyectos para un chat de proyecto específico.
              * Inicializa los datos del proyecto si no están presentes y renderiza el tablero del proyecto.
              * @param {string} chatId - El ID del chat del proyecto.
@@ -8494,50 +8493,6 @@
 
                     const addItemBtn = e.target.closest('.add-finance-item-btn');
                     if(addItemBtn) {
-                        // Límite de uso para invitados: Asistente Financiero - Límite de creación de 1 categoría de ingresos y 1 categoría de gastos, con un máximo de 3 ítems en total por invitado.
-                        if (!currentUser) {
-                            const guestUsageKey = 'guest_usage_financial';
-                            let guestFinancialUsage = JSON.parse(localStorage.getItem(guestUsageKey)) || { incomeCategories: 0, expenseCategories: 0, items: 0 };
-
-                            if (type === 'income' && guestFinancialUsage.incomeCategories >= 1) {
-                                showModal({
-                                    title: translations[localStorage.getItem('goatify-lang') || 'es'].login_for_credits_title,
-                                    body: translations[localStorage.getItem('goatify-lang') || 'es'].login_for_credits_body,
-                                    confirmText: translations[localStorage.getItem('goatify-lang') || 'es'].login_now_btn,
-                                    cancelText: translations[localStorage.getItem('goatify-lang') || 'es'].view_plans_btn,
-                                }).then(res => {
-                                    if (res.confirmed) { netlifyIdentity.open('login'); }
-                                    else { showPricingModal(); }
-                                });
-                                return;
-                            }
-                            if (type === 'expense' && guestFinancialUsage.expenseCategories >= 1) {
-                                showModal({
-                                    title: translations[localStorage.getItem('goatify-lang') || 'es'].login_for_credits_title,
-                                    body: translations[localStorage.getItem('goatify-lang') || 'es'].login_for_credits_body,
-                                    confirmText: translations[localStorage.getItem('goatify-lang') || 'es'].login_now_btn,
-                                    cancelText: translations[localStorage.getItem('goatify-lang') || 'es'].view_plans_btn,
-                                }).then(res => {
-                                    if (res.confirmed) { netlifyIdentity.open('login'); }
-                                    else { showPricingModal(); }
-                                });
-                                return;
-                            }
-                            // Check item limit
-                            if (guestFinancialUsage.items >= 3) {
-                                showModal({
-                                    title: translations[localStorage.getItem('goatify-lang') || 'es'].login_for_credits_title,
-                                    body: translations[localStorage.getItem('goatify-lang') || 'es'].login_for_credits_body,
-                                    confirmText: translations[localStorage.getItem('goatify-lang') || 'es'].login_now_btn,
-                                    cancelText: translations[localStorage.getItem('goatify-lang') || 'es'].view_plans_btn,
-                                }).then(res => {
-                                    if (res.confirmed) { netlifyIdentity.open('login'); }
-                                    else { showPricingModal(); }
-                                });
-                                return;
-                            }
-                        }
-
                         const catEl = addItemBtn.closest('.finance-category');
                         const catId = catEl.dataset.categoryId;
                         const type = catEl.dataset.type;
@@ -8547,13 +8502,6 @@
                             category.items.push({ id: `fin-${crypto.randomUUID()}`, description: '', amount: 0 });
                             renderFinancialData(chatId); // Volver a renderizar para mostrar el nuevo elemento
                             saveState();
-
-                            if (!currentUser) {
-                                const guestUsageKey = 'guest_usage_financial';
-                                let guestFinancialUsage = JSON.parse(localStorage.getItem(guestUsageKey)) || { incomeCategories: 0, expenseCategories: 0, items: 0 };
-                                guestFinancialUsage.items++;
-                                localStorage.setItem(guestUsageKey, JSON.stringify(guestFinancialUsage));
-                            }
                         }
                         return;
                     }
@@ -8586,28 +8534,8 @@
                     }
                 });
 
-                // Add category buttons
+                // Añadir botones de categoría
                 view.querySelector('#add-income-category-btn')?.addEventListener('click', () => {
-                    // Límite de uso para invitados: 1 categoría de ingresos
-                    if (!currentUser) {
-                        const guestUsageKey = 'guest_usage_financial';
-                        let guestFinancialUsage = JSON.parse(localStorage.getItem(guestUsageKey)) || { incomeCategories: 0, expenseCategories: 0, items: 0 };
-                        if (guestFinancialUsage.incomeCategories >= 1) {
-                            showModal({
-                                title: translations[localStorage.getItem('goatify-lang') || 'es'].login_for_credits_title,
-                                body: translations[localStorage.getItem('goatify-lang') || 'es'].login_for_credits_body,
-                                confirmText: translations[localStorage.getItem('goatify-lang') || 'es'].login_now_btn,
-                                cancelText: translations[localStorage.getItem('goatify-lang') || 'es'].view_plans_btn,
-                            }).then(res => {
-                                if (res.confirmed) { netlifyIdentity.open('login'); }
-                                else { showPricingModal(); }
-                            });
-                            return;
-                        }
-                        guestFinancialUsage.incomeCategories++;
-                        localStorage.setItem(guestUsageKey, JSON.stringify(guestFinancialUsage));
-                    }
-
                     const newCategory = { id: `fin-cat-${crypto.randomUUID()}`, name: 'Nueva Carpeta de Ingresos', items: [] };
                     if (!chat.financialData.incomeCategories) chat.financialData.incomeCategories = [];
                     chat.financialData.incomeCategories.push(newCategory);
@@ -8616,26 +8544,6 @@
                 });
 
                 view.querySelector('#add-expense-category-btn')?.addEventListener('click', () => {
-                    // Límite de uso para invitados: 1 categoría de gastos
-                    if (!currentUser) {
-                        const guestUsageKey = 'guest_usage_financial';
-                        let guestFinancialUsage = JSON.parse(localStorage.getItem(guestUsageKey)) || { incomeCategories: 0, expenseCategories: 0, items: 0 };
-                        if (guestFinancialUsage.expenseCategories >= 1) {
-                            showModal({
-                                title: translations[localStorage.getItem('goatify-lang') || 'es'].login_for_credits_title,
-                                body: translations[localStorage.getItem('goatify-lang') || 'es'].login_for_credits_body,
-                                confirmText: translations[localStorage.getItem('goatify-lang') || 'es'].login_now_btn,
-                                cancelText: translations[localStorage.getItem('goatify-lang') || 'es'].view_plans_btn,
-                            }).then(res => {
-                                if (res.confirmed) { netlifyIdentity.open('login'); }
-                                else { showPricingModal(); }
-                            });
-                            return;
-                        }
-                        guestFinancialUsage.expenseCategories++;
-                        localStorage.setItem(guestUsageKey, JSON.stringify(guestFinancialUsage));
-                    }
-
                     const newCategory = { id: `fin-cat-${crypto.randomUUID()}`, name: 'Nueva Carpeta de Gastos', items: [] };
                     if (!chat.financialData.expenseCategories) chat.financialData.expenseCategories = [];
                     chat.financialData.expenseCategories.push(newCategory);
@@ -8677,31 +8585,12 @@
                 netBalanceEl.textContent = `$${netBalance.toFixed(2)}`;
                 netBalanceEl.style.color = netBalance >= 0 ? '#22c55e' : '#ef4444'; // Color según el saldo positivo/negativo
             }
-
-            /**
+                        /**
              * Comprueba si la misión "semana organizada" está completada.
              * Requiere al menos una tarea para cada día de la semana actual.
              * @returns {boolean} Verdadero si la misión está completada, falso en caso contrario.
              */
             function checkWeekOrganized() {
-                // Límite de uso para invitados: Calendario - Límite de 5 tareas creadas por invitado.
-                if (!currentUser) {
-                    const guestUsageKey = 'guest_usage_calendar';
-                    let guestCalendarUsage = JSON.parse(localStorage.getItem(guestUsageKey)) || { tasks: 0 };
-                    if (guestCalendarUsage.tasks >= 5) {
-                        showModal({
-                            title: translations[localStorage.getItem('goatify-lang') || 'es'].login_for_credits_title,
-                            body: translations[localStorage.getItem('goatify-lang') || 'es'].login_for_credits_body,
-                            confirmText: translations[localStorage.getItem('goatify-lang') || 'es'].login_now_btn,
-                            cancelText: translations[localStorage.getItem('goatify-lang') || 'es'].view_plans_btn,
-                        }).then(res => {
-                            if (res.confirmed) { netlifyIdentity.open('login'); }
-                            else { showPricingModal(); }
-                        });
-                        return false;
-                    }
-                }
-
                 const startOfWeek = dayjs().startOf('isoWeek');
                 for (let i = 0; i < 7; i++) {
                     const dayKey = startOfWeek.add(i, 'day').format('YYYY-MM-DD');
@@ -8717,53 +8606,9 @@
              * @returns {boolean} Verdadero si la misión está completada, falso en caso contrario.
              */
             function checkProjectCreated(chatId, taskCount) {
-                // Límite de uso para invitados: Kanban (Gestión de Proyectos) - Límite de 1 proyecto creado por invitado, con un máximo de 3 tareas dentro de ese proyecto.
-                if (!currentUser) {
-                    const guestUsageKey = 'guest_usage_kanban';
-                    let guestKanbanUsage = JSON.parse(localStorage.getItem(guestUsageKey)) || { projects: 0, tasks: 0 };
-
-                    const currentProjectExists = Object.values(state.chats).some(c => c.workflow === 'project-management' && c.id === chatId);
-
-                    if (guestKanbanUsage.projects >= 1 && !currentProjectExists) { // Si ya hay un proyecto y no es el actual
-                        showModal({
-                            title: translations[localStorage.getItem('goatify-lang') || 'es'].login_for_credits_title,
-                            body: translations[localStorage.getItem('goatify-lang') || 'es'].login_for_credits_body,
-                            confirmText: translations[localStorage.getItem('goatify-lang') || 'es'].login_now_btn,
-                            cancelText: translations[localStorage.getItem('goatify-lang') || 'es'].view_plans_btn,
-                        }).then(res => {
-                            if (res.confirmed) { netlifyIdentity.open('login'); }
-                            else { showPricingModal(); }
-                        });
-                        return false;
-                    }
-                    if (guestKanbanUsage.tasks >= 3) {
-                        showModal({
-                            title: translations[localStorage.getItem('goatify-lang') || 'es'].login_for_credits_title,
-                            body: translations[localStorage.getItem('goatify-lang') || 'es'].login_for_credits_body,
-                            confirmText: translations[localStorage.getItem('goatify-lang') || 'es'].login_now_btn,
-                            cancelText: translations[localStorage.getItem('goatify-lang') || 'es'].view_plans_btn,
-                        }).then(res => {
-                            if (res.confirmed) { netlifyIdentity.open('login'); }
-                            else { showPricingModal(); }
-                        });
-                        return false;
-                    }
-                }
-
                 const chat = state.chats[chatId];
                 if (!chat || !chat.projectData) return false;
                 const totalTasks = chat.projectData.columns.reduce((sum, col) => sum + (col.tasks?.length || 0), 0);
-
-                if (!currentUser) {
-                    const guestUsageKey = 'guest_usage_kanban';
-                    let guestKanbanUsage = JSON.parse(localStorage.getItem(guestUsageKey)) || { projects: 0, tasks: 0 };
-                    if (!Object.values(state.chats).some(c => c.workflow === 'project-management' && c.id === chatId)) { // Only count new project if it's truly new
-                         guestKanbanUsage.projects++;
-                    }
-                    guestKanbanUsage.tasks = totalTasks; // Update total tasks for the current project
-                    localStorage.setItem(guestUsageKey, JSON.stringify(guestKanbanUsage));
-                }
-
                 return totalTasks >= taskCount;
             }
 
