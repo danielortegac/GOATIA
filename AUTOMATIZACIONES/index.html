@@ -2584,11 +2584,21 @@
                 <p id="current-date-display" class="text-lg text-text-medium"></p>
                 <p id="current-time-display" class="text-xl font-extrabold text-primary animate-pulse"></p>
             </div>
-            <div class="calendar-view-toggle mb-4">
-                <button id="day-view-btn" data-translate-key="calendar_day_view">Vista de Día</button>
-                <button id="week-view-btn" data-translate-key="calendar_week_view">Vista de Semana</button>
-                <button id="month-view-btn" class="active" data-translate-key="calendar_month_view">Vista de Mes</button>
-             </div>
+           <div class="flex flex-wrap justify-between items-center mb-4 gap-2">
+    <div class="calendar-view-toggle">
+        <button id="day-view-btn" data-translate-key="calendar_day_view">Día</button>
+        <button id="week-view-btn" data-translate-key="calendar_week_view">Semana</button>
+        <button id="month-view-btn" class="active" data-translate-key="calendar_month_view">Mes</button>
+    </div>
+    <div id="calendar-tag-filter-container" class="relative">
+        <button id="calendar-tag-filter-btn" class="p-2 rounded-md bg-input text-sm flex items-center gap-1">
+            <i class="fas fa-tag"></i>
+            <span data-translate-key="filter_tags">Filtrar por Etiqueta</span>
+        </button>
+        <div id="calendar-tag-filter-dropdown" class="hidden absolute right-0 mt-1 p-2 rounded-md shadow-lg w-48 bg-current-bg-light border border-themed z-10">
+            </div>
+    </div>
+</div>
 
             <div id="day-view-container">
                  <div class="calendar-header">
@@ -3736,17 +3746,63 @@ if (loadingTextElement) {
                 dom.taskNotificationModal.classList.remove('flex');
             }
 
-            /**
-             * Muestra el modal del calendario.
-             */
-            function showCalendarModal() {
-                dom.calendarModalOverlay.classList.remove('hidden');
-                dom.calendarModalOverlay.classList.add('flex');
-                if (!currentCalendarView) currentCalendarView = 'month'; // Por defecto a la vista de mes
-                renderCalendarView(); // Renderizar la vista actual del calendario
-                updateCalendarTime(); // Actualizar la hora cuando se abre el modal
-                updateMiDiaInfo(); // Actualizar la información de "Mi Día" cuando se abre el modal
-            }
+           /**
+ * Muestra el modal del calendario y configura los escuchadores de eventos para el filtro.
+ */
+function showCalendarModal() {
+    dom.calendarModalOverlay.classList.remove('hidden');
+    dom.calendarModalOverlay.classList.add('flex');
+    
+    if (!currentCalendarView) currentCalendarView = 'month';
+    renderCalendarView();
+    updateCalendarTime();
+    
+    // Configurar el filtro de etiquetas para el calendario
+    const filterBtn = document.getElementById('calendar-tag-filter-btn');
+    const filterDropdown = document.getElementById('calendar-tag-filter-dropdown');
+    
+    if(filterBtn && filterDropdown) {
+        // Obtener todas las etiquetas de TODOS los proyectos para mostrarlas en el filtro
+        const allLabels = [...new Set(Object.values(state.chats)
+            .filter(c => c.projectData)
+            .flatMap(c => c.projectData.columns)
+            .flatMap(col => col.tasks || [])
+            .flatMap(task => task.labels || [])
+        )];
+        
+        // Renderizar las opciones del dropdown
+        filterDropdown.innerHTML = ''; // Limpiar opciones anteriores
+        
+        const allBtn = document.createElement('button');
+        allBtn.className = 'block w-full text-left p-2 hover:bg-medium rounded-md text-sm';
+        allBtn.textContent = 'Todas las Etiquetas';
+        allBtn.onclick = () => {
+            activeTagFilter = null;
+            filterBtn.querySelector('span').textContent = 'Filtrar por Etiqueta';
+            filterDropdown.classList.add('hidden');
+            renderCalendarView(); // Volver a renderizar el calendario sin filtro
+        };
+        filterDropdown.appendChild(allBtn);
+
+        allLabels.forEach(tag => {
+            const btn = document.createElement('button');
+            btn.className = 'block w-full text-left p-2 hover:bg-medium rounded-md text-sm';
+            btn.innerHTML = `<span class="task-label inline-block mr-2" style="background-color: ${getLabelColor(tag)}; color: white;">${tag}</span>`;
+            btn.onclick = () => {
+                activeTagFilter = tag;
+                filterBtn.querySelector('span').innerHTML = `<span class="task-label inline-block" style="background-color: ${getLabelColor(tag)}; color: white;">${tag}</span>`;
+                filterDropdown.classList.add('hidden');
+                renderCalendarView(); // Volver a renderizar con el filtro aplicado
+            };
+            filterDropdown.appendChild(btn);
+        });
+
+        filterBtn.onclick = (e) => {
+            e.stopPropagation();
+            filterDropdown.classList.toggle('hidden');
+        };
+    }
+}
 
             /**
              * Oculta el modal del calendario.
@@ -4336,39 +4392,37 @@ if (loadingTextElement) {
             }
 
 
-            /**
-             * Recupera todas las tareas (personales y de proyecto) para un día determinado.
-             * @param {string} dayKey - La cadena de fecha en formato 'YYYY-MM-DD'.
-             * @returns {Array<object>} Un array de tareas para el día especificado, ordenadas por hora.
-             */
-            function getTasksForDay(dayKey) {
-                // Obtener tareas personales para el día
-                const calendarTasks = (state.calendar[dayKey] || []).map(t => ({...t, text: t.content, source: 'Personal', labels: ['Personal']}));
-                const projectTasks = [];
+         /**
+ * Recupera todas las tareas (personales y de proyecto) para un día determinado,
+ * aplicando el filtro de etiqueta activo si existe.
+ * @param {string} dayKey - La cadena de fecha en formato 'YYYY-MM-DD'.
+ * @returns {Array<object>} Un array de tareas para el día especificado.
+ */
+function getTasksForDay(dayKey) {
+    // Las tareas personales no tienen etiquetas, así que solo las mostramos si no hay un filtro activo.
+    const calendarTasks = !activeTagFilter 
+        ? (state.calendar[dayKey] || []).map(t => ({...t, text: t.content, source: 'Personal', labels: ['Personal']}))
+        : [];
 
-                // --- ESTA ES LA LÓGICA CORREGIDA ---
-                // Iterar a través de todos los chats de proyecto para encontrar tareas
-                Object.values(state.chats).forEach(chat => {
-                    if (chat.projectData && chat.projectData.columns) {
-                        chat.projectData.columns.forEach(column => {
-                            (column.tasks || []).forEach(task => {
-                                // Condición 1: La tarea tiene la fecha de hoy
-                                if (task.dueDate === dayKey) {
-                                    // Condición 2: No hay filtro activo O la tarea tiene la etiqueta del filtro
-                                    const shouldRender = !activeTagFilter || (task.labels && task.labels.includes(activeTagFilter));
-                                    if (shouldRender) {
-                                        projectTasks.push({...task, source: chat.projectData.title, text: task.content});
-                                    }
-                                }
-                             });
-                        });
+    const projectTasks = [];
+    Object.values(state.chats).forEach(chat => {
+        if (chat.projectData && chat.projectData.columns) {
+            chat.projectData.columns.forEach(column => {
+                (column.tasks || []).forEach(task => {
+                    if (task.dueDate === dayKey) {
+                        // La tarea se muestra si no hay filtro, o si sus etiquetas incluyen el filtro activo
+                        const shouldRender = !activeTagFilter || (task.labels && task.labels.includes(activeTagTFilter));
+                        if (shouldRender) {
+                            projectTasks.push({...task, source: chat.projectData.title, text: task.content});
+                        }
                     }
                 });
-                // --- FIN DE LA LÓGICA CORREGIDA ---
+            });
+        }
+    });
 
-                // Combinar y ordenar las tareas por hora
-                return [...calendarTasks, ...projectTasks].sort((a, b) => (a.time || '23:59').localeCompare(b.time || '23:59'));
-            }
+    return [...calendarTasks, ...projectTasks].sort((a, b) => (a.time || '23:59').localeCompare(b.time || '23:59'));
+}
             /**
              * Actualiza la insignia de notificación que muestra el recuento de tareas vencidas/pendientes.
              */
