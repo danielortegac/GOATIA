@@ -3846,7 +3846,9 @@ if (loadingTextElement) {
                     }
 
                     const tasksContainer = dayEl.querySelector('.calendar-day-tasks');
-                    const tasksForDay = getTasksForDay(day.format('YYYY-MM-DD'));
+                    const tasksForDay = getTasksForDay(day.format('YYYY-MM-DD')).filter(task => 
+    !activeTagFilter || (task.labels && task.labels.includes(activeTagFilter))
+);
                     // Renderizar hasta 3 tareas directamente en la celda del día
                     tasksForDay.slice(0, 3).forEach(task => {
                         const taskEl = document.createElement('div');
@@ -3980,7 +3982,9 @@ if (loadingTextElement) {
             function renderDayView() {
                 dom.currentDayDisplay.textContent = selectedCalendarDate.format('dddd, D [de] MMMM'); // Actualizar la visualización del día
                 dom.dayViewTimeline.innerHTML = ''; // Limpiar el contenido del día anterior
-                const tasksForDay = getTasksForDay(selectedCalendarDate.format('YYYY-MM-DD'));
+                const tasksForDay = getTasksForDay(selectedCalendarDate.format('YYYY-MM-DD')).filter(task => 
+    !activeTagFilter || (task.labels && task.labels.includes(activeTagFilter))
+);
 
                 // Recorrer las 24 horas para crear la línea de tiempo
                 for (let hour = 0; hour < 24; hour++) {
@@ -4534,36 +4538,44 @@ if (loadingTextElement) {
             function populateVoiceList() {
                 const setVoices = () => {
                     if (typeof speechSynthesis === 'undefined') { return; }
-                    // Filtrar las voces en español e inglés
                     availableVoices = speechSynthesis.getVoices().filter(v => v.lang.startsWith('es-') || v.lang.startsWith('en-'));
-                    // Priorizar ciertas voces para una mejor experiencia de usuario
                     const preferredVoices = [ "Microsoft Sabina Online (Natural) - Spanish (Mexico)", "Paulina", "Google español de Estados Unidos", "Google español" ];
                     availableVoices.sort((a, b) => {
                         let aIdx = preferredVoices.indexOf(a.name); let bIdx = preferredVoices.indexOf(b.name);
                         if (aIdx === -1) aIdx = Infinity; if (bIdx === -1) bIdx = Infinity;
-                        if (aIdx !== bIdx) return aIdx - bIdx; // Ordenar primero por índice preferido
-                        return a.name.localeCompare(b.name); // Luego por nombre
+                        if (aIdx !== bIdx) return aIdx - bIdx;
+                        return a.name.localeCompare(b.name);
                     });
 
                     if (availableVoices.length > 0) {
-                        dom.voiceSelector.innerHTML = ''; // Limpiar las opciones existentes
+                        dom.voiceSelector.innerHTML = '';
                         availableVoices.forEach(voice => {
                             const option = document.createElement('option');
-                            // Limpiar los nombres de las voces para la visualización
                             const displayName = voice.name.replace('Microsoft', '').replace('Online (Natural) -', '').replace('Google', '').replace('Spanish (Mexico)','Mex').trim();
                             option.textContent = `${displayName || voice.lang} (${voice.lang})`;
                             option.value = voice.name;
                             dom.voiceSelector.appendChild(option);
                         });
-                        selectedVoice = availableVoices[0]; // Seleccionar la primera voz disponible por defecto
-                        if (selectedVoice) dom.voiceSelector.value = selectedVoice.name;
+                        
+                        // --- ESTA ES LA LÓGICA NUEVA ---
+                        const savedVoiceName = localStorage.getItem('goatify-selected-voice');
+                        const savedVoice = availableVoices.find(v => v.name === savedVoiceName);
+
+                        if (savedVoice) {
+                            selectedVoice = savedVoice; // Cargar la voz guardada
+                        } else {
+                            selectedVoice = availableVoices[0]; // Usar la predeterminada si no hay ninguna guardada
+                        }
+                        
+                        if (selectedVoice) {
+                            dom.voiceSelector.value = selectedVoice.name; // Actualizar el menú desplegable
+                        }
                     }
                 }
-                // Escuchar el evento voiceschanged para volver a rellenar si las voces están disponibles más tarde
                 if (speechSynthesis.onvoiceschanged !== undefined) {
                     speechSynthesis.onvoiceschanged = setVoices;
                 }
-                setVoices(); // Llamar inmediatamente para rellenar inicialmente
+                setVoices();
             }
 
             /**
@@ -7279,7 +7291,11 @@ if (loadingTextElement) {
                 });
 
 
-                dom.voiceSelector?.addEventListener('change', (e) => { selectedVoice = availableVoices.find(voice => voice.name === e.target.value); });
+               dom.voiceSelector?.addEventListener('change', (e) => {
+                    const voiceName = e.target.value;
+                    selectedVoice = availableVoices.find(voice => voice.name === voiceName);
+                    localStorage.setItem('goatify-selected-voice', voiceName); // <-- Línea nueva
+                });
 
                 document.addEventListener('click', (e) => {
                     // Cerrar el menú emergente de usuario si se hace clic fuera
@@ -7662,6 +7678,8 @@ if (loadingTextElement) {
             function renderProjectView(chatId) {
                 const chat = state.chats[chatId];
                 if (!chat) return;
+                
+                dom.projectChatContainer.style.display = 'flex';
 
                 if (!chat.projectData) {
                     // Inicializar datos de proyecto predeterminados si no están presentes
