@@ -6340,6 +6340,7 @@ if (loadingTextElement) {
 
                 if (isDrawing) {
                     setupCanvas(note); // Inicializar lienzo para dibujar
+                    resizeCanvas(); // <-- AÑADE ESTA LÍNEA PARA FORZAR EL RECALCULO
                 } else {
                     dom.noteEditorToolbar.querySelectorAll('.text-editor-controls button').forEach(btn => btn.classList.remove('active'));
                 }
@@ -6503,13 +6504,26 @@ if (loadingTextElement) {
                 toolbar.querySelector('#redo-drawing-btn').onclick = redoDrawing;
 
                 // Botón de pantalla completa para lienzo
-                dom.drawingFullscreenBtn.onclick = () => {
-                    if (document.fullscreenElement) {
-                        document.exitFullscreen();
-                    } else {
-                        canvas.requestFullscreen().catch(err => {
-                            console.error(`Error al intentar habilitar el modo de pantalla completa: ${err.message} (${err.name})`);
-                        });
+                  dom.drawingFullscreenBtn.onclick = () => {
+                    const canvas = dom.noteCanvas; // Asegurarnos de tener la referencia al canvas
+                    
+                    // Para salir de pantalla completa (esto es estándar)
+                    if (document.fullscreenElement || document.webkitFullscreenElement) {
+                        if (document.exitFullscreen) {
+                            document.exitFullscreen();
+                        } else if (document.webkitExitFullscreen) { // Safari
+                            document.webkitExitFullscreen();
+                        }
+                    } else { // Para entrar en pantalla completa
+                        if (canvas.requestFullscreen) {
+                            canvas.requestFullscreen();
+                        } else if (canvas.webkitRequestFullscreen) { // Safari
+                            canvas.webkitRequestFullscreen();
+                        } else if (canvas.mozRequestFullScreen) { // Firefox
+                            canvas.mozRequestFullScreen();
+                        } else if (canvas.msRequestFullscreen) { // IE/Edge
+                            canvas.msRequestFullscreen();
+                        }
                     }
                 };
             }
