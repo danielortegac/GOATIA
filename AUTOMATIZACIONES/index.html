@@ -6346,31 +6346,35 @@ if (loadingTextElement) {
                 }
             }
               // Función para redimensionar el lienzo y redibujar el contenido
-                const resizeCanvas = () => {
-                    const rect = canvas.parentElement.getBoundingClientRect();
-                    canvas.width = rect.width;
-                    canvas.height = rect.height;
-                    // Redibujar el contenido de los datos de la imagen guardados después de redimensionar
-                    if (note.content) {
-                        const img = new Image();
-                        img.onload = () => {
-                            ctx.clearRect(0, 0, canvas.width, canvas.height);
-                            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                            saveDrawingState(); // Guardar nuevo estado después de redimensionar y redibujar
-                        }
-                        img.src = note.content;
-                    } else {
+             const resizeCanvas = () => {
+                const note = state.notes.find(n => n.id === currentNoteId);
+                if (!note || !dom.noteCanvas) return;
+            
+                const canvas = dom.noteCanvas;
+                const ctx = canvas.getContext('2d');
+                const rect = canvas.parentElement.getBoundingClientRect();
+            
+                canvas.width = rect.width;
+                canvas.height = rect.height;
+            
+                if (note.content) {
+                    const img = new Image();
+                    img.onload = () => {
                         ctx.clearRect(0, 0, canvas.width, canvas.height);
-                        saveDrawingState(); // Guardar estado vacío si no hay contenido
-                    }
-                };
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    };
+                    img.src = note.content;
+                } else {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                }
+            };
             /**
              * Configura el lienzo de dibujo para una nota de tipo 'drawing'.
              * Configura las herramientas de dibujo, los escuchadores de eventos y el historial.
              * @param {object} note - El objeto de nota de tipo 'drawing'.
              */
             function setupCanvas(note) {
-                const canvas = dom.noteCanvas;
+              
                 const ctx = canvas.getContext('2d');
                 const toolbar = dom.drawingTools;
 
@@ -6466,13 +6470,13 @@ if (loadingTextElement) {
                 };
 
                 // Adjuntar escuchadores de eventos de ratón y táctiles al lienzo
-                canvas.onmousedown = startDrawing;
-                canvas.onmousemove = draw;
-                canvas.onmouseup = stopDrawing;
-                canvas.onmouseout = stopDrawing; // Detener el dibujo si el ratón sale del lienzo
-                canvas.ontouchstart = startDrawing;
-                canvas.ontouchmove = draw;
-                canvas.ontouchend = stopDrawing;
+                dom.noteCanvas.onmousedown = startDrawing; // Usamos dom.noteCanvas
+                dom.noteCanvas.onmousemove = draw;     // Usamos dom.noteCanvas
+                dom.noteCanvas.onmouseup = stopDrawing;    // etc...
+                dom.noteCanvas.onmouseout = stopDrawing;
+                dom.noteCanvas.ontouchstart = startDrawing;
+                dom.noteCanvas.ontouchmove = draw;
+                dom.noteCanvas.ontouchend = stopDrawing;
 
                 // Ayudante para establecer la herramienta activa y actualizar la interfaz de usuario
                 const setActiveTool = (toolId) => {
