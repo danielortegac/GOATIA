@@ -6345,7 +6345,25 @@ if (loadingTextElement) {
                     dom.noteEditorToolbar.querySelectorAll('.text-editor-controls button').forEach(btn => btn.classList.remove('active'));
                 }
             }
-
+              // Función para redimensionar el lienzo y redibujar el contenido
+                const resizeCanvas = () => {
+                    const rect = canvas.parentElement.getBoundingClientRect();
+                    canvas.width = rect.width;
+                    canvas.height = rect.height;
+                    // Redibujar el contenido de los datos de la imagen guardados después de redimensionar
+                    if (note.content) {
+                        const img = new Image();
+                        img.onload = () => {
+                            ctx.clearRect(0, 0, canvas.width, canvas.height);
+                            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                            saveDrawingState(); // Guardar nuevo estado después de redimensionar y redibujar
+                        }
+                        img.src = note.content;
+                    } else {
+                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+                        saveDrawingState(); // Guardar estado vacío si no hay contenido
+                    }
+                };
             /**
              * Configura el lienzo de dibujo para una nota de tipo 'drawing'.
              * Configura las herramientas de dibujo, los escuchadores de eventos y el historial.
@@ -6366,26 +6384,6 @@ if (loadingTextElement) {
 
                 drawingHistory = []; // Restablecer historial de dibujo
                 historyIndex = -1; // Restablecer índice de historial
-
-                // Función para redimensionar el lienzo y redibujar el contenido
-                const resizeCanvas = () => {
-                    const rect = canvas.parentElement.getBoundingClientRect();
-                    canvas.width = rect.width;
-                    canvas.height = rect.height;
-                    // Redibujar el contenido de los datos de la imagen guardados después de redimensionar
-                    if (note.content) {
-                        const img = new Image();
-                        img.onload = () => {
-                            ctx.clearRect(0, 0, canvas.width, canvas.height);
-                            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                            saveDrawingState(); // Guardar nuevo estado después de redimensionar y redibujar
-                        }
-                        img.src = note.content;
-                    } else {
-                        ctx.clearRect(0, 0, canvas.width, canvas.height);
-                        saveDrawingState(); // Guardar estado vacío si no hay contenido
-                    }
-                };
 
                 resizeCanvas(); // Redimensionamiento inicial
                 window.removeEventListener('resize', resizeCanvas); // Eliminar el escuchador antiguo para evitar duplicados
