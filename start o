@@ -4632,100 +4632,98 @@
              * @param {string} modelUsed - The ID of the model used (e.g., 'gpt-4o').
              * @returns {boolean} True if credits were successfully spent, false otherwise.
              */
-           function spendCredits(cost, modelUsed) {
-                // Check GOAT X PRO daily limit for logged-in users
-                if (modelUsed === 'gpt-4o' && currentUser) {
-                    const today = dayjs().format('YYYY-MM-DD');
-                    const proUsageKey = `goat_x_pro_usage_${currentUser?.id || 'guest'}_${today}`;
-                    goatXProUsage = parseInt(localStorage.getItem(proUsageKey) || '0');
+            function spendCredits(cost, modelUsed) {
+                // Check GOAT X PRO daily limit for logged-in users
+                if (modelUsed === 'gpt-4o' && currentUser) {
+                    const today = dayjs().format('YYYY-MM-DD');
+                    const proUsageKey = `goat_x_pro_usage_${currentUser?.id || 'guest'}_${today}`;
+                    goatXProUsage = parseInt(localStorage.getItem(proUsageKey) || '0');
 
-                    if (goatXProUsage >= GOAT_X_PRO_DAILY_LIMIT) {
-                        showModal({
-                            title: 'Límite de Uso Alcanzado para GOAT X PRO',
-                            body: `Has alcanzado el límite de ${GOAT_X_PRO_DAILY_LIMIT} usos diarios para el modelo GOAT X PRO. Por favor, usa el modelo GOAT X (General) o espera hasta mañana para volver a usar GOAT X PRO.`,
-                            confirmText: 'Entendido',
-                            showCancel: false
-                        }).then(() => {
-                            // Revert model selector to GOAT X if limit reached
-                            dom.modelSelector.value = 'gpt-3.5-turbo-1106';
-                            if (document.getElementById('project-model-selector')) document.getElementById('project-model-selector').value = 'gpt-3.5-turbo-1106';
-                            if (document.getElementById('financial-model-selector')) document.getElementById('financial-model-selector').value = 'gpt-3.5-turbo-1106';
-                            if (document.getElementById('notepad-model-selector')) document.getElementById('notepad-model-selector').value = 'gpt-3.5-turbo-1106';
-                        });
-                        return false;
-                    }
-                }
+                    if (goatXProUsage >= GOAT_X_PRO_DAILY_LIMIT) {
+                        showModal({
+                            title: 'Límite de Uso Alcanzado para GOAT X PRO',
+                            body: `Has alcanzado el límite de ${GOAT_X_PRO_DAILY_LIMIT} usos diarios para el modelo GOAT X PRO. Por favor, usa el modelo GOAT X (General) o espera hasta mañana para volver a usar GOAT X PRO.`,
+                            confirmText: 'Entendido',
+                            showCancel: false
+                        }).then(() => {
+                            // Revert model selector to GOAT X if limit reached
+                            dom.modelSelector.value = 'gpt-3.5-turbo-1106';
+                            if (document.getElementById('project-model-selector')) document.getElementById('project-model-selector').value = 'gpt-3.5-turbo-1106';
+                            if (document.getElementById('financial-model-selector')) document.getElementById('financial-model-selector').value = 'gpt-3.5-turbo-1106';
+                            if (document.getElementById('notepad-model-selector')) document.getElementById('notepad-model-selector').value = 'gpt-3.5-turbo-1106';
+                        });
+                        return false;
+                    }
+                }
 
-                const { remaining } = getCreditCount();
-                const gamCredits = (gamificationState.credits || 0); // Get reward credits
+                const { remaining } = getCreditCount();
+                const gamCredits = (gamificationState.credits || 0); // Get reward credits
 
-                // Check if total available credits are sufficient
-                if (remaining < cost && gamCredits < cost) {
-                    const lang = localStorage.getItem('goatify-lang') || 'es';
-                    if (!currentUser) {
-                         // Show login/upgrade modal for guest users
-                         showModal({
-                            title: translations[lang].login_for_credits_title,
-                            body: translations[lang].login_for_credits_body,
-                            confirmText: translations[lang].login_now_btn,
-                            cancelText: translations[lang].view_plans_btn,
-                        }).then(res => {
-                            if (res.confirmed) {
-                                netlifyIdentity.open('login'); // Open Netlify Identity login
-                            } else {
-                                showPricingModal(); // Show pricing plans
-                            }
-                        });
-                    } else {
-                        // Show insufficient credits modal for logged-in users
-                        showModal({
-                            title: 'Créditos Insuficientes',
-                            body: 'No tienes suficientes créditos de tu plan ni créditos de recompensa. Mejora tu plan para obtener más o espera al próximo mes.',
-                            confirmText: 'Ver Planes'
-                        }).then(res => { if (res.confirmed) showPricingModal(); });
-                    }
-                    return false;
-                }
+                // Check if total available credits are sufficient
+                if (remaining < cost && gamCredits < cost) {
+                    const lang = localStorage.getItem('goatify-lang') || 'es';
+                    if (!currentUser) {
+                         // Show login/upgrade modal for guest users
+                         showModal({
+                            title: translations[lang].login_for_credits_title,
+                            body: translations[lang].login_for_credits_body,
+                            confirmText: translations[lang].login_now_btn,
+                            cancelText: translations[lang].view_plans_btn,
+                        }).then(res => {
+                            if (res.confirmed) {
+                                netlifyIdentity.open('login'); // Open Netlify Identity login
+                            } else {
+                                showPricingModal(); // Show pricing plans
+                            }
+                        });
+                    } else {
+                        // Show insufficient credits modal for logged-in users
+                        showModal({
+                            title: 'Créditos Insuficientes',
+                            body: 'No tienes suficientes créditos de tu plan ni créditos de recompensa. Mejora tu plan para obtener más o espera al próximo mes.',
+                            confirmText: 'Ver Planes'
+                        }).then(res => { if (res.confirmed) showPricingModal(); });
+                    }
+                    return false;
+                }
 
-                // Prioritize plan credits, then reward credits
-                if (remaining >= cost) {
-                    if (!currentUser) {
-                        // Update guest usage in local storage
-                        const usageKey = 'guest_usage';
-                        let usageData = JSON.parse(localStorage.getItem(usageKey)) || { count: 0 };
-                        usageData.count += cost;
-                        localStorage.setItem(usageKey, JSON.stringify(usageData));
-                    } else {
-                        // Update logged-in user's monthly usage in local storage
-                        const usageKey = `usage_monthly_${currentUser.id}`;
-                        const currentMonth = dayjs().format('YYYY-MM');
-                        let usageData = JSON.parse(localStorage.getItem(usageKey)) || { count: 0, month: '' };
-                        if (usageData.month !== currentMonth) {
-                            usageData = { count: 0, month: currentMonth }; // Reset for new month
-                        }
-                        usageData.count += cost;
-                        localStorage.setItem(usageKey, JSON.stringify(usageData));
-                    }
-                } else {
-                    // Use reward credits if plan credits are insufficient
-                    gamificationState.credits -= cost;
-                    saveGamificationState(); // Save updated gamification state
-                    showInAppNotification("Crédito de Recompensa Usado", `Se ha utilizado un crédito de recompensa. Te quedan ${gamificationState.credits}.`, 2000);
-                }
+                // Prioritize plan credits, then reward credits
+                if (remaining >= cost) {
+                    if (!currentUser) {
+                        // Update guest usage in local storage
+                        const usageKey = 'guest_usage';
+                        let usageData = JSON.parse(localStorage.getItem(usageKey)) || { count: 0 };
+                        usageData.count += cost;
+                        localStorage.setItem(usageKey, JSON.stringify(usageData));
+                    } else {
+                        // Update logged-in user's monthly usage in local storage
+                        const usageKey = `usage_monthly_${currentUser.id}`;
+                        const currentMonth = dayjs().format('YYYY-MM');
+                        let usageData = JSON.parse(localStorage.getItem(usageKey)) || { count: 0, month: '' };
+                        if (usageData.month !== currentMonth) {
+                            usageData = { count: 0, month: currentMonth }; // Reset for new month
+                        }
+                        usageData.count += cost;
+                        localStorage.setItem(usageKey, JSON.stringify(usageData));
+                    }
+                } else {
+                    // Use reward credits if plan credits are insufficient
+                    gamificationState.credits -= cost;
+                    saveGamificationState(); // Save updated gamification state
+                    showInAppNotification("Crédito de Recompensa Usado", `Se ha utilizado un crédito de recompensa. Te quedan ${gamificationState.credits}.`, 2000);
+                }
 
 
-                updateCreditCounter(); // Update credit display in UI
+                updateCreditCounter(); // Update credit display in UI
 
-                // Increment GOAT X PRO daily usage counter
-                if (modelUsed === 'gpt-4o' && currentUser) {
-                    const today = dayjs().format('YYYY-MM-DD');
-                    const proUsageKey = `goat_x_pro_usage_${currentUser.id}_${today}`;
-                    goatXProUsage++;
-                    localStorage.setItem(proUsageKey, goatXProUsage.toString());
-                }
-                return true;
-            }
-            // ... (el resto de tu código JavaScript)
+                // Increment GOAT X PRO daily usage counter
+                if (modelUsed === 'gpt-4o' && currentUser) {
+                    const today = dayjs().format('YYYY-MM-DD');
+                    const proUsageKey = `goat_x_pro_usage_${currentUser.id}_${today}`;
+                    goatXProUsage++;
+                    localStorage.setItem(proUsageKey, goatXProUsage.toString());
+                }
+                return true;
             }
 
             /**
