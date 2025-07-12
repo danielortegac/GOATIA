@@ -6315,220 +6315,205 @@ if (loadingTextElement) {
                 showInAppNotification(translations[lang].success_title || "Éxito", `${translations[lang].note_created_message || "Se ha creado:"} "${newNote.title}"`, 800);
             }
 
-            /**
-             * Carga el contenido de una nota especificada en el editor o lienzo.
-             * @param {string} noteId - El ID de la nota a cargar.
-             */
-            function loadNoteIntoEditor(noteId) {
-                const note = state.notes.find(n => n.id === noteId);
-                if (!note) return;
+      /**
+ * Carga el contenido de una nota especificada en el editor o lienzo.
+ * @param {string} noteId - El ID de la nota a cargar.
+ */
+function loadNoteIntoEditor(noteId) {
+    const note = state.notes.find(n => n.id === noteId);
+    if (!note) return;
 
-                currentNoteId = noteId;
+    currentNoteId = noteId;
 
-                dom.noteTitleInput.value = note.title; // Establecer título de la nota
-                const isDrawing = note.type === 'drawing';
+    dom.noteTitleInput.value = note.title; // Establecer título de la nota
+    const isDrawing = note.type === 'drawing';
 
-                // Alternar la visibilidad del editor de texto vs. el lienzo
-                dom.noteContentEditor.style.display = isDrawing ? 'none' : 'block';
-                dom.noteCanvas.style.display = isDrawing ? 'block' : 'none';
-                dom.noteContentEditor.innerHTML = isDrawing ? '' : note.content; // Establecer contenido de texto o borrar para dibujar
+    // Alternar la visibilidad del editor de texto vs. el lienzo
+    dom.noteContentEditor.style.display = isDrawing ? 'none' : 'block';
+    dom.noteCanvas.style.display = isDrawing ? 'block' : 'none';
+    dom.noteContentEditor.innerHTML = isDrawing ? '' : note.content; // Establecer contenido de texto o borrar para dibujar
 
-                // Alternar la visibilidad de las herramientas de texto vs. las herramientas de dibujo
-                dom.textTools.style.display = isDrawing ? 'none' : 'flex';
-                dom.drawingTools.style.display = isDrawing ? 'flex' : 'none';
-                dom.drawingFullscreenBtn.style.display = isDrawing ? 'block' : 'none'; // Mostrar pantalla completa solo para dibujos
+    // Alternar la visibilidad de las herramientas de texto vs. las herramientas de dibujo
+    dom.textTools.style.display = isDrawing ? 'none' : 'flex';
+    dom.drawingTools.style.display = isDrawing ? 'flex' : 'none';
+    dom.drawingFullscreenBtn.style.display = isDrawing ? 'block' : 'none'; // Mostrar pantalla completa solo para dibujos
 
-                if (isDrawing) {
-                    setupCanvas(note); // Inicializar lienzo para dibujar
-                    resizeCanvas(); // <-- AÑADE ESTA LÍNEA PARA FORZAR EL RECALCULO
-                } else {
-                    dom.noteEditorToolbar.querySelectorAll('.text-editor-controls button').forEach(btn => btn.classList.remove('active'));
-                }
-            }
+    if (isDrawing) {
+        setupCanvas(note); // Esta llamada es la única necesaria.
+    } else {
+        dom.noteEditorToolbar.querySelectorAll('.text-editor-controls button').forEach(btn => btn.classList.remove('active'));
+    }
+}
              
-            function setupCanvas(note) {
-                const canvas = dom.noteCanvas; // 'canvas' se define aquí
-                const ctx = canvas.getContext('2d');
-                const toolbar = dom.drawingTools;
-
-                let isDrawing = false; // Bandera para dibujo activo
-                let lastX = 0; // Última coordenada X para la ruta de dibujo
-                let lastY = 0; // Última coordenada Y para la ruta de dibujo
-                let startX = 0; // Coordenada X inicial para formas
-                let startY = 0; // Coordenada Y inicial para formas
-                let currentTool = 'pencil'; // Herramienta de dibujo activa actual
-                let currentSnapshot = null; // Instantánea del lienzo para el dibujo de formas (para redibujar el fondo)
-
-                drawingHistory = []; // Restablecer historial de dibujo
-                historyIndex = -1; // Restablecer índice de historial
-
-                resizeCanvas(); // Redimensionamiento inicial
-                window.removeEventListener('resize', resizeCanvas); // Eliminar el escuchador antiguo para evitar duplicados
-                window.addEventListener('resize', resizeCanvas); // Añadir nuevo escuchador de redimensionamiento
-
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                if (note.content) {
-                    const img = new Image();
-                    img.onload = () => {
-                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                        saveDrawingState();
-                    }
-                    img.src = note.content;
-                } else {
-                    saveDrawingState();
-                }
- // Función para redimensionar el lienzo y redibujar el contenido
-             const resizeCanvas = () => {
-                const note = state.notes.find(n => n.id === currentNoteId);
-                if (!note || !dom.noteCanvas) return;
-            
-                const canvas = dom.noteCanvas;
-                const ctx = canvas.getContext('2d');
-                const rect = canvas.parentElement.getBoundingClientRect();
-            
-                canvas.width = rect.width;
-                canvas.height = rect.height;
-            
-                if (note.content) {
-                    const img = new Image();
-                    img.onload = () => {
-                        ctx.clearRect(0, 0, canvas.width, canvas.height);
-                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                    };
-                    img.src = note.content;
-                } else {
-                    ctx.clearRect(0, 0, canvas.width, canvas.height);
-                }
-            };
             /**
-             * Configura el lienzo de dibujo para una nota de tipo 'drawing'.
-             * Configura las herramientas de dibujo, los escuchadores de eventos y el historial.
-             * @param {object} note - El objeto de nota de tipo 'drawing'.
-             */
+ * Configura el lienzo de dibujo para una nota de tipo 'drawing'.
+ * Configura las herramientas de dibujo, los escuchadores de eventos y el historial.
+ * @param {object} note - El objeto de nota de tipo 'drawing'.
+ */
+function setupCanvas(note) {
+    const canvas = dom.noteCanvas;
+    if (!canvas) {
+        console.error("¡El elemento canvas del bloc de notas no se encontró en el DOM!");
+        return;
+    }
+    const ctx = canvas.getContext('2d');
+    const toolbar = dom.drawingTools;
 
-                // Ayudante para obtener coordenadas relativas al lienzo
-                const getCoords = (e) => {
-                    const event = e.touches ? e.touches[0] : e;
-                    const canvasRect = canvas.getBoundingClientRect();
-                    return [event.clientX - canvasRect.left, event.clientY - canvasRect.top];
-                }
+    let isDrawing = false; // Bandera para dibujo activo
+    let lastX = 0; // Última coordenada X para la ruta de dibujo
+    let lastY = 0; // Última coordenada Y para la ruta de dibujo
+    let startX = 0; // Coordenada X inicial para formas
+    let startY = 0; // Coordenada Y inicial para formas
+    let currentTool = 'pencil'; // Herramienta de dibujo activa actual
+    let currentSnapshot = null; // Instantánea del lienzo para el dibujo de formas (para redibujar el fondo)
 
-                // Iniciar acción de dibujo
-                const startDrawing = (e) => {
-                    e.preventDefault();
-                    isDrawing = true;
-                    [lastX, lastY] = getCoords(e);
-                    [startX, startY] = [lastX, lastY]; // Almacenar punto de inicio para formas
-                    if (currentTool === 'pencil' || currentTool === 'eraser') {
-                         ctx.beginPath(); // Iniciar nueva ruta para dibujo continuo
-                         ctx.moveTo(lastX, lastY);
-                    } else {
-                        currentSnapshot = ctx.getImageData(0, 0, canvas.width, canvas.height); // Guardar estado del lienzo antes de dibujar la forma
-                    }
-                };
-                // Acción de dibujo
-                const draw = (e) => {
-                    if (!isDrawing) return;
-                    e.preventDefault();
+    drawingHistory = []; // Restablecer historial de dibujo
+    historyIndex = -1; // Restablecer índice de historial
 
-                    const [currentX, currentY] = getCoords(e);
-                    ctx.strokeStyle = toolbar.querySelector('#drawing-color').value; // Establecer color del trazo
-                    ctx.lineWidth = toolbar.querySelector('#drawing-line-width').value; // Establecer ancho de línea
-                    ctx.lineCap = 'round';
-                    ctx.lineJoin = 'round';
-                    // Establecer la operación de composición para el efecto de borrador
-                    ctx.globalCompositeOperation = currentTool === 'eraser' ? 'destination-out' : 'source-over';
+    // Función para redimensionar el lienzo y redibujar el contenido
+    const resizeCanvas = () => {
+        const rect = canvas.parentElement.getBoundingClientRect();
+        canvas.width = rect.width;
+        canvas.height = rect.height;
 
-                    if (currentTool === 'pencil' || currentTool === 'eraser') {
-                        ctx.lineTo(currentX, currentY);
-                        ctx.stroke();
-                    } else if (currentSnapshot) {
-                        ctx.putImageData(currentSnapshot, 0, 0); // Restaurar lienzo a la instantánea
-                        ctx.beginPath();
-                        if (currentTool === 'line') {
-                            ctx.moveTo(startX, startY);
-                            ctx.lineTo(currentX, currentY);
-                        } else if (currentTool === 'rect') {
-                            ctx.rect(startX, startY, currentX - startX, currentY - startY);
-                        } else if (currentTool === 'circle') {
-                            const radius = Math.sqrt(Math.pow(currentX - startX, 2) + Math.pow(currentY - startY, 2));
-                            ctx.arc(startX, startY, radius, 0, 2 * Math.PI);
-                        }
-                        ctx.stroke();
-                    }
-                    [lastX, lastY] = [currentX, currentY];
-                };
-                // Detener acción de dibujo
-                const stopDrawing = () => {
-                    if (!isDrawing) return;
-                    isDrawing = false;
-                    if (currentTool === 'pencil' || currentTool === 'eraser') {
-                        ctx.closePath();
-                    }
-                    saveDrawingState(); // Guardar el estado actual en el historial
-                    currentSnapshot = null; // Borrar instantánea
-                };
+        if (note.content) {
+            const img = new Image();
+            img.onload = () => {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            };
+            img.src = note.content;
+        } else {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+    };
 
-                // Adjuntar escuchadores de eventos de ratón y táctiles al lienzo
-                dom.noteCanvas.onmousedown = startDrawing; // Usamos dom.noteCanvas
-                dom.noteCanvas.onmousemove = draw;     // Usamos dom.noteCanvas
-                dom.noteCanvas.onmouseup = stopDrawing;    // etc...
-                dom.noteCanvas.onmouseout = stopDrawing;
-                dom.noteCanvas.ontouchstart = startDrawing;
-                dom.noteCanvas.ontouchmove = draw;
-                dom.noteCanvas.ontouchend = stopDrawing;
+    resizeCanvas(); // Redimensionamiento inicial
+    window.removeEventListener('resize', resizeCanvas); // Eliminar el escuchador antiguo para evitar duplicados
+    window.addEventListener('resize', resizeCanvas); // Añadir nuevo escuchador de redimensionamiento
 
-                // Ayudante para establecer la herramienta activa y actualizar la interfaz de usuario
-                const setActiveTool = (toolId) => {
-                    toolbar.querySelectorAll('.drawing-tool').forEach(t => t.classList.remove('active'));
-                    toolbar.querySelector(`#${toolId}`).classList.add('active');
-                    currentTool = toolId.replace('tool-', '');
-                }
+    if (note.content) {
+        const img = new Image();
+        img.onload = () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            saveDrawingState(); // Guardar el estado inicial en el historial
+        }
+        img.src = note.content;
+    } else {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        saveDrawingState(); // Guardar estado vacío inicial
+    }
 
-                // Adjuntar escuchadores de eventos a los botones de la herramienta de dibujo
-                toolbar.querySelector('#tool-pencil').onclick = () => setActiveTool('tool-pencil');
-                toolbar.querySelector('#tool-eraser').onclick = () => setActiveTool('tool-eraser');
-                toolbar.querySelector('#tool-line').onclick = () => setActiveTool('tool-line');
-                toolbar.querySelector('#tool-rect').onclick = () => setActiveTool('tool-rect');
-                toolbar.querySelector('#tool-circle').onclick = () => setActiveTool('tool-circle');
-                toolbar.querySelector('#clear-canvas-btn').onclick = () => {
-                     ctx.clearRect(0, 0, canvas.width, canvas.height); // Borrar todo el lienzo
-                     const activeNote = state.notes.find(n => n.id === currentNoteId);
-                     if (activeNote) {
-                         activeNote.content = null; // Borrar contenido de la nota
-                         saveState();
-                     }
-                     drawingHistory = []; // Borrar historial
-                     historyIndex = -1;
-                     saveDrawingState(); // Guardar estado vacío en el historial
-                };
-                toolbar.querySelector('#undo-drawing-btn').onclick = undoDrawing;
-                toolbar.querySelector('#redo-drawing-btn').onclick = redoDrawing;
+    // El resto de la función (getCoords, startDrawing, draw, stopDrawing, etc.)
+    const getCoords = (e) => {
+        const event = e.touches ? e.touches[0] : e;
+        const canvasRect = canvas.getBoundingClientRect();
+        return [event.clientX - canvasRect.left, event.clientY - canvasRect.top];
+    }
 
-                // Botón de pantalla completa para lienzo
-                  dom.drawingFullscreenBtn.onclick = () => {
-                    const canvas = dom.noteCanvas; // Asegurarnos de tener la referencia al canvas
-                    
-                    // Para salir de pantalla completa (esto es estándar)
-                    if (document.fullscreenElement || document.webkitFullscreenElement) {
-                        if (document.exitFullscreen) {
-                            document.exitFullscreen();
-                        } else if (document.webkitExitFullscreen) { // Safari
-                            document.webkitExitFullscreen();
-                        }
-                    } else { // Para entrar en pantalla completa
-                        if (canvas.requestFullscreen) {
-                            canvas.requestFullscreen();
-                        } else if (canvas.webkitRequestFullscreen) { // Safari
-                            canvas.webkitRequestFullscreen();
-                        } else if (canvas.mozRequestFullScreen) { // Firefox
-                            canvas.mozRequestFullScreen();
-                        } else if (canvas.msRequestFullscreen) { // IE/Edge
-                            canvas.msRequestFullscreen();
-                        }
-                    }
-                };
+    const startDrawing = (e) => {
+        e.preventDefault();
+        isDrawing = true;
+        [lastX, lastY] = getCoords(e);
+        [startX, startY] = [lastX, lastY];
+        if (currentTool === 'pencil' || currentTool === 'eraser') {
+            ctx.beginPath();
+            ctx.moveTo(lastX, lastY);
+        } else {
+            currentSnapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        }
+    };
+
+    const draw = (e) => {
+        if (!isDrawing) return;
+        e.preventDefault();
+        const [currentX, currentY] = getCoords(e);
+        ctx.strokeStyle = toolbar.querySelector('#drawing-color').value;
+        ctx.lineWidth = toolbar.querySelector('#drawing-line-width').value;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.globalCompositeOperation = currentTool === 'eraser' ? 'destination-out' : 'source-over';
+
+        if (currentTool === 'pencil' || currentTool === 'eraser') {
+            ctx.lineTo(currentX, currentY);
+            ctx.stroke();
+        } else if (currentSnapshot) {
+            ctx.putImageData(currentSnapshot, 0, 0);
+            ctx.beginPath();
+            if (currentTool === 'line') {
+                ctx.moveTo(startX, startY);
+                ctx.lineTo(currentX, currentY);
+            } else if (currentTool === 'rect') {
+                ctx.rect(startX, startY, currentX - startX, currentY - startY);
+            } else if (currentTool === 'circle') {
+                const radius = Math.sqrt(Math.pow(currentX - startX, 2) + Math.pow(currentY - startY, 2));
+                ctx.arc(startX, startY, radius, 0, 2 * Math.PI);
             }
+            ctx.stroke();
+        }
+        [lastX, lastY] = [currentX, currentY];
+    };
+
+    const stopDrawing = () => {
+        if (!isDrawing) return;
+        isDrawing = false;
+        if (currentTool === 'pencil' || currentTool === 'eraser') {
+            ctx.closePath();
+        }
+        saveDrawingState();
+        currentSnapshot = null;
+    };
+
+    canvas.onmousedown = startDrawing;
+    canvas.onmousemove = draw;
+    canvas.onmouseup = stopDrawing;
+    canvas.onmouseout = stopDrawing;
+    canvas.ontouchstart = startDrawing;
+    canvas.ontouchmove = draw;
+    canvas.ontouchend = stopDrawing;
+
+    const setActiveTool = (toolId) => {
+        toolbar.querySelectorAll('.drawing-tool').forEach(t => t.classList.remove('active'));
+        toolbar.querySelector(`#${toolId}`).classList.add('active');
+        currentTool = toolId.replace('tool-', '');
+    }
+
+    toolbar.querySelector('#tool-pencil').onclick = () => setActiveTool('tool-pencil');
+    toolbar.querySelector('#tool-eraser').onclick = () => setActiveTool('tool-eraser');
+    toolbar.querySelector('#tool-line').onclick = () => setActiveTool('tool-line');
+    toolbar.querySelector('#tool-rect').onclick = () => setActiveTool('tool-rect');
+    toolbar.querySelector('#tool-circle').onclick = () => setActiveTool('tool-circle');
+    toolbar.querySelector('#clear-canvas-btn').onclick = () => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const activeNote = state.notes.find(n => n.id === currentNoteId);
+        if (activeNote) {
+            activeNote.content = null;
+            saveState();
+        }
+        drawingHistory = [];
+        historyIndex = -1;
+        saveDrawingState();
+    };
+    toolbar.querySelector('#undo-drawing-btn').onclick = undoDrawing;
+    toolbar.querySelector('#redo-drawing-btn').onclick = redoDrawing;
+
+    dom.drawingFullscreenBtn.onclick = () => {
+        if (document.fullscreenElement || document.webkitFullscreenElement) {
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            } else if (document.webkitExitFullscreen) { /* Safari */
+                document.webkitExitFullscreen();
+            }
+        } else {
+            if (canvas.requestFullscreen) {
+                canvas.requestFullscreen();
+            } else if (canvas.webkitRequestFullscreen) { /* Safari */
+                canvas.webkitRequestFullscreen();
+            }
+        }
+    };
+}
 
             /**
              * Aplica un comando de formato de texto al editor de contenido editable.
