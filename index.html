@@ -912,10 +912,10 @@
             border-radius: 12px;
             font-weight: 600;
         }
-        #project-tag-filter-container {
+        #project-tag-filter-container, #calendar-tag-filter-container {
             position: relative;
         }
-        #tag-filter-dropdown {
+        #tag-filter-dropdown, #calendar-tag-filter-dropdown {
             position: absolute;
             background-color: var(--current-bg-light);
             border: 1px solid var(--current-border-color);
@@ -2580,9 +2580,15 @@
     <div id="calendar-modal-overlay" class="fixed inset-0 bg-black bg-opacity-70 hidden items-center justify-center z-40 p-4">
         <div id="calendar-modal" class="modal-content rounded-lg w-full max-w-4xl p-6 relative">
              <h3 class="text-2xl font-extrabold text-center text-primary mb-4" data-translate-key="calendar_my_calendar">Mi Calendario y Tareas</h3>
-             <div class="text-center mb-4">
-                <p id="current-date-display" class="text-lg text-text-medium"></p>
-                <p id="current-time-display" class="text-xl font-extrabold text-primary animate-pulse"></p>
+             <div class="flex flex-wrap justify-between items-center mb-4 gap-2">
+                <div class="text-center flex-grow">
+                    <p id="current-date-display" class="text-lg text-text-medium"></p>
+                    <p id="current-time-display" class="text-xl font-extrabold text-primary animate-pulse"></p>
+                </div>
+                <div id="calendar-tag-filter-container" class="relative">
+                    <button id="calendar-tag-filter-btn" class="p-2 rounded-md bg-input text-sm"><i class="fas fa-tag mr-1"></i> <span data-translate-key="filter_tags">Filtrar</span></button>
+                    <div id="calendar-tag-filter-dropdown" class="hidden absolute right-0 mt-1 p-2 rounded-md shadow-lg w-48"></div>
+                </div>
             </div>
             <div class="calendar-view-toggle mb-4">
                 <button id="day-view-btn" data-translate-key="calendar_day_view">Vista de Día</button>
@@ -3056,23 +3062,23 @@
             // Textos de los botones para el modal de motivación
             const MOTIVATION_BUTTON_TEXTS = ["¡Listo!", "¡Vamos a darle!", "¡Perfecto!", "¡Sí, yo puedo!", "¡Vamos!", "¡Entendido!", "¡A por todas!"]; 
             const LOADING_MESSAGES = [
-    "Conectando con los servidores...",
-    "Despertando a la IA...",
-    "Cargando tus proyectos...",
-    "Organizando tus notas...",
-    "Preparando la magia..."
-];
-                let loadingInterval = null;
-const loadingTextElement = document.querySelector('#loading-overlay p');
+                "Conectando con los servidores...",
+                "Despertando a la IA...",
+                "Cargando tus proyectos...",
+                "Organizando tus notas...",
+                "Preparando la magia..."
+            ];
+            let loadingInterval = null;
+            const loadingTextElement = document.querySelector('#loading-overlay p');
 
-if (loadingTextElement) {
-    let messageIndex = 0;
-    // Inicia el carrusel de mensajes de inmediato
-    loadingInterval = setInterval(() => {
-        messageIndex = (messageIndex + 1) % LOADING_MESSAGES.length;
-        loadingTextElement.textContent = LOADING_MESSAGES[messageIndex];
-    }, 1500); // Cambia el mensaje cada 1.5 segundos
-}
+            if (loadingTextElement) {
+                let messageIndex = 0;
+                // Inicia el carrusel de mensajes de inmediato
+                loadingInterval = setInterval(() => {
+                    messageIndex = (messageIndex + 1) % LOADING_MESSAGES.length;
+                    loadingTextElement.textContent = LOADING_MESSAGES[messageIndex];
+                }, 1500); // Cambia el mensaje cada 1.5 segundos
+            }
 
             // Variables de estado globales para la aplicación
             let state = { chats: {}, projects: {}, structure: [], calendar: {}, notes: [] };
@@ -3200,6 +3206,8 @@ if (loadingTextElement) {
                 projectCalendarBtn: document.getElementById('project-calendar-btn'),
                 tagFilterBtn: document.getElementById('tag-filter-btn'),
                 tagFilterDropdown: document.getElementById('tag-filter-dropdown'),
+                calendarTagFilterBtn: document.getElementById('calendar-tag-filter-btn'),
+                calendarTagFilterDropdown: document.getElementById('calendar-tag-filter-dropdown'),
                 financialAssistantView: document.getElementById('financial-assistant-view'),
                 gamificationBtn: document.getElementById('gamification-btn'), // Este botón no existe en HTML
                 gamificationModal: document.getElementById('gamification-modal'),
@@ -3817,7 +3825,6 @@ if (loadingTextElement) {
                 if(calendarInfoTotalCredits) calendarInfoTotalCredits.textContent = `${totalCredits} (${planCreditsInfo.remaining}/${planCreditsInfo.limit === Infinity ? '∞' : planCreditsInfo.limit} plan + ${gamificationState.credits || 0} 🪙)`;
             }
 
-
             /**
              * Renderiza la vista de mes del calendario.
              */
@@ -4341,22 +4348,30 @@ if (loadingTextElement) {
                 // Obtener tareas personales para el día
                 const calendarTasks = (state.calendar[dayKey] || []).map(t => ({...t, text: t.content, source: 'Personal', labels: ['Personal']}));
                 const projectTasks = [];
-                // Iterar a través de todos los chats de proyecto para encontrar tareas con vencimiento en este día
+
+                // --- ESTA ES LA LÓGICA CORREGIDA ---
+                // Iterar a través de todos los chats de proyecto para encontrar tareas
                 Object.values(state.chats).forEach(chat => {
                     if (chat.projectData && chat.projectData.columns) {
                         chat.projectData.columns.forEach(column => {
                             (column.tasks || []).forEach(task => {
-                                 if (task.dueDate === dayKey) {
-                                    projectTasks.push({...task, source: chat.projectData.title, text: task.content});
+                                // Condición 1: La tarea tiene la fecha de hoy
+                                if (task.dueDate === dayKey) {
+                                    // Condición 2: No hay filtro activo O la tarea tiene la etiqueta del filtro
+                                    const shouldRender = !activeTagFilter || (task.labels && task.labels.includes(activeTagFilter));
+                                    if (shouldRender) {
+                                        projectTasks.push({...task, source: chat.projectData.title, text: task.content});
+                                    }
                                 }
                              });
                         });
                     }
                 });
+                // --- FIN DE LA LÓGICA CORREGIDA ---
+
                 // Combinar y ordenar las tareas por hora
                 return [...calendarTasks, ...projectTasks].sort((a, b) => (a.time || '23:59').localeCompare(b.time || '23:59'));
             }
-
             /**
              * Actualiza la insignia de notificación que muestra el recuento de tareas vencidas/pendientes.
              */
@@ -4466,6 +4481,9 @@ if (loadingTextElement) {
                 if (currentCalendarView === 'day') renderDayView();
                 if (currentCalendarView === 'week') renderWeekView();
                 if (currentCalendarView === 'month') renderMonthView();
+                
+                // Renderizar el filtro de etiquetas del calendario
+                renderCalendarTagFilter();
             }
 
             setInterval(checkAndNotifyTasks, 10 * 1000); // Comprobar tareas cada 10 segundos
@@ -4675,7 +4693,6 @@ if (loadingTextElement) {
 
                 return { remaining: Math.max(0, limit - usageData.count), limit, plan };
             }
-
             /**
              * Deduce créditos según el costo de la operación y el modelo utilizado.
              * Muestra modales para créditos insuficientes o límite diario de GOAT X PRO.
@@ -5357,7 +5374,6 @@ if (loadingTextElement) {
                 dom.sidebarContent.appendChild(fragChats);
                 updateActiveChatHighlight(); // Asegurarse de que el elemento actualmente seleccionado esté resaltado
             }
-
             /**
              * Crea un elemento DOM para un elemento de chat en la barra lateral.
              * Admite el modo de selección y la interacción regular.
@@ -6745,7 +6761,6 @@ if (loadingTextElement) {
                 });
             }
             // --- TRANSLATOR FUNCTIONS END ---
-
             /**
              * Configura todos los escuchadores de eventos globales para la aplicación.
              */
@@ -7255,7 +7270,7 @@ if (loadingTextElement) {
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = url;
-                    a.download = 'generated_page.html';
+                    a.download = 'goatify_page.html';
                     document.body.appendChild(a);
                     a.click();
                     document.body.removeChild(a);
@@ -7286,6 +7301,9 @@ if (loadingTextElement) {
                     // Cerrar el menú desplegable de filtro de etiquetas si se hace clic fuera
                     if (dom.tagFilterDropdown && dom.tagFilterBtn && !dom.tagFilterBtn.contains(e.target) && !dom.tagFilterDropdown.contains(e.target)) {
                         dom.tagFilterDropdown.classList.add('hidden');
+                    }
+                     if (dom.calendarTagFilterDropdown && dom.calendarTagFilterBtn && !dom.calendarTagFilterBtn.contains(e.target) && !dom.calendarTagFilterDropdown.contains(e.target)) {
+                        dom.calendarTagFilterDropdown.classList.add('hidden');
                     }
                     // Cerrar los menús desplegables "añadir a carpeta" si se hace clic fuera
                     document.querySelectorAll('.add-to-folder-dropdown').forEach(dropdown => {
@@ -7645,7 +7663,6 @@ if (loadingTextElement) {
                     }
                 });
             }
-
             /**
              * Renderiza la vista de gestión de proyectos para un chat de proyecto específico.
              * Inicializa los datos del proyecto si no están presentes y renderiza el tablero del proyecto.
@@ -7654,6 +7671,40 @@ if (loadingTextElement) {
             function renderProjectView(chatId) {
                 const chat = state.chats[chatId];
                 if (!chat) return;
+
+                // Recrear la estructura del chat del proyecto para asegurar que no esté en blanco
+                // y que los listeners se puedan volver a adjuntar correctamente.
+                const projectChatContainer = document.getElementById('project-chat-container');
+                if (projectChatContainer) {
+                    projectChatContainer.innerHTML = `
+                        <div id="project-chat-container-header" class="flex justify-between items-center cursor-pointer p-2">
+                            <h3 class="text-lg font-semibold text-primary" data-translate-key="project_assistant">Asistente del Proyecto</h3>
+                            <button id="project-chat-toggle" class="text-xl p-2"><i class="fas fa-angle-up"></i></button>
+                        </div>
+                         <div class="project-chat-body">
+                            <div id="project-chat-messages" class="flex-grow overflow-y-auto p-2"></div>
+                            <div id="project-input-area" class="mt-auto pt-2">
+                                 <div class="pro-controls-bg rounded-lg p-1.5 mb-2">
+                                     <div class="flex items-center space-x-2">
+                                        <label for="project-model-selector" class="font-medium text-xs text-text-medium pl-2 pr-1" data-translate-key="model">Modelo:</label>
+                                         <div class="model-selector-wrapper">
+                                            <select id="project-model-selector" class="rounded-md py-1 pl-1.5 focus:outline-none focus:ring-2 focus:ring-primary text-sm bg-transparent text-text-light">
+                                                <option value="gpt-3.5-turbo-1106" data-translate-key="model_general">GOAT X</option>
+                                                <option value="sonar" data-translate-key="model_web">Búsqueda Web</option>
+                                                <option value="gpt-4o" class="goat-x-pro-model">GOAT X PRO</option>
+                                             </select>
+                                              <i class="fas fa-chevron-down text-xs"></i>
+                                        </div>
+                                     </div>
+                                </div>
+                                 <div class="relative rounded-xl flex items-center bg-input p-1 sm:p-2 input-wrapper">
+                                     <textarea id="project-msg" placeholder="Deja que Goatify organice tu proyecto..." class="flex-1 bg-transparent p-2 h-10 max-h-28 resize-none outline-none placeholder-themed text-sm" data-translate-key="project_chat_placeholder"></textarea>
+                                    <button id="project-send" title="Enviar" class="p-2 sm:p-3 disabled:opacity-50 disabled:cursor-not-allowed text-primary"><i class="fa fa-paper-plane text-lg"></i></button>
+                                </div>
+                             </div>
+                        </div>
+                    `;
+                }
 
                 if (!chat.projectData) {
                     // Inicializar datos de proyecto predeterminados si no están presentes
@@ -7669,27 +7720,47 @@ if (loadingTextElement) {
                 }
 
                 dom.projectViewTitle.textContent = chat.projectData.title; // Establecer título del proyecto
+                
+                // Volver a asignar los elementos DOM del chat del proyecto después de recrearlos
                 const projectChatMessages = document.getElementById('project-chat-messages');
                 if(projectChatMessages) {
                     projectChatMessages.innerHTML = '';
                     // Mostrar mensajes de chat del proyecto
-                    chat.messages.forEach((msg, index) => addMessageToUI(msg.role, msg.content, msg.image, index, projectChatMessages));
+                    (chat.messages || []).forEach((msg, index) => addMessageToUI(msg.role, msg.content, msg.image, index, projectChatMessages));
                 }
 
                 // Colapsar el chat del proyecto en móvil por defecto
                 if (window.innerWidth < 768) {
-                    dom.projectChatContainer.classList.add('collapsed');
+                    projectChatContainer.classList.add('collapsed');
                 } else {
-                    dom.projectChatContainer.classList.remove('collapsed');
+                    projectChatContainer.classList.remove('collapsed');
                 }
                 renderProjectBoard(chatId); // Renderizar el tablero Kanban o Lista
 
-                // Deshabilitar la opción GOAT X PRO para usuarios no registrados en el selector de modelo del proyecto
+                // Volver a adjuntar los listeners para los elementos del chat recién creados
+                attachProjectChatListeners(chatId);
+            }
+
+            /**
+             * Adjunta los escuchadores de eventos para el área de chat del asistente de proyectos.
+             * @param {string} chatId - El ID del chat del proyecto.
+             */
+            function attachProjectChatListeners(chatId) {
                 const projectModelSelector = document.getElementById('project-model-selector');
+                const sendBtn = document.getElementById('project-send');
+                const msgInput = document.getElementById('project-msg');
+
                 if (projectModelSelector) {
                     const goatXProOption = projectModelSelector.querySelector('.goat-x-pro-model');
                     if (goatXProOption) goatXProOption.disabled = !currentUser;
                 }
+                if(sendBtn) sendBtn.addEventListener('click', () => sendMessage(false, null, { assistantType: 'project' }));
+                if(msgInput) msgInput.addEventListener('keydown', e => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        sendMessage(false, null, { assistantType: 'project' });
+                    }
+                });
             }
 
             /**
@@ -8283,6 +8354,49 @@ if (loadingTextElement) {
                 });
                 dom.tagFilterBtn.onclick = () => {
                     dom.tagFilterDropdown.classList.toggle('hidden'); // Alternar la visibilidad del menú desplegable
+                };
+            }
+
+            /**
+             * Renderiza el filtro de etiquetas para el modal del calendario.
+             */
+            function renderCalendarTagFilter() {
+                const allProjectTasks = Object.values(state.chats)
+                    .filter(c => c.projectData)
+                    .flatMap(c => c.projectData.columns)
+                    .flatMap(col => col.tasks || []);
+                
+                const allTags = [...new Set(allProjectTasks.flatMap(t => t.labels || []))];
+                allTags.unshift('Personal'); // Añadir 'Personal' como una etiqueta filtrable
+
+                dom.calendarTagFilterDropdown.innerHTML = '';
+                
+                const allBtn = document.createElement('button');
+                allBtn.className = 'block w-full text-left p-2 hover:bg-medium rounded-md text-sm';
+                allBtn.textContent = 'Todas las Etiquetas';
+                allBtn.onclick = () => {
+                    activeTagFilter = null;
+                    dom.calendarTagFilterBtn.innerHTML = `<i class="fas fa-tag mr-1"></i> Filtrar`;
+                    dom.calendarTagFilterDropdown.classList.add('hidden');
+                    renderCalendarView();
+                };
+                dom.calendarTagFilterDropdown.appendChild(allBtn);
+
+                allTags.forEach(tag => {
+                    const btn = document.createElement('button');
+                    btn.className = 'block w-full text-left p-2 hover:bg-medium rounded-md text-sm';
+                    btn.innerHTML = `<span class="task-label inline-block mr-2" style="background-color: ${getLabelColor(tag)}; color: white;">${tag}</span>`;
+                    btn.onclick = () => {
+                        activeTagFilter = tag;
+                        dom.calendarTagFilterBtn.innerHTML = `<span class="task-label inline-block mr-2" style="background-color: ${getLabelColor(tag)}; color: white;">${tag}</span>`;
+                        dom.calendarTagFilterDropdown.classList.add('hidden');
+                        renderCalendarView();
+                    };
+                    dom.calendarTagFilterDropdown.appendChild(btn);
+                });
+
+                dom.calendarTagFilterBtn.onclick = () => {
+                    dom.calendarTagFilterDropdown.classList.toggle('hidden');
                 };
             }
 
@@ -8943,8 +9057,8 @@ if (loadingTextElement) {
                     setupMotivationInterval(); // Iniciar notificaciones de motivación periódicas
 
                      if (loadingInterval) {
-        clearInterval(loadingInterval);
-        }
+                        clearInterval(loadingInterval);
+                    }
                     
                     dom.appContainer.classList.remove('opacity-0'); // Mostrar el contenedor principal de la aplicación
                     dom.loadingOverlay.style.display = 'none'; // Ocultar la superposición de carga
