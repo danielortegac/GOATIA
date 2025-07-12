@@ -3902,7 +3902,9 @@ if (loadingTextElement) {
             for (let i = 0; i < 7; i++) {
                     const day = startOfWeek.add(i, 'day');
                     const dayKey = day.format('YYYY-MM-DD');
-                    const tasks = getTasksForDay(dayKey);
+                   const tasks = getTasksForDay(dayKey).filter(task => 
+    !activeTagFilter || (task.labels && task.labels.includes(activeTagFilter))
+);
                     const lang = localStorage.getItem('goatify-lang') || 'es';
                     const displayDate = day.format('dddd, D MMM');
                     const daySection = document.createElement('div');
@@ -3980,8 +3982,9 @@ if (loadingTextElement) {
             function renderDayView() {
                 dom.currentDayDisplay.textContent = selectedCalendarDate.format('dddd, D [de] MMMM'); // Actualizar la visualización del día
                 dom.dayViewTimeline.innerHTML = ''; // Limpiar el contenido del día anterior
-                const tasksForDay = getTasksForDay(selectedCalendarDate.format('YYYY-MM-DD'));
-
+               const tasksForDay = getTasksForDay(day.format('YYYY-MM-DD')).filter(task => 
+    !activeTagFilter || (task.labels && task.labels.includes(activeTagFilter))
+);
                 // Recorrer las 24 horas para crear la línea de tiempo
                 for (let hour = 0; hour < 24; hour++) {
                     const hourEl = document.createElement('div');
@@ -5316,46 +5319,40 @@ if (loadingTextElement) {
                     bubble.appendChild(previewButton);
                 }
             }
-                        /**
+            /**
              * Renderiza el contenido de la barra lateral, incluyendo chats, notas y carpetas de proyectos.
              * Organiza los elementos en función de la `state.structure`.
              */
             function renderSidebar() {
-                dom.sidebarContent.innerHTML = ''; // Limpiar chats existentes
-                dom.foldersContainer.innerHTML = ''; // Limpiar carpetas existentes
-                const fragChats = document.createDocumentFragment(); // Usar fragmentos para el rendimiento
+                dom.sidebarContent.innerHTML = '';
+                dom.foldersContainer.innerHTML = '';
+                const fragUnfiled = document.createDocumentFragment();
                 const fragFolders = document.createDocumentFragment();
 
-                // Crear un mapa de todos los elementos (chats, notas, proyectos) para una búsqueda rápida
                 const itemMap = new Map();
                 Object.values(state.chats).forEach(chat => itemMap.set(chat.id, { type: 'chat', data: chat }));
                 (state.notes || []).forEach(note => itemMap.set(note.id, { type: 'note', data: note }));
                 Object.values(state.projects).forEach(proj => itemMap.set(proj.id, { type: 'project', data: proj }));
 
-                // Rastrear elementos que aún no están archivados en una carpeta
-                const unfiledItems = new Set(state.structure);
+                const allItemIdsInFolders = Object.values(state.projects).flatMap(p => p.itemIds || []);
 
-                // Renderizar primero las carpetas de proyectos
+                // Renderizar Carpetas dentro de "Mis Proyectos"
                 Object.values(state.projects).forEach(proj => {
-                    const projectEl = createProjectElement(proj.id);
-                    fragFolders.appendChild(projectEl);
-                    unfiledItems.delete(proj.id); // Eliminar el proyecto de los no archivados
-                    (proj.itemIds || []).forEach(childId => unfiledItems.delete(childId)); // Eliminar hijos de los no archivados
+                    fragFolders.appendChild(createProjectElement(proj.id));
                 });
 
-                // Renderizar chats y notas no archivados
-                unfiledItems.forEach(id => {
+                // Renderizar solo los items que NO están en ninguna carpeta
+                state.structure.forEach(id => {
+                    if (!itemMap.has(id) || allItemIdsInFolders.includes(id) || id.startsWith('project-')) return;
+
                     const item = itemMap.get(id);
-                    if (!item) return;
-
-                    if (item.type === 'chat') fragChats.appendChild(createChatItemElement(id, false));
-                    if (item.type === 'note') fragChats.appendChild(createNoteItemElement(id, false));
+                    if (item.type === 'chat') fragUnfiled.appendChild(createChatItemElement(id, false));
+                    if (item.type === 'note') fragUnfiled.appendChild(createNoteItemElement(id, false));
                 });
 
-                // Adjuntar fragmentos a sus respectivos contenedores
                 dom.foldersContainer.appendChild(fragFolders);
-                dom.sidebarContent.appendChild(fragChats);
-                updateActiveChatHighlight(); // Asegurarse de que el elemento actualmente seleccionado esté resaltado
+                dom.sidebarContent.appendChild(fragUnfiled);
+                updateActiveChatHighlight();
             }
 
             /**
@@ -7654,7 +7651,7 @@ if (loadingTextElement) {
             function renderProjectView(chatId) {
                 const chat = state.chats[chatId];
                 if (!chat) return;
-
+                dom.projectChatContainer.style.display = 'flex';
                 if (!chat.projectData) {
                     // Inicializar datos de proyecto predeterminados si no están presentes
                     chat.projectData = {
