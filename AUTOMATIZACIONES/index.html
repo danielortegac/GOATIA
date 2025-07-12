@@ -4341,22 +4341,30 @@ if (loadingTextElement) {
                 // Obtener tareas personales para el día
                 const calendarTasks = (state.calendar[dayKey] || []).map(t => ({...t, text: t.content, source: 'Personal', labels: ['Personal']}));
                 const projectTasks = [];
-                // Iterar a través de todos los chats de proyecto para encontrar tareas con vencimiento en este día
+
+                // --- ESTA ES LA LÓGICA CORREGIDA ---
+                // Iterar a través de todos los chats de proyecto para encontrar tareas
                 Object.values(state.chats).forEach(chat => {
                     if (chat.projectData && chat.projectData.columns) {
                         chat.projectData.columns.forEach(column => {
                             (column.tasks || []).forEach(task => {
-                                 if (task.dueDate === dayKey) {
-                                    projectTasks.push({...task, source: chat.projectData.title, text: task.content});
+                                // Condición 1: La tarea tiene la fecha de hoy
+                                if (task.dueDate === dayKey) {
+                                    // Condición 2: No hay filtro activo O la tarea tiene la etiqueta del filtro
+                                    const shouldRender = !activeTagFilter || (task.labels && task.labels.includes(activeTagFilter));
+                                    if (shouldRender) {
+                                        projectTasks.push({...task, source: chat.projectData.title, text: task.content});
+                                    }
                                 }
                              });
                         });
                     }
                 });
+                // --- FIN DE LA LÓGICA CORREGIDA ---
+
                 // Combinar y ordenar las tareas por hora
                 return [...calendarTasks, ...projectTasks].sort((a, b) => (a.time || '23:59').localeCompare(b.time || '23:59'));
             }
-
             /**
              * Actualiza la insignia de notificación que muestra el recuento de tareas vencidas/pendientes.
              */
@@ -4547,18 +4555,10 @@ if (loadingTextElement) {
                             option.value = voice.name;
                             dom.voiceSelector.appendChild(option);
                         });
-                       const savedVoiceName = localStorage.getItem('selectedVoiceName');
-    let voiceToSelect = availableVoices.find(v => v.name === savedVoiceName);
-
-    if (!voiceToSelect) {
-        voiceToSelect = availableVoices[0]; // Si no hay voz guardada, usa la primera
-    }
-
-    selectedVoice = voiceToSelect;
-    if (selectedVoice) {
-        dom.voiceSelector.value = selectedVoice.name;
-    }
-}
+                        selectedVoice = availableVoices[0]; // Seleccionar la primera voz disponible por defecto
+                        if (selectedVoice) dom.voiceSelector.value = selectedVoice.name;
+                    }
+                }
                 // Escuchar el evento voiceschanged para volver a rellenar si las voces están disponibles más tarde
                 if (speechSynthesis.onvoiceschanged !== undefined) {
                     speechSynthesis.onvoiceschanged = setVoices;
@@ -7280,8 +7280,7 @@ if (loadingTextElement) {
 
 
                 dom.voiceSelector?.addEventListener('change', (e) => { selectedVoice = availableVoices.find(voice => voice.name === e.target.value); });
-                localStorage.setItem('selectedVoiceName', e.target.value);
-});
+
                 document.addEventListener('click', (e) => {
                     // Cerrar el menú emergente de usuario si se hace clic fuera
                     if (dom.userMenuBtn && dom.userMenuPopup && !dom.userMenuBtn.contains(e.target) && !dom.userMenuPopup.contains(e.target) && !dom.userSettingsIcon.contains(e.target)) { dom.userMenuPopup.classList.add('hidden'); }
@@ -7678,6 +7677,42 @@ if (loadingTextElement) {
                 }
 
                 dom.projectViewTitle.textContent = chat.projectData.title; // Establecer título del proyecto
+
+                // --- INICIO DEL CÓDIGO AÑADIDO ---
+                // Se recrea la estructura del chat del proyecto para asegurar que exista
+                const projectChatContainer = document.getElementById('project-chat-container');
+                if (projectChatContainer) {
+                    projectChatContainer.innerHTML = `
+                        <div id="project-chat-container-header" class="flex justify-between items-center cursor-pointer p-2">
+                            <h3 class="text-lg font-semibold text-primary" data-translate-key="project_assistant">Asistente del Proyecto</h3>
+                            <button id="project-chat-toggle" class="text-xl p-2"><i class="fas fa-angle-up"></i></button>
+                        </div>
+                         <div class="project-chat-body">
+                            <div id="project-chat-messages" class="chat-bubble-bot"></div>
+                            <div id="project-input-area" class="mt-auto pt-2">
+                                 <div class="pro-controls-bg rounded-lg p-1.5 mb-2">
+                                     <div class="flex items-center space-x-2">
+                                        <label for="project-model-selector" class="font-medium text-xs text-text-medium pl-2 pr-1" data-translate-key="model">Modelo:</label>
+                                         <div class="model-selector-wrapper">
+                                            <select id="project-model-selector" class="rounded-md py-1 pl-1.5 focus:outline-none focus:ring-2 focus:ring-primary text-sm bg-transparent text-text-light">
+                                                <option value="gpt-3.5-turbo-1106" data-translate-key="model_general">GOAT X</option>
+                                                <option value="sonar" data-translate-key="model_web">Búsqueda Web</option>
+                                                <option value="gpt-4o" class="goat-x-pro-model">GOAT X PRO</option>
+                                             </select>
+                                              <i class="fas fa-chevron-down text-xs"></i>
+                                        </div>
+                                     </div>
+                                </div>
+                                 <div class="relative rounded-xl flex items-center bg-input p-1 sm:p-2 input-wrapper">
+                                     <textarea id="project-msg" placeholder="Deja que Goatify organice tu proyecto..." class="flex-1 bg-transparent p-2 h-10 max-h-28 resize-none outline-none placeholder-themed text-sm" data-translate-key="project_chat_placeholder"></textarea>
+                                    <button id="project-send" title="Enviar" class="p-2 sm:p-3 disabled:opacity-50 disabled:cursor-not-allowed text-primary"><i class="fa fa-paper-plane text-lg"></i></button>
+                                </div>
+                             </div>
+                        </div>
+                    `;
+                }
+                 // --- FIN DEL CÓDIGO AÑADIDO ---
+
                 const projectChatMessages = document.getElementById('project-chat-messages');
                 if(projectChatMessages) {
                     projectChatMessages.innerHTML = '';
@@ -7687,9 +7722,9 @@ if (loadingTextElement) {
 
                 // Colapsar el chat del proyecto en móvil por defecto
                 if (window.innerWidth < 768) {
-                    dom.projectChatContainer.classList.add('collapsed');
+                    projectChatContainer.classList.add('collapsed');
                 } else {
-                    dom.projectChatContainer.classList.remove('collapsed');
+                    projectChatContainer.classList.remove('collapsed');
                 }
                 renderProjectBoard(chatId); // Renderizar el tablero Kanban o Lista
 
@@ -7698,9 +7733,20 @@ if (loadingTextElement) {
                 if (projectModelSelector) {
                     const goatXProOption = projectModelSelector.querySelector('.goat-x-pro-model');
                     if (goatXProOption) goatXProOption.disabled = !currentUser;
+
+                     // Re-adjuntar listeners para los nuevos elementos del chat
+                    const sendBtn = document.getElementById('project-send');
+                    const msgInput = document.getElementById('project-msg');
+                    if(sendBtn) sendBtn.addEventListener('click', () => sendMessage(false, null, { assistantType: 'project' }));
+                    if(msgInput) msgInput.addEventListener('keydown', e => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            sendMessage(false, null, { assistantType: 'project' });
+                        }
+                    });
+
                 }
             }
-
             /**
              * Renderiza el tablero del proyecto (vista Kanban o Lista) para un chat de proyecto determinado.
              * @param {string} chatId - El ID del chat del proyecto.
