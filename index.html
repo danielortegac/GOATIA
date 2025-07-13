@@ -4800,18 +4800,36 @@
              * Inicializa los chats predeterminados si no existen.
              */
             async function loadStateForUser() {
-                // Ayudante para cargar y analizar JSON de forma segura desde el almacenamiento local
-                const loadLocalStorage = (key) => {
-                    const saved = localStorage.getItem(key);
-                    try {
-                        // Validación básica para evitar errores de JSON.parse en datos no válidos
-                        if (saved && saved.startsWith('{') && saved.endsWith('}')) {
-                            return JSON.parse(saved);
-                        }
-                    } catch (e) {
-                        console.error("Error al analizar los datos de localStorage para la clave:", key, e);
-                        localStorage.removeItem(key); // Borrar datos corruptos
-                    }
+    const defaultState = { chats: {}, projects: {}, structure: [], calendar: {}, notes: [] };
+    if (!currentUser) {
+        const guestData = JSON.parse(localStorage.getItem('guestState')) || { state: defaultState };
+        state = guestData.state || defaultState;
+        currentChatId = guestData.currentChatId || null;
+        return;
+    }
+
+    try {
+        const response = await fetch('/.netlify/functions/load-chats', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${currentUser.token.access_token}` }
+        });
+        if (!response.ok) throw new Error('Error al cargar datos del servidor.');
+
+        const data = await response.json();
+        if (data && data.id) {
+            state = data.state || defaultState;
+            gamificationState = data.gamification_state || { xp: 0, level: 1, achievements: [] };
+        } else {
+            state = defaultState;
+            gamificationState = { xp: 0, level: 1, achievements: [] };
+            await saveState(); // Guarda un estado inicial para el nuevo usuario
+        }
+    } catch (error) {
+        console.error("Error cargando desde Supabase:", error);
+        state = defaultState;
+        gamificationState = { xp: 0, level: 1, achievements: [] };
+    }
+}
                     return {};
                 };
 
@@ -4910,27 +4928,24 @@
             /**
              * Guarda el estado actual de la aplicación en el almacenamiento local y (para usuarios que han iniciado sesión) en el backend.
              */
-            async function saveState() {
-                const stateData = { state, currentChatId };
-                const key = currentUser ? `goatbotState_${currentUser.id}` : 'guestState';
-
-                try {
-                    localStorage.setItem(key, JSON.stringify(stateData)); // Guardar en el almacenamiento local
-                    localStorage.setItem('lastView', currentChatId); // Guardar el último elemento visto
-
-                    if(currentUser) {
-                        // Enviar el estado al backend para un almacenamiento persistente (con debounce si es necesario para el rendimiento)
-                        await fetch('/.netlify/functions/save-chats', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ userId: currentUser.id, stateToSave: stateData }),
-                        });
-                    }
-                } catch (error) {
-                    console.error("No se pudo guardar el estado:", error);
-                    // Implementar un manejo de errores más robusto, quizás una cola para los guardados fallidos
-                }
-            }
+           async function saveState() {
+    if (!currentUser) {
+        localStorage.setItem('guestState', JSON.stringify({ state, currentChatId }));
+        return;
+    }
+    try {
+        await fetch('/.netlify/functions/save-chats', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${currentUser.token.access_token}`
+            },
+            body: JSON.stringify({ state, gamification_state: gamificationState, currentChatId }),
+        });
+    } catch (error) {
+        console.error("Error guardando en la nube:", error);
+    }
+}
 
             /**
              * Actualiza los elementos de la interfaz de usuario relacionados con el estado de inicio de sesión y el plan del usuario.
