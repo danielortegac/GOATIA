@@ -2472,7 +2472,10 @@
                                 <li><i class="fas fa-star"></i>Gamificación: Gana créditos extra</li>
                             </ul>
                          </div>
-                        <button data-plan="boost" class="select-plan-btn mt-auto w-full p-3 rounded-lg font-semibold btn-primary transition-colors" data-translate-key="plan_boost_cta">Obtener Boost</button>
+                       <button data-plan="boost" class="select-plan-btn mt-auto w-full p-3 rounded-lg font-semibold btn-primary transition-colors flex items-center justify-center">
+    <span class="button-text" data-translate-key="plan_boost_cta">Obtener Boost</span>
+    <i class="fas fa-spinner fa-spin ml-2 hidden"></i>
+</button>
                     </div>
                     <!-- Pro Plan Card -->
                     <div class="plan-card border-2 border-themed rounded-xl p-6 flex flex-col">
@@ -2490,7 +2493,10 @@
                                  <li><i class="fas fa-star"></i>Soporte VIP por WhatsApp</li>
                             </ul>
                          </div>
-                        <button data-plan="pro" class="select-plan-btn mt-auto w-full p-3 rounded-lg font-semibold btn-primary transition-colors" data-translate-key="plan_pro_cta">Quiero mi Plan Pro + Web</button>
+                       <button data-plan="pro" class="select-plan-btn mt-auto w-full p-3 rounded-lg font-semibold btn-primary transition-colors flex items-center justify-center">
+    <span class="button-text" data-translate-key="plan_pro_cta">Quiero mi Plan Pro + Web</span>
+    <i class="fas fa-spinner fa-spin ml-2 hidden"></i>
+</button>
                     </div>
                 </div>
              </div>
@@ -9153,6 +9159,58 @@
                     resetChatView(); // Restablecer vista si no hay ID de chat en el estado
                 }
             });
+            // Pega este código ANTES del cierre }); del DOMContentLoaded
+
+// Lógica para manejar el clic en los botones de suscripción
+document.querySelectorAll('.select-plan-btn').forEach(button => {
+    button.addEventListener('click', async (e) => {
+        const plan = e.currentTarget.dataset.plan; // Obtiene si es 'boost' o 'pro'
+        const user = netlifyIdentity.currentUser();
+
+        // 1. Revisa si el usuario ha iniciado sesión
+        if (!user) {
+            alert("Por favor, inicia sesión o crea una cuenta para suscribirte.");
+            netlifyIdentity.open('login');
+            return;
+        }
+
+        // 2. Muestra un indicador de carga en el botón
+        const buttonText = button.querySelector('.button-text');
+        const spinner = button.querySelector('.fa-spinner');
+        if (buttonText) buttonText.classList.add('hidden');
+        if (spinner) spinner.classList.remove('hidden');
+        button.disabled = true;
+
+        try {
+            // 3. Llama a la función segura en Netlify para crear el enlace de pago
+            const response = await fetch('/.netlify/functions/create-subscription', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${user.token.access_token}` 
+                },
+                body: JSON.stringify({ plan: plan }),
+            });
+
+            const data = await response.json();
+
+            if (data.approvalUrl) {
+                // 4. Si todo sale bien, redirige al usuario a PayPal para que pague
+                window.location.href = data.approvalUrl;
+            } else {
+                throw new Error(data.error || 'No se pudo crear el enlace de suscripción.');
+            }
+
+        } catch (error) {
+            console.error("Error al iniciar la suscripción:", error);
+            alert('Hubo un error al procesar tu solicitud. Por favor, intenta de nuevo.');
+            // 5. Si hay un error, vuelve a mostrar el texto del botón
+            if (buttonText) buttonText.classList.remove('hidden');
+            if (spinner) spinner.classList.add('hidden');
+            button.disabled = false;
+        }
+    });
+});
         }); // Fin de DOMContentLoaded
      </script>
 </body>
