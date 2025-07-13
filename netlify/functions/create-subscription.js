@@ -42,8 +42,8 @@ exports.handler = async (event) => {
                 plan_id: planId,
                 custom_id: user.sub, // ¡Importante! Guardamos el ID del usuario para saber quién pagó
                 application_context: {
-                    return_url: 'https://TU_SITIO.netlify.app/success.html', // Reemplaza con tu URL
-                    cancel_url: 'https://TU_SITIO.netlify.app/', // Reemplaza con tu URL
+                    return_url: 'https://www.goatify.app/success.html',
+                    cancel_url: 'https://www.goatify.app/',
                 },
             }),
         });
