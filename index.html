@@ -2472,10 +2472,7 @@
                                 <li><i class="fas fa-star"></i>Gamificación: Gana créditos extra</li>
                             </ul>
                          </div>
-                        <button data-plan="boost" class="select-plan-btn mt-auto w-full p-3 rounded-lg font-semibold btn-primary transition-colors flex items-center justify-center">
-    <span class="button-text" data-translate-key="plan_boost_cta">Obtener Boost</span>
-    <i class="fas fa-spinner fa-spin ml-2 hidden"></i>
-</button>
+                        <button data-plan="boost" class="select-plan-btn mt-auto w-full p-3 rounded-lg font-semibold btn-primary transition-colors" data-translate-key="plan_boost_cta">Obtener Boost</button>
                     </div>
                     <!-- Pro Plan Card -->
                     <div class="plan-card border-2 border-themed rounded-xl p-6 flex flex-col">
@@ -2493,10 +2490,7 @@
                                  <li><i class="fas fa-star"></i>Soporte VIP por WhatsApp</li>
                             </ul>
                          </div>
-                       <button data-plan="pro" class="select-plan-btn mt-auto w-full p-3 rounded-lg font-semibold btn-primary transition-colors flex items-center justify-center">
-    <span class="button-text" data-translate-key="plan_pro_cta">Quiero mi Plan Pro + Web</span>
-    <i class="fas fa-spinner fa-spin ml-2 hidden"></i>
-</button>
+                        <button data-plan="pro" class="select-plan-btn mt-auto w-full p-3 rounded-lg font-semibold btn-primary transition-colors" data-translate-key="plan_pro_cta">Quiero mi Plan Pro + Web</button>
                     </div>
                 </div>
              </div>
@@ -4802,158 +4796,142 @@
             }
 
             /**
- * Carga el estado del usuario desde Supabase.
- */
-async function loadStateForUser() {
-    const defaultState = { chats: {}, projects: {}, structure: [], calendar: {}, notes: [] };
-    const user = netlifyIdentity.currentUser();
+             * Carga el estado de la aplicación desde el almacenamiento local o el backend (para usuarios que han iniciado sesión).
+             * Inicializa los chats predeterminados si no existen.
+             */
+            async function loadStateForUser() {
+                // Ayudante para cargar y analizar JSON de forma segura desde el almacenamiento local
+                const loadLocalStorage = (key) => {
+                    const saved = localStorage.getItem(key);
+                    try {
+                        // Validación básica para evitar errores de JSON.parse en datos no válidos
+                        if (saved && saved.startsWith('{') && saved.endsWith('}')) {
+                            return JSON.parse(saved);
+                        }
+                    } catch (e) {
+                        console.error("Error al analizar los datos de localStorage para la clave:", key, e);
+                        localStorage.removeItem(key); // Borrar datos corruptos
+                    }
+                    return {};
+                };
 
-    if (!user) {
-        // Carga para invitados desde su libreta local
-        const guestData = JSON.parse(localStorage.getItem('guestState')) || { state: defaultState };
-        state = guestData.state || defaultState;
-        currentChatId = guestData.currentChatId || null;
-    } else {
-        // Para usuarios logueados, vamos a la "bodega" (Supabase)
-        try {
-            const response = await fetch('/.netlify/functions/load-chats', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${user.token.access_token}`
-                },
-            });
+                if (!currentUser) {
+                    // Cargar el estado para usuarios invitados desde el almacenamiento local
+                    const guestData = loadLocalStorage('guestState');
+                    state = guestData.state || { chats: {}, projects: {}, structure: [], calendar: {}, notes: [] };
+                    currentChatId = guestData.currentChatId || null;
+                } else {
+                     try {
+                        // Intentar cargar el estado desde el backend (función de Netlify) para usuarios que han iniciado sesión
+                        const response = await fetch('/.netlify/functions/load-chats', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ userId: currentUser.id }),
+                        });
+                        if (!response.ok) { throw new Error(`Error del servidor: ${response.status}`); }
+                        const dbState = await response.json();
+                        state = dbState.state || { chats: {}, projects: {}, structure: [], calendar: {}, notes: [] };
+                        currentChatId = dbState.currentChatId;
+                    } catch (error) {
+                        // Volver al almacenamiento local si la carga del backend falla
+                        console.error("No se pudo cargar desde la base de datos, volviendo a localStorage:", error);
+                        const userLocalData = loadLocalStorage(`goatbotState_${currentUser.id}`);
+                        state = userLocalData.state || { chats: {}, projects: {}, structure: [], calendar: {}, notes: [] };
+                        currentChatId = userLocalData.currentChatId;
+                    }
+                }
 
-            if (!response.ok) {
-                throw new Error('No se pudo cargar el estado desde el servidor.');
+                // Restaurar el último chat/flujo de trabajo visto desde el almacenamiento local
+                const lastView = localStorage.getItem('lastView');
+                if (lastView) {
+                    currentChatId = lastView;
+                }
+
+
+                // Asegurarse de que existan todas las propiedades de estado de nivel superior
+                state.calendar = state.calendar || {};
+                state.projects = state.projects || {};
+                state.chats = state.chats || {};
+                state.structure = state.structure || [];
+                state.notes = state.notes || [];
+
+                // Asegurarse de que 'notepad-assistant-chat' exista y esté marcado como no eliminable
+                if (!state.chats['notepad-assistant-chat']) {
+                    state.chats['notepad-assistant-chat'] = {
+                        id: 'notepad-assistant-chat',
+                        title: 'Asistente de Redacción',
+                        messages: [{ role: 'assistant', content: '¡Hola! Soy tu asistente de redacción. Pega tu texto aquí o pídeme ideas para empezar. También puedo corregir la ortografía.' }],
+                        workflow: 'notepad-assistant',
+                        isDeletable: false, // No puede ser eliminado por el usuario
+                    };
+                }
+                // Asegurarse de que 'english-teacher-translate-chat' exista y esté marcado como no eliminable
+                if (!state.chats['english-teacher-translate-chat']) {
+                    state.chats['english-teacher-translate-chat'] = {
+                        id: 'english-teacher-translate-chat',
+                        title: 'Traducir/Corregir Texto',
+                        messages: [{ role: 'assistant', content: '¡Hola! Soy tu asistente de traducción. Pega tu texto en español en el panel izquierdo para obtener la traducción al inglés. También puedo corregir el texto.' }],
+                        workflow: 'english-teacher-translate',
+                        isDeletable: false, // No puede ser eliminado por el usuario
+                    };
+                }
+
+                // Inicializar el contador de uso de GOAT X PRO para el día actual
+                const today = dayjs().format('YYYY-MM-DD');
+                const proUsageKey = `goat_x_pro_usage_${currentUser?.id || 'guest'}_${today}`;
+                goatXProUsage = parseInt(localStorage.getItem(proUsageKey) || '0');
+
+                // Cargar el estado de gamificación (debe ocurrir antes de renderizar cualquier cosa que dependa de él)
+                await loadGamificationState();
+
+                renderSidebar(); // Renderizado inicial de la barra lateral
+
+                const urlParams = new URLSearchParams(window.location.search);
+                const chatIdFromUrl = urlParams.get('chat');
+
+                // Lógica para determinar qué chat o vista seleccionar al cargar
+                let chatToSelect = null;
+                if (chatIdFromUrl && (state.chats[chatIdFromUrl] || (state.notes || []).find(n => n.id === chatIdFromUrl))) {
+                    chatToSelect = chatIdFromUrl;
+                } else if (currentChatId && (state.chats[currentChatId] || (state.notes || []).find(n => n.id === currentChatId) || currentChatId.startsWith('note-') || currentChatId === 'notepad-app' || currentChatId === 'translator-view')) {
+                    chatToSelect = currentChatId;
+                } else if (state.structure && state.structure.length > 0) {
+                     const firstValidItem = state.structure.find(id => state.chats[id] || state.notes.find(n => n.id === id));
+                     chatToSelect = firstValidItem;
+                }
+
+                if (chatToSelect) {
+                    selectChat(chatToSelect); // Seleccionar el chat/vista determinado
+                } else {
+                    resetChatView(); // Volver a la vista predeterminada si no hay nada que seleccionar
+                }
             }
-            
-            const data = await response.json();
-            
-            if (data && data.id) {
-                // Si encontramos datos en la nube, esos son los que valen
-                state = data.state || defaultState;
-                gamificationState = data.gamification_state || { xp: 0, level: 1, achievements: [] };
-            } else {
-                // Si es un nuevo usuario, empezamos con un estado limpio
-                state = defaultState;
-                gamificationState = { xp: 0, level: 1, achievements: [] };
-            }
 
-       } catch (error) {
-            console.error("Error cargando desde Supabase, usando estado por defecto:", error);
-            state = defaultState;
-            gamificationState = { xp: 0, level: 1, achievements: [] };
-        }
-    }
-
-                // Restaurar el último chat/flujo de trabajo visto desde el almacenamiento local
-                const lastView = localStorage.getItem('lastView');
-                if (lastView) {
-                    currentChatId = lastView;
-                }
-
-
-                // Asegurarse de que existan todas las propiedades de estado de nivel superior
-                state.calendar = state.calendar || {};
-                state.projects = state.projects || {};
-                state.chats = state.chats || {};
-                state.structure = state.structure || [];
-                state.notes = state.notes || [];
-
-                // Asegurarse de que 'notepad-assistant-chat' exista y esté marcado como no eliminable
-                if (!state.chats['notepad-assistant-chat']) {
-                    state.chats['notepad-assistant-chat'] = {
-                        id: 'notepad-assistant-chat',
-                        title: 'Asistente de Redacción',
-                        messages: [{ role: 'assistant', content: '¡Hola! Soy tu asistente de redacción. Pega tu texto aquí o pídeme ideas para empezar. También puedo corregir la ortografía.' }],
-                        workflow: 'notepad-assistant',
-                        isDeletable: false, // No puede ser eliminado por el usuario
-                    };
-                }
-                // Asegurarse de que 'english-teacher-translate-chat' exista y esté marcado como no eliminable
-                if (!state.chats['english-teacher-translate-chat']) {
-                    state.chats['english-teacher-translate-chat'] = {
-                        id: 'english-teacher-translate-chat',
-                        title: 'Traducir/Corregir Texto',
-                        messages: [{ role: 'assistant', content: '¡Hola! Soy tu asistente de traducción. Pega tu texto en español en el panel izquierdo para obtener la traducción al inglés. También puedo corregir el texto.' }],
-                        workflow: 'english-teacher-translate',
-                        isDeletable: false, // No puede ser eliminado por el usuario
-                    };
-                }
-
-                // Inicializar el contador de uso de GOAT X PRO para el día actual
-                const today = dayjs().format('YYYY-MM-DD');
-                const proUsageKey = `goat_x_pro_usage_${currentUser?.id || 'guest'}_${today}`;
-                goatXProUsage = parseInt(localStorage.getItem(proUsageKey) || '0');
-
-                // Cargar el estado de gamificación (debe ocurrir antes de renderizar cualquier cosa que dependa de él)
-                await loadGamificationState();
-
-                renderSidebar(); // Renderizado inicial de la barra lateral
-
-                const urlParams = new URLSearchParams(window.location.search);
-                const chatIdFromUrl = urlParams.get('chat');
-
-                // Lógica para determinar qué chat o vista seleccionar al cargar
-                let chatToSelect = null;
-                if (chatIdFromUrl && (state.chats[chatIdFromUrl] || (state.notes || []).find(n => n.id === chatIdFromUrl))) {
-                    chatToSelect = chatIdFromUrl;
-                } else if (currentChatId && (state.chats[currentChatId] || (state.notes || []).find(n => n.id === currentChatId) || currentChatId.startsWith('note-') || currentChatId === 'notepad-app' || currentChatId === 'translator-view')) {
-                    chatToSelect = currentChatId;
-                } else if (state.structure && state.structure.length > 0) {
-                     const firstValidItem = state.structure.find(id => state.chats[id] || state.notes.find(n => n.id === id));
-                     chatToSelect = firstValidItem;
-                }
-
-                if (chatToSelect) {
-                    selectChat(chatToSelect); // Seleccionar el chat/vista determinado
-                } else {
-                    resetChatView(); // Volver a la vista predeterminada si no hay nada que seleccionar
-                }
-            }
             /**
- * Guarda el estado completo de la aplicación en Supabase.
- */
-async function saveState() {
-    const user = netlifyIdentity.currentUser();
-    if (!user) {
-        // Para invitados, seguimos usando la libreta local
-        localStorage.setItem('guestState', JSON.stringify({ state, currentChatId }));
-        return;
-    }
+             * Guarda el estado actual de la aplicación en el almacenamiento local y (para usuarios que han iniciado sesión) en el backend.
+             */
+            async function saveState() {
+                const stateData = { state, currentChatId };
+                const key = currentUser ? `goatbotState_${currentUser.id}` : 'guestState';
 
-    // Preparamos los datos para enviar a la "bodega"
-    const dataToSave = {
-        id: user.id, // El carnet de identidad del usuario
-        state: state, // La "caja fuerte" con todos los chats, proyectos, etc.
-        gamification_state: gamificationState, // Los datos del juego
-        updated_at: new Date().toISOString()
-    };
+                try {
+                    localStorage.setItem(key, JSON.stringify(stateData)); // Guardar en el almacenamiento local
+                    localStorage.setItem('lastView', currentChatId); // Guardar el último elemento visto
 
-    try {
-        // Usamos la función segura de Netlify para guardar en Supabase
-        const response = await fetch('/.netlify/functions/save-chats', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${user.token.access_token}`
-            },
-            body: JSON.stringify(dataToSave),
-        });
+                    if(currentUser) {
+                        // Enviar el estado al backend para un almacenamiento persistente (con debounce si es necesario para el rendimiento)
+                        await fetch('/.netlify/functions/save-chats', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ userId: currentUser.id, stateToSave: stateData }),
+                        });
+                    }
+                } catch (error) {
+                    console.error("No se pudo guardar el estado:", error);
+                    // Implementar un manejo de errores más robusto, quizás una cola para los guardados fallidos
+                }
+            }
 
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || 'Error del servidor al guardar.');
-        }
-
-        console.log("Estado guardado en Supabase exitosamente.");
-
-    } catch (error) {
-        console.error("Error crítico al guardar el estado en Supabase:", error);
-        // Aquí podríamos mostrar una notificación al usuario de que no se pudo sincronizar
-    }
-}
             /**
              * Actualiza los elementos de la interfaz de usuario relacionados con el estado de inicio de sesión y el plan del usuario.
              * Oculta/muestra el inicio de sesión/menú de usuario, personaliza el mensaje de bienvenida y actualiza el selector de modelo.
@@ -9176,57 +9154,6 @@ async function saveState() {
                 }
             });
         }); // Fin de DOMContentLoaded
-
-// Lógica para manejar el clic en los botones de suscripción
-document.querySelectorAll('.select-plan-btn').forEach(button => {
-    button.addEventListener('click', async (e) => {
-        const plan = e.currentTarget.dataset.plan; // Obtiene si es 'boost' o 'pro'
-        const user = netlifyIdentity.currentUser();
-
-        // 1. Revisar si el usuario ha iniciado sesión
-        if (!user) {
-            alert("Por favor, inicia sesión o crea una cuenta para suscribirte.");
-            netlifyIdentity.open('login');
-            return;
-        }
-
-        // 2. Mostrar un indicador de carga en el botón
-        const buttonText = button.querySelector('.button-text');
-        const spinner = button.querySelector('.fa-spinner');
-        buttonText.classList.add('hidden');
-        spinner.classList.remove('hidden');
-        button.disabled = true;
-
-        try {
-            // 3. Llamar a nuestra función segura en Netlify para crear el enlace de pago
-            const response = await fetch('/.netlify/functions/create-subscription', {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${user.token.access_token}` 
-                },
-                body: JSON.stringify({ plan: plan }),
-            });
-            
-            const data = await response.json();
-
-            if (data.approvalUrl) {
-                // 4. Si todo sale bien, redirigir al usuario a PayPal para que pague
-                window.location.href = data.approvalUrl;
-            } else {
-                throw new Error(data.error || 'No se pudo crear el enlace de suscripción.');
-            }
-
-        } catch (error) {
-            console.error("Error al iniciar la suscripción:", error);
-            alert('Hubo un error al procesar tu solicitud. Por favor, intenta de nuevo.');
-            // 5. Si hay un error, volver a mostrar el texto del botón
-            buttonText.classList.remove('hidden');
-            spinner.classList.add('hidden');
-            button.disabled = false;
-        }
-    });
-});
      </script>
 </body>
 </html>
