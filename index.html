@@ -2472,10 +2472,7 @@
                                 <li><i class="fas fa-star"></i>Gamificación: Gana créditos extra</li>
                             </ul>
                          </div>
-                       <button data-plan="boost" class="select-plan-btn mt-auto w-full p-3 rounded-lg font-semibold btn-primary transition-colors flex items-center justify-center">
-    <span class="button-text" data-translate-key="plan_boost_cta">Obtener Boost</span>
-    <i class="fas fa-spinner fa-spin ml-2 hidden"></i>
-</button>
+                        <button data-plan="boost" class="select-plan-btn mt-auto w-full p-3 rounded-lg font-semibold btn-primary transition-colors" data-translate-key="plan_boost_cta">Obtener Boost</button>
                     </div>
                     <!-- Pro Plan Card -->
                     <div class="plan-card border-2 border-themed rounded-xl p-6 flex flex-col">
@@ -2493,10 +2490,7 @@
                                  <li><i class="fas fa-star"></i>Soporte VIP por WhatsApp</li>
                             </ul>
                          </div>
-                       <button data-plan="pro" class="select-plan-btn mt-auto w-full p-3 rounded-lg font-semibold btn-primary transition-colors flex items-center justify-center">
-    <span class="button-text" data-translate-key="plan_pro_cta">Quiero mi Plan Pro + Web</span>
-    <i class="fas fa-spinner fa-spin ml-2 hidden"></i>
-</button>
+                        <button data-plan="pro" class="select-plan-btn mt-auto w-full p-3 rounded-lg font-semibold btn-primary transition-colors" data-translate-key="plan_pro_cta">Quiero mi Plan Pro + Web</button>
                     </div>
                 </div>
              </div>
@@ -4805,37 +4799,48 @@
              * Carga el estado de la aplicación desde el almacenamiento local o el backend (para usuarios que han iniciado sesión).
              * Inicializa los chats predeterminados si no existen.
              */
-async function loadStateForUser() {
-    const defaultState = { chats: {}, projects: {}, structure: [], calendar: {}, notes: [] };
-    if (!currentUser) {
-        const guestData = JSON.parse(localStorage.getItem('guestState')) || { state: defaultState };
-        state = guestData.state || defaultState;
-        currentChatId = guestData.currentChatId || null;
-        return; // Salimos temprano para invitados
-    }
+            async function loadStateForUser() {
+                // Ayudante para cargar y analizar JSON de forma segura desde el almacenamiento local
+                const loadLocalStorage = (key) => {
+                    const saved = localStorage.getItem(key);
+                    try {
+                        // Validación básica para evitar errores de JSON.parse en datos no válidos
+                        if (saved && saved.startsWith('{') && saved.endsWith('}')) {
+                            return JSON.parse(saved);
+                        }
+                    } catch (e) {
+                        console.error("Error al analizar los datos de localStorage para la clave:", key, e);
+                        localStorage.removeItem(key); // Borrar datos corruptos
+                    }
+                    return {};
+                };
 
-    try {
-        const response = await fetch('/.netlify/functions/load-chats', {
-            method: 'POST',
+                if (!currentUser) {
+                    // Cargar el estado para usuarios invitados desde el almacenamiento local
+                    const guestData = loadLocalStorage('guestState');
+                    state = guestData.state || { chats: {}, projects: {}, structure: [], calendar: {}, notes: [] };
+                    currentChatId = guestData.currentChatId || null;
+                } else {
+                     try {
+                        // Intentar cargar el estado desde el backend (función de Netlify) para usuarios que han iniciado sesión
+                        const response = await fetch('/.netlify/functions/load-chats', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ userId: currentUser.id }),
+                        });
+                        if (!response.ok) { throw new Error(`Error del servidor: ${response.status}`); }
+                        const dbState = await response.json();
+                        state = dbState.state || { chats: {}, projects: {}, structure: [], calendar: {}, notes: [] };
+                        currentChatId = dbState.currentChatId;
+                    } catch (error) {
+                        // Volver al almacenamiento local si la carga del backend falla
+                        console.error("No se pudo cargar desde la base de datos, volviendo a localStorage:", error);
+                        const userLocalData = loadLocalStorage(`goatbotState_${currentUser.id}`);
+                        state = userLocalData.state || { chats: {}, projects: {}, structure: [], calendar: {}, notes: [] };
+                        currentChatId = userLocalData.currentChatId;
+                    }
+                }
 
-            headers: { 'Authorization': `Bearer ${currentUser.token.access_token}` }
-        });
-        if (!response.ok) throw new Error('Error del servidor al cargar datos.');
-
-        const data = await response.json();
-        if (data && data.id) {
-            state = data.state || defaultState;
-            gamificationState = data.gamification_state || { xp: 0, level: 1, achievements: [] };
-        } else {
-            state = defaultState;
-            gamificationState = { xp: 0, level: 1, achievements: [] };
-        }
-    } catch (error) {
-        console.error("Error cargando desde Supabase, usando estado por defecto:", error);
-        state = defaultState;
-        gamificationState = { xp: 0, level: 1, achievements: [] };
-    }
-}
                 // Restaurar el último chat/flujo de trabajo visto desde el almacenamiento local
                 const lastView = localStorage.getItem('lastView');
                 if (lastView) {
@@ -4905,28 +4910,27 @@ async function loadStateForUser() {
             /**
              * Guarda el estado actual de la aplicación en el almacenamiento local y (para usuarios que han iniciado sesión) en el backend.
              */
-        async function saveState() {
-    if (!currentUser) {
-        localStorage.setItem('guestState', JSON.stringify({ state, currentChatId }));
-        return;
-    }
+            async function saveState() {
+                const stateData = { state, currentChatId };
+                const key = currentUser ? `goatbotState_${currentUser.id}` : 'guestState';
 
-    try {
-        const response = await fetch('/.netlify/functions/save-chats', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${currentUser.token.access_token}`
-            },
-            body: JSON.stringify({ state: state, gamification_state: gamificationState, currentChatId: currentChatId }),
-        });
-        if (!response.ok) {
-            console.error("Fallo al guardar en la nube. El estado se guardó localmente.");
-        }
-    } catch (error) {
-        console.error("Error de red al guardar en Supabase:", error);
-    }
-}
+                try {
+                    localStorage.setItem(key, JSON.stringify(stateData)); // Guardar en el almacenamiento local
+                    localStorage.setItem('lastView', currentChatId); // Guardar el último elemento visto
+
+                    if(currentUser) {
+                        // Enviar el estado al backend para un almacenamiento persistente (con debounce si es necesario para el rendimiento)
+                        await fetch('/.netlify/functions/save-chats', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ userId: currentUser.id, stateToSave: stateData }),
+                        });
+                    }
+                } catch (error) {
+                    console.error("No se pudo guardar el estado:", error);
+                    // Implementar un manejo de errores más robusto, quizás una cola para los guardados fallidos
+                }
+            }
 
             /**
              * Actualiza los elementos de la interfaz de usuario relacionados con el estado de inicio de sesión y el plan del usuario.
@@ -9149,58 +9153,6 @@ async function loadStateForUser() {
                     resetChatView(); // Restablecer vista si no hay ID de chat en el estado
                 }
             });
-            // Pega este código ANTES del cierre }); del DOMContentLoaded
-
-// Lógica para manejar el clic en los botones de suscripción
-document.querySelectorAll('.select-plan-btn').forEach(button => {
-    button.addEventListener('click', async (e) => {
-        const plan = e.currentTarget.dataset.plan; // Obtiene si es 'boost' o 'pro'
-        const user = netlifyIdentity.currentUser();
-
-        // 1. Revisa si el usuario ha iniciado sesión
-        if (!user) {
-            alert("Por favor, inicia sesión o crea una cuenta para suscribirte.");
-            netlifyIdentity.open('login');
-            return;
-        }
-
-        // 2. Muestra un indicador de carga en el botón
-        const buttonText = button.querySelector('.button-text');
-        const spinner = button.querySelector('.fa-spinner');
-        if (buttonText) buttonText.classList.add('hidden');
-        if (spinner) spinner.classList.remove('hidden');
-        button.disabled = true;
-
-        try {
-            // 3. Llama a la función segura en Netlify para crear el enlace de pago
-            const response = await fetch('/.netlify/functions/create-subscription', {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${user.token.access_token}` 
-                },
-                body: JSON.stringify({ plan: plan }),
-            });
-
-            const data = await response.json();
-
-            if (data.approvalUrl) {
-                // 4. Si todo sale bien, redirige al usuario a PayPal para que pague
-                window.location.href = data.approvalUrl;
-            } else {
-                throw new Error(data.error || 'No se pudo crear el enlace de suscripción.');
-            }
-
-        } catch (error) {
-            console.error("Error al iniciar la suscripción:", error);
-            alert('Hubo un error al procesar tu solicitud. Por favor, intenta de nuevo.');
-            // 5. Si hay un error, vuelve a mostrar el texto del botón
-            if (buttonText) buttonText.classList.remove('hidden');
-            if (spinner) spinner.classList.add('hidden');
-            button.disabled = false;
-        }
-    });
-});
         }); // Fin de DOMContentLoaded
      </script>
 </body>
