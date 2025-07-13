@@ -1,7 +1,6 @@
 // netlify/functions/create-subscription.js
 const fetch = require('node-fetch');
 
-// Función interna para obtener un token de acceso seguro de PayPal
 async function getPayPalAccessToken() {
     const auth = Buffer.from(`${process.env.PAYPAL_CLIENT_ID}:${process.env.PAYPAL_CLIENT_SECRET}`).toString('base64');
     const response = await fetch('https://api.sandbox.paypal.com/v1/oauth2/token', {
@@ -14,23 +13,19 @@ async function getPayPalAccessToken() {
 }
 
 exports.handler = async (event) => {
-    if (event.httpMethod !== 'POST') {
-        return { statusCode: 405, body: 'Método no permitido' };
-    }
+    if (event.httpMethod !== 'POST') return { statusCode: 405, body: 'Método no permitido' };
 
     try {
         const { plan } = JSON.parse(event.body);
+        // Verificación segura del contexto del cliente
+        if (!event.clientContext || !event.clientContext.user) {
+             return { statusCode: 401, body: 'No estás autorizado.' };
+        }
         const { user } = event.clientContext;
 
-        if (!user) {
-            return { statusCode: 401, body: 'No estás autorizado.' };
-        }
-
-        // Selecciona el ID del plan correcto desde las variables de entorno
         const planId = plan === 'boost' ? process.env.PAYPAL_PLAN_ID_BOOST : process.env.PAYPAL_PLAN_ID_PRO;
         const accessToken = await getPayPalAccessToken();
 
-        // Llama a la API de PayPal para crear la suscripción
         const response = await fetch('https://api.sandbox.paypal.com/v1/billing/subscriptions', {
             method: 'POST',
             headers: {
@@ -40,18 +35,17 @@ exports.handler = async (event) => {
             },
             body: JSON.stringify({
                 plan_id: planId,
-                custom_id: user.sub, // ¡Importante! Guardamos el ID del usuario para saber quién pagó
+                custom_id: user.sub,
                 application_context: {
-                    return_url: 'https://www.goatify.app/success.html',
-                    cancel_url: 'https://www.goatify.app/',
+                    return_url: 'https://www.goatify.app/success.html', // URL de éxito
+                    cancel_url: 'https://www.goatify.app/', // URL de cancelación
                 },
             }),
         });
 
         const data = await response.json();
-        if (!response.ok) throw new Error(data.message);
+        if (!response.ok) throw new Error(data.message || 'Error de PayPal');
 
-        // Devuelve el enlace de pago para que el usuario sea redirigido
         const approvalLink = data.links.find(link => link.rel === 'approve');
         return { statusCode: 200, body: JSON.stringify({ approvalUrl: approvalLink.href }) };
 
