@@ -1,4 +1,3 @@
-// netlify/functions/create-subscription.js
 const fetch = require('node-fetch');
 
 async function getPayPalAccessToken() {
@@ -13,32 +12,24 @@ async function getPayPalAccessToken() {
 }
 
 exports.handler = async (event) => {
-    if (event.httpMethod !== 'POST') return { statusCode: 405, body: 'Método no permitido' };
+    if (!event.clientContext || !event.clientContext.user) return { statusCode: 401, body: 'No estás autorizado' };
+
+    const { user } = event.clientContext;
+    const { plan } = JSON.parse(event.body);
 
     try {
-        const { plan } = JSON.parse(event.body);
-        // Verificación segura del contexto del cliente
-        if (!event.clientContext || !event.clientContext.user) {
-             return { statusCode: 401, body: 'No estás autorizado.' };
-        }
-        const { user } = event.clientContext;
-
         const planId = plan === 'boost' ? process.env.PAYPAL_PLAN_ID_BOOST : process.env.PAYPAL_PLAN_ID_PRO;
         const accessToken = await getPayPalAccessToken();
 
         const response = await fetch('https://api.sandbox.paypal.com/v1/billing/subscriptions', {
             method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${accessToken}`,
-                'Content-Type': 'application/json',
-                'PayPal-Request-Id': `sub-${user.sub}-${Date.now()}`
-            },
+            headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 plan_id: planId,
                 custom_id: user.sub,
                 application_context: {
-                    return_url: 'https://www.goatify.app/success.html', // URL de éxito
-                    cancel_url: 'https://www.goatify.app/', // URL de cancelación
+                    return_url: 'https://www.goatify.app/success.html',
+                    cancel_url: 'https://www.goatify.app/',
                 },
             }),
         });
@@ -48,9 +39,7 @@ exports.handler = async (event) => {
 
         const approvalLink = data.links.find(link => link.rel === 'approve');
         return { statusCode: 200, body: JSON.stringify({ approvalUrl: approvalLink.href }) };
-
     } catch (error) {
-        console.error('Error al crear suscripción:', error);
         return { statusCode: 500, body: JSON.stringify({ error: error.message }) };
     }
 };
