@@ -912,10 +912,10 @@
             border-radius: 12px;
             font-weight: 600;
         }
-        #project-tag-filter-container {
+        #project-tag-filter-container, #calendar-tag-filter-container {
             position: relative;
         }
-        #tag-filter-dropdown {
+        #tag-filter-dropdown, #calendar-tag-filter-dropdown {
             position: absolute;
             background-color: var(--current-bg-light);
             border: 1px solid var(--current-border-color);
@@ -2580,25 +2580,21 @@
     <div id="calendar-modal-overlay" class="fixed inset-0 bg-black bg-opacity-70 hidden items-center justify-center z-40 p-4">
         <div id="calendar-modal" class="modal-content rounded-lg w-full max-w-4xl p-6 relative">
              <h3 class="text-2xl font-extrabold text-center text-primary mb-4" data-translate-key="calendar_my_calendar">Mi Calendario y Tareas</h3>
-             <div class="text-center mb-4">
-                <p id="current-date-display" class="text-lg text-text-medium"></p>
-                <p id="current-time-display" class="text-xl font-extrabold text-primary animate-pulse"></p>
+             <div class="flex flex-wrap justify-between items-center mb-4 gap-2">
+                <div class="text-center flex-grow">
+                    <p id="current-date-display" class="text-lg text-text-medium"></p>
+                    <p id="current-time-display" class="text-xl font-extrabold text-primary animate-pulse"></p>
+                </div>
+                <div id="calendar-tag-filter-container" class="relative">
+                    <button id="calendar-tag-filter-btn" class="p-2 rounded-md bg-input text-sm"><i class="fas fa-tag mr-1"></i> <span data-translate-key="filter_tags">Filtrar</span></button>
+                    <div id="calendar-tag-filter-dropdown" class="hidden absolute right-0 mt-1 p-2 rounded-md shadow-lg w-48"></div>
+                </div>
             </div>
-           <div class="flex flex-wrap justify-between items-center mb-4 gap-2">
-    <div class="calendar-view-toggle">
-        <button id="day-view-btn" data-translate-key="calendar_day_view">Día</button>
-        <button id="week-view-btn" data-translate-key="calendar_week_view">Semana</button>
-        <button id="month-view-btn" class="active" data-translate-key="calendar_month_view">Mes</button>
-    </div>
-    <div id="calendar-tag-filter-container" class="relative">
-        <button id="calendar-tag-filter-btn" class="p-2 rounded-md bg-input text-sm flex items-center gap-1">
-            <i class="fas fa-tag"></i>
-            <span data-translate-key="filter_tags">Filtrar por Etiqueta</span>
-        </button>
-        <div id="calendar-tag-filter-dropdown" class="hidden absolute right-0 mt-1 p-2 rounded-md shadow-lg w-48 bg-current-bg-light border border-themed z-10">
-            </div>
-    </div>
-</div>
+            <div class="calendar-view-toggle mb-4">
+                <button id="day-view-btn" data-translate-key="calendar_day_view">Vista de Día</button>
+                <button id="week-view-btn" data-translate-key="calendar_week_view">Vista de Semana</button>
+                <button id="month-view-btn" class="active" data-translate-key="calendar_month_view">Vista de Mes</button>
+             </div>
 
             <div id="day-view-container">
                  <div class="calendar-header">
@@ -3066,23 +3062,23 @@
             // Textos de los botones para el modal de motivación
             const MOTIVATION_BUTTON_TEXTS = ["¡Listo!", "¡Vamos a darle!", "¡Perfecto!", "¡Sí, yo puedo!", "¡Vamos!", "¡Entendido!", "¡A por todas!"]; 
             const LOADING_MESSAGES = [
-    "Conectando con los servidores...",
-    "Despertando a la IA...",
-    "Cargando tus proyectos...",
-    "Organizando tus notas...",
-    "Preparando la magia..."
-];
-                let loadingInterval = null;
-const loadingTextElement = document.querySelector('#loading-overlay p');
+                "Conectando con los servidores...",
+                "Despertando a la IA...",
+                "Cargando tus proyectos...",
+                "Organizando tus notas...",
+                "Preparando la magia..."
+            ];
+            let loadingInterval = null;
+            const loadingTextElement = document.querySelector('#loading-overlay p');
 
-if (loadingTextElement) {
-    let messageIndex = 0;
-    // Inicia el carrusel de mensajes de inmediato
-    loadingInterval = setInterval(() => {
-        messageIndex = (messageIndex + 1) % LOADING_MESSAGES.length;
-        loadingTextElement.textContent = LOADING_MESSAGES[messageIndex];
-    }, 1500); // Cambia el mensaje cada 1.5 segundos
-}
+            if (loadingTextElement) {
+                let messageIndex = 0;
+                // Inicia el carrusel de mensajes de inmediato
+                loadingInterval = setInterval(() => {
+                    messageIndex = (messageIndex + 1) % LOADING_MESSAGES.length;
+                    loadingTextElement.textContent = LOADING_MESSAGES[messageIndex];
+                }, 1500); // Cambia el mensaje cada 1.5 segundos
+            }
 
             // Variables de estado globales para la aplicación
             let state = { chats: {}, projects: {}, structure: [], calendar: {}, notes: [] };
@@ -3210,6 +3206,8 @@ if (loadingTextElement) {
                 projectCalendarBtn: document.getElementById('project-calendar-btn'),
                 tagFilterBtn: document.getElementById('tag-filter-btn'),
                 tagFilterDropdown: document.getElementById('tag-filter-dropdown'),
+                calendarTagFilterBtn: document.getElementById('calendar-tag-filter-btn'),
+                calendarTagFilterDropdown: document.getElementById('calendar-tag-filter-dropdown'),
                 financialAssistantView: document.getElementById('financial-assistant-view'),
                 gamificationBtn: document.getElementById('gamification-btn'), // Este botón no existe en HTML
                 gamificationModal: document.getElementById('gamification-modal'),
@@ -3746,63 +3744,17 @@ if (loadingTextElement) {
                 dom.taskNotificationModal.classList.remove('flex');
             }
 
-           /**
- * Muestra el modal del calendario y configura los escuchadores de eventos para el filtro.
- */
-function showCalendarModal() {
-    dom.calendarModalOverlay.classList.remove('hidden');
-    dom.calendarModalOverlay.classList.add('flex');
-    
-    if (!currentCalendarView) currentCalendarView = 'month';
-    renderCalendarView();
-    updateCalendarTime();
-    
-    // Configurar el filtro de etiquetas para el calendario
-    const filterBtn = document.getElementById('calendar-tag-filter-btn');
-    const filterDropdown = document.getElementById('calendar-tag-filter-dropdown');
-    
-    if(filterBtn && filterDropdown) {
-        // Obtener todas las etiquetas de TODOS los proyectos para mostrarlas en el filtro
-        const allLabels = [...new Set(Object.values(state.chats)
-            .filter(c => c.projectData)
-            .flatMap(c => c.projectData.columns)
-            .flatMap(col => col.tasks || [])
-            .flatMap(task => task.labels || [])
-        )];
-        
-        // Renderizar las opciones del dropdown
-        filterDropdown.innerHTML = ''; // Limpiar opciones anteriores
-        
-        const allBtn = document.createElement('button');
-        allBtn.className = 'block w-full text-left p-2 hover:bg-medium rounded-md text-sm';
-        allBtn.textContent = 'Todas las Etiquetas';
-        allBtn.onclick = () => {
-            activeTagFilter = null;
-            filterBtn.querySelector('span').textContent = 'Filtrar por Etiqueta';
-            filterDropdown.classList.add('hidden');
-            renderCalendarView(); // Volver a renderizar el calendario sin filtro
-        };
-        filterDropdown.appendChild(allBtn);
-
-        allLabels.forEach(tag => {
-            const btn = document.createElement('button');
-            btn.className = 'block w-full text-left p-2 hover:bg-medium rounded-md text-sm';
-            btn.innerHTML = `<span class="task-label inline-block mr-2" style="background-color: ${getLabelColor(tag)}; color: white;">${tag}</span>`;
-            btn.onclick = () => {
-                activeTagFilter = tag;
-                filterBtn.querySelector('span').innerHTML = `<span class="task-label inline-block" style="background-color: ${getLabelColor(tag)}; color: white;">${tag}</span>`;
-                filterDropdown.classList.add('hidden');
-                renderCalendarView(); // Volver a renderizar con el filtro aplicado
-            };
-            filterDropdown.appendChild(btn);
-        });
-
-        filterBtn.onclick = (e) => {
-            e.stopPropagation();
-            filterDropdown.classList.toggle('hidden');
-        };
-    }
-}
+            /**
+             * Muestra el modal del calendario.
+             */
+            function showCalendarModal() {
+                dom.calendarModalOverlay.classList.remove('hidden');
+                dom.calendarModalOverlay.classList.add('flex');
+                if (!currentCalendarView) currentCalendarView = 'month'; // Por defecto a la vista de mes
+                renderCalendarView(); // Renderizar la vista actual del calendario
+                updateCalendarTime(); // Actualizar la hora cuando se abre el modal
+                updateMiDiaInfo(); // Actualizar la información de "Mi Día" cuando se abre el modal
+            }
 
             /**
              * Oculta el modal del calendario.
@@ -3873,7 +3825,6 @@ function showCalendarModal() {
                 if(calendarInfoTotalCredits) calendarInfoTotalCredits.textContent = `${totalCredits} (${planCreditsInfo.remaining}/${planCreditsInfo.limit === Infinity ? '∞' : planCreditsInfo.limit} plan + ${gamificationState.credits || 0} 🪙)`;
             }
 
-
             /**
              * Renderiza la vista de mes del calendario.
              */
@@ -3902,9 +3853,7 @@ function showCalendarModal() {
                     }
 
                     const tasksContainer = dayEl.querySelector('.calendar-day-tasks');
-                    const tasksForDay = getTasksForDay(day.format('YYYY-MM-DD')).filter(task => 
-    !activeTagFilter || (task.labels && task.labels.includes(activeTagFilter))
-);
+                    const tasksForDay = getTasksForDay(day.format('YYYY-MM-DD'));
                     // Renderizar hasta 3 tareas directamente en la celda del día
                     tasksForDay.slice(0, 3).forEach(task => {
                         const taskEl = document.createElement('div');
@@ -4038,9 +3987,7 @@ function showCalendarModal() {
             function renderDayView() {
                 dom.currentDayDisplay.textContent = selectedCalendarDate.format('dddd, D [de] MMMM'); // Actualizar la visualización del día
                 dom.dayViewTimeline.innerHTML = ''; // Limpiar el contenido del día anterior
-                const tasksForDay = getTasksForDay(selectedCalendarDate.format('YYYY-MM-DD')).filter(task => 
-    !activeTagFilter || (task.labels && task.labels.includes(activeTagFilter))
-);
+                const tasksForDay = getTasksForDay(selectedCalendarDate.format('YYYY-MM-DD'));
 
                 // Recorrer las 24 horas para crear la línea de tiempo
                 for (let hour = 0; hour < 24; hour++) {
@@ -4392,37 +4339,39 @@ function showCalendarModal() {
             }
 
 
-         /**
- * Recupera todas las tareas (personales y de proyecto) para un día determinado,
- * aplicando el filtro de etiqueta activo si existe.
- * @param {string} dayKey - La cadena de fecha en formato 'YYYY-MM-DD'.
- * @returns {Array<object>} Un array de tareas para el día especificado.
- */
-function getTasksForDay(dayKey) {
-    // Las tareas personales no tienen etiquetas, así que solo las mostramos si no hay un filtro activo.
-    const calendarTasks = !activeTagFilter 
-        ? (state.calendar[dayKey] || []).map(t => ({...t, text: t.content, source: 'Personal', labels: ['Personal']}))
-        : [];
+            /**
+             * Recupera todas las tareas (personales y de proyecto) para un día determinado.
+             * @param {string} dayKey - La cadena de fecha en formato 'YYYY-MM-DD'.
+             * @returns {Array<object>} Un array de tareas para el día especificado, ordenadas por hora.
+             */
+            function getTasksForDay(dayKey) {
+                // Obtener tareas personales para el día
+                const calendarTasks = (state.calendar[dayKey] || []).map(t => ({...t, text: t.content, source: 'Personal', labels: ['Personal']}));
+                const projectTasks = [];
 
-    const projectTasks = [];
-    Object.values(state.chats).forEach(chat => {
-        if (chat.projectData && chat.projectData.columns) {
-            chat.projectData.columns.forEach(column => {
-                (column.tasks || []).forEach(task => {
-                    if (task.dueDate === dayKey) {
-                        // La tarea se muestra si no hay filtro, o si sus etiquetas incluyen el filtro activo
-                        const shouldRender = !activeTagFilter || (task.labels && task.labels.includes(activeTagTFilter));
-                        if (shouldRender) {
-                            projectTasks.push({...task, source: chat.projectData.title, text: task.content});
-                        }
+                // --- ESTA ES LA LÓGICA CORREGIDA ---
+                // Iterar a través de todos los chats de proyecto para encontrar tareas
+                Object.values(state.chats).forEach(chat => {
+                    if (chat.projectData && chat.projectData.columns) {
+                        chat.projectData.columns.forEach(column => {
+                            (column.tasks || []).forEach(task => {
+                                // Condición 1: La tarea tiene la fecha de hoy
+                                if (task.dueDate === dayKey) {
+                                    // Condición 2: No hay filtro activo O la tarea tiene la etiqueta del filtro
+                                    const shouldRender = !activeTagFilter || (task.labels && task.labels.includes(activeTagFilter));
+                                    if (shouldRender) {
+                                        projectTasks.push({...task, source: chat.projectData.title, text: task.content});
+                                    }
+                                }
+                             });
+                        });
                     }
                 });
-            });
-        }
-    });
+                // --- FIN DE LA LÓGICA CORREGIDA ---
 
-    return [...calendarTasks, ...projectTasks].sort((a, b) => (a.time || '23:59').localeCompare(b.time || '23:59'));
-}
+                // Combinar y ordenar las tareas por hora
+                return [...calendarTasks, ...projectTasks].sort((a, b) => (a.time || '23:59').localeCompare(b.time || '23:59'));
+            }
             /**
              * Actualiza la insignia de notificación que muestra el recuento de tareas vencidas/pendientes.
              */
@@ -4532,6 +4481,9 @@ function getTasksForDay(dayKey) {
                 if (currentCalendarView === 'day') renderDayView();
                 if (currentCalendarView === 'week') renderWeekView();
                 if (currentCalendarView === 'month') renderMonthView();
+                
+                // Renderizar el filtro de etiquetas del calendario
+                renderCalendarTagFilter();
             }
 
             setInterval(checkAndNotifyTasks, 10 * 1000); // Comprobar tareas cada 10 segundos
@@ -4592,44 +4544,36 @@ function getTasksForDay(dayKey) {
             function populateVoiceList() {
                 const setVoices = () => {
                     if (typeof speechSynthesis === 'undefined') { return; }
+                    // Filtrar las voces en español e inglés
                     availableVoices = speechSynthesis.getVoices().filter(v => v.lang.startsWith('es-') || v.lang.startsWith('en-'));
+                    // Priorizar ciertas voces para una mejor experiencia de usuario
                     const preferredVoices = [ "Microsoft Sabina Online (Natural) - Spanish (Mexico)", "Paulina", "Google español de Estados Unidos", "Google español" ];
                     availableVoices.sort((a, b) => {
                         let aIdx = preferredVoices.indexOf(a.name); let bIdx = preferredVoices.indexOf(b.name);
                         if (aIdx === -1) aIdx = Infinity; if (bIdx === -1) bIdx = Infinity;
-                        if (aIdx !== bIdx) return aIdx - bIdx;
-                        return a.name.localeCompare(b.name);
+                        if (aIdx !== bIdx) return aIdx - bIdx; // Ordenar primero por índice preferido
+                        return a.name.localeCompare(b.name); // Luego por nombre
                     });
 
                     if (availableVoices.length > 0) {
-                        dom.voiceSelector.innerHTML = '';
+                        dom.voiceSelector.innerHTML = ''; // Limpiar las opciones existentes
                         availableVoices.forEach(voice => {
                             const option = document.createElement('option');
+                            // Limpiar los nombres de las voces para la visualización
                             const displayName = voice.name.replace('Microsoft', '').replace('Online (Natural) -', '').replace('Google', '').replace('Spanish (Mexico)','Mex').trim();
                             option.textContent = `${displayName || voice.lang} (${voice.lang})`;
                             option.value = voice.name;
                             dom.voiceSelector.appendChild(option);
                         });
-                        
-                        // --- ESTA ES LA LÓGICA NUEVA ---
-                        const savedVoiceName = localStorage.getItem('goatify-selected-voice');
-                        const savedVoice = availableVoices.find(v => v.name === savedVoiceName);
-
-                        if (savedVoice) {
-                            selectedVoice = savedVoice; // Cargar la voz guardada
-                        } else {
-                            selectedVoice = availableVoices[0]; // Usar la predeterminada si no hay ninguna guardada
-                        }
-                        
-                        if (selectedVoice) {
-                            dom.voiceSelector.value = selectedVoice.name; // Actualizar el menú desplegable
-                        }
+                        selectedVoice = availableVoices[0]; // Seleccionar la primera voz disponible por defecto
+                        if (selectedVoice) dom.voiceSelector.value = selectedVoice.name;
                     }
                 }
+                // Escuchar el evento voiceschanged para volver a rellenar si las voces están disponibles más tarde
                 if (speechSynthesis.onvoiceschanged !== undefined) {
                     speechSynthesis.onvoiceschanged = setVoices;
                 }
-                setVoices();
+                setVoices(); // Llamar inmediatamente para rellenar inicialmente
             }
 
             /**
@@ -4749,7 +4693,6 @@ function getTasksForDay(dayKey) {
 
                 return { remaining: Math.max(0, limit - usageData.count), limit, plan };
             }
-
             /**
              * Deduce créditos según el costo de la operación y el modelo utilizado.
              * Muestra modales para créditos insuficientes o límite diario de GOAT X PRO.
@@ -4853,50 +4796,54 @@ function getTasksForDay(dayKey) {
             }
 
             /**
-             * Carga el estado de la aplicación desde el almacenamiento local o el backend (para usuarios que han iniciado sesión).
-             * Inicializa los chats predeterminados si no existen.
-             */
-            async function loadStateForUser() {
-                // Ayudante para cargar y analizar JSON de forma segura desde el almacenamiento local
-                const loadLocalStorage = (key) => {
-                    const saved = localStorage.getItem(key);
-                    try {
-                        // Validación básica para evitar errores de JSON.parse en datos no válidos
-                        if (saved && saved.startsWith('{') && saved.endsWith('}')) {
-                            return JSON.parse(saved);
-                        }
-                    } catch (e) {
-                        console.error("Error al analizar los datos de localStorage para la clave:", key, e);
-                        localStorage.removeItem(key); // Borrar datos corruptos
-                    }
-                    return {};
-                };
+ * Carga el estado del usuario desde Supabase.
+ */
+async function loadStateForUser() {
+    const defaultState = { chats: {}, projects: {}, structure: [], calendar: {}, notes: [] };
+    const user = netlifyIdentity.currentUser();
 
-                if (!currentUser) {
-                    // Cargar el estado para usuarios invitados desde el almacenamiento local
-                    const guestData = loadLocalStorage('guestState');
-                    state = guestData.state || { chats: {}, projects: {}, structure: [], calendar: {}, notes: [] };
-                    currentChatId = guestData.currentChatId || null;
-                } else {
-                     try {
-                        // Intentar cargar el estado desde el backend (función de Netlify) para usuarios que han iniciado sesión
-                        const response = await fetch('/.netlify/functions/load-chats', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ userId: currentUser.id }),
-                        });
-                        if (!response.ok) { throw new Error(`Error del servidor: ${response.status}`); }
-                        const dbState = await response.json();
-                        state = dbState.state || { chats: {}, projects: {}, structure: [], calendar: {}, notes: [] };
-                        currentChatId = dbState.currentChatId;
-                    } catch (error) {
-                        // Volver al almacenamiento local si la carga del backend falla
-                        console.error("No se pudo cargar desde la base de datos, volviendo a localStorage:", error);
-                        const userLocalData = loadLocalStorage(`goatbotState_${currentUser.id}`);
-                        state = userLocalData.state || { chats: {}, projects: {}, structure: [], calendar: {}, notes: [] };
-                        currentChatId = userLocalData.currentChatId;
-                    }
-                }
+    if (!user) {
+        // Carga para invitados desde su libreta local
+        const guestData = JSON.parse(localStorage.getItem('guestState')) || { state: defaultState };
+        state = guestData.state || defaultState;
+        currentChatId = guestData.currentChatId || null;
+    } else {
+        // Para usuarios logueados, vamos a la "bodega" (Supabase)
+        try {
+            const response = await fetch('/.netlify/functions/load-chats', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${user.token.access_token}`
+                },
+            });
+
+            if (!response.ok) {
+                throw new Error('No se pudo cargar el estado desde el servidor.');
+            }
+            
+            const data = await response.json();
+            
+            if (data && data.id) {
+                // Si encontramos datos en la nube, esos son los que valen
+                state = data.state || defaultState;
+                gamificationState = data.gamification_state || { xp: 0, level: 1, achievements: [] };
+            } else {
+                // Si es un nuevo usuario, empezamos con un estado limpio
+                state = defaultState;
+                gamificationState = { xp: 0, level: 1, achievements: [] };
+            }
+
+        } catch (error) {
+            console.error("Error cargando desde Supabase, usando estado por defecto:", error);
+            state = defaultState;
+            gamificationState = { xp: 0, level: 1, achievements: [] };
+        }
+    }
+
+    // El resto de la lógica para inicializar la app...
+    initializeAndRenderUI(); // Llama a una función que renderice todo
+}
 
                 // Restaurar el último chat/flujo de trabajo visto desde el almacenamiento local
                 const lastView = localStorage.getItem('lastView');
@@ -4965,30 +4912,47 @@ function getTasksForDay(dayKey) {
             }
 
             /**
-             * Guarda el estado actual de la aplicación en el almacenamiento local y (para usuarios que han iniciado sesión) en el backend.
-             */
-            async function saveState() {
-                const stateData = { state, currentChatId };
-                const key = currentUser ? `goatbotState_${currentUser.id}` : 'guestState';
+ * Guarda el estado completo de la aplicación en Supabase.
+ */
+async function saveState() {
+    const user = netlifyIdentity.currentUser();
+    if (!user) {
+        // Para invitados, seguimos usando la libreta local
+        localStorage.setItem('guestState', JSON.stringify({ state, currentChatId }));
+        return;
+    }
 
-                try {
-                    localStorage.setItem(key, JSON.stringify(stateData)); // Guardar en el almacenamiento local
-                    localStorage.setItem('lastView', currentChatId); // Guardar el último elemento visto
+    // Preparamos los datos para enviar a la "bodega"
+    const dataToSave = {
+        id: user.id, // El carnet de identidad del usuario
+        state: state, // La "caja fuerte" con todos los chats, proyectos, etc.
+        gamification_state: gamificationState, // Los datos del juego
+        updated_at: new Date().toISOString()
+    };
 
-                    if(currentUser) {
-                        // Enviar el estado al backend para un almacenamiento persistente (con debounce si es necesario para el rendimiento)
-                        await fetch('/.netlify/functions/save-chats', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ userId: currentUser.id, stateToSave: stateData }),
-                        });
-                    }
-                } catch (error) {
-                    console.error("No se pudo guardar el estado:", error);
-                    // Implementar un manejo de errores más robusto, quizás una cola para los guardados fallidos
-                }
-            }
+    try {
+        // Usamos la función segura de Netlify para guardar en Supabase
+        const response = await fetch('/.netlify/functions/save-chats', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${user.token.access_token}`
+            },
+            body: JSON.stringify(dataToSave),
+        });
 
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Error del servidor al guardar.');
+        }
+
+        console.log("Estado guardado en Supabase exitosamente.");
+
+    } catch (error) {
+        console.error("Error crítico al guardar el estado en Supabase:", error);
+        // Aquí podríamos mostrar una notificación al usuario de que no se pudo sincronizar
+    }
+}
             /**
              * Actualiza los elementos de la interfaz de usuario relacionados con el estado de inicio de sesión y el plan del usuario.
              * Oculta/muestra el inicio de sesión/menú de usuario, personaliza el mensaje de bienvenida y actualiza el selector de modelo.
@@ -5431,7 +5395,6 @@ function getTasksForDay(dayKey) {
                 dom.sidebarContent.appendChild(fragChats);
                 updateActiveChatHighlight(); // Asegurarse de que el elemento actualmente seleccionado esté resaltado
             }
-
             /**
              * Crea un elemento DOM para un elemento de chat en la barra lateral.
              * Admite el modo de selección y la interacción regular.
@@ -6369,205 +6332,204 @@ function getTasksForDay(dayKey) {
                 showInAppNotification(translations[lang].success_title || "Éxito", `${translations[lang].note_created_message || "Se ha creado:"} "${newNote.title}"`, 800);
             }
 
-      /**
- * Carga el contenido de una nota especificada en el editor o lienzo.
- * @param {string} noteId - El ID de la nota a cargar.
- */
-function loadNoteIntoEditor(noteId) {
-    const note = state.notes.find(n => n.id === noteId);
-    if (!note) return;
-
-    currentNoteId = noteId;
-
-    dom.noteTitleInput.value = note.title; // Establecer título de la nota
-    const isDrawing = note.type === 'drawing';
-
-    // Alternar la visibilidad del editor de texto vs. el lienzo
-    dom.noteContentEditor.style.display = isDrawing ? 'none' : 'block';
-    dom.noteCanvas.style.display = isDrawing ? 'block' : 'none';
-    dom.noteContentEditor.innerHTML = isDrawing ? '' : note.content; // Establecer contenido de texto o borrar para dibujar
-
-    // Alternar la visibilidad de las herramientas de texto vs. las herramientas de dibujo
-    dom.textTools.style.display = isDrawing ? 'none' : 'flex';
-    dom.drawingTools.style.display = isDrawing ? 'flex' : 'none';
-    dom.drawingFullscreenBtn.style.display = isDrawing ? 'block' : 'none'; // Mostrar pantalla completa solo para dibujos
-
-    if (isDrawing) {
-        setupCanvas(note); // Esta llamada es la única necesaria.
-    } else {
-        dom.noteEditorToolbar.querySelectorAll('.text-editor-controls button').forEach(btn => btn.classList.remove('active'));
-    }
-}
-             
             /**
- * Configura el lienzo de dibujo para una nota de tipo 'drawing'.
- * Configura las herramientas de dibujo, los escuchadores de eventos y el historial.
- * @param {object} note - El objeto de nota de tipo 'drawing'.
- */
-function setupCanvas(note) {
-    const canvas = dom.noteCanvas;
-    if (!canvas) {
-        console.error("¡El elemento canvas del bloc de notas no se encontró en el DOM!");
-        return;
-    }
-    const ctx = canvas.getContext('2d');
-    const toolbar = dom.drawingTools;
+             * Carga el contenido de una nota especificada en el editor o lienzo.
+             * @param {string} noteId - El ID de la nota a cargar.
+             */
+            function loadNoteIntoEditor(noteId) {
+                const note = state.notes.find(n => n.id === noteId);
+                if (!note) return;
 
-    let isDrawing = false; // Bandera para dibujo activo
-    let lastX = 0; // Última coordenada X para la ruta de dibujo
-    let lastY = 0; // Última coordenada Y para la ruta de dibujo
-    let startX = 0; // Coordenada X inicial para formas
-    let startY = 0; // Coordenada Y inicial para formas
-    let currentTool = 'pencil'; // Herramienta de dibujo activa actual
-    let currentSnapshot = null; // Instantánea del lienzo para el dibujo de formas (para redibujar el fondo)
+                currentNoteId = noteId;
 
-    drawingHistory = []; // Restablecer historial de dibujo
-    historyIndex = -1; // Restablecer índice de historial
+                dom.noteTitleInput.value = note.title; // Establecer título de la nota
+                const isDrawing = note.type === 'drawing';
 
-    // Función para redimensionar el lienzo y redibujar el contenido
-    const resizeCanvas = () => {
-        const rect = canvas.parentElement.getBoundingClientRect();
-        canvas.width = rect.width;
-        canvas.height = rect.height;
+                // Alternar la visibilidad del editor de texto vs. el lienzo
+                dom.noteContentEditor.style.display = isDrawing ? 'none' : 'block';
+                dom.noteCanvas.style.display = isDrawing ? 'block' : 'none';
+                dom.noteContentEditor.innerHTML = isDrawing ? '' : note.content; // Establecer contenido de texto o borrar para dibujar
 
-        if (note.content) {
-            const img = new Image();
-            img.onload = () => {
+                // Alternar la visibilidad de las herramientas de texto vs. las herramientas de dibujo
+                dom.textTools.style.display = isDrawing ? 'none' : 'flex';
+                dom.drawingTools.style.display = isDrawing ? 'flex' : 'none';
+                dom.drawingFullscreenBtn.style.display = isDrawing ? 'block' : 'none'; // Mostrar pantalla completa solo para dibujos
+
+                if (isDrawing) {
+                    setupCanvas(note); // Inicializar lienzo para dibujar
+                } else {
+                    dom.noteEditorToolbar.querySelectorAll('.text-editor-controls button').forEach(btn => btn.classList.remove('active'));
+                }
+            }
+
+            /**
+             * Configura el lienzo de dibujo para una nota de tipo 'drawing'.
+             * Configura las herramientas de dibujo, los escuchadores de eventos y el historial.
+             * @param {object} note - El objeto de nota de tipo 'drawing'.
+             */
+            function setupCanvas(note) {
+                const canvas = dom.noteCanvas;
+                const ctx = canvas.getContext('2d');
+                const toolbar = dom.drawingTools;
+
+                let isDrawing = false; // Bandera para dibujo activo
+                let lastX = 0; // Última coordenada X para la ruta de dibujo
+                let lastY = 0; // Última coordenada Y para la ruta de dibujo
+                let startX = 0; // Coordenada X inicial para formas
+                let startY = 0; // Coordenada Y inicial para formas
+                let currentTool = 'pencil'; // Herramienta de dibujo activa actual
+                let currentSnapshot = null; // Instantánea del lienzo para el dibujo de formas (para redibujar el fondo)
+
+                drawingHistory = []; // Restablecer historial de dibujo
+                historyIndex = -1; // Restablecer índice de historial
+
+                // Función para redimensionar el lienzo y redibujar el contenido
+                const resizeCanvas = () => {
+                    const rect = canvas.parentElement.getBoundingClientRect();
+                    canvas.width = rect.width;
+                    canvas.height = rect.height;
+                    // Redibujar el contenido de los datos de la imagen guardados después de redimensionar
+                    if (note.content) {
+                        const img = new Image();
+                        img.onload = () => {
+                            ctx.clearRect(0, 0, canvas.width, canvas.height);
+                            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                            saveDrawingState(); // Guardar nuevo estado después de redimensionar y redibujar
+                        }
+                        img.src = note.content;
+                    } else {
+                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+                        saveDrawingState(); // Guardar estado vacío si no hay contenido
+                    }
+                };
+
+                resizeCanvas(); // Redimensionamiento inicial
+                window.removeEventListener('resize', resizeCanvas); // Eliminar el escuchador antiguo para evitar duplicados
+                window.addEventListener('resize', resizeCanvas); // Añadir nuevo escuchador de redimensionamiento
+
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
-                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-            };
-            img.src = note.content;
-        } else {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-        }
-    };
+                if (note.content) {
+                    const img = new Image();
+                    img.onload = () => {
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                        saveDrawingState();
+                    }
+                    img.src = note.content;
+                } else {
+                    saveDrawingState();
+                }
 
-    resizeCanvas(); // Redimensionamiento inicial
-    window.removeEventListener('resize', resizeCanvas); // Eliminar el escuchador antiguo para evitar duplicados
-    window.addEventListener('resize', resizeCanvas); // Añadir nuevo escuchador de redimensionamiento
 
-    if (note.content) {
-        const img = new Image();
-        img.onload = () => {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-            saveDrawingState(); // Guardar el estado inicial en el historial
-        }
-        img.src = note.content;
-    } else {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        saveDrawingState(); // Guardar estado vacío inicial
-    }
+                // Ayudante para obtener coordenadas relativas al lienzo
+                const getCoords = (e) => {
+                    const event = e.touches ? e.touches[0] : e;
+                    const canvasRect = canvas.getBoundingClientRect();
+                    return [event.clientX - canvasRect.left, event.clientY - canvasRect.top];
+                }
 
-    // El resto de la función (getCoords, startDrawing, draw, stopDrawing, etc.)
-    const getCoords = (e) => {
-        const event = e.touches ? e.touches[0] : e;
-        const canvasRect = canvas.getBoundingClientRect();
-        return [event.clientX - canvasRect.left, event.clientY - canvasRect.top];
-    }
+                // Iniciar acción de dibujo
+                const startDrawing = (e) => {
+                    e.preventDefault();
+                    isDrawing = true;
+                    [lastX, lastY] = getCoords(e);
+                    [startX, startY] = [lastX, lastY]; // Almacenar punto de inicio para formas
+                    if (currentTool === 'pencil' || currentTool === 'eraser') {
+                         ctx.beginPath(); // Iniciar nueva ruta para dibujo continuo
+                         ctx.moveTo(lastX, lastY);
+                    } else {
+                        currentSnapshot = ctx.getImageData(0, 0, canvas.width, canvas.height); // Guardar estado del lienzo antes de dibujar la forma
+                    }
+                };
+                // Acción de dibujo
+                const draw = (e) => {
+                    if (!isDrawing) return;
+                    e.preventDefault();
 
-    const startDrawing = (e) => {
-        e.preventDefault();
-        isDrawing = true;
-        [lastX, lastY] = getCoords(e);
-        [startX, startY] = [lastX, lastY];
-        if (currentTool === 'pencil' || currentTool === 'eraser') {
-            ctx.beginPath();
-            ctx.moveTo(lastX, lastY);
-        } else {
-            currentSnapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        }
-    };
+                    const [currentX, currentY] = getCoords(e);
+                    ctx.strokeStyle = toolbar.querySelector('#drawing-color').value; // Establecer color del trazo
+                    ctx.lineWidth = toolbar.querySelector('#drawing-line-width').value; // Establecer ancho de línea
+                    ctx.lineCap = 'round';
+                    ctx.lineJoin = 'round';
+                    // Establecer la operación de composición para el efecto de borrador
+                    ctx.globalCompositeOperation = currentTool === 'eraser' ? 'destination-out' : 'source-over';
 
-    const draw = (e) => {
-        if (!isDrawing) return;
-        e.preventDefault();
-        const [currentX, currentY] = getCoords(e);
-        ctx.strokeStyle = toolbar.querySelector('#drawing-color').value;
-        ctx.lineWidth = toolbar.querySelector('#drawing-line-width').value;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        ctx.globalCompositeOperation = currentTool === 'eraser' ? 'destination-out' : 'source-over';
+                    if (currentTool === 'pencil' || currentTool === 'eraser') {
+                        ctx.lineTo(currentX, currentY);
+                        ctx.stroke();
+                    } else if (currentSnapshot) {
+                        ctx.putImageData(currentSnapshot, 0, 0); // Restaurar lienzo a la instantánea
+                        ctx.beginPath();
+                        if (currentTool === 'line') {
+                            ctx.moveTo(startX, startY);
+                            ctx.lineTo(currentX, currentY);
+                        } else if (currentTool === 'rect') {
+                            ctx.rect(startX, startY, currentX - startX, currentY - startY);
+                        } else if (currentTool === 'circle') {
+                            const radius = Math.sqrt(Math.pow(currentX - startX, 2) + Math.pow(currentY - startY, 2));
+                            ctx.arc(startX, startY, radius, 0, 2 * Math.PI);
+                        }
+                        ctx.stroke();
+                    }
+                    [lastX, lastY] = [currentX, currentY];
+                };
+                // Detener acción de dibujo
+                const stopDrawing = () => {
+                    if (!isDrawing) return;
+                    isDrawing = false;
+                    if (currentTool === 'pencil' || currentTool === 'eraser') {
+                        ctx.closePath();
+                    }
+                    saveDrawingState(); // Guardar el estado actual en el historial
+                    currentSnapshot = null; // Borrar instantánea
+                };
 
-        if (currentTool === 'pencil' || currentTool === 'eraser') {
-            ctx.lineTo(currentX, currentY);
-            ctx.stroke();
-        } else if (currentSnapshot) {
-            ctx.putImageData(currentSnapshot, 0, 0);
-            ctx.beginPath();
-            if (currentTool === 'line') {
-                ctx.moveTo(startX, startY);
-                ctx.lineTo(currentX, currentY);
-            } else if (currentTool === 'rect') {
-                ctx.rect(startX, startY, currentX - startX, currentY - startY);
-            } else if (currentTool === 'circle') {
-                const radius = Math.sqrt(Math.pow(currentX - startX, 2) + Math.pow(currentY - startY, 2));
-                ctx.arc(startX, startY, radius, 0, 2 * Math.PI);
+                // Adjuntar escuchadores de eventos de ratón y táctiles al lienzo
+                canvas.onmousedown = startDrawing;
+                canvas.onmousemove = draw;
+                canvas.onmouseup = stopDrawing;
+                canvas.onmouseout = stopDrawing; // Detener el dibujo si el ratón sale del lienzo
+                canvas.ontouchstart = startDrawing;
+                canvas.ontouchmove = draw;
+                canvas.ontouchend = stopDrawing;
+
+                // Ayudante para establecer la herramienta activa y actualizar la interfaz de usuario
+                const setActiveTool = (toolId) => {
+                    toolbar.querySelectorAll('.drawing-tool').forEach(t => t.classList.remove('active'));
+                    toolbar.querySelector(`#${toolId}`).classList.add('active');
+                    currentTool = toolId.replace('tool-', '');
+                }
+
+                // Adjuntar escuchadores de eventos a los botones de la herramienta de dibujo
+                toolbar.querySelector('#tool-pencil').onclick = () => setActiveTool('tool-pencil');
+                toolbar.querySelector('#tool-eraser').onclick = () => setActiveTool('tool-eraser');
+                toolbar.querySelector('#tool-line').onclick = () => setActiveTool('tool-line');
+                toolbar.querySelector('#tool-rect').onclick = () => setActiveTool('tool-rect');
+                toolbar.querySelector('#tool-circle').onclick = () => setActiveTool('tool-circle');
+                toolbar.querySelector('#clear-canvas-btn').onclick = () => {
+                     ctx.clearRect(0, 0, canvas.width, canvas.height); // Borrar todo el lienzo
+                     const activeNote = state.notes.find(n => n.id === currentNoteId);
+                     if (activeNote) {
+                         activeNote.content = null; // Borrar contenido de la nota
+                         saveState();
+                     }
+                     drawingHistory = []; // Borrar historial
+                     historyIndex = -1;
+                     saveDrawingState(); // Guardar estado vacío en el historial
+                };
+                toolbar.querySelector('#undo-drawing-btn').onclick = undoDrawing;
+                toolbar.querySelector('#redo-drawing-btn').onclick = redoDrawing;
+
+                // Botón de pantalla completa para lienzo
+                dom.drawingFullscreenBtn.onclick = () => {
+                    if (document.fullscreenElement) {
+                        document.exitFullscreen();
+                    } else {
+                        canvas.requestFullscreen().catch(err => {
+                            console.error(`Error al intentar habilitar el modo de pantalla completa: ${err.message} (${err.name})`);
+                        });
+                    }
+                };
             }
-            ctx.stroke();
-        }
-        [lastX, lastY] = [currentX, currentY];
-    };
-
-    const stopDrawing = () => {
-        if (!isDrawing) return;
-        isDrawing = false;
-        if (currentTool === 'pencil' || currentTool === 'eraser') {
-            ctx.closePath();
-        }
-        saveDrawingState();
-        currentSnapshot = null;
-    };
-
-    canvas.onmousedown = startDrawing;
-    canvas.onmousemove = draw;
-    canvas.onmouseup = stopDrawing;
-    canvas.onmouseout = stopDrawing;
-    canvas.ontouchstart = startDrawing;
-    canvas.ontouchmove = draw;
-    canvas.ontouchend = stopDrawing;
-
-    const setActiveTool = (toolId) => {
-        toolbar.querySelectorAll('.drawing-tool').forEach(t => t.classList.remove('active'));
-        toolbar.querySelector(`#${toolId}`).classList.add('active');
-        currentTool = toolId.replace('tool-', '');
-    }
-
-    toolbar.querySelector('#tool-pencil').onclick = () => setActiveTool('tool-pencil');
-    toolbar.querySelector('#tool-eraser').onclick = () => setActiveTool('tool-eraser');
-    toolbar.querySelector('#tool-line').onclick = () => setActiveTool('tool-line');
-    toolbar.querySelector('#tool-rect').onclick = () => setActiveTool('tool-rect');
-    toolbar.querySelector('#tool-circle').onclick = () => setActiveTool('tool-circle');
-    toolbar.querySelector('#clear-canvas-btn').onclick = () => {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        const activeNote = state.notes.find(n => n.id === currentNoteId);
-        if (activeNote) {
-            activeNote.content = null;
-            saveState();
-        }
-        drawingHistory = [];
-        historyIndex = -1;
-        saveDrawingState();
-    };
-    toolbar.querySelector('#undo-drawing-btn').onclick = undoDrawing;
-    toolbar.querySelector('#redo-drawing-btn').onclick = redoDrawing;
-
-    dom.drawingFullscreenBtn.onclick = () => {
-        if (document.fullscreenElement || document.webkitFullscreenElement) {
-            if (document.exitFullscreen) {
-                document.exitFullscreen();
-            } else if (document.webkitExitFullscreen) { /* Safari */
-                document.webkitExitFullscreen();
-            }
-        } else {
-            if (canvas.requestFullscreen) {
-                canvas.requestFullscreen();
-            } else if (canvas.webkitRequestFullscreen) { /* Safari */
-                canvas.webkitRequestFullscreen();
-            }
-        }
-    };
-}
 
             /**
              * Aplica un comando de formato de texto al editor de contenido editable.
@@ -6820,7 +6782,6 @@ function setupCanvas(note) {
                 });
             }
             // --- TRANSLATOR FUNCTIONS END ---
-
             /**
              * Configura todos los escuchadores de eventos globales para la aplicación.
              */
@@ -7346,11 +7307,7 @@ function setupCanvas(note) {
                 });
 
 
-               dom.voiceSelector?.addEventListener('change', (e) => {
-                    const voiceName = e.target.value;
-                    selectedVoice = availableVoices.find(voice => voice.name === voiceName);
-                    localStorage.setItem('goatify-selected-voice', voiceName); // <-- Línea nueva
-                });
+                dom.voiceSelector?.addEventListener('change', (e) => { selectedVoice = availableVoices.find(voice => voice.name === e.target.value); });
 
                 document.addEventListener('click', (e) => {
                     // Cerrar el menú emergente de usuario si se hace clic fuera
@@ -7365,6 +7322,9 @@ function setupCanvas(note) {
                     // Cerrar el menú desplegable de filtro de etiquetas si se hace clic fuera
                     if (dom.tagFilterDropdown && dom.tagFilterBtn && !dom.tagFilterBtn.contains(e.target) && !dom.tagFilterDropdown.contains(e.target)) {
                         dom.tagFilterDropdown.classList.add('hidden');
+                    }
+                     if (dom.calendarTagFilterDropdown && dom.calendarTagFilterBtn && !dom.calendarTagFilterBtn.contains(e.target) && !dom.calendarTagFilterDropdown.contains(e.target)) {
+                        dom.calendarTagFilterDropdown.classList.add('hidden');
                     }
                     // Cerrar los menús desplegables "añadir a carpeta" si se hace clic fuera
                     document.querySelectorAll('.add-to-folder-dropdown').forEach(dropdown => {
@@ -7724,7 +7684,6 @@ function setupCanvas(note) {
                     }
                 });
             }
-
             /**
              * Renderiza la vista de gestión de proyectos para un chat de proyecto específico.
              * Inicializa los datos del proyecto si no están presentes y renderiza el tablero del proyecto.
@@ -7733,26 +7692,9 @@ function setupCanvas(note) {
             function renderProjectView(chatId) {
                 const chat = state.chats[chatId];
                 if (!chat) return;
-                
-                dom.projectChatContainer.style.display = 'flex';
 
-                if (!chat.projectData) {
-                    // Inicializar datos de proyecto predeterminados si no están presentes
-                    chat.projectData = {
-                        title: chat.title,
-                        columns: [
-                             { id: 'todo', title: 'Por Hacer', tasks: [] },
-                            { id: 'doing', title: 'En Progreso', tasks: [] },
-                            { id: 'done', title: 'Hecho', tasks: [] }
-                         ],
-                        currentView: 'list'
-                    };
-                }
-
-                dom.projectViewTitle.textContent = chat.projectData.title; // Establecer título del proyecto
-
-                // --- INICIO DEL CÓDIGO AÑADIDO ---
-                // Se recrea la estructura del chat del proyecto para asegurar que exista
+                // Recrear la estructura del chat del proyecto para asegurar que no esté en blanco
+                // y que los listeners se puedan volver a adjuntar correctamente.
                 const projectChatContainer = document.getElementById('project-chat-container');
                 if (projectChatContainer) {
                     projectChatContainer.innerHTML = `
@@ -7761,7 +7703,7 @@ function setupCanvas(note) {
                             <button id="project-chat-toggle" class="text-xl p-2"><i class="fas fa-angle-up"></i></button>
                         </div>
                          <div class="project-chat-body">
-                            <div id="project-chat-messages" class="chat-bubble-bot"></div>
+                            <div id="project-chat-messages" class="flex-grow overflow-y-auto p-2"></div>
                             <div id="project-input-area" class="mt-auto pt-2">
                                  <div class="pro-controls-bg rounded-lg p-1.5 mb-2">
                                      <div class="flex items-center space-x-2">
@@ -7784,13 +7726,28 @@ function setupCanvas(note) {
                         </div>
                     `;
                 }
-                 // --- FIN DEL CÓDIGO AÑADIDO ---
 
+                if (!chat.projectData) {
+                    // Inicializar datos de proyecto predeterminados si no están presentes
+                    chat.projectData = {
+                        title: chat.title,
+                        columns: [
+                             { id: 'todo', title: 'Por Hacer', tasks: [] },
+                            { id: 'doing', title: 'En Progreso', tasks: [] },
+                            { id: 'done', title: 'Hecho', tasks: [] }
+                         ],
+                        currentView: 'list'
+                    };
+                }
+
+                dom.projectViewTitle.textContent = chat.projectData.title; // Establecer título del proyecto
+                
+                // Volver a asignar los elementos DOM del chat del proyecto después de recrearlos
                 const projectChatMessages = document.getElementById('project-chat-messages');
                 if(projectChatMessages) {
                     projectChatMessages.innerHTML = '';
                     // Mostrar mensajes de chat del proyecto
-                    chat.messages.forEach((msg, index) => addMessageToUI(msg.role, msg.content, msg.image, index, projectChatMessages));
+                    (chat.messages || []).forEach((msg, index) => addMessageToUI(msg.role, msg.content, msg.image, index, projectChatMessages));
                 }
 
                 // Colapsar el chat del proyecto en móvil por defecto
@@ -7801,25 +7758,32 @@ function setupCanvas(note) {
                 }
                 renderProjectBoard(chatId); // Renderizar el tablero Kanban o Lista
 
-                // Deshabilitar la opción GOAT X PRO para usuarios no registrados en el selector de modelo del proyecto
+                // Volver a adjuntar los listeners para los elementos del chat recién creados
+                attachProjectChatListeners(chatId);
+            }
+
+            /**
+             * Adjunta los escuchadores de eventos para el área de chat del asistente de proyectos.
+             * @param {string} chatId - El ID del chat del proyecto.
+             */
+            function attachProjectChatListeners(chatId) {
                 const projectModelSelector = document.getElementById('project-model-selector');
+                const sendBtn = document.getElementById('project-send');
+                const msgInput = document.getElementById('project-msg');
+
                 if (projectModelSelector) {
                     const goatXProOption = projectModelSelector.querySelector('.goat-x-pro-model');
                     if (goatXProOption) goatXProOption.disabled = !currentUser;
-
-                     // Re-adjuntar listeners para los nuevos elementos del chat
-                    const sendBtn = document.getElementById('project-send');
-                    const msgInput = document.getElementById('project-msg');
-                    if(sendBtn) sendBtn.addEventListener('click', () => sendMessage(false, null, { assistantType: 'project' }));
-                    if(msgInput) msgInput.addEventListener('keydown', e => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                            e.preventDefault();
-                            sendMessage(false, null, { assistantType: 'project' });
-                        }
-                    });
-
                 }
+                if(sendBtn) sendBtn.addEventListener('click', () => sendMessage(false, null, { assistantType: 'project' }));
+                if(msgInput) msgInput.addEventListener('keydown', e => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        sendMessage(false, null, { assistantType: 'project' });
+                    }
+                });
             }
+
             /**
              * Renderiza el tablero del proyecto (vista Kanban o Lista) para un chat de proyecto determinado.
              * @param {string} chatId - El ID del chat del proyecto.
@@ -8411,6 +8375,49 @@ function setupCanvas(note) {
                 });
                 dom.tagFilterBtn.onclick = () => {
                     dom.tagFilterDropdown.classList.toggle('hidden'); // Alternar la visibilidad del menú desplegable
+                };
+            }
+
+            /**
+             * Renderiza el filtro de etiquetas para el modal del calendario.
+             */
+            function renderCalendarTagFilter() {
+                const allProjectTasks = Object.values(state.chats)
+                    .filter(c => c.projectData)
+                    .flatMap(c => c.projectData.columns)
+                    .flatMap(col => col.tasks || []);
+                
+                const allTags = [...new Set(allProjectTasks.flatMap(t => t.labels || []))];
+                allTags.unshift('Personal'); // Añadir 'Personal' como una etiqueta filtrable
+
+                dom.calendarTagFilterDropdown.innerHTML = '';
+                
+                const allBtn = document.createElement('button');
+                allBtn.className = 'block w-full text-left p-2 hover:bg-medium rounded-md text-sm';
+                allBtn.textContent = 'Todas las Etiquetas';
+                allBtn.onclick = () => {
+                    activeTagFilter = null;
+                    dom.calendarTagFilterBtn.innerHTML = `<i class="fas fa-tag mr-1"></i> Filtrar`;
+                    dom.calendarTagFilterDropdown.classList.add('hidden');
+                    renderCalendarView();
+                };
+                dom.calendarTagFilterDropdown.appendChild(allBtn);
+
+                allTags.forEach(tag => {
+                    const btn = document.createElement('button');
+                    btn.className = 'block w-full text-left p-2 hover:bg-medium rounded-md text-sm';
+                    btn.innerHTML = `<span class="task-label inline-block mr-2" style="background-color: ${getLabelColor(tag)}; color: white;">${tag}</span>`;
+                    btn.onclick = () => {
+                        activeTagFilter = tag;
+                        dom.calendarTagFilterBtn.innerHTML = `<span class="task-label inline-block mr-2" style="background-color: ${getLabelColor(tag)}; color: white;">${tag}</span>`;
+                        dom.calendarTagFilterDropdown.classList.add('hidden');
+                        renderCalendarView();
+                    };
+                    dom.calendarTagFilterDropdown.appendChild(btn);
+                });
+
+                dom.calendarTagFilterBtn.onclick = () => {
+                    dom.calendarTagFilterDropdown.classList.toggle('hidden');
                 };
             }
 
@@ -9071,8 +9078,8 @@ function setupCanvas(note) {
                     setupMotivationInterval(); // Iniciar notificaciones de motivación periódicas
 
                      if (loadingInterval) {
-        clearInterval(loadingInterval);
-        }
+                        clearInterval(loadingInterval);
+                    }
                     
                     dom.appContainer.classList.remove('opacity-0'); // Mostrar el contenedor principal de la aplicación
                     dom.loadingOverlay.style.display = 'none'; // Ocultar la superposición de carga
