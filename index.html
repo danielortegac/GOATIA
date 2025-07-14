@@ -4837,8 +4837,7 @@
                         const response = await fetch('/.netlify/functions/load-chats', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            'Authorization': `Bearer ${token}` 
-                         },
+                            'Authorization': `Bearer ${currentUserToken}`
                             body: JSON.stringify({ userId: currentUser.id }),
                         });
                         if (!response.ok) { throw new Error(`Error del servidor: ${response.status}`); }
@@ -4920,33 +4919,29 @@
                 }
             }
 
-             /**
-             * Guarda el estado actual en localStorage y (para usuarios que han iniciado sesión) en el backend.
+            /**
+             * Guarda el estado actual de la aplicación en el almacenamiento local y (para usuarios que han iniciado sesión) en el backend.
              */
             async function saveState() {
                 const stateData = { state, currentChatId };
                 const key = currentUser ? `goatbotState_${currentUser.id}` : 'guestState';
 
                 try {
-                    localStorage.setItem(key, JSON.stringify(stateData));
-                    localStorage.setItem('lastView', currentChatId); 
+                    localStorage.setItem(key, JSON.stringify(stateData)); // Guardar en el almacenamiento local
+                    localStorage.setItem('lastView', currentChatId); // Guardar el último elemento visto
 
                     if(currentUser) {
-                        // OBTENER EL TOKEN DEL USUARIO ACTUAL
-                        const token = await currentUser.jwt();
-
-                        // Enviar estado al backend para almacenamiento persistente
+                        // Enviar el estado al backend para un almacenamiento persistente (con debounce si es necesario para el rendimiento)
                         await fetch('/.netlify/functions/save-chats', {
                             method: 'POST',
-                            headers: { 
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${token}` // <--- AÑADIR ESTE ENCABEZADO
-                            },
-                            body: JSON.stringify({ stateToSave: stateData }),
+                            headers: { 'Content-Type': 'application/json' },
+                            'Authorization': `Bearer ${currentUserToken}`
+                            body: JSON.stringify({ userId: currentUser.id, stateToSave: stateData }),
                         });
                     }
                 } catch (error) {
                     console.error("No se pudo guardar el estado:", error);
+                    // Implementar un manejo de errores más robusto, quizás una cola para los guardados fallidos
                 }
             }
 
