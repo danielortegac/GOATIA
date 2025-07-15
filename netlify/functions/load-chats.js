@@ -1,29 +1,13 @@
-const { createClient } = require('@supabase/supabase-js');
+// netlify/functions/load-chats.js
+const fs = require('fs');
+const path = require('path');
 
-exports.handler = async (event) => {
-  if (!event.clientContext || !event.clientContext.user) {
-    return { statusCode: 401, body: 'No autorizado' };
+exports.handler = async () => {
+  try {
+    const file = path.join(__dirname, 'chats.json');
+    const data = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '[]';
+    return { statusCode: 200, body: data };
+  } catch (e) {
+    return { statusCode: 500, body: '[]' };
   }
-
-  const { user } = event.clientContext;
-  const supabase = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_KEY
-  );
-
-  // maybeSingle ⇒ si no existe simplemente devuelve null
-  const { data, error, status } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', user.sub)
-    .maybeSingle();
-
-  // log para ver exactamente qué responde Supabase
-  console.log('load‑chats → status:', status, 'error:', error);
-
-  if (error && status !== 406) {               // 406 = fila no existe
-    return { statusCode: 500, body: JSON.stringify({ error: error.message }) };
-  }
-
-  return { statusCode: 200, body: JSON.stringify(data || {}) };
 };
