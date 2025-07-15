@@ -1,19 +1,27 @@
 const { createClient } = require('@supabase/supabase-js');
 
-exports.handler = async (event, context) => {
-  const { user } = context.clientContext || {};
-  if (!user) return { statusCode: 401, body: 'No autorizado' };
+exports.handler = async (event) => {
+  if (!event.clientContext || !event.clientContext.user) {
+    return { statusCode: 401, body: 'No autorizado' };
+  }
 
-  const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
+  const { user } = event.clientContext;
+  const supabase = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_KEY
+  );
 
-  /* Trae solo las columnas que necesitas */
-  const { data, error } = await supabase
+  // maybeSingle ⇒ si no existe simplemente devuelve null
+  const { data, error, status } = await supabase
     .from('profiles')
-    .select('state, gamification_state, currentchatid')
+    .select('*')
     .eq('id', user.sub)
-    .single();
+    .maybeSingle();
 
-  if (error && error.code !== 'PGRST116') {
+  // log para ver exactamente qué responde Supabase
+  console.log('load‑chats → status:', status, 'error:', error);
+
+  if (error && status !== 406) {               // 406 = fila no existe
     return { statusCode: 500, body: JSON.stringify({ error: error.message }) };
   }
 
