@@ -1,106 +1,106 @@
-// netlify/functions/create-subscription.js
+/**
+ *  netlify/functions/create-subscription.js
+ *
+ *  Crea (o devuelve) el enlace de aprobación para una suscripción PayPal.
+ *  – Funciona en SANDBOX o LIVE según la variable PAYPAL_ENV
+ *  – Traza los errores con console.error para verlos en Netlify → Functions → Logs
+ *  – Necesita las variables de entorno:
+ *        PAYPAL_ENV            = sandbox   (o live)
+ *        PAYPAL_CLIENT_ID
+ *        PAYPAL_CLIENT_SECRET
+ *        PAYPAL_PLAN_ID_BOOST  = P-xxxxxxxxxxxxxxxxxxxx
+ *        PAYPAL_PLAN_ID_PRO    = P-xxxxxxxxxxxxxxxxxxxx
+ */
+
 const fetch = require('node-fetch');
 
-// Función para obtener el token de acceso de PayPal
-async function getPayPalAccessToken() {
-  const auth = Buffer.from(
-    `${process.env.PAYPAL_CLIENT_ID}:${process.env.PAYPAL_CLIENT_SECRET}`
-  ).toString('base64');
+/* -------------------------------------------------------------------------- */
+/* 1. Helpers                                                                  */
+/* -------------------------------------------------------------------------- */
 
-  const response = await fetch('https://api.sandbox.paypal.com/v1/oauth2/token', {
+const PAYPAL_ENV   = process.env.PAYPAL_ENV?.toLowerCase() === 'live' ? 'live' : 'sandbox';
+const PAYPAL_HOST  = PAYPAL_ENV === 'live'
+  ? 'https://api-m.paypal.com'
+  : 'https://api-m.sandbox.paypal.com';
+
+async function getPayPalAccessToken () {
+  const auth = Buffer
+    .from(`${process.env.PAYPAL_CLIENT_ID}:${process.env.PAYPAL_CLIENT_SECRET}`)
+    .toString('base64');
+
+  const rsp  = await fetch(`${PAYPAL_HOST}/v1/oauth2/token`, {
     method: 'POST',
-    headers: { 'Authorization': `Basic ${auth}` },
-    body: 'grant_type=client_credentials',
+    headers: {
+      Authorization: `Basic ${auth}`,
+      'Content-Type': 'application/x-www-form-urlencoded'
+    },
+    body: 'grant_type=client_credentials'
   });
 
-  const data = await response.json();
-  if (!response.ok) {
-    console.error("Error al obtener token de PayPal:", data);
-    throw new Error(`Error de token de PayPal: ${data.error_description}`);
-  }
+  const data = await rsp.json();
+  if (!rsp.ok) throw new Error(`Token PayPal → ${rsp.status}: ${data.error_description || rsp.statusText}`);
   return data.access_token;
 }
 
-// Handler principal de la función
+/* -------------------------------------------------------------------------- */
+/* 2. Lambda handler                                                           */
+/* -------------------------------------------------------------------------- */
 exports.handler = async (event) => {
-  // Log para ver qué contexto de usuario recibimos
-  console.log('create-subscription: Contexto de cliente recibido:', JSON.stringify(event.clientContext, null, 2));
-
-  // Validación de seguridad
+  /* ––– Seguridad Netlify Identity ––– */
   if (!event.clientContext || !event.clientContext.user) {
-    console.error('create-subscription: Petición no autorizada. Falta contexto de usuario.');
-    return { statusCode: 401, body: JSON.stringify({ error: 'No autorizado. Debes iniciar sesión.' }) };
+    return { statusCode: 401, body: JSON.stringify({ error: 'No autorizado. Inicia sesión.' }) };
   }
 
   try {
-    const { plan } = JSON.parse(event.body);
-    const user = event.clientContext.user;
-
-    console.log(`create-subscription: Usuario ${user.sub} (${user.email}) está intentando suscribirse al plan: ${plan}`);
-
+    const { plan } = JSON.parse(event.body || '{}') || {};
     if (!plan) {
       return { statusCode: 400, body: JSON.stringify({ error: 'Falta el nombre del plan.' }) };
     }
 
-    const planId =
-      plan === 'boost'
-        ? process.env.PAYPAL_PLAN_ID_BOOST
-        : process.env.PAYPAL_PLAN_ID_PRO;
+    const planId = plan === 'boost'
+      ? process.env.PAYPAL_PLAN_ID_BOOST
+      : process.env.PAYPAL_PLAN_ID_PRO;
 
-    if (!planId) {
-        console.error(`Error: Variable de entorno para el plan "${plan}" no está configurada.`);
-        return { statusCode: 500, body: JSON.stringify({ error: 'Configuración del servidor incompleta.'}) };
-    }
-    
-    console.log(`Usando PayPal Plan ID: ${planId}`);
+    if (!planId) throw new Error(`PLAN_ID no definido para el plan «${plan}».`);
 
-    const accessToken = await getPayPalAccessToken();
+    /* Obtener token */
+    const token = await getPayPalAccessToken();
 
-    const response = await fetch(
-      'https://api.sandbox.paypal.com/v1/billing/subscriptions',
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-          'PayPal-Request-Id': `sub-${Date.now()}` // Buena práctica para trazabilidad
-        },
-        body: JSON.stringify({
-          plan_id: planId,
-          custom_id: user.sub, // ID de usuario de Netlify para vincular la suscripción
-          application_context: {
-            brand_name: 'Goatify IA',
-            return_url: 'https://www.goatify.app/success.html', // Página de éxito
-            cancel_url: 'https://www.goatify.app/cancel.html',   // Página de cancelación
-          },
-        }),
-      }
-    );
+    /* Crear la suscripción */
+    const rsp = await fetch(`${PAYPAL_HOST}/v1/billing/subscriptions`, {
+      method: 'POST',
+      headers: {
+        Authorization : `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'PayPal-Request-Id': `sub-${Date.now()}`   // idempotencia / trazabilidad
+      },
+      body: JSON.stringify({
+        plan_id : planId,
+        custom_id: event.clientContext.user.sub,   // id de usuario Netlify
+        application_context: {
+          brand_name: 'Goatify IA',
+          user_action: 'SUBSCRIBE_NOW',
+          return_url: 'https://www.goatify.app/success.html',
+          cancel_url: 'https://www.goatify.app/cancel.html'
+        }
+      })
+    });
 
-    const data = await response.json();
-    console.log('Respuesta de la API de PayPal:', data);
+    const data = await rsp.json();
+    console.log('PayPal ↩', JSON.stringify(data, null, 2));
 
-    if (!response.ok) {
-        const errorDetail = data.details ? data.details[0].description : JSON.stringify(data);
-        throw new Error(`Error de PayPal: ${errorDetail}`);
+    if (!rsp.ok) {
+      const detail = data.details?.[0]?.description || data.message || 'Error PayPal';
+      throw new Error(`${rsp.status} ${detail}`);
     }
 
-    const approvalLink = data.links.find((link) => link.rel === 'approve');
-    
-    if (!approvalLink) {
-        throw new Error("No se encontró el enlace de aprobación en la respuesta de PayPal.");
-    }
+    const approval = data.links.find(l => l.rel === 'approve');
+    if (!approval) throw new Error('PayPal no devolvió enlace de aprobación.');
 
-    return { 
-        statusCode: 200, 
-        body: JSON.stringify({ approvalUrl: approvalLink.href }) 
-    };
+    return { statusCode: 200, body: JSON.stringify({ approvalUrl: approval.href }) };
 
   } catch (err) {
-    console.error('Error fatal en create-subscription:', err);
-    return { 
-        statusCode: 500, 
-        body: JSON.stringify({ error: 'No se pudo procesar la suscripción.', details: err.message }) 
-    };
+    console.error('create‑subscription ERROR →', err);
+    return { statusCode: 500, body: JSON.stringify({ error: err.message }) };
   }
 };
