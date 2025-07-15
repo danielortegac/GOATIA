@@ -9159,6 +9159,43 @@
                 }
             });
         }); // Fin de DOMContentLoaded
-     </script>
+     
+            // ----------------- SUSCRIPCIÓN PAYPAL -----------------
+            document.querySelectorAll('.select-plan-btn').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    console.log('[Goatify] Click suscripción', btn.dataset.plan);
+                    if (!currentUser) {
+                        netlifyIdentity.open('login');
+                        return;
+                    }
+                    const plan = btn.getAttribute('data-plan');
+                    try {
+                        const response = await fetch('/.netlify/functions/create-subscription', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${currentUserToken}`
+                            },
+                            body: JSON.stringify({ plan })
+                        });
+                        if (!response.ok) {
+                            console.error('[Goatify] create-subscription error', response.status);
+                            showInAppNotification("Error de Suscripción", "No se pudo procesar la suscripción. Revisa tu conexión o inténtalo más tarde.", 5000);
+                            return;
+                        }
+                        const data = await response.json();
+                        console.log('[Goatify] PayPal approvalUrl', data);
+                        if (data.approvalUrl) {
+                            window.location.href = data.approvalUrl;
+                        } else {
+                            showInAppNotification("Error de Pago", "No se recibió la URL de PayPal.", 5000);
+                        }
+                    } catch (error) {
+                        console.error('Subscription error:', error);
+                        showInAppNotification("Error de Suscripción", "No se pudo procesar la suscripción. Inténtalo de nuevo.", 5000);
+                    }
+                });
+            });
+    </script>
 </body>
 </html>
