@@ -1,33 +1,13 @@
-const { createClient } = require('@supabase/supabase-js');
+// netlify/functions/save-chats.js
+const fs = require('fs');
+const path = require('path');
 
 exports.handler = async (event) => {
-  if (!event.clientContext || !event.clientContext.user) {
-    return { statusCode: 401, body: 'No autorizado' };
+  try {
+    const file = path.join(__dirname, 'chats.json');
+    fs.writeFileSync(file, event.body || '[]');
+    return { statusCode: 200, body: 'OK' };
+  } catch (e) {
+    return { statusCode: 500, body: e.message };
   }
-
-  const { user } = event.clientContext;
-  const { state, gamification_state } = JSON.parse(event.body);
-
-  const supabase = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_KEY
-  );
-
-  const { error } = await supabase.from('profiles').upsert(
-    {
-      id: user.sub,                        // crea si no existe
-      state,
-      gamification_state,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: 'id', ignoreDuplicates: false }
-  );
-
-  console.log('save‑chats → error:', error);
-
-  if (error) {
-    return { statusCode: 500, body: JSON.stringify({ error: error.message }) };
-  }
-
-  return { statusCode: 200, body: 'Estado guardado' };
 };
