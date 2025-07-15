@@ -3096,6 +3096,7 @@
             let gamificationState = {}; // Estado para las características de gamificación
             let currentChatId = null; // ID del chat actualmente seleccionado
             let currentUser = null; // Usuario autenticado actual
+            let currentUserToken = null;
             let speechOn = false; // Bandera para la síntesis de voz
             let availableVoices = []; // Lista de voces disponibles para la síntesis de voz
             let selectedVoice = null; // Voz actualmente seleccionada para la síntesis de voz
@@ -9055,11 +9056,11 @@
              */
             const finishInitialization = async (user) => {
                 // Evitar la reinicialización si ya se activó para el mismo usuario
-                if (initFired && user?.id === currentUser?.id) return;
-                initFired = true;
-                const wasGuest = !currentUser; // Comprobar si el usuario era previamente un invitado
-                currentUser = user; // Establecer el usuario actual
-
+               if (user) {
+    currentUserToken = await user.jwt();   // 🔑 guarda JWT global
+} else {
+    currentUserToken = null;
+}
                 try {
                     await loadStateForUser(); // Cargar el estado de la aplicación (chats, notas, proyectos, calendario)
                     updateUserUI(); // Actualizar elementos de la interfaz de usuario según el estado de inicio de sesión del usuario
@@ -9170,97 +9171,86 @@
                     resetChatView(); // Restablecer vista si no hay ID de chat en el estado
                 }
             });
-        }); // Fin de DOMContentLoaded
+                }); // End of DOMContentLoaded
      </script>
-     // ========== 1) VARIABLES GLOBALES ==========
+     <!-- =================================================================== -->
+     <!-- START: Standalone Authentication and Subscription Logic -->
+     <!-- This script handles the core logic for user authentication and payments -->
+     <!-- It has been corrected to properly pass authentication tokens -->
+     <!-- =================================================================== -->
+    <script>
+    // ========== 1) GLOBAL VARIABLES ==========
     let currentUser       = null;
-    let currentUserToken  = null;
-    let state             = {};
-    let gamificationState = {};
-    let currentChatId     = null;
-    
-    // ========== 2) NETLIFY IDENTITY ==========
-    netlifyIdentity.init(); // arranca el widget
+    let currentUserToken  = null; // This will store the JWT token
+    // The 'state', 'gamificationState', and 'currentChatId' are managed inside the main module script.
 
-    netlifyIdentity.on('login', async user => {
-      currentUser = user;
-      currentUserToken = await user.jwt(); // 🔑
-      await migrateLocalData();           // sube lo que había en localStorage
-      await loadStateForUser();           // baja estado desde Supabase
-    });
+    // ========== 2) NETLIFY IDENTITY INTEGRATION ==========
+    if (window.netlifyIdentity) {
+        netlifyIdentity.on('login', async user => {
+            currentUser = user;
+            // Get the token right after login
+            currentUserToken = user.token?.access_token; 
+            // The main script's 'finishInitialization' will handle data migration and loading
+        });
 
-    netlifyIdentity.on('logout', () => {
-      currentUser = null;
-      currentUserToken = null;
-      state = {}; // o tu default
-    });
+        netlifyIdentity.on('logout', () => {
+            currentUser = null;
+            currentUserToken = null;
+            // The main script's logout handler will clear state and update the UI
+        });
 
-    // ========== 3) MIGRAR LOCALSTORAGE ==========
-    async function migrateLocalData() {
-      const guest = JSON.parse(localStorage.getItem('guestState'));
-      if (guest && guest.state) {
-        state = guest.state;
-        currentChatId = guest.currentChatId;
-        await saveState();                     // súbelo a Supabase
-        localStorage.removeItem('guestState'); // limpia
-      }
+        netlifyIdentity.on('init', user => {
+            currentUser = user;
+            if (user) {
+                currentUserToken = user.token?.access_token;
+            }
+        });
     }
 
-    // ========== 4) SAVE STATE ==========
-    async function saveState() {
-      if (!currentUserToken) {
-        localStorage.setItem('guestState', JSON.stringify({ state, currentChatId }));
-        return;
-      }
-      await fetch('/.netlify/functions/save-chats', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${currentUserToken}`
-        },
-        body: JSON.stringify({ state, gamification_state: gamificationState, currentChatId })
-      });
-    }
-
-    // ========== 5) LOAD STATE ==========
-    async function loadStateForUser() {
-      if (!currentUserToken) {
-        const guest = JSON.parse(localStorage.getItem('guestState')) || {};
-        state = guest.state || {};
-        currentChatId = guest.currentChatId || null;
-        return;
-      }
-      const res = await fetch('/.netlify/functions/load-chats', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${currentUserToken}` }
-      });
-      const data = await res.json();
-      state             = data.state || {};
-      gamificationState = data.gamification_state || {};
-      currentChatId     = data.currentChatId || null;
-    }
-
-    // ========== 6) BOTÓN DE SUSCRIPCIÓN ==========
-    document
-      .getElementById('btn-pro')        // tu botón “Pro”
-      .addEventListener('click', () => startSubscription('pro'));
-    document
-      .getElementById('btn-boost')      // tu botón “Boost”
-      .addEventListener('click', () => startSubscription('boost'));
-
+    // ========== 3) SUBSCRIPTION BUTTONS & LOGIC ==========
+    // This function will be called by the buttons in the pricing modal
     async function startSubscription(plan) {
-      if (!currentUserToken) { netlifyIdentity.open(); return; } // pide login
-      const res = await fetch('/.netlify/functions/create-subscription', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${currentUserToken}`
-        },
-        body: JSON.stringify({ plan })
-      });
-      if (!res.ok) { alert('Error al iniciar pago'); return; }
-      const { approvalUrl } = await res.json();
-      window.location.href = approvalUrl; // 🚀 redirección a PayPal
+      if (!currentUser) { 
+          netlifyIdentity.open('login'); // Ask to login if not a user
+          return; 
+      }
+      
+      try {
+        // Get the most recent token before making a request
+        const token = await currentUser.jwt();
+
+        // Call your backend function to create the PayPal subscription
+        const res = await fetch('/.netlify/functions/create-subscription', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}` // <-- The crucial authentication header
+          },
+          body: JSON.stringify({ plan }) // 'boost' or 'pro'
+        });
+
+        if (!res.ok) { 
+            const err = await res.json();
+            alert('Error al iniciar el pago: ' + (err.error || 'Error desconocido del servidor.')); 
+            return; 
+        }
+
+        // Redirect the user to PayPal for approval
+        const { approvalUrl } = await res.json();
+        if (approvalUrl) {
+            window.location.href = approvalUrl;
+        } else {
+            alert('No se pudo obtener la URL de aprobación de PayPal.');
+        }
+
+      } catch (error) {
+          console.error("Error starting subscription:", error);
+          alert("Hubo un error al conectar con el servicio de pago. Por favor, inténtalo de nuevo.");
+      }
     }
+
+    // We will attach the event listeners inside the main script once the DOM is ready
+    // to ensure the buttons exist.
+     </script>
 </body>
 </html>
