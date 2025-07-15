@@ -3085,9 +3085,7 @@
             let gamificationState = {}; // Estado para las características de gamificación
             let currentChatId = null; // ID del chat actualmente seleccionado
             let currentUser = null;
-    let currentUserToken = null;
-window.currentUser = null;
-window.currentUserToken = null; // Usuario autenticado actual
+    let currentUserToken = null; // Usuario autenticado actual
             let speechOn = false; // Bandera para la síntesis de voz
             let availableVoices = []; // Lista de voces disponibles para la síntesis de voz
             let selectedVoice = null; // Voz actualmente seleccionada para la síntesis de voz
@@ -9123,9 +9121,7 @@ window.currentUserToken = null; // Usuario autenticado actual
                 });
                 // Manejar el cierre de sesión del usuario
                 netlifyIdentity.on('logout', () => {
-                    
-                    window.currentUser = null;
-                    window.currentUserToken = null;// Borrar todo el almacenamiento local relacionado con los datos del usuario al cerrar sesión
+                    // Borrar todo el almacenamiento local relacionado con los datos del usuario al cerrar sesión
                     localStorage.removeItem('goatbotState_' + currentUser?.id);
                     localStorage.removeItem('gamificationState_' + currentUser?.id);
                     localStorage.removeItem(`goat_x_pro_usage_${currentUser?.id}_${dayjs().format('YYYY-MM-DD')}`);
@@ -9163,6 +9159,49 @@ window.currentUserToken = null; // Usuario autenticado actual
                 }
             });
         }); // Fin de DOMContentLoaded
-     </script>
+     
+    // ---- Suscripción PayPal ----
+    document.querySelectorAll('.select-plan-btn').forEach(btn=>{
+        btn.addEventListener('click', async ()=> {
+            const plan = btn.dataset.plan;
+            console.log('[Goatify] Click suscripción', plan);
+            // Asegúrate de que Netlify Identity esté cargado
+            if (!window.netlifyIdentity) {
+                alert('Netlify Identity no está disponible.');
+                return;
+            }
+            const user = window.netlifyIdentity.currentUser();
+            if (!user) {
+                // Si no está logueado, abre el widget de login
+                window.netlifyIdentity.open('login');
+                return;
+            }
+            try {
+                const token = await user.jwt();
+                const res = await fetch('/.netlify/functions/create-subscription', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ plan })
+                });
+                if (!res.ok) {
+                    throw new Error('Error al crear la suscripción');
+                }
+                const data = await res.json();
+                if (data.approvalUrl) {
+                    window.location.href = data.approvalUrl; // Redirección a PayPal
+                } else {
+                    console.error('No se recibió la URL de aprobación.');
+                    alert('Error al iniciar el pago. Intenta nuevamente.');
+                }
+            } catch (err) {
+                console.error('[Goatify] Error durante la suscripción:', err);
+                alert('No se pudo procesar la suscripción. Vuelve a intentarlo.');
+            }
+        });
+    });
+</script>
 </body>
 </html>
