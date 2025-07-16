@@ -1,28 +1,29 @@
-// netlify/functions/update-usage.js
 const { createClient } = require('@supabase/supabase-js');
 
 exports.handler = async (event, context) => {
   const { user } = context.clientContext;
-  if (!user) return { statusCode: 401, body: '{"error":"Auth required"}' };
+  if (!user) return { statusCode: 401, body: JSON.stringify({ error: 'Not logged in' }) };
 
-  const { delta } = JSON.parse(event.body || '{}'); // p.e. delta = 1
-  if (!delta || delta < 0)
-    return { statusCode: 400, body: '{"error":"Bad delta"}' };
+  const { delta } = JSON.parse(event.body || '{}'); // ejemplo: -7 para gastar 7
+  if (typeof delta !== 'number') return { statusCode: 400, body: JSON.stringify({ error: 'Delta missing' }) };
 
-  const supabase = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_KEY
-  );
+  const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 
-  const { data, error } = await supabase.rpc('decrement_credits_simple', {
-    _user_id: user.sub,
-    _delta: delta
-  });
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('credits')
+    .eq('id', user.sub)
+    .single();
 
-  if (error) {
-    console.error(error);
-    return { statusCode: 500, body: JSON.stringify({ error: error.message }) };
-  }
+  if (error) return { statusCode: 500, body: JSON.stringify({ error }) };
 
-  return { statusCode: 200, body: JSON.stringify({ credits: data }) };
+  const newCredits = Math.max(0, (data?.credits || 0) + delta);
+  const { error: updErr } = await supabase
+    .from('profiles')
+    .update({ credits: newCredits, updated_at: new Date().toISOString() })
+    .eq('id', user.sub);
+
+  if (updErr) return { statusCode: 500, body: JSON.stringify({ error: updErr }) };
+
+  return { statusCode: 200, body: JSON.stringify({ credits: newCredits }) };
 };
