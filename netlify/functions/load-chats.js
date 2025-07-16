@@ -1,36 +1,37 @@
-/* netlify/functions/load-chats.js
-   Lee el historial del usuario (array jsonb)              */
-
-import { createClient } from '@supabase/supabase-js'
+// netlify/functions/load-chats.js
+const { createClient } = require('@supabase/supabase-js');
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_ANON_KEY
-)
+);
 
-export const handler = async (event) => {
-  try {
-    const userId = event.queryStringParameters?.user_id
-    if (!userId) {
-      return { statusCode: 400, body: 'Missing user_id' }
+exports.handler = async (event, context) => {
+    const { user } = context.clientContext;
+    if (!user) {
+        return { statusCode: 401, body: 'No autorizado' };
     }
 
-    // 👉 Sólo columnas necesarias   ↓↓↓
-    const { data, error } = await supabase
-      .from('user_chats')
-      .select('chats')
-      .eq('user_id', userId)
-      .maybeSingle()           // <— evita .single() rompa si no existe fila
+    try {
+        const userId = user.sub;
 
-    if (error) {
-      return { statusCode: 500, body: JSON.stringify(error) }
-    }
+        const { data, error } = await supabase
+            .from('user_data') // Leer de la misma tabla
+            .select('state')
+            .eq('user_id', userId)
+            .maybeSingle();
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify(data?.chats || [])
+        if (error) throw error;
+        
+        // Si no hay datos, devolvemos un objeto vacío para que el frontend lo maneje
+        const stateToReturn = data ? data.state : {}; 
+        
+        return {
+            statusCode: 200,
+            body: JSON.stringify(stateToReturn)
+        };
+    } catch (err) {
+        console.error('Error en load-chats:', err);
+        return { statusCode: 500, body: err.message };
     }
-  } catch (err) {
-    return { statusCode: 500, body: err.message }
-  }
-}
+};
