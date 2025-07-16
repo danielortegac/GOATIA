@@ -13,30 +13,33 @@ exports.handler = async (event, context) => {
       process.env.SUPABASE_SERVICE_KEY
     );
 
-    const { data, error } = await supabase
-      .from('user_chats')
-      .select('chats')
-      .eq('user_id', user.sub)
-      .single();
+    // Hacemos dos peticiones a la vez para ser más eficientes
+    const [chatResult, profileResult] = await Promise.all([
+      supabase.from('user_chats').select('chats').eq('user_id', user.sub).single(),
+      supabase.from('profiles').select('credits, gamification_state').eq('id', user.sub).single()
+    ]);
 
-    // Maneja errores específicos de Supabase, pero no el caso de "no encontrado" (PGRST116)
-    if (error && error.code !== 'PGRST116') {
-      console.error('Supabase Error en load-chats:', error);
-      throw error;
-    }
+    // Manejo de errores
+    if (chatResult.error && chatResult.error.code !== 'PGRST116') throw chatResult.error;
+    if (profileResult.error && profileResult.error.code !== 'PGRST116') throw profileResult.error;
 
-    // Si se encuentra data, data.chats contendrá el objeto de estado.
-    // Si no se encuentra data, devuelve un objeto vacío.
-    return { statusCode: 200, body: JSON.stringify(data?.chats || {}) };
+    // El objeto de estado completo { state, currentChatId } está en chatResult.data.chats
+    const stateData = chatResult.data?.chats || {};
+    // El perfil con los créditos está en profileResult.data
+    const profileData = profileResult.data || null;
 
+    // Combinamos todo en una sola respuesta para el cliente
+    const response = {
+      ...stateData, // Esto expande el objeto a: state: {...}, currentChatId: '...'
+      profile: profileData // Y añadimos el perfil: profile: { credits: X, ... }
+    };
+
+    return { statusCode: 200, body: JSON.stringify(response) };
   } catch (err) {
-    console.error('Error en la función load-chats:', err);
+    console.error('Error in load-chats function:', err);
     return {
       statusCode: 500,
-      body: JSON.stringify({
-        error: 'Failed to load chats.',
-        details: err.message,
-      }),
+      body: JSON.stringify({ error: 'Failed to load data.', details: err.message }),
     };
   }
 };
