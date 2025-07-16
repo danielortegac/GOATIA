@@ -4666,7 +4666,11 @@ async function loadChats(userId) {
              * @returns {object} Un objeto que contiene los créditos restantes, el límite total y el plan.
              */
             function getCreditCount() {
-                if (!currentUser) {
+                
+                if (typeof remoteCredits === 'number') {
+                    return { remaining: remoteCredits, limit: remoteCredits, plan: currentUser?.app_metadata?.plan || 'free' };
+                }
+if (!currentUser) {
                     // Lógica para usuarios invitados
                     const usageData = JSON.parse(localStorage.getItem('guest_usage')) || { count: 0 };
                     return { remaining: Math.max(0, GUEST_CREDIT_LIMIT - usageData.count), limit: GUEST_CREDIT_LIMIT, plan: 'free (guest)' };
@@ -9121,12 +9125,15 @@ async function loadChats(userId) {
         }
     }
     finishInitialization(user);
-});
+loadCreditsFromServer();
+        await loadCreditsFromServer();
+                    });
                 // Manejar el inicio de sesión del usuario
                 netlifyIdentity.on('login', async (user) => {
         try { currentUserToken = await user.jwt(); } catch(e) { console.warn('JWT error', e); }
                     netlifyIdentity.close(); // Cerrar el widget de identidad
-                    finishInitialization(user); // Finalizar la inicialización de la aplicación
+                    finishInitialization(user); loadCreditsFromServer();
+        // Finalizar la inicialización de la aplicación
                 });
                 // Manejar el cierre de sesión del usuario
                 netlifyIdentity.on('logout', () => {
@@ -9211,6 +9218,35 @@ async function loadChats(userId) {
             }
         });
     });
+</script>
+<script>
+// ==== REMOTE CREDIT SYNC (PATCH v1) ====
+let remoteCredits = null;
+async function loadCreditsFromServer() {
+    if (!currentUserToken) return;
+    try {
+        const res = await fetch('/.netlify/functions/get-usage', {
+            headers: { Authorization: `Bearer ${currentUserToken}` }
+        });
+        const { credits } = await res.json();
+        if (typeof credits === 'number') remoteCredits = credits;
+        updateCreditCounter?.();
+    } catch (err) { console.error('[Credits] Get error', err); }
+}
+async function spendRemoteCredits(delta) {
+    if (!currentUserToken) return;
+    try {
+        const res = await fetch('/.netlify/functions/update-usage', {
+            method: 'POST',
+            headers: { 'Content-Type':'application/json', Authorization: `Bearer ${currentUserToken}` },
+            body: JSON.stringify({ delta })
+        });
+        const { credits } = await res.json();
+        if (typeof credits === 'number') remoteCredits = credits;
+        updateCreditCounter?.();
+    } catch (err) { console.error('[Credits] Update error', err); }
+}
+// ==== END PATCH ====
 </script>
 </body>
 </html>
