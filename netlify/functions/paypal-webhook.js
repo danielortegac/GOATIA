@@ -1,66 +1,81 @@
 // netlify/functions/paypal-webhook.js
-const { createClient } = require('@supabase/supabase-js');
+const fetch = require('node-fetch');
 
-exports.handler = async ({ body, headers }) => {
-    // Validar que el webhook viene de PayPal (esto es una validación básica, para producción se recomienda una más robusta)
-    if (!headers['paypal-transmission-id']) {
-        return { statusCode: 400, body: 'Webhook no parece ser de PayPal.' };
+// Función para obtener un token de administrador de Netlify
+async function getNetlifyAdminToken() {
+    const response = await fetch('https://api.netlify.com/oauth/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            grant_type: 'client_credentials',
+            client_id: process.env.NETLIFY_OAUTH_CLIENT_ID,
+            client_secret: process.env.NETLIFY_OAUTH_CLIENT_SECRET
+        })
+    });
+    const data = await response.json();
+    return data.access_token;
+}
+
+
+exports.handler = async (event) => {
+    if (event.httpMethod !== 'POST') {
+        return { statusCode: 405, body: 'Method Not Allowed' };
     }
-    
-    const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 
     try {
-        const paypalEvent = JSON.parse(body);
+        const paypalEvent = JSON.parse(event.body);
 
-        // Escuchar el evento de suscripción activada
         if (paypalEvent.event_type === 'BILLING.SUBSCRIPTION.ACTIVATED') {
             const resource = paypalEvent.resource;
             const userId = resource.custom_id;
-            const planId = resource.plan_id;
-            const subscriptionId = resource.id;
-
-            // Determinar qué plan se compró basado en el Plan ID de PayPal
-            let planName;
-            if (planId === process.env.PAYPAL_BOOST_PLAN_ID) {
-                planName = 'boost';
-            } else if (planId === process.env.PAYPAL_PRO_PLAN_ID) {
-                planName = 'pro';
-            } else {
-                console.warn(`Plan ID desconocido recibido: ${planId}`);
-                planName = 'unknown'; // O maneja el error como prefieras
-            }
+            const paypalPlanId = resource.plan_id;
 
             if (!userId) {
-                console.error('Webhook recibido sin userId en custom_id.');
-                return { statusCode: 400, body: 'Falta el ID de usuario.' };
+                console.error("Webhook de PayPal recibido sin 'custom_id' (userId).");
+                return { statusCode: 400, body: 'Falta userId.' };
             }
 
-            // Actualizar la tabla de usuarios en Supabase para reflejar el nuevo plan
-            const { error } = await supabase
-                .from('users') // Asumiendo que tienes una tabla 'users'
-                .update({ 
-                    plan: planName, 
-                    paypal_subscription_id: subscriptionId,
-                    subscription_status: 'active'
-                })
-                .eq('id', userId);
-
-            if (error) {
-                console.error('Error al actualizar el usuario en Supabase:', error);
-                throw error;
+            let planName;
+            if (paypalPlanId === process.env.PAYPAL_BOOST_PLAN_ID) {
+                planName = 'boost';
+            } else if (paypalPlanId === process.env.PAYPAL_PRO_PLAN_ID) {
+                planName = 'pro';
+            } else {
+                console.warn(`Webhook con Plan ID desconocido: ${paypalPlanId}`);
+                return { statusCode: 400, body: 'Plan ID desconocido.' };
             }
             
-            console.log(`Usuario ${userId} actualizado al plan ${planName}.`);
+            const adminToken = await getNetlifyAdminToken();
+            const siteId = process.env.SITE_ID;
+
+            const response = await fetch(`https://api.netlify.com/api/v1/sites/${siteId}/identity/${userId}`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${adminToken}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    app_metadata: {
+                        plan: planName,
+                        roles: [planName, 'member'],
+                        paypal_subscription_id: resource.id
+                    }
+                })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                console.error('Error al actualizar usuario en Netlify:', errorData);
+                throw new Error('No se pudo actualizar el plan del usuario.');
+            }
+
+            console.log(`Usuario ${userId} actualizado al plan '${planName}' exitosamente.`);
         }
         
-        // Aquí podrías manejar otros eventos importantes, como:
-        // BILLING.SUBSCRIPTION.CANCELLED
-        // BILLING.SUBSCRIPTION.SUSPENDED
-        
-        return { statusCode: 200, body: 'Webhook procesado correctamente.' };
+        return { statusCode: 200, body: 'Webhook procesado.' };
 
     } catch (error) {
-        console.error('Error procesando el webhook de PayPal:', error);
-        return { statusCode: 500, body: `Error en Webhook: ${error.message}` };
+        console.error('Error procesando webhook:', error);
+        return { statusCode: 500, body: `Webhook Error: ${error.message}` };
     }
 };
