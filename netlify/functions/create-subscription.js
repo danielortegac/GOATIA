@@ -1,75 +1,93 @@
-// netlify/functions/create-subscription.js
-const fetch = require('node-fetch');
+/*
+ * Goatify – create-subscription.js  (solo Sandbox)
+ */
 
-const BASE_URL = process.env.PAYPAL_ENV === 'live'
-  ? 'https://api-m.paypal.com'
-  : 'https://api-m.sandbox.paypal.com';
+const fetch = require('node-fetch')
 
-async function getAccessToken() {
-    const auth = Buffer.from(`${process.env.PAYPAL_CLIENT_ID}:${process.env.PAYPAL_SECRET}`).toString('base64');
-    const response = await fetch(`${BASE_URL}/v1/oauth2/token`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Authorization': `Basic ${auth}` },
-        body: 'grant_type=client_credentials'
-    });
-    const data = await response.json();
-    if (!response.ok) throw new Error('Error de autenticación con PayPal.');
-    return data.access_token;
+const BASE_URL =
+  process.env.PAYPAL_ENV === 'live'
+    ? 'https://api-m.paypal.com'
+    : 'https://api-m.sandbox.paypal.com'
+
+// --- OAuth ----------------------------------------------------------
+async function getAccessToken () {
+  const auth = Buffer.from(
+    `${process.env.PAYPAL_CLIENT_ID}:${process.env.PAYPAL_CLIENT_SECRET}`
+  ).toString('base64')
+
+  const res = await fetch(`${BASE_URL}/v1/oauth2/token`, {
+    method : 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      Authorization : `Basic ${auth}`
+    },
+    body: 'grant_type=client_credentials'
+  })
+
+  const json = await res.json()
+  if (!res.ok) {
+    console.error('OAuth error:', json)
+    throw new Error('PayPal invalid_client – revisa ID y Secret')
+  }
+  return json.access_token
 }
 
-exports.handler = async (event, context) => {
-    if (event.httpMethod !== 'POST') {
-        return { statusCode: 405, body: 'Método no permitido' };
+// --- Lambda ---------------------------------------------------------
+exports.handler = async (event) => {
+  if (event.httpMethod !== 'POST') {
+    return { statusCode: 405, body: 'Only POST allowed' }
+  }
+
+  // 1) Plan solicitado
+  const { plan = 'boost', user_email = 'guest@goatify.app' } =
+    JSON.parse(event.body || '{}')
+
+  const PLAN_MAP = {
+    boost: process.env.PAYPAL_BOOST_PLAN_ID,
+    pro  : process.env.PAYPAL_PRO_PLAN_ID
+  }
+  const plan_id = PLAN_MAP[plan]
+
+  if (!plan_id) {
+    console.error(`Plan id not configured for "${plan}"`)
+    return { statusCode: 400, body: 'Plan id not configured on server' }
+  }
+
+  try {
+    // 2) Token
+    const token = await getAccessToken()
+
+    // 3) Crear suscripción
+    const res = await fetch(`${BASE_URL}/v1/billing/subscriptions`, {
+      method : 'POST',
+      headers: {
+        Authorization   : `Bearer ${token}`,
+        'Content-Type'  : 'application/json',
+        'PayPal-Request-Id': `sub-${Date.now()}`
+      },
+      body: JSON.stringify({
+        plan_id,
+        custom_id: user_email,
+        subscriber: { email_address: user_email },
+        application_context: {
+          brand_name : 'Goatify IA',
+          user_action: 'SUBSCRIBE_NOW',
+          return_url : 'https://www.goatify.app?ok',
+          cancel_url : 'https://www.goatify.app?cancel'
+        }
+      })
+    })
+
+    const data = await res.json()
+    if (!res.ok) {
+      console.error('PayPal subscription error:', data)
+      return { statusCode: res.status, body: JSON.stringify(data) }
     }
 
-    const { user } = context.clientContext;
-    if (!user) {
-        return { statusCode: 401, body: JSON.stringify({ error: 'Acceso no autorizado.' }) };
-    }
-
-    try {
-        const { plan } = JSON.parse(event.body || '{}');
-        if (!plan) {
-            return { statusCode: 400, body: JSON.stringify({ error: 'El plan no fue especificado.' }) };
-        }
-
-        const planIdMap = {
-            'boost': process.env.PAYPAL_BOOST_PLAN_ID,
-            'pro': process.env.PAYPAL_PRO_PLAN_ID
-        };
-        const paypalPlanId = planIdMap[plan];
-
-        if (!paypalPlanId) {
-            return { statusCode: 400, body: JSON.stringify({ error: `Configuración de plan inválida para: ${plan}` }) };
-        }
-
-        const accessToken = await getAccessToken();
-
-        const response = await fetch(`${BASE_URL}/v1/billing/subscriptions`, {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                plan_id: paypalPlanId,
-                custom_id: user.sub,
-                application_context: {
-                    brand_name: 'Goatify IA',
-                    user_action: 'SUBSCRIBE_NOW',
-                    return_url: 'https://www.goatify.app?subscription=success',
-                    cancel_url: 'https://www.goatify.app?subscription=cancelled'
-                }
-            })
-        });
-
-        const subscriptionData = await response.json();
-
-        if (response.ok && subscriptionData.links) {
-            const approvalUrl = subscriptionData.links.find(link => link.rel === 'approve').href;
-            return { statusCode: 200, body: JSON.stringify({ approvalUrl }) };
-        } else {
-            throw new Error(subscriptionData.message || 'Error al crear la suscripción en PayPal.');
-        }
-    } catch (err) {
-        console.error('Error en create-subscription:', err.message);
-        return { statusCode: 500, body: JSON.stringify({ error: 'Error interno del servidor.', details: err.message }) };
-    }
-};
+    const approvalUrl = data.links.find(l => l.rel === 'approve')?.href
+    return { statusCode: 200, body: JSON.stringify({ approvalUrl }) }
+  } catch (err) {
+    console.error('Fatal error:', err)
+    return { statusCode: 500, body: err.message }
+  }
+}
