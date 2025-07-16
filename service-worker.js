@@ -1,75 +1,67 @@
-// service-worker.js
+/* eslint-disable no-undef */
 
-// VERSIÓN INCREMENTADA PARA FORZAR LA ACTUALIZACIÓN
-const CACHE_NAME = 'goatify-ia-cache-v23'; 
+// Incrementar cada vez que cambies esta lista
+const CACHE_NAME = 'goatify-ia-cache-v24';
 
-// Solo cacheamos los archivos locales. Los externos (CDN, Google Fonts) los maneja el navegador.
+/* ⚠️  Los nombres con espacios rompen cache.addAll() en algunos navegadores.
+   Renombra tu imagen a logos-hd.png (o usa %20) en el repo:
+   public/logos-hd.png →  /logos-hd.png
+*/
 const urlsToCache = [
   '/',
   '/index.html',
-  '/manifest.json', // Añadido para PWA
-  '/Logos HD.png',
-  // Quitamos los URLs externos que causaban el error de CORS
+  '/manifest.json',
+  '/logos-hd.png'
 ];
 
-// Instala el Service Worker y guarda los archivos base en el caché.
+// ------------ INSTALL ------------
 self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => {
-      console.log('Service Worker: Abriendo caché y guardando archivos base');
-      return cache.addAll(urlsToCache);
-    }).then(() => {
-      // Forzar la activación del nuevo Service Worker inmediatamente
-      console.log('Service Worker: Skip waiting. Forzando activación.');
-      return self.skipWaiting();
-    }).catch(error => {
-      // Este log es crucial para ver si la instalación falla
-      console.error('Service Worker: Falló la instalación', error);
-    })
+    caches.open(CACHE_NAME)
+      .then(cache => {
+        console.log('[SW] Caching core files');
+        return cache.addAll(urlsToCache);
+      })
+      .then(() => self.skipWaiting())     // Inmediatamente activo
+      .catch(err => console.error('[SW] Install failed:', err))
   );
 });
 
-// Activa el Service Worker y elimina cachés viejos.
+// ------------ ACTIVATE ------------
 self.addEventListener('activate', event => {
   event.waitUntil(
-    caches.keys().then(cacheNames => {
-      return Promise.all(
-        cacheNames.map(cacheName => {
-          if (CACHE_NAME !== cacheName) {
-            console.log('Service Worker: Eliminando caché antiguo:', cacheName);
-            return caches.delete(cacheName);
-          }
-        })
-      );
-    }).then(() => {
-      console.log('Service Worker: Reclamando clientes.');
-      return self.clients.claim();
-    })
+    caches.keys()
+      .then(keys => Promise.all(
+        keys.map(k => k !== CACHE_NAME && caches.delete(k))
+      ))
+      .then(() => self.clients.claim())
   );
 });
 
-// Intercepta las solicitudes y responde desde el caché si es posible (estrategia Cache First).
+// ------------ FETCH ------------
 self.addEventListener('fetch', event => {
-  event.respondWith(
-    caches.match(event.request).then(response => {
-      // Si se encuentra en caché, lo devuelve. Si no, va a la red.
-      return response || fetch(event.request);
-    })
-  );
+  // Solo caché de mismo origen; para externos deja que el navegador decida
+  if (event.request.url.startsWith(self.location.origin)) {
+    event.respondWith(
+      caches.match(event.request, { ignoreSearch: true })
+        .then(resp => resp || fetch(event.request))
+    );
+  }
 });
 
-// Listener para notificaciones push (sin cambios)
+// ------------ PUSH NOTIFICATIONS ------------
 self.addEventListener('push', event => {
-  console.log('¡Notificación Push Recibida!');
-  const data = event.data.json();
-  const title = data.title || 'Goatify IA';
+  const data = event.data?.json() || {};
+  const title   = data.title || 'Goatify IA';
   const options = {
-    body: data.body || 'Tienes una nueva notificación.',
-    icon: './Logos HD.png',
-    badge: './Logos HD.png'
+    body : data.body  || 'Tienes una nueva notificación.',
+    icon : '/logos-hd.png',
+    badge: '/logos-hd.png'
   };
-  event.waitUntil(self.registration.showNotification(title, options));
-  if (navigator.setAppBadge) {
-    navigator.setAppBadge(1);
-  }
+
+  event.waitUntil(
+    self.registration.showNotification(title, options)
+  );
+
+  // setAppBadge solo existe en la página; aquí no sirve
 });
