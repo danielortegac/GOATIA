@@ -1,98 +1,84 @@
-/*
- * Goatify – create‑subscription.js
- * Funciona en Netlify Functions sin Netlify Identity
- * Usa PayPal Sandbox si PAYPAL_ENV = "sandbox"
- *
- * Env vars necesarias en Netlify → Site settings → Environment:
- *  PAYPAL_ENV            sandbox
- *  PAYPAL_CLIENT_ID      TU_CLIENT_ID_SANDBOX
- *  PAYPAL_CLIENT_SECRET  TU_CLIENT_SECRET_SANDBOX
- *  URL                   https://www.goatify.app     ← dominio
- */
+const fetch = require('node-fetch');
 
-import fetch from 'node-fetch'
+const BASE_URL = process.env.PAYPAL_ENV === 'live'
+  ? 'https://api-m.paypal.com'
+  : 'https://api-m.sandbox.paypal.com';
 
-const BASE =
-  process.env.PAYPAL_ENV === 'live'
-    ? 'https://api-m.paypal.com'
-    : 'https://api-m.sandbox.paypal.com'
-
-// --- obtiene token OAuth 2.0 -------------------------------------
-async function getAccessToken () {
-  const creds = Buffer.from(
-    `${process.env.PAYPAL_CLIENT_ID}:${process.env.PAYPAL_CLIENT_SECRET}`
-  ).toString('base64')
-
-  const res = await fetch(`${BASE}/v1/oauth2/token`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Basic ${creds}`,
-      'Content-Type': 'application/x-www-form-urlencoded'
-    },
-    body: 'grant_type=client_credentials'
-  })
-
-  const json = await res.json()
-  if (!res.ok) {
-    console.error('OAuth error:', json)
-    throw new Error(json.error_description || 'OAuth failed')
-  }
-  return json.access_token
+async function getAccessToken() {
+    const auth = Buffer.from(`${process.env.PAYPAL_CLIENT_ID}:${process.env.PAYPAL_SECRET}`).toString('base64');
+    const response = await fetch(`${BASE_URL}/v1/oauth2/token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Authorization': `Basic ${auth}` },
+        body: 'grant_type=client_credentials'
+    });
+    const data = await response.json();
+    if (!response.ok) {
+        console.error("Error al obtener token de PayPal:", data);
+        throw new Error('Error de autenticación con PayPal. Revisa tus variables de entorno PAYPAL_CLIENT_ID y PAYPAL_SECRET.');
+    }
+    return data.access_token;
 }
 
-// --- endpoint -----------------------------------------------------
-export const handler = async (event) => {
-  try {
-    /* ----------------------------------------------------------------
-       Esperamos un JSON { plan_id: "P-XXXX", user_email?: "..." }
-       Si no llega email, usamos guest@goatify.app
-    -----------------------------------------------------------------*/
-    const body = JSON.parse(event.body || '{}')
-    const plan_id   = body.plan_id
-    const user_mail = body.user_email || 'guest@goatify.app'
-
-    if (!plan_id) {
-      return { statusCode: 400, body: 'plan_id missing' }
+exports.handler = async (event, context) => {
+    if (event.httpMethod !== 'POST') {
+        return { statusCode: 405, body: JSON.stringify({ error: 'Método no permitido' }) };
     }
 
-    // 1) token OAuth
-    const token = await getAccessToken()
+    const { user } = context.clientContext;
+    if (!user) {
+        return { statusCode: 401, body: JSON.stringify({ error: 'Acceso no autorizado. El usuario debe iniciar sesión.' }) };
+    }
 
-    // 2) crear suscripción
-    const subRes = await fetch(`${BASE}/v1/billing/subscriptions`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        plan_id,
-        custom_id: user_mail,            // lo guardarás luego en Supabase
-        subscriber: { email_address: user_mail },
-        application_context: {
-          brand_name : 'Goatify',
-          locale     : 'es-EC',
-          user_action: 'SUBSCRIBE_NOW',
-          return_url : `${process.env.URL}/thanks`,
-          cancel_url : `${process.env.URL}/cancel`
+    try {
+        const { plan } = JSON.parse(event.body || '{}');
+        if (!plan) {
+            return { statusCode: 400, body: JSON.stringify({ error: 'El plan no fue especificado. El frontend debe enviar el "plan".' }) };
         }
-      })
-    })
 
-    const subJson = await subRes.json()
-    if (!subRes.ok) {
-      console.error('PayPal error:', subJson)
-      return { statusCode: subRes.status, body: JSON.stringify(subJson) }
-    }
+        const planIdMap = {
+            'boost': process.env.PAYPAL_BOOST_PLAN_ID,
+            'pro': process.env.PAYPAL_PRO_PLAN_ID
+        };
+        const paypalPlanId = planIdMap[plan];
 
-    // 3) devolver approval URL
-    const approval = subJson.links?.find(l => l.rel === 'approve')?.href
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ approval })
+        if (!paypalPlanId) {
+            console.error(`ID de plan no encontrado para el plan '${plan}'. Verifica las variables PAYPAL_BOOST_PLAN_ID y PAYPAL_PRO_PLAN_ID en Netlify.`);
+            return { statusCode: 400, body: JSON.stringify({ error: `Configuración de plan inválida en el servidor para: ${plan}` }) };
+        }
+
+        const accessToken = await getAccessToken();
+
+        const response = await fetch(`${BASE_URL}/v1/billing/subscriptions`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json',
+                'PayPal-Request-Id': `sub-${user.sub}-${Date.now()}`
+            },
+            body: JSON.stringify({
+                plan_id: paypalPlanId,
+                custom_id: user.sub,
+                application_context: {
+                    brand_name: 'Goatify IA',
+                    user_action: 'SUBSCRIBE_NOW',
+                    return_url: 'https://www.goatify.app?subscription=success',
+                    cancel_url: 'https://www.goatify.app?subscription=cancelled'
+                }
+            })
+        });
+
+        const subscriptionData = await response.json();
+
+        if (response.ok && subscriptionData.links) {
+            const approvalUrl = subscriptionData.links.find(link => link.rel === 'approve').href;
+            return { statusCode: 200, body: JSON.stringify({ approvalUrl }) };
+        } else {
+            console.error('Error en la API de PayPal al crear la suscripción:', subscriptionData);
+            return { statusCode: response.status, body: JSON.stringify({ error: 'Error al iniciar la suscripción en PayPal.', details: subscriptionData }) };
+        }
+
+    } catch (err) {
+        console.error('Error fatal en la función create-subscription:', err);
+        return { statusCode: 500, body: JSON.stringify({ error: 'Error interno del servidor.', details: err.message }) };
     }
-  } catch (err) {
-    console.error('create-subscription crashed:', err)
-    return { statusCode: 500, body: err.message }
-  }
-}
+};
