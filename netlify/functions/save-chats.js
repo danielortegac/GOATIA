@@ -1,3 +1,4 @@
+// netlify/functions/save-chats.js
 const { createClient } = require('@supabase/supabase-js');
 
 exports.handler = async (event, context) => {
@@ -16,23 +17,20 @@ exports.handler = async (event, context) => {
         // 2. Usamos la clave de SERVICIO para tener permisos de escritura
         const supabaseAdmin = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 
-        // 3. Apuntamos a la tabla 'chats' y la columna 'chats', que es lo que tu app usa.
+        // 3. Guardamos en la tabla 'user_data' (asegúrate de que exista en Supabase)
         const { error } = await supabaseAdmin
-            .from('chats') 
+            .from('user_data') 
             .upsert({ 
                 user_id: user.sub, 
-                chats: stateToSave, // Guardamos el estado en la columna 'chats'
+                state: stateToSave,
                 updated_at: new Date().toISOString() 
             }, { onConflict: 'user_id' });
 
-        if (error) {
-            console.error('Error de Supabase en save-chats:', error);
-            throw error; // Esto lanzará un error 500 si Supabase falla
-        }
+        if (error) { throw error; }
 
         return { statusCode: 200, body: 'OK' };
     } catch (err) {
-        console.error('Crash en la función save-chats:', err);
+        console.error('Error en save-chats:', err);
         return { statusCode: 500, body: JSON.stringify({ error: err.message }) };
     }
 };
