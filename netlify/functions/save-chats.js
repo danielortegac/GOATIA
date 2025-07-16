@@ -8,43 +8,59 @@ exports.handler = async (event, context) => {
   }
 
   try {
-    const { stateToSave } = JSON.parse(event.body);
-    if (!stateToSave) {
-      return { statusCode: 400, body: JSON.stringify({ error: 'Missing stateToSave in request body.' }) };
-    }
+    // Ahora esperamos tanto el estado del chat como el perfil del usuario
+    const { stateToSave, profileToSave } = JSON.parse(event.body);
 
     const supabase = createClient(
       process.env.SUPABASE_URL,
       process.env.SUPABASE_SERVICE_KEY
     );
 
-    const { error } = await supabase
-      .from('user_chats')
-      .upsert(
-        {
-          user_id: user.sub,
-          chats: stateToSave, // 'chats' es la columna jsonb
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'user_id' } // Actualiza si ya existe un registro para el usuario
-      );
+    const promises = [];
 
-    if (error) {
-      // Registra el error específico de Supabase para depuración
-      console.error('Supabase Error en save-chats:', error);
-      throw error;
+    // 1. Guardar el estado del chat (si se proporcionó)
+    if (stateToSave) {
+      promises.push(
+        supabase.from('user_chats').upsert(
+          {
+            user_id: user.sub,
+            chats: stateToSave,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'user_id' }
+        )
+      );
     }
 
-    return { statusCode: 200, body: JSON.stringify({ message: 'State saved successfully.' }) };
+    // 2. Actualizar el perfil del usuario (créditos y gamificación)
+    if (profileToSave) {
+      promises.push(
+        supabase.from('profiles').update(
+          {
+            credits: profileToSave.credits,
+            gamification_state: profileToSave.gamificationState,
+            updated_at: new Date().toISOString(),
+          }
+        ).eq('id', user.sub)
+      );
+    }
+
+    // Ejecutamos ambas operaciones en paralelo
+    const results = await Promise.all(promises);
+
+    // Verificamos si alguna de las operaciones falló
+    for (const result of results) {
+      if (result.error) {
+        throw result.error;
+      }
+    }
+
+    return { statusCode: 200, body: JSON.stringify({ message: 'Data saved successfully.' }) };
   } catch (err) {
-    // Captura cualquier error y lo devuelve en la respuesta
-    console.error('Error en la función save-chats:', err);
+    console.error('Error in save-chats function:', err);
     return {
       statusCode: 500,
-      body: JSON.stringify({
-        error: 'Failed to save chats.',
-        details: err.message,
-      }),
+      body: JSON.stringify({ error: 'Failed to save data.', details: err.message }),
     };
   }
 };
