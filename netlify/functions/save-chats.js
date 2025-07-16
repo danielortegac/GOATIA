@@ -1,16 +1,38 @@
-import { createClient } from '@supabase/supabase-js'
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY)
+const { createClient } = require('@supabase/supabase-js');
 
-export const handler = async (event, context) => {
-  const user = context.clientContext?.user
-  if (!user) return { statusCode: 401, body: 'No auth' }
+exports.handler = async (event, context) => {
+    // 1. Verificamos que el usuario esté autenticado
+    const { user } = context.clientContext;
+    if (!user) {
+        return { statusCode: 401, body: JSON.stringify({ error: 'No autorizado' }) };
+    }
 
-  const { chats } = JSON.parse(event.body || '{}')
+    try {
+        const { stateToSave } = JSON.parse(event.body);
+        if (!stateToSave) {
+            return { statusCode: 400, body: 'No hay estado para guardar.' };
+        }
 
-  const { error } = await supabase
-    .from('user_chats')
-    .upsert({ user_id: user.sub, chats })
+        // 2. Usamos la clave de SERVICIO para tener permisos de escritura
+        const supabaseAdmin = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 
-  if (error) return { statusCode: 500, body: error.message }
-  return { statusCode: 200, body: 'saved' }
-}
+        // 3. Apuntamos a la tabla 'chats' y la columna 'chats', que es lo que tu app usa.
+        const { error } = await supabaseAdmin
+            .from('chats') 
+            .upsert({ 
+                user_id: user.sub, 
+                chats: stateToSave, // Guardamos el estado en la columna 'chats'
+                updated_at: new Date().toISOString() 
+            }, { onConflict: 'user_id' });
+
+        if (error) {
+            console.error('Error de Supabase en save-chats:', error);
+            throw error; // Esto lanzará un error 500 si Supabase falla
+        }
+
+        return { statusCode: 200, body: 'OK' };
+    } catch (err) {
+        console.error('Crash en la función save-chats:', err);
+        return { statusCode: 500, body: JSON.stringify({ error: err.message }) };
+    }
+};
