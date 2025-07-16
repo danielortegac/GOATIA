@@ -1,7 +1,6 @@
-/* netlify/functions/create-subscription.js
-   Crea la orden de suscripción en PayPal                    */
+// netlify/functions/create-subscription.js
 
-import fetch from 'node-fetch'
+const fetch = require('node-fetch')
 
 const BASE = process.env.PAYPAL_ENV === 'live'
   ? 'https://api-m.paypal.com'
@@ -11,20 +10,20 @@ async function getAccessToken () {
   const res = await fetch(`${BASE}/v1/oauth2/token`, {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/x-www-form-urlencoded'
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Authorization': 'Basic ' + Buffer.from(
+        `${process.env.PAYPAL_CLIENT_ID}:${process.env.PAYPAL_SECRET}`
+      ).toString('base64')
     },
-    body: 'grant_type=client_credentials',
-    auth: {
-      username: process.env.PAYPAL_CLIENT_ID,
-      password: process.env.PAYPAL_SECRET
-    }
+    body: 'grant_type=client_credentials'
   })
+
   const json = await res.json()
   if (!res.ok) throw new Error(JSON.stringify(json))
   return json.access_token
 }
 
-export const handler = async (event) => {
+exports.handler = async (event) => {
   try {
     const { plan_id, user_id } = JSON.parse(event.body || '{}')
     if (!plan_id || !user_id) {
@@ -33,7 +32,7 @@ export const handler = async (event) => {
 
     const token = await getAccessToken()
 
-    const order = await fetch(`${BASE}/v1/billing/subscriptions`, {
+    const res = await fetch(`${BASE}/v1/billing/subscriptions`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,
@@ -41,15 +40,16 @@ export const handler = async (event) => {
       },
       body: JSON.stringify({
         plan_id,
-        custom_id: user_id          //  ⚑  te permite mapear usuario → subs
+        custom_id: user_id
       })
-    }).then(r => r.json())
+    })
+
+    const order = await res.json()
 
     if (order.status === 'ACTIVE' || order.status === 'APPROVAL_PENDING') {
       return { statusCode: 200, body: JSON.stringify(order) }
     }
 
-    // cualquier otra cosa es error
     return { statusCode: 502, body: JSON.stringify(order) }
   } catch (err) {
     return { statusCode: 500, body: err.message }
