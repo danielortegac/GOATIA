@@ -1,68 +1,61 @@
-// netlify/functions/create-subscription.js
-const fetch = require('node-fetch');
+// netlify/functions/save-chats.ts  (o .js)
 
-// --- helpers ---------------------------------------------------------------
-async function getPayPalAccessToken () {
-  const auth = Buffer
-    .from(`${process.env.PAYPAL_CLIENT_ID}:${process.env.PAYPAL_CLIENT_SECRET}`)
-    .toString('base64');
+import { createClient } from '@supabase/supabase-js'
 
-  const rsp = await fetch('https://api.sandbox.paypal.com/v1/oauth2/token', {
-    method: 'POST',
-    headers: { Authorization: `Basic ${auth}` },
-    body: 'grant_type=client_credentials'
-  });
+// 1) Cliente Supabase
+const supabase = createClient(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_ANON_KEY!
+)
 
-  const data = await rsp.json();
-  if (!rsp.ok) throw new Error(JSON.stringify(data));
-  return data.access_token;
+// 2) Cabeceras CORS
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Content-Type',
 }
-// ---------------------------------------------------------------------------
 
-exports.handler = async (event) => {
-  /* ⚠️  QUITAMOS el filtro 401 para que cualquiera pueda llamar.           */
-  /* Si más adelante quieres volver a proteger, re‑activa el bloque.        */
-  // if (!event.clientContext || !event.clientContext.user) {
-  //   return { statusCode: 401, body: 'No autorizado' };
-  // }
+export const handler = async (event) => {
+  // 3) Pre‑flight de CORS
+  if (event.httpMethod === 'OPTIONS') {
+    return { statusCode: 200, headers: corsHeaders }
+  }
+
+  // 4) Solo permitimos POST
+  if (event.httpMethod !== 'POST') {
+    return { statusCode: 405, headers: corsHeaders, body: 'Method Not Allowed' }
+  }
+
+  // 5) Parsear el cuerpo
+  let body
+  try {
+    body = JSON.parse(event.body || '{}')
+  } catch {
+    return { statusCode: 400, headers: corsHeaders, body: 'Body must be JSON' }
+  }
+
+  const { user_id, chats } = body
+  if (!user_id || !chats) {
+    return { statusCode: 400, headers: corsHeaders, body: 'Missing user_id or chats' }
+  }
 
   try {
-    const { plan = 'boost' } = JSON.parse(event.body || '{}');
-    const planId = plan === 'boost'
-      ? process.env.PAYPAL_PLAN_ID_BOOST
-      : process.env.PAYPAL_PLAN_ID_PRO;
+    // 6) UPSERT (crea o actualiza la fila)
+    const { error } = await supabase
+      .from('user_chats')
+      .upsert({
+        user_id,
+        chats,
+        updated_at: new Date().toISOString(),
+      })
 
-    const access = await getPayPalAccessToken();
+    if (error) {
+      console.error('Supabase error →', error)
+      return { statusCode: 500, headers: corsHeaders, body: JSON.stringify(error) }
+    }
 
-    const rsp = await fetch(
-      'https://api.sandbox.paypal.com/v1/billing/subscriptions',
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${access}`,
-          'Content-Type': 'application/json',
-          'PayPal-Request-Id': `sub-${Date.now()}`
-        },
-        body: JSON.stringify({
-          plan_id: planId,
-          custom_id: `anon-${Date.now()}`,        // ← cualquier string
-          application_context: {
-            brand_name: 'Goatify IA',
-            return_url: 'https://www.goatify.app/success.html',
-            cancel_url: 'https://www.goatify.app/cancel.html'
-          }
-        })
-      }
-    );
-
-    const data = await rsp.json();
-    if (!rsp.ok) throw new Error(JSON.stringify(data));
-
-    const approve = data.links.find(l => l.rel === 'approve')?.href;
-    return { statusCode: 200, body: JSON.stringify({ approvalUrl: approve }) };
-
-  } catch (err) {
-    console.error('create‑subscription ERROR →', err);
-    return { statusCode: 500, body: JSON.stringify({ error: err.message }) };
+    return { statusCode: 200, headers: corsHeaders, body: 'OK' }
+  } catch (e) {
+    console.error('Runtime error →', e)
+    return { statusCode: 500, headers: corsHeaders, body: e.message }
   }
-};
+}
