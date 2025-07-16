@@ -1,61 +1,57 @@
-// netlify/functions/save-chats.ts  (o .js)
+/* netlify/functions/create-subscription.js
+   Crea la orden de suscripción en PayPal                    */
 
-import { createClient } from '@supabase/supabase-js'
+import fetch from 'node-fetch'
 
-// 1) Cliente Supabase
-const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_ANON_KEY!
-)
+const BASE = process.env.PAYPAL_ENV === 'live'
+  ? 'https://api-m.paypal.com'
+  : 'https://api-m.sandbox.paypal.com'
 
-// 2) Cabeceras CORS
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type',
+async function getAccessToken () {
+  const res = await fetch(`${BASE}/v1/oauth2/token`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded'
+    },
+    body: 'grant_type=client_credentials',
+    auth: {
+      username: process.env.PAYPAL_CLIENT_ID,
+      password: process.env.PAYPAL_SECRET
+    }
+  })
+  const json = await res.json()
+  if (!res.ok) throw new Error(JSON.stringify(json))
+  return json.access_token
 }
 
 export const handler = async (event) => {
-  // 3) Pre‑flight de CORS
-  if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 200, headers: corsHeaders }
-  }
-
-  // 4) Solo permitimos POST
-  if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, headers: corsHeaders, body: 'Method Not Allowed' }
-  }
-
-  // 5) Parsear el cuerpo
-  let body
   try {
-    body = JSON.parse(event.body || '{}')
-  } catch {
-    return { statusCode: 400, headers: corsHeaders, body: 'Body must be JSON' }
-  }
-
-  const { user_id, chats } = body
-  if (!user_id || !chats) {
-    return { statusCode: 400, headers: corsHeaders, body: 'Missing user_id or chats' }
-  }
-
-  try {
-    // 6) UPSERT (crea o actualiza la fila)
-    const { error } = await supabase
-      .from('user_chats')
-      .upsert({
-        user_id,
-        chats,
-        updated_at: new Date().toISOString(),
-      })
-
-    if (error) {
-      console.error('Supabase error →', error)
-      return { statusCode: 500, headers: corsHeaders, body: JSON.stringify(error) }
+    const { plan_id, user_id } = JSON.parse(event.body || '{}')
+    if (!plan_id || !user_id) {
+      return { statusCode: 400, body: 'Missing plan_id or user_id' }
     }
 
-    return { statusCode: 200, headers: corsHeaders, body: 'OK' }
-  } catch (e) {
-    console.error('Runtime error →', e)
-    return { statusCode: 500, headers: corsHeaders, body: e.message }
+    const token = await getAccessToken()
+
+    const order = await fetch(`${BASE}/v1/billing/subscriptions`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        plan_id,
+        custom_id: user_id          //  ⚑  te permite mapear usuario → subs
+      })
+    }).then(r => r.json())
+
+    if (order.status === 'ACTIVE' || order.status === 'APPROVAL_PENDING') {
+      return { statusCode: 200, body: JSON.stringify(order) }
+    }
+
+    // cualquier otra cosa es error
+    return { statusCode: 502, body: JSON.stringify(order) }
+  } catch (err) {
+    return { statusCode: 500, body: err.message }
   }
 }
