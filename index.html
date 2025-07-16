@@ -2484,7 +2484,7 @@ async function loadChats(userId) {
 <li><i class="fas fa-star"></i>Gamificación: Gana créditos extra</li>
 </ul>
 </div>
-<button class="select-plan-btn mt-auto w-full p-3 rounded-lg font-semibold btn-primary transition-colors" data-plan="P-8HB99902MH453394ANB3QHTA" data-translate-key="plan_boost_cta">Obtener Boost</button>
+<button class="select-plan-btn mt-auto w-full p-3 rounded-lg font-semibold btn-primary transition-colors" data-plan="boost" data-translate-key="plan_boost_cta">Obtener Boost</button>
 </div>
 <!-- Pro Plan Card -->
 <div class="plan-card border-2 border-themed rounded-xl p-6 flex flex-col">
@@ -9170,85 +9170,47 @@ async function loadChats(userId) {
         }); // Fin de DOMContentLoaded
      
     // ---- Suscripción PayPal ----
- document.querySelectorAll('.select-plan-btn').forEach(btn => {
-            btn.addEventListener('click', async () => {
-                const plan = btn.dataset.plan; // Obtiene 'boost' o 'pro'
-
-                if (!window.netlifyIdentity) {
-                    alert('El servicio de autenticación no está disponible. Por favor, recarga la página.');
-                    return;
-                }
-                const user = window.netlifyIdentity.currentUser();
-
-                if (!user) {
-                    // Si el usuario no ha iniciado sesión, lo guardamos para más tarde
-                    localStorage.setItem('pending_subscription_plan', plan);
-                    netlifyIdentity.open('login'); // Le pedimos que inicie sesión
-                    return;
-                }
-
-                // Si el usuario ya inició sesión, procedemos directamente
-                try {
-                    const token = await user.jwt(true); // Forzamos la renovación del token para asegurar que sea válido
-                    
-                    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
-                    btn.disabled = true;
-
-                    const res = await fetch('/.netlify/functions/create-subscription', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${token}`
-                        },
-                        // ¡AQUÍ ESTÁ LA CORRECCIÓN CLAVE!
-                        // Ahora enviamos el plan de forma correcta.
-                        body: JSON.stringify({ plan: plan }) 
-                    });
-
-                    const data = await res.json();
-
-                    if (!res.ok) {
-                        console.error('Error desde la función:', data);
-                        throw new Error(data.error || 'Error al crear la suscripción');
-                    }
-
-                    if (data.approvalUrl) {
-                        // Si todo sale bien, redirigimos al usuario a PayPal
-                        window.location.href = data.approvalUrl;
-                    } else {
-                        throw new Error('No se recibió la URL de aprobación de PayPal.');
-                    }
-
-                } catch (err) {
-                    console.error('[Goatify] Error en suscripción:', err);
-                    alert(`No se pudo procesar la suscripción: ${err.message}. Por favor, contacta a soporte.`);
-                    btn.textContent = `Obtener ${plan.charAt(0).toUpperCase() + plan.slice(1)}`;
-                    btn.disabled = false;
-                }
-            });
-        });
-
-        // Este listener se asegura de que si un usuario inicia sesión,
-        // se complete el pago que tenía pendiente.
-        netlifyIdentity.on('login', (user) => {
-            const pendingPlan = localStorage.getItem('pending_subscription_plan');
-            if (pendingPlan) {
-                localStorage.removeItem('pending_subscription_plan');
-                const buttonToClick = document.querySelector(`.select-plan-btn[data-plan='${pendingPlan}']`);
-                if (buttonToClick) {
-                    setTimeout(() => buttonToClick.click(), 500); // Pequeño retraso para asegurar que todo esté listo
-                }
+    document.querySelectorAll('.select-plan-btn').forEach(btn=>{
+        btn.addEventListener('click', async ()=> {
+            const plan = btn.dataset.plan;
+            console.log('[Goatify] Click suscripción', plan);
+            // Asegúrate de que Netlify Identity esté cargado
+            if (!window.netlifyIdentity) {
+                alert('Netlify Identity no está disponible.');
+                return;
             }
-            // Aseguramos que el resto de la app se inicialice correctamente tras el login
-            if (typeof finishInitialization === 'function') {
-                finishInitialization(user);
+            const user = window.netlifyIdentity.currentUser();
+            if (!user) {
+                // Si no está logueado, abre el widget de login
+                window.netlifyIdentity.open('login');
+                return;
+            }
+            try {
+                const token = await user.jwt();
+                const res = await fetch('/.netlify/functions/create-subscription', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ plan })
+                });
+                if (!res.ok) {
+                    throw new Error('Error al crear la suscripción');
+                }
+                const data = await res.json();
+                if (data.approvalUrl) {
+                    window.location.href = data.approvalUrl; // Redirección a PayPal
+                } else {
+                    console.error('No se recibió la URL de aprobación.');
+                    alert('Error al iniciar el pago. Intenta nuevamente.');
+                }
+            } catch (err) {
+                console.error('[Goatify] Error durante la suscripción:', err);
+                alert('No se pudo procesar la suscripción. Vuelve a intentarlo.');
             }
         });
-
-        // Asegúrate de que el resto de tu código JS original esté aquí
-        // ... (Aquí iría el resto de tu código como la función finishInitialization, setupEventListeners, etc.)
     });
 </script>
 </body>
 </html>
- 
