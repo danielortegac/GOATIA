@@ -1,67 +1,63 @@
-/* eslint-disable no-undef */
+/* Goatify IA SW – versión vanilla, sin bundler */
+/* Incrementa CACHE_VERSION si cambias esta lista ------------------- */
+const CACHE_VERSION = 25;
+const CACHE_NAME    = `goatify-cache-v${CACHE_VERSION}`;
 
-// Incrementar cada vez que cambies esta lista
-const CACHE_NAME = 'goatify-ia-cache-v24';
-
-/* ⚠️  Los nombres con espacios rompen cache.addAll() en algunos navegadores.
-   Renombra tu imagen a logos-hd.png (o usa %20) en el repo:
-   public/logos-hd.png →  /logos-hd.png
-*/
-const urlsToCache = [
-  '/',
+const CORE_ASSETS = [
+  '/',                 // index.html
   '/index.html',
   '/manifest.json',
-  '/logos-hd.png'
+  '/logos-hd.png'      // ← renombrado SIN espacios
 ];
 
-// ------------ INSTALL ------------
+/* ---------------- INSTALL ---------------- */
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
-        console.log('[SW] Caching core files');
-        return cache.addAll(urlsToCache);
+        console.log('[SW] Caching core assets…');
+        return cache.addAll(CORE_ASSETS);
       })
-      .then(() => self.skipWaiting())     // Inmediatamente activo
+      .then(() => self.skipWaiting())         // listo de inmediato
       .catch(err => console.error('[SW] Install failed:', err))
   );
 });
 
-// ------------ ACTIVATE ------------
+/* ---------------- ACTIVATE --------------- */
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys()
       .then(keys => Promise.all(
-        keys.map(k => k !== CACHE_NAME && caches.delete(k))
+        keys
+          .filter(k => k !== CACHE_NAME)      // elimina viejos
+          .map(k => caches.delete(k))
       ))
       .then(() => self.clients.claim())
   );
 });
 
-// ------------ FETCH ------------
+/* --------------- FETCH (Cache ‑ First) --- */
 self.addEventListener('fetch', event => {
-  // Solo caché de mismo origen; para externos deja que el navegador decida
-  if (event.request.url.startsWith(self.location.origin)) {
-    event.respondWith(
-      caches.match(event.request, { ignoreSearch: true })
-        .then(resp => resp || fetch(event.request))
-    );
-  }
+  // Sólo interceptamos peticiones de mismo origen
+  if (!event.request.url.startsWith(self.location.origin)) return;
+
+  event.respondWith(
+    caches.match(event.request, { ignoreSearch: true })
+      .then(resp => resp || fetch(event.request))
+  );
 });
 
-// ------------ PUSH NOTIFICATIONS ------------
+/* --------------- PUSH -------------------- */
 self.addEventListener('push', event => {
-  const data = event.data?.json() || {};
-  const title   = data.title || 'Goatify IA';
-  const options = {
-    body : data.body  || 'Tienes una nueva notificación.',
-    icon : '/logos-hd.png',
-    badge: '/logos-hd.png'
-  };
-
+  const data = event.data?.json() ?? {};
   event.waitUntil(
-    self.registration.showNotification(title, options)
+    self.registration.showNotification(
+      data.title ?? 'Goatify IA',
+      {
+        body : data.body  ?? 'Tienes una nueva notificación.',
+        icon : '/logos-hd.png',
+        badge: '/logos-hd.png'
+      }
+    )
   );
-
-  // setAppBadge solo existe en la página; aquí no sirve
 });
