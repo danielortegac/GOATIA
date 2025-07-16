@@ -1,3 +1,4 @@
+// netlify/functions/create-subscription.js
 const fetch = require('node-fetch');
 
 const BASE_URL = process.env.PAYPAL_ENV === 'live'
@@ -12,27 +13,24 @@ async function getAccessToken() {
         body: 'grant_type=client_credentials'
     });
     const data = await response.json();
-    if (!response.ok) {
-        console.error("Error al obtener token de PayPal:", data);
-        throw new Error('Error de autenticación con PayPal. Revisa tus variables de entorno PAYPAL_CLIENT_ID y PAYPAL_SECRET.');
-    }
+    if (!response.ok) throw new Error('Error de autenticación con PayPal.');
     return data.access_token;
 }
 
 exports.handler = async (event, context) => {
     if (event.httpMethod !== 'POST') {
-        return { statusCode: 405, body: JSON.stringify({ error: 'Método no permitido' }) };
+        return { statusCode: 405, body: 'Método no permitido' };
     }
 
     const { user } = context.clientContext;
     if (!user) {
-        return { statusCode: 401, body: JSON.stringify({ error: 'Acceso no autorizado. El usuario debe iniciar sesión.' }) };
+        return { statusCode: 401, body: JSON.stringify({ error: 'Acceso no autorizado.' }) };
     }
 
     try {
         const { plan } = JSON.parse(event.body || '{}');
         if (!plan) {
-            return { statusCode: 400, body: JSON.stringify({ error: 'El plan no fue especificado. El frontend debe enviar el "plan".' }) };
+            return { statusCode: 400, body: JSON.stringify({ error: 'El plan no fue especificado.' }) };
         }
 
         const planIdMap = {
@@ -42,19 +40,14 @@ exports.handler = async (event, context) => {
         const paypalPlanId = planIdMap[plan];
 
         if (!paypalPlanId) {
-            console.error(`ID de plan no encontrado para el plan '${plan}'. Verifica las variables PAYPAL_BOOST_PLAN_ID y PAYPAL_PRO_PLAN_ID en Netlify.`);
-            return { statusCode: 400, body: JSON.stringify({ error: `Configuración de plan inválida en el servidor para: ${plan}` }) };
+            return { statusCode: 400, body: JSON.stringify({ error: `Configuración de plan inválida para: ${plan}` }) };
         }
 
         const accessToken = await getAccessToken();
 
         const response = await fetch(`${BASE_URL}/v1/billing/subscriptions`, {
             method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${accessToken}`,
-                'Content-Type': 'application/json',
-                'PayPal-Request-Id': `sub-${user.sub}-${Date.now()}`
-            },
+            headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 plan_id: paypalPlanId,
                 custom_id: user.sub,
@@ -73,12 +66,10 @@ exports.handler = async (event, context) => {
             const approvalUrl = subscriptionData.links.find(link => link.rel === 'approve').href;
             return { statusCode: 200, body: JSON.stringify({ approvalUrl }) };
         } else {
-            console.error('Error en la API de PayPal al crear la suscripción:', subscriptionData);
-            return { statusCode: response.status, body: JSON.stringify({ error: 'Error al iniciar la suscripción en PayPal.', details: subscriptionData }) };
+            throw new Error(subscriptionData.message || 'Error al crear la suscripción en PayPal.');
         }
-
     } catch (err) {
-        console.error('Error fatal en la función create-subscription:', err);
+        console.error('Error en create-subscription:', err.message);
         return { statusCode: 500, body: JSON.stringify({ error: 'Error interno del servidor.', details: err.message }) };
     }
 };
