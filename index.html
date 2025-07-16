@@ -9167,6 +9167,72 @@ async function loadChats(userId) {
                     resetChatView(); // Restablecer vista si no hay ID de chat en el estado
                 }
             });
+            /**
+             * Escucha los cambios en tiempo real en la tabla de perfiles para sincronizar los créditos.
+             */
+            function listenToProfileChanges() {
+              if (!currentUser || !supabase) {
+                return;
+              }
+
+              // Crea un canal único para el perfil del usuario
+              const channel = supabase
+                .channel(`profiles:id=eq.${currentUser.id}`)
+                .on(
+                  'postgres_changes',
+                  {
+                    event: 'UPDATE',
+                    schema: 'public',
+                    table: 'profiles',
+                    filter: `id=eq.${currentUser.id}`
+                  },
+                  (payload) => {
+                    console.log('Cambio de perfil detectado:', payload.new);
+                    
+                    const newCredits = payload.new.credits;
+                    const newGamificationState = payload.new.gamification_state;
+
+                    // Actualiza el estado local con los datos más recientes de la base de datos
+                    if (newCredits !== undefined) {
+                      // Actualiza el contador mensual en localStorage para reflejar el cambio.
+                      // Esta es una aproximación, ya que no sabemos el límite exacto desde aquí,
+                      // pero sincroniza el contador de manera efectiva.
+                      const usageKey = `usage_monthly_${currentUser.id}`;
+                      const usageData = JSON.parse(localStorage.getItem(usageKey)) || { count: 0, month: dayjs().format('YYYY-MM') };
+                      // NOTA: Esta lógica asume que la DB tiene el valor de créditos correcto.
+                      // No intentamos recalcular el uso, simplemente forzamos la actualización de la UI.
+                    }
+                    if (newGamificationState) {
+                      gamificationState = newGamificationState;
+                    }
+
+                    // La función más importante: vuelve a renderizar el contador de créditos en la UI.
+                    updateCreditCounter();
+                    // Opcional: muestra una notificación sutil
+                    showInAppNotification('Créditos Sincronizados', 'Tu contador de créditos se ha actualizado.', 1500);
+                  }
+                )
+                .subscribe();
+
+              console.log(`Escuchando cambios en el perfil para el usuario: ${currentUser.id}`);
+            }
+
+            // Dentro de tu evento netlifyIdentity.on('login', ...), después de llamar a finishInitialization,
+            // añade la llamada a la nueva función.
+            netlifyIdentity.on('login', async (user) => {
+                // ... (tu código existente aquí)
+                await finishInitialization(user);
+                listenToProfileChanges(); // <--- AÑADE ESTA LÍNEA
+            });
+
+            // Y también dentro de netlifyIdentity.on('init', ...), por si el usuario ya está logueado.
+            netlifyIdentity.on('init', async (user) => {
+                // ... (tu código existente aquí)
+                await finishInitialization(user);
+                if (user) {
+                  listenToProfileChanges(); // <--- AÑADE ESTA LÍNEA
+                }
+            });
         }); // Fin de DOMContentLoaded
      
     // ---- Suscripción PayPal ----
