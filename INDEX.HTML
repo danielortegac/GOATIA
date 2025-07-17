@@ -9433,8 +9433,8 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 
+
 <script>
-// Sincroniza los créditos y gamification_state desde Supabase al cargar
 document.addEventListener('DOMContentLoaded', async () => {
   const user = netlifyIdentity.currentUser();
   if (!user) return;
@@ -9449,21 +9449,35 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
     const result = await res.json();
 
-    if (result && result.credits !== undefined) {
-      window.syncCredits = result.credits;
-      if (typeof window.setCreditCount === 'function') {
-        window.setCreditCount(result.credits);
-      }
-    }
-
-    if (result.gamification_state) {
-      try {
-        const gamification = JSON.parse(result.gamification_state);
-        if (typeof window.setGamificationState === 'function') {
-          window.setGamificationState(gamification);
+    if (result) {
+      // GAMIFICATION STATE SYNC
+      if (result.gamification_state) {
+        try {
+          const gamification = JSON.parse(result.gamification_state);
+          if (typeof window.setGamificationState === 'function') {
+            window.setGamificationState(gamification);
+          }
+        } catch (err) {
+          console.warn("Error parsing gamification_state:", err);
         }
-      } catch (err) {
-        console.warn("Error parsing gamification_state:", err);
+      }
+
+      // CREDIT SYNC & INIT LOGIC
+      if (typeof window.setCreditCount === 'function') {
+        let existingCredits = result.credits;
+        if (existingCredits === null || existingCredits === undefined) {
+          // Primera vez: asignamos los 100 créditos iniciales
+          existingCredits = 100;
+          await fetch('/.netlify/functions/update-usage', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`
+            },
+            body: JSON.stringify({ delta: 100 })
+          });
+        }
+        window.setCreditCount(existingCredits);
       }
     }
   } catch (err) {
