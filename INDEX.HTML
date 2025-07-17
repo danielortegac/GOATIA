@@ -9592,38 +9592,39 @@ supabase.auth.onAuthStateChange(async (event, session) => {
     updateCreditsDisplay(currentCredits); // modo invitado
   }
 });
-</script><script>
-const supabase = supabase.createClient('https://gsaubeuxhfkakhvhreqj.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdzYXViZXV4aGZrYWtodmhyZXFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTEzOTIyMTUsImV4cCI6MjA2Njk2ODIxNX0.o9YS5BQvzkUV9Hkpvum9w-Uz8fNeb6b9-P7FkiPNfp8');
+</script>
+<script type="module">
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm";
 
-async function syncCreditsFromSupabase() {
-    try {
-        const { data: { user }, error } = await supabase.auth.getUser();
-        if (error || !user) {
-            console.error("Authentication failed:", error);
-            return;
-        }
-        const userId = user.id;
-        const res = await fetch("/.netlify/functions/get-usage", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({ userId })
-        });
+const supabase = createClient(
+    "https://gsaubeuxhfkakhvhreqj.supabase.co",
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdzYXViZXV4aGZrYWtodmhyZXFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTEzOTIyMTUsImV4cCI6MjA2Njk2ODIxNX0.o9YS5BQvzkUV9Hkpvum9w-Uz8fNeb6b9-P7FkiPNfp8"
+);
 
-        const json = await res.json();
-        if (json.credits !== undefined) {
-            document.getElementById("credit-count").innerText = json.credits;
-        } else {
-            console.warn("Unexpected response:", json);
+async function syncCredits() {
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error || !user) {
+        console.error("User not authenticated", error);
+        return;
+    }
+
+    const res = await fetch("/.netlify/functions/get-usage", {
+        headers: {
+            Authorization: `Bearer ${user.id}`
         }
-    } catch (e) {
-        console.error("Failed to sync credits:", e);
+    });
+
+    const json = await res.json();
+    if (json.credits !== undefined) {
+        document.getElementById("credit-count").innerText = json.credits;
+    } else {
+        console.warn("Could not retrieve credits:", json);
     }
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-    syncCreditsFromSupabase();
+    syncCredits();
 });
-</script></body>
+</script>
+</body>
 </html>
