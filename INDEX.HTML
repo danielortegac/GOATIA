@@ -9153,12 +9153,26 @@ loadCreditsFromServer();
         await loadCreditsFromServer();
                     });
                 // Manejar el inicio de sesión del usuario
-                netlifyIdentity.on('login', async (user) => {
-        try { currentUserToken = await user.jwt(); } catch(e) { console.warn('JWT error', e); }
-                    netlifyIdentity.close(); // Cerrar el widget de identidad
-                    finishInitialization(user); loadCreditsFromServer();
-        // Finalizar la inicialización de la aplicación
-                });
+           netlifyIdentity.on('login', async (user) => {
+  try {
+    const response = await fetch('/.netlify/functions/get-usage', {
+      headers: {
+        Authorization: `Bearer ${user.token.access_token}`
+      }
+    });
+    const { credits } = await response.json();
+
+    const planCreditsDisplay = document.getElementById('plan-credits-display');
+    if (planCreditsDisplay) {
+      planCreditsDisplay.textContent = `0/${credits}`;
+    }
+
+    netlifyIdentity.close();
+    finishInitialization(user);
+  } catch (error) {
+    console.error('Error al cargar créditos:', error);
+  }
+});
                 // Manejar el cierre de sesión del usuario
                 netlifyIdentity.on('logout', () => {
                     // Borrar todo el almacenamiento local relacionado con los datos del usuario al cerrar sesión
