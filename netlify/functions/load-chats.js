@@ -13,25 +13,33 @@ exports.handler = async (event, context) => {
       process.env.SUPABASE_SERVICE_KEY
     );
 
-    // Hacemos dos peticiones a la vez para ser más eficientes
     const [chatResult, profileResult] = await Promise.all([
       supabase.from('user_chats').select('chats').eq('user_id', user.sub).single(),
       supabase.from('profiles').select('credits, gamification_state').eq('id', user.sub).single()
     ]);
 
-    // Manejo de errores
-    if (chatResult.error && chatResult.error.code !== 'PGRST116') throw chatResult.error;
-    if (profileResult.error && profileResult.error.code !== 'PGRST116') throw profileResult.error;
+    if (profileResult.error && profileResult.error.code === 'PGRST116') {
+      // Si no existe el perfil, créalo con 100 créditos iniciales
+      const { error: insertError } = await supabase
+        .from('profiles')
+        .insert({
+          id: user.sub,
+          credits: 100,
+          gamification_state: {},
+          updated_at: new Date()
+        });
+      if (insertError) throw insertError;
+      profileResult.data = { credits: 100, gamification_state: {} };
+    } else if (profileResult.error) {
+      throw profileResult.error;
+    }
 
-    // El objeto de estado completo { state, currentChatId } está en chatResult.data.chats
     const stateData = chatResult.data?.chats || {};
-    // El perfil con los créditos está en profileResult.data
     const profileData = profileResult.data || null;
 
-    // Combinamos todo en una sola respuesta para el cliente
     const response = {
-      ...stateData, // Esto expande el objeto a: state: {...}, currentChatId: '...'
-      profile: profileData // Y añadimos el perfil: profile: { credits: X, ... }
+      ...stateData,
+      profile: profileData
     };
 
     return { statusCode: 200, body: JSON.stringify(response) };
