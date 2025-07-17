@@ -2738,17 +2738,26 @@ async function loadChats(userId) {
 </script>
 <script type="module">
     async function syncCreditsFromSupabase() {
-        const usageRes = await fetch('/.netlify/functions/get-usage', {
-            headers: {
-                Authorization: `Bearer ${currentUser.token.access_token}`
-            }
-        });
-        const usageData = await usageRes.json();
-        const usageKey = `usage_monthly_${currentUser.id}`;
-        const currentMonth = dayjs().format('YYYY-MM');
+    const usageRes = await fetch('/.netlify/functions/get-usage', {
+        headers: {
+            Authorization: `Bearer ${currentUser.token.access_token}`
+        }
+    });
+    const usageData = await usageRes.json();
+
+    const usageKey = `usage_monthly_${currentUser.id}`;
+    const currentMonth = dayjs().format('YYYY-MM');
+    const savedUsage = JSON.parse(localStorage.getItem(usageKey)) || { count: 0, month: '' };
+
+    // Solo actualiza si el mes cambió o si no existía
+    if (savedUsage.month !== currentMonth || typeof savedUsage.count !== 'number') {
         localStorage.setItem(usageKey, JSON.stringify({ count: usageData.credits, month: currentMonth }));
-        document.getElementById('credit-count').textContent = usageData.credits; // si tienes UI para mostrarlo
     }
+
+    // Actualiza la UI (si hay elemento para mostrarlo)
+    document.getElementById('credit-count').textContent = usageData.credits;
+}
+
     
 
 
