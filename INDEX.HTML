@@ -4704,81 +4704,61 @@ if (!currentUser) {
              * @param {number} cost - El número de créditos a gastar.
              * @param {string} modelUsed - El ID del modelo utilizado (ej. 'gpt-4o').
              * @returns {boolean} Verdadero si los créditos se gastaron correctamente, falso en caso contrario.
-             // REEMPLAZA TU FUNCIÓN ANTERIOR CON ESTA VERSIÓN FINAL
-function spendCredits(cost, modelUsed) {
-    const lang = localStorage.getItem('goatify-lang') || 'es';
+             */
+            function spendCredits(cost, modelUsed) {
+                // Comprobar el límite diario de GOAT X PRO para usuarios que han iniciado sesión
+                if (modelUsed === 'gpt-4o' && currentUser) {
+                    const today = dayjs().format('YYYY-MM-DD');
+                    const proUsageKey = `goat_x_pro_usage_${currentUser?.id || 'guest'}_${today}`;
+                    goatXProUsage = parseInt(localStorage.getItem(proUsageKey) || '0');
 
-    // --- Lógica para usuarios que han iniciado sesión (Conectada al Backend) ---
-    if (currentUser) {
-        // 1. Comprobar el límite diario de GOAT X PRO (tu lógica original)
-        if (modelUsed === 'gpt-4o') {
-            const today = dayjs().format('YYYY-MM-DD');
-            const proUsageKey = `goat_x_pro_usage_${currentUser.id}_${today}`;
-            let proUsage = parseInt(localStorage.getItem(proUsageKey) || '0');
+                    if (goatXProUsage >= GOAT_X_PRO_DAILY_LIMIT) {
+                        showModal({
+                            title: 'Límite de Uso Alcanzado para GOAT X PRO',
+                            body: `Has alcanzado el límite de ${GOAT_X_PRO_DAILY_LIMIT} usos diarios para el modelo GOAT X PRO. Por favor, usa el modelo GOAT X (General) o espera hasta mañana para volver a usar GOAT X PRO.`,
+                            confirmText: 'Entendido',
+                            showCancel: false
+                        }).then(() => {
+                            // Revertir el selector de modelo a GOAT X si se alcanza el límite
+                            dom.modelSelector.value = 'gpt-3.5-turbo-1106';
+                            if (document.getElementById('project-model-selector')) document.getElementById('project-model-selector').value = 'gpt-3.5-turbo-1106';
+                            if (document.getElementById('financial-model-selector')) document.getElementById('financial-model-selector').value = 'gpt-3.5-turbo-1106';
+                            if (document.getElementById('notepad-model-selector')) document.getElementById('notepad-model-selector').value = 'gpt-3.5-turbo-1106';
+                        });
+                        return false;
+                    }
+                }
 
-            if (proUsage >= GOAT_X_PRO_DAILY_LIMIT) {
-                showModal({
-                    title: 'Límite de Uso Alcanzado para GOAT X PRO',
-                    body: `Has alcanzado el límite de ${GOAT_X_PRO_DAILY_LIMIT} usos diarios para el modelo GOAT X PRO.`,
-                    confirmText: 'Entendido',
-                    showCancel: false
-                });
-                return false; // Detiene la acción
-            }
-        }
-        
-        // 2. Comprobar si hay suficientes créditos (remotos + gamificación)
-        const totalAvailableCredits = (remoteCredits !== null ? remoteCredits : 0) + (gamificationState.credits || 0);
-        if (totalAvailableCredits < cost) {
-            showModal({
-                title: 'Créditos Insuficientes',
-                body: 'No tienes suficientes créditos para esta acción. Por favor, mejora tu plan.',
-                confirmText: 'Ver Planes'
-            }).then(res => { if (res.confirmed) showPricingModal(); });
-            return false; // Detiene la acción
-        }
+                const { remaining } = getCreditCount();
+                const gamCredits = (gamificationState.credits || 0); // Obtener créditos de recompensa
 
-        // 3. ¡ACCIÓN CLAVE! Llamar a la función que descuenta los créditos en el servidor
-        spendRemoteCredits(cost);
-
-        // 4. Actualizar el contador de uso de GOAT X PRO en localStorage
-        if (modelUsed === 'gpt-4o') {
-            const today = dayjs().format('YYYY-MM-DD');
-            const proUsageKey = `goat_x_pro_usage_${currentUser.id}_${today}`;
-            let proUsage = parseInt(localStorage.getItem(proUsageKey) || '0');
-            localStorage.setItem(proUsageKey, (proUsage + 1).toString());
-        }
-
-        // 5. Actualizar la UI de forma "optimista" para que el usuario vea el cambio al instante
-        if (remoteCredits !== null) {
-            remoteCredits -= cost;
-        }
-        updateCreditCounter();
-
-        return true; // La acción (enviar mensaje) puede continuar
-
-    } 
-    // --- Lógica para Invitados (sin cambios, usa localStorage) ---
-    else {
-        const usageData = JSON.parse(localStorage.getItem('guest_usage')) || { count: 0 };
-        if (usageData.count + cost > GUEST_CREDIT_LIMIT) {
-            showModal({
-                title: translations[lang].login_for_credits_title,
-                body: translations[lang].login_for_credits_body,
-                confirmText: translations[lang].login_now_btn,
-                cancelText: translations[lang].view_plans_btn,
-            }).then(res => {
-                if (res.confirmed) { netlifyIdentity.open('login'); } 
-                else { showPricingModal(); }
-            });
-            return false;
-        }
-        usageData.count += cost;
-        localStorage.setItem('guest_usage', JSON.stringify(usageData));
-        updateCreditCounter();
-        return true;
-    }
-}
+                // Comprobar si los créditos totales disponibles son suficientes
+                if (remaining < cost && gamCredits < cost) {
+                    const lang = localStorage.getItem('goatify-lang') || 'es';
+                    if (!currentUser) {
+                         // Mostrar modal de inicio de sesión/actualización para usuarios invitados
+                         showModal({
+                            title: translations[lang].login_for_credits_title,
+                            body: translations[lang].login_for_credits_body,
+                            confirmText: translations[lang].login_now_btn,
+                            cancelText: translations[lang].view_plans_btn,
+                        }).then(res => {
+                            if (res.confirmed) {
+                                netlifyIdentity.open('login'); // Abrir el inicio de sesión de Netlify Identity
+                            } else {
+                                showPricingModal(); // Mostrar planes de precios
+                            }
+                        });
+                    } else {
+                        // Mostrar modal de créditos insuficientes para usuarios que han iniciado sesión
+                        showModal({
+                            title: 'Créditos Insuficientes',
+                            body: 'No tienes suficientes créditos de tu plan ni créditos de recompensa. Mejora tu plan para obtener más o espera al próximo mes.',
+                            confirmText: 'Ver Planes'
+                        }).then(res => { if (res.confirmed) showPricingModal(); });
+                    }
+                    return false;
+                }
 
                 // Priorizar los créditos del plan, luego los créditos de recompensa
                 if (remaining >= cost) {
