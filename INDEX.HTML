@@ -9323,15 +9323,20 @@ window.netlifyIdentity.on('login', async (user) =&gt; {
 // ==== REMOTE CREDIT SYNC (PATCH v1) ====
 let remoteCredits = null;
 async function loadCreditsFromServer() {
-    if (!currentUserToken) return;
-    try {
-        const res = await fetch('/.netlify/functions/get-usage', {
-            headers: { Authorization: `Bearer ${currentUserToken}` }
-        });
-        const { credits } = await res.json();
-        if (typeof credits === 'number') remoteCredits = credits;
-        updateCreditCounter?.();
-    } catch (err) { console.error('[Credits] Get error', err); }
+  try {
+    const response = await fetch('/.netlify/functions/get-usage', {
+      headers: {
+        Authorization: `Bearer ${user.token}` // si usas Netlify Identity
+      }
+    });
+    const data = await response.json();
+    if (data.credits !== undefined) {
+      credits = data.credits;
+      updateCreditsUI(credits); // <-- actualiza la UI si tienes una función así
+    }
+  } catch (err) {
+    console.error('Error fetching credits from server:', err);
+  }
 }
 async function spendRemoteCredits(delta) {
     if (!currentUserToken) return;
