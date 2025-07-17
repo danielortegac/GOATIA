@@ -9227,7 +9227,7 @@ loadCreditsFromServer();
     });
 </script>
 // ---- INICIO DEL PARCHE PARA ACTUALIZAR CRÉDITOS POST-PAGO ----
-document.addEventListener('DOMContentLoaded', async () => {
+document.addEventListener('DOMContentLoaded', async () =&gt; {
     const urlParams = new URLSearchParams(window.location.search);
     const paymentStatus = urlParams.get('payment');
 
@@ -9260,7 +9260,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 document.getElementById('plan-credits-display').textContent = `0/${newCredits}`;
 
                 if (typeof loadStateForUser === 'function') {
-                    setTimeout(() => {
+                    setTimeout(() =&gt; {
                         finishInitialization(user);
                     }, 1000);
                 }
@@ -9278,7 +9278,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 // ---- FIN DEL PARCHE ----
-window.netlifyIdentity.on('login', async (user) => {
+window.netlifyIdentity.on('login', async (user) =&gt; {
     try {
         const response = await fetch('/.netlify/functions/get-usage', {
             method: 'POST',
@@ -9322,9 +9322,8 @@ async function spendRemoteCredits(delta) {
 }
 // ==== END PATCH ====
 </script>
-
-  <!-- ==== PARCHE CRÉDITOS SYNC vFinal ==== -->
-  <script>
+<!-- ==== PARCHE CRÉDITOS SYNC vFinal ==== -->
+<script>
     // Variables internas para créditos
     var remoteCredits = null;
 
@@ -9409,7 +9408,6 @@ document.addEventListener('DOMContentLoaded', () => {
    netlifyIdentity.on('login', () => loadCreditsFromServer());
 });
 </script>
-
 <script>
 // Al cargar la página, sustituimos la función spendCredits original
 // para que además notifique al servidor del gasto de crédito.
@@ -9435,5 +9433,43 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 
+<script>
+// Sincroniza los créditos y gamification_state desde Supabase al cargar
+document.addEventListener('DOMContentLoaded', async () => {
+  const user = netlifyIdentity.currentUser();
+  if (!user) return;
+
+  const token = user.token.access_token;
+  try {
+    const res = await fetch('/.netlify/functions/get-usage', {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+    const result = await res.json();
+
+    if (result && result.credits !== undefined) {
+      window.syncCredits = result.credits;
+      if (typeof window.setCreditCount === 'function') {
+        window.setCreditCount(result.credits);
+      }
+    }
+
+    if (result.gamification_state) {
+      try {
+        const gamification = JSON.parse(result.gamification_state);
+        if (typeof window.setGamificationState === 'function') {
+          window.setGamificationState(gamification);
+        }
+      } catch (err) {
+        console.warn("Error parsing gamification_state:", err);
+      }
+    }
+  } catch (err) {
+    console.error("Error syncing profile from Supabase:", err);
+  }
+});
+</script>
 </body>
-</html> 
+</html>
