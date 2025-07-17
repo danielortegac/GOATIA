@@ -4705,7 +4705,18 @@ if (!currentUser) {
                     default: limit = LOGGED_IN_FREE_CREDITS;
                 }
 
-              
+                const usageKey = `usage_monthly_${currentUser.id}`;
+                const currentMonth = dayjs().format('YYYY-MM');
+                const usageData = JSON.parse(localStorage.getItem(usageKey)) || { count: 0, month: '' };
+
+                // Reiniciar el uso mensual si es un mes nuevo
+                if (usageData.month !== currentMonth) {
+                    localStorage.setItem(usageKey, JSON.stringify({ count: 0, month: currentMonth }));
+                    return { remaining: limit, limit, plan };
+                }
+
+                return { remaining: Math.max(0, limit - usageData.count), limit, plan };
+            }
             /**
              * Deduce créditos según el costo de la operación y el modelo utilizado.
              * Muestra modales para créditos insuficientes o límite diario de GOAT X PRO.
