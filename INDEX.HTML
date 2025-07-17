@@ -9526,5 +9526,57 @@ async function grantMonthlyCreditsIfNeeded(userId) {
 
 // Llamar esto justo después del login exitoso
 // await grantMonthlyCreditsIfNeeded(currentUser.id);
+</script><script>
+let currentCredits = 5; // Créditos del modo invitado
+let currentUserId = null;
+let supabaseUser = null;
+
+// Mostrar créditos en el DOM
+function updateCreditsDisplay(credits) {
+  const el = document.getElementById("creditos-actuales");
+  if (el) el.textContent = credits;
+}
+
+// Obtener token del usuario logueado
+async function getUserToken() {
+  const session = await supabase.auth.getSession();
+  return session?.data?.session?.access_token || "";
+}
+
+// Obtener créditos desde función serverless
+async function fetchCreditsFromBackend(userId) {
+  try {
+    const response = await fetch("/.netlify/functions/get-usage", {
+      headers: {
+        Authorization: "Bearer " + (await getUserToken())
+      }
+    });
+    const data = await response.json();
+    if (response.ok) {
+      currentCredits = data.credits || 0;
+      updateCreditsDisplay(currentCredits);
+    } else {
+      console.error("⚠️ Error fetching credits:", data.error);
+    }
+  } catch (err) {
+    console.error("💥 Backend error:", err);
+  }
+}
+
+// Sincronizar créditos mensuales si aplica
+async function grantMonthlyCreditsIfNeeded(userId) {
+  await fetchCreditsFromBackend(userId);
+}
+
+// Escuchar eventos de login con Supabase
+supabase.auth.onAuthStateChange(async (event, session) => {
+  if (session?.user) {
+    supabaseUser = session.user;
+    currentUserId = supabaseUser.id;
+    await grantMonthlyCreditsIfNeeded(currentUserId);
+  } else {
+    updateCreditsDisplay(currentCredits); // modo invitado
+  }
+});
 </script></body>
 </html>
