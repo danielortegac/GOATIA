@@ -9449,39 +9449,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
     const result = await res.json();
 
-    if (result) {
-      // GAMIFICATION STATE SYNC
-      if (result.gamification_state) {
-        try {
-          const gamification = JSON.parse(result.gamification_state);
-          if (typeof window.setGamificationState === 'function') {
-            window.setGamificationState(gamification);
-          }
-        } catch (err) {
-          console.warn("Error parsing gamification_state:", err);
-        }
+    // Solo sincronizamos créditos reales del plan, y no tocamos gamification
+    if (result && typeof window.setCreditCount === 'function') {
+      let existingCredits = result.credits;
+      if (existingCredits === null || existingCredits === undefined) {
+        existingCredits = 100;
+        await fetch('/.netlify/functions/update-usage', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({ delta: 100 })
+        });
       }
-
-      // CREDIT SYNC & INIT LOGIC
-      if (typeof window.setCreditCount === 'function') {
-        let existingCredits = result.credits;
-        if (existingCredits === null || existingCredits === undefined) {
-          // Primera vez: asignamos los 100 créditos iniciales
-          existingCredits = 100;
-          await fetch('/.netlify/functions/update-usage', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`
-            },
-            body: JSON.stringify({ delta: 100 })
-          });
-        }
-        window.setCreditCount(existingCredits);
-      }
+      window.setCreditCount(existingCredits);
     }
   } catch (err) {
-    console.error("Error syncing profile from Supabase:", err);
+    console.error("Error syncing plan credits:", err);
   }
 });
 </script>
