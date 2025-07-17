@@ -4,11 +4,13 @@ const { createClient } = require('@supabase/supabase-js');
 exports.handler = async (event, context) => {
   const { user } = context.clientContext;
   if (!user) {
-    return { statusCode: 401, body: JSON.stringify({ error: 'Authentication required.' }) };
+    return {
+      statusCode: 401,
+      body: JSON.stringify({ error: 'Authentication required.' })
+    };
   }
 
   try {
-    // Ahora esperamos tanto el estado del chat como el perfil del usuario
     const { stateToSave, profileToSave } = JSON.parse(event.body);
 
     const supabase = createClient(
@@ -18,49 +20,56 @@ exports.handler = async (event, context) => {
 
     const promises = [];
 
-    // 1. Guardar el estado del chat (si se proporcionó)
+    // 1. Guardar (o actualizar) el chat
     if (stateToSave) {
       promises.push(
-        supabase.from('user_chats').upsert(
-          {
-            user_id: user.sub,
-            chats: stateToSave,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: 'user_id' }
-        )
+        supabase
+          .from('user_chats')
+          .upsert(
+            {
+              user_id: user.sub,
+              chats: stateToSave,
+              updated_at: new Date().toISOString()
+            },
+            { onConflict: 'user_id' }
+          )
       );
     }
 
-    // 2. Actualizar el perfil del usuario (créditos y gamificación)
-    if (profileToSave) {
+    // 2. Upsert del perfil (asegura que la fila exista y se actualice)
+    if (profileToSave && typeof profileToSave.credits === 'number') {
       promises.push(
-        supabase.from('profiles').update(
-          {
-            credits: profileToSave.credits,
-            gamification_state: profileToSave.gamificationState,
-            updated_at: new Date().toISOString(),
-          }
-        ).eq('id', user.sub)
+        supabase
+          .from('profiles')
+          .upsert(
+            {
+              id: user.sub,
+              credits: profileToSave.credits,
+              gamification_state: profileToSave.gamificationState || {},
+              updated_at: new Date().toISOString()
+            },
+            { onConflict: 'id' }
+          )
       );
     }
 
-    // Ejecutamos ambas operaciones en paralelo
+    // 3. Ejecuta ambas operaciones
     const results = await Promise.all(promises);
 
-    // Verificamos si alguna de las operaciones falló
-    for (const result of results) {
-      if (result.error) {
-        throw result.error;
-      }
+    // 4. Revisa errores
+    for (const res of results) {
+      if (res.error) throw res.error;
     }
 
-    return { statusCode: 200, body: JSON.stringify({ message: 'Data saved successfully.' }) };
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ message: 'Data saved successfully.' })
+    };
   } catch (err) {
     console.error('Error in save-chats function:', err);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: 'Failed to save data.', details: err.message }),
+      body: JSON.stringify({ error: 'Failed to save data.', details: err.message })
     };
   }
 };
