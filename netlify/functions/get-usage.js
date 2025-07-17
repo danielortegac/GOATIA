@@ -1,45 +1,46 @@
-// netlify/functions/get-usage.js
-
-// 1) Importa createClient de SupaBase
 const { createClient } = require('@supabase/supabase-js');
 
 exports.handler = async (event, context) => {
-  // 2) Obtiene el UUID del usuario desde Netlify Identity
   const userId = context.clientContext.user?.sub;
+  console.log('GET-USAGE: Received request for userId:', userId); // Añadir este log para depuración
+
   if (!userId) {
     return {
       statusCode: 401,
-      body: JSON.stringify({ error: 'Not logged in' })
+      body: JSON.stringify({ error: 'Not logged in or userId unavailable' }) // Mensaje más específico
     };
   }
 
-  // 3) Inicializa el cliente de SupaBase
   const supabase = createClient(
     process.env.SUPABASE_URL,
     process.env.SUPABASE_SERVICE_KEY
   );
 
   try {
-    // 4a) Intenta leer los créditos
     let { data, error, status } = await supabase
       .from('profiles')
       .select('credits')
       .eq('id', userId)
       .single();
 
-    // 4b) Si no existe fila (status 406), créala con 100 créditos
-    if (error && status === 406) {
+    if (error && status === 406) { // 406 Not Acceptable (Supabase custom for no rows)
+      console.log(`GET-USAGE: Profile not found for ${userId}. Creating new.`); // Log de creación
       const { data: newProfile, error: insertErr } = await supabase
         .from('profiles')
         .insert({
           id: userId,
-          credits: 100,
+          credits: 100, // Créditos iniciales al crear el perfil
           state: {},
           gamification_state: {},
           updated_at: new Date().toISOString()
         })
+        .select('credits') // Asegúrate de seleccionar los créditos del nuevo perfil
         .single();
-      if (insertErr) throw insertErr;
+
+      if (insertErr) {
+        console.error('GET-USAGE: Error inserting new profile:', insertErr);
+        throw insertErr;
+      }
 
       return {
         statusCode: 200,
@@ -47,20 +48,22 @@ exports.handler = async (event, context) => {
       };
     }
 
-    // 4c) Si cualquier otro error, lánzalo
-    if (error) throw error;
+    if (error) {
+      console.error('GET-USAGE: Supabase select error:', error);
+      throw error;
+    }
 
-    // 4d) Devuelve los créditos actuales
+    console.log(`GET-USAGE: Found credits for ${userId}: ${data.credits}`); // Log de créditos encontrados
     return {
       statusCode: 200,
       body: JSON.stringify({ credits: data.credits })
     };
 
   } catch (err) {
-    console.error('get-usage error:', err);
+    console.error('get-usage unhandled error:', err);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: err.message })
+      body: JSON.stringify({ error: err.message || 'An unknown error occurred' })
     };
   }
 };
