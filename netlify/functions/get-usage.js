@@ -1,47 +1,49 @@
 // netlify/functions/get-usage.js
-
-// 1) Import necesario
 const { createClient } = require('@supabase/supabase-js');
 
 exports.handler = async (event, context) => {
-  // 2) Autenticación
-  const { user } = context.clientContext;
-  if (!user) {
-    return {
-      statusCode: 401,
-      body: JSON.stringify({ error: 'Not logged in' })
-    };
+  // 1) Obtenemos el user.sub
+  const userId = context.clientContext.user?.sub;
+  if (!userId) {
+    return { statusCode: 401, body: JSON.stringify({ error: 'Not logged in' }) };
   }
 
-  // 3) Crea cliente de Supabase con tus variables de entorno
+  // 2) Creamos el cliente SupaBase
   const supabase = createClient(
     process.env.SUPABASE_URL,
     process.env.SUPABASE_SERVICE_KEY
   );
 
   try {
-    // 4) Lee los créditos actuales (solo lectura)
-    const { data, error } = await supabase
+    // 3) Intentamos leer la fila
+    let { data, error, status } = await supabase
       .from('profiles')
       .select('credits')
-      .eq('id', user.id)    // ¡OJO user.id, no user.sub!
+      .eq('ident_id', userId)
       .single();
 
-    if (error) {
-      console.error('Error get-usage:', error);
-      throw error;
+    // 4) Si NO existe aún (status 406 o error.code PGRST116), creamos el perfil
+    if (error && status === 406) {
+      const { data: newProfile, error: insErr } = await supabase
+        .from('profiles')
+        .insert({
+          ident_id: userId,
+          credits: 100,
+          state: {}.  // asegúrate de que estas columnas existan
+          gamification_state: {},
+          updated_at: new Date().toISOString()
+        })
+        .single();
+      if (insErr) throw insErr;
+      return { statusCode: 200, body: JSON.stringify({ credits: newProfile.credits }) };
     }
+    if (error) throw error;
 
-    // 5) Devuelve los créditos
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ credits: data.credits })
-    };
+    // 5) Si todo bien, devolvemos el saldo
+    return { statusCode: 200, body: JSON.stringify({ credits: data.credits }) };
 
   } catch (err) {
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: 'Failed to read credits.' })
-    };
+    console.error('🛑 get-usage error:', err);
+    return { statusCode: 500, body: JSON.stringify({ error: err.message }) };
   }
 };
