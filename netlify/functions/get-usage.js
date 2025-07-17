@@ -2,35 +2,20 @@
 const { createClient } = require('@supabase/supabase-js');
 
 exports.handler = async (event, context) => {
-  // 1) Captura token de la cabecera
-  const auth = event.headers.authorization || '';
-  const token = auth.replace('Bearer ', '');
-  if (!token) {
-    return {
-      statusCode: 401,
-      body: JSON.stringify({ error: 'Unauthorized' })
-    };
+  // 1. Get token from header
+  const { user } = context.clientContext;
+  if (!user) {
+    return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized: No user context.' }) };
   }
-  // 2) Verifica el user con SupaBase Auth
-  const supabaseAuth = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_KEY,
-    { global: { headers: { Authorization: `Bearer ${token}` } } }
-  );
-  const { data: jwtData, error: jwtErr } = await supabaseAuth.auth.getUser();
-  if (jwtErr || !jwtData.user) {
-    return {
-      statusCode: 401,
-      body: JSON.stringify({ error: 'Unauthorized' })
-    };
-  }
-  const userId = jwtData.user.id; // coincide con profiles.id
+  const userId = user.sub; // Get user ID from the verified context
 
-  // 3) Cliente admin para leer créditos
+  // 2. Create Supabase admin client to read credits
   const supabase = createClient(
     process.env.SUPABASE_URL,
     process.env.SUPABASE_SERVICE_KEY
   );
+
+  // 3. Fetch credits from the 'profiles' table
   const { data, error } = await supabase
     .from('profiles')
     .select('credits')
@@ -38,6 +23,11 @@ exports.handler = async (event, context) => {
     .single();
 
   if (error) {
+    // This can happen if the profile isn't created yet for a new user.
+    if (error.code === 'PGRST116') {
+        // Return 0 credits if no profile is found, as it might be a new signup.
+        return { statusCode: 200, body: JSON.stringify({ credits: 0 }) };
+    }
     console.error('get-usage error:', error);
     return {
       statusCode: 500,
