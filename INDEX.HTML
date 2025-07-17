@@ -1923,7 +1923,7 @@ async function loadChats(userId) {
 <meta content="Goatify IA - Tu Aliado Estratégico en Productividad y Negocios con IA" name="twitter:title"/>
 <meta content="Goatify IA es tu copiloto estratégico, una inteligencia artificial avanzada que combina dirección de proyectos, asistente financiero, y herramientas creativas únicas en el mercado para potenciar tu negocio y productividad." name="twitter:description"/>
 <meta content="./Logos HD.png" name="twitter:image"/>
-</head>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script></head>
 <body class="w-screen overflow-x-hidden dark-theme">
 <script src="https://identity.netlify.com/v1/netlify-identity-widget.js" type="text/javascript"></script>
 <script>var currentUserToken=null;</script>
@@ -9153,26 +9153,12 @@ loadCreditsFromServer();
         await loadCreditsFromServer();
                     });
                 // Manejar el inicio de sesión del usuario
-           netlifyIdentity.on('login', async (user) => {
-  try {
-    const response = await fetch('/.netlify/functions/get-usage', {
-      headers: {
-        Authorization: `Bearer ${user.token.access_token}`
-      }
-    });
-    const { credits } = await response.json();
-
-    const planCreditsDisplay = document.getElementById('plan-credits-display');
-    if (planCreditsDisplay) {
-      planCreditsDisplay.textContent = `0/${credits}`;
-    }
-
-    netlifyIdentity.close();
-    finishInitialization(user);
-  } catch (error) {
-    console.error('Error al cargar créditos:', error);
-  }
-});
+                netlifyIdentity.on('login', async (user) => {
+        try { currentUserToken = await user.jwt(); } catch(e) { console.warn('JWT error', e); }
+                    netlifyIdentity.close(); // Cerrar el widget de identidad
+                    finishInitialization(user); loadCreditsFromServer();
+        // Finalizar la inicialización de la aplicación
+                });
                 // Manejar el cierre de sesión del usuario
                 netlifyIdentity.on('logout', () => {
                     // Borrar todo el almacenamiento local relacionado con los datos del usuario al cerrar sesión
@@ -9591,6 +9577,39 @@ supabase.auth.onAuthStateChange(async (event, session) => {
   } else {
     updateCreditsDisplay(currentCredits); // modo invitado
   }
+});
+</script><script>
+const supabase = supabase.createClient('https://YOUR_PROJECT_ID.supabase.co', 'YOUR_PUBLIC_ANON_KEY');
+
+async function syncCreditsFromSupabase() {
+    try {
+        const { data: { user }, error } = await supabase.auth.getUser();
+        if (error || !user) {
+            console.error("Authentication failed:", error);
+            return;
+        }
+        const userId = user.id;
+        const res = await fetch("/.netlify/functions/get-usage", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ userId })
+        });
+
+        const json = await res.json();
+        if (json.credits !== undefined) {
+            document.getElementById("credit-count").innerText = json.credits;
+        } else {
+            console.warn("Unexpected response:", json);
+        }
+    } catch (e) {
+        console.error("Failed to sync credits:", e);
+    }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    syncCreditsFromSupabase();
 });
 </script></body>
 </html>
