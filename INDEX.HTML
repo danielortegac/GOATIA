@@ -4936,7 +4936,7 @@ if (!currentUser) {
                             method: 'POST',
                             headers: {        'Authorization': `Bearer ${currentUserToken}`,
  'Content-Type': 'application/json' },
-                            body: JSON.stringify({ userId: currentUser.id, stateToSave: stateData }),
+                            body: JSON.stringify({ stateToSave: stateData, profileToSave }),
                         });
                     }
                 } catch (error) {
@@ -9409,5 +9409,31 @@ document.addEventListener('DOMContentLoaded', () => {
    netlifyIdentity.on('login', () => loadCreditsFromServer());
 });
 </script>
+
+<script>
+// Al cargar la página, sustituimos la función spendCredits original
+// para que además notifique al servidor del gasto de crédito.
+document.addEventListener('DOMContentLoaded', () => {
+  if (typeof window.spendCredits === 'function') {
+    const originalSpend = window.spendCredits;
+    window.spendCredits = async function(cost, ...args) {
+      const result = await originalSpend.call(this, cost, ...args);
+      const token = netlifyIdentity.currentUser()?.token.access_token;
+      if (token) {
+        await fetch('/.netlify/functions/update-usage', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({ delta: -cost })
+        });
+      }
+      return result;
+    };
+  }
+});
+</script>
+
 </body>
 </html> 
