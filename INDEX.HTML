@@ -9223,6 +9223,40 @@ loadCreditsFromServer();
         });
     });
 </script>
+// ---- INICIO DEL PARCHE PARA ACTUALIZAR CRÉDITOS POST-PAGO ----
+// Este código se ejecuta cuando la página ha cargado completamente.
+document.addEventListener('DOMContentLoaded', () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const paymentStatus = urlParams.get('payment');
+
+    // Comprueba si la URL contiene "?payment=success"
+    if (paymentStatus === 'success') {
+        console.log('Pago exitoso detectado, recargando datos del usuario...');
+        
+        // Muestra una notificación amigable al usuario
+        showInAppNotification(
+            "¡Pago Exitoso!", 
+            "Tus créditos han sido actualizados. ¡Gracias por tu compra!", 
+            5000 // La notificación dura 5 segundos
+        );
+
+        // Llama a la función para cargar los datos más recientes del servidor.
+        // Esto es clave, ya que actualizará el contador de créditos en la UI.
+        if (typeof loadStateForUser === 'function') {
+            // Aseguramos que el usuario esté cargado antes de refrescar el estado
+            setTimeout(() => {
+                const user = window.netlifyIdentity.currentUser();
+                if (user) {
+                    finishInitialization(user);
+                }
+            }, 1000); // Un pequeño retraso para asegurar que todo esté listo.
+        }
+
+        // Limpia la URL para que si el usuario recarga, no se vuelva a ejecutar
+        history.replaceState(null, '', window.location.pathname);
+    }
+});
+// ---- FIN DEL PARCHE ----
 <script>
 // ==== REMOTE CREDIT SYNC (PATCH v1) ====
 let remoteCredits = null;
