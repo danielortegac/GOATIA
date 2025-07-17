@@ -1,49 +1,45 @@
--- 1. CREA LA FUNCIÓN QUE MANEJA A UN NUEVO USUARIO
--- Esta función crea un perfil con 0 créditos iniciales.
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS trigger
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
-BEGIN
-  INSERT INTO public.profiles (id, credits, last_credits_granted_at)
-  VALUES (new.id, 0, NULL);
-  RETURN new;
-END;
-$$;
+// netlify/functions/load-chats.js (Versión Corregida y Simplificada)
+const { createClient } = require('@supabase/supabase-js');
 
--- 2. CREA EL TRIGGER QUE LLAMA A LA FUNCIÓN ANTERIOR
--- Se dispara automáticamente cuando un usuario se registra en Supabase Auth.
-DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-CREATE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
+exports.handler = async (event, context) => {
+    const { user } = context.clientContext;
+    if (!user) {
+        return { statusCode: 401, body: JSON.stringify({ error: 'Authentication required.' }) };
+    }
 
--- 3. FUNCIÓN PARA OTORGAR CRÉDITOS MENSUALES (VERSIÓN FINAL)
--- Esta es la única función que debe dar los 100 créditos.
-CREATE OR REPLACE FUNCTION grant_monthly_credits_if_needed(user_id_param uuid)
-RETURNS void
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
-DECLARE
-  profile_last_granted_at TIMESTAMPTZ;
-BEGIN
-  SELECT last_credits_granted_at
-  INTO profile_last_granted_at
-  FROM public.profiles
-  WHERE id = user_id_param;
+    try {
+        const supabase = createClient(
+            process.env.SUPABASE_URL,
+            process.env.SUPABASE_SERVICE_KEY
+        );
 
-  IF NOT FOUND THEN
-    RETURN;
-  END IF;
+        // Ya no intentamos crear perfiles aquí. El Trigger de Supabase se encarga de eso.
+        // Solo leemos los datos que existan.
+        const [chatResult, profileResult] = await Promise.all([
+            supabase.from('user_chats').select('chats').eq('user_id', user.sub).single(),
+            supabase.from('profiles').select('credits, gamification_state').eq('id', user.sub).single()
+        ]);
 
-  IF profile_last_granted_at IS NULL OR profile_last_granted_at < (now() - interval '30 days') THEN
-    UPDATE public.profiles
-    SET 
-      credits = 100,
-      last_credits_granted_at = now()
-    WHERE id = user_id_param;
-  END IF;
-END;
-$$;
+        // Si hay un error al buscar el perfil (que no sea "no encontrado"), lánzalo.
+        if (profileResult.error && profileResult.error.code !== 'PGRST116') {
+             throw profileResult.error;
+        }
+
+        const stateData = chatResult.data?.chats || {};
+        // Si no hay perfil, devuelve 0 créditos. La función get-usage lo arreglará.
+        const profileData = profileResult.data || { credits: 0, gamification_state: {} }; 
+
+        const response = {
+            state: stateData, // Asegúrate de que el estado del chat esté anidado
+            profile: profileData
+        };
+
+        return { statusCode: 200, body: JSON.stringify(response) };
+    } catch (err) {
+        console.error('Error in load-chats function:', err);
+        return {
+            statusCode: 500,
+            body: JSON.stringify({ error: 'Failed to load data.', details: err.message }),
+        };
+    }
+};
