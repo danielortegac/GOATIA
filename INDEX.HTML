@@ -2737,6 +2737,21 @@ async function loadChats(userId) {
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js">
 </script>
 <script type="module">
+    async function syncCreditsFromSupabase() {
+        const usageRes = await fetch('/.netlify/functions/get-usage', {
+            headers: {
+                Authorization: `Bearer ${currentUser.token.access_token}`
+            }
+        });
+        const usageData = await usageRes.json();
+        const usageKey = `usage_monthly_${currentUser.id}`;
+        const currentMonth = dayjs().format('YYYY-MM');
+        localStorage.setItem(usageKey, JSON.stringify({ count: usageData.credits, month: currentMonth }));
+        document.getElementById('credit-count').textContent = usageData.credits; // si tienes UI para mostrarlo
+    }
+    
+
+
         //<-- START OF SCRIPT -->
         window.addEventListener('DOMContentLoaded', () => {
             dayjs.extend(window.dayjs_plugin_localizedFormat);
@@ -3536,6 +3551,7 @@ async function loadChats(userId) {
                 dom.settingsModal.classList.add('flex');
                 // Rellenar el correo electrónico y el plan del usuario si ha iniciado sesión
                 if (currentUser) {
+    syncCreditsFromSupabase();
                     dom.settingsUserEmail.textContent = currentUser.email;
                     const userPlan = currentUser.app_metadata?.plan || 'free';
                     dom.settingsUserPlan.textContent = userPlan.charAt(0).toUpperCase() + userPlan.slice(1);
@@ -4952,6 +4968,7 @@ if (!currentUser) {
             function updateUserUI() {
                 const goatXProModels = document.querySelectorAll('.goat-x-pro-model');
                 if (currentUser) {
+    syncCreditsFromSupabase();
                     // Interfaz de usuario del usuario que ha iniciado sesión
                     dom.loginView.classList.add('hidden');
                     dom.userMenuView.classList.remove('hidden');
@@ -9432,8 +9449,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 </script>
-
-
 <script>
 document.addEventListener('DOMContentLoaded', () => {
   const user = netlifyIdentity.currentUser();
