@@ -9321,6 +9321,83 @@ async function spendRemoteCredits(delta) {
 }
 // ==== END PATCH ====
 </script>
+
+  <!-- ==== PARCHE CRÉDITOS SYNC vFinal ==== -->
+  <script>
+    // Variables internas para créditos
+    var remoteCredits = null;
+
+    // Obtiene JWT de Netlify Identity
+    function getNetlifyToken() {
+      const user = netlifyIdentity.currentUser();
+      return user && user.token && user.token.access_token;
+    }
+
+    // Carga créditos desde el server
+    async function loadCreditsFromServer() {
+      const token = getNetlifyToken();
+      if (!token) return;
+      try {
+        const res = await fetch('/.netlify/functions/get-usage', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (!res.ok) throw new Error('Auth failed ' + res.status);
+        const { credits } = await res.json();
+        if (typeof credits === 'number') {
+          remoteCredits = credits;
+          if (typeof updateCreditCounter === 'function') updateCreditCounter();
+        }
+      } catch (e) {
+        console.error('[Credits] load error', e);
+      }
+    }
+
+    // Actualiza créditos en el server
+    async function spendRemoteCredits(delta) {
+      const token = getNetlifyToken();
+      if (!token) return;
+      try {
+        const res = await fetch('/.netlify/functions/update-usage', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({ delta })
+        });
+        if (!res.ok) throw new Error('Update failed ' + res.status);
+        const { credits } = await res.json();
+        if (typeof credits === 'number') {
+          remoteCredits = credits;
+          if (typeof updateCreditCounter === 'function') updateCreditCounter();
+        }
+      } catch (e) {
+        console.error('[Credits] update error', e);
+      }
+    }
+
+    // Hook en el front
+    document.addEventListener('DOMContentLoaded', () => {
+      // Reemplaza spendCredits
+      if (typeof window.spendCredits === 'function') {
+        const originalSpend = window.spendCredits;
+        window.spendCredits = async function(cost, ...args) {
+          const result = await originalSpend.call(this, cost, ...args);
+          await spendRemoteCredits(-cost);
+          return result;
+        };
+      }
+      // Carga inicial de créditos
+      netlifyIdentity.on('init', () => loadCreditsFromServer());
+      netlifyIdentity.on('login', () => loadCreditsFromServer());
+    });
+  </script>
+  <!-- ==== FIN PARCHE ==== -->
+
+</body>
+</html>
+
+<script>
 // Hook spendCredits to sync server automatically
 document.addEventListener('DOMContentLoaded', () => {
    if (typeof window.spendCredits === 'function') {
@@ -9336,5 +9413,3 @@ document.addEventListener('DOMContentLoaded', () => {
    netlifyIdentity.on('login', () => loadCreditsFromServer());
 });
 </script>
-</body>
-</html>
