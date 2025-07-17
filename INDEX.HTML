@@ -9210,471 +9210,267 @@ loadCreditsFromServer();
             });
         }); // Fin de DOMContentLoaded
      
-    // ---- Suscripción PayPal ----
-    document.querySelectorAll('.select-plan-btn').forEach(btn=>{
-        btn.addEventListener('click', async ()=> {
-            const plan = btn.dataset.plan;
-            console.log('[Goatify] Click suscripción', plan);
-            // Asegúrate de que Netlify Identity esté cargado
-            if (!window.netlifyIdentity) {
-                alert('Netlify Identity no está disponible.');
-                return;
-            }
-            const user = window.netlifyIdentity.currentUser();
-            if (!user) {
-                // Si no está logueado, abre el widget de login
-                window.netlifyIdentity.open('login');
-                return;
-            }
-            try {
-                const token = await user.jwt();
-                const res = await fetch('/.netlify/functions/create-subscription', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify({ plan })
-                });
-                if (!res.ok) {
-                    throw new Error('Error al crear la suscripción');
-                }
-                const data = await res.json();
-                if (data.approvalUrl) {
-                    window.location.href = data.approvalUrl; // Redirección a PayPal
-                } else {
-                    console.error('No se recibió la URL de aprobación.');
-                    alert('Error al iniciar el pago. Intenta nuevamente.');
-                }
-            } catch (err) {
-                console.error('[Goatify] Error durante la suscripción:', err);
-                alert('No se pudo procesar la suscripción. Vuelve a intentarlo.');
-            }
-        });
-    });
-</script>
-// ---- INICIO DEL PARCHE PARA ACTUALIZAR CRÉDITOS POST-PAGO ----
-document.addEventListener('DOMContentLoaded', async () =&gt; {
-    const urlParams = new URLSearchParams(window.location.search);
-    const paymentStatus = urlParams.get('payment');
-
-    if (paymentStatus === 'success') {
-        console.log('Pago exitoso detectado, actualizando créditos...');
-
-        showInAppNotification(
-            "¡Pago Exitoso!",
-            "Tus créditos han sido actualizados. ¡Gracias por tu compra!",
-            5000
-        );
-
-        const user = window.netlifyIdentity.currentUser();
-        if (user) {
-            try {
-                await fetch('/.netlify/functions/paypal-webhook', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ user_id: user.id, plan_id: 'boost' })
-                });
-
-               const response = await 
-const currentUser = netlifyIdentity.currentUser();
-if (!currentUser) {
-  console.error("Usuario no autenticado.");
-} else {
-  fetch('/.netlify/functions/get-usage', {
-    headers: {
-      Authorization: `Bearer ${currentUser.token}`
-    },
-
-  headers: {
-    Authorization: `Bearer ${currentUserToken}`
-  }
-});
-const result = await response.json();
-const currentCredits = result.credits;
-
-                document.getElementById('plan-credits-display').textContent = `0/${newCredits}`;
-
-                if (typeof loadStateForUser === 'function') {
-                    setTimeout(() =&gt; {
-                        finishInitialization(user);
-                    }, 1000);
-                }
-            } catch (error) {
-                console.error('Error al actualizar créditos:', error);
-                showInAppNotification(
-                    'Error',
-                    'No se pudieron actualizar los créditos. Intenta de nuevo.',
-                    5000
-                );
-            }
-        }
-
-        history.replaceState(null, '', window.location.pathname);
-    }
-});
-// ---- FIN DEL PARCHE ----
-window.netlifyIdentity.on('login', async (user) =&gt; {
-    try {
-        const response = await 
-const currentUser = netlifyIdentity.currentUser();
-if (!currentUser) {
-  console.error("Usuario no autenticado.");
-} else {
-  fetch('/.netlify/functions/get-usage', {
-    headers: {
-      Authorization: `Bearer ${currentUser.token}`
-    },
-
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id: user.id })
-        });
-        const data = await response.json();
-        const newCredits = data.credits;
-
-        document.getElementById('plan-credits-display').textContent = `0/${newCredits}`;
-    } catch (error) {
-        console.error('Error al sincronizar créditos:', error);
-    }
-});
 <script>
-// ==== REMOTE CREDIT SYNC (PATCH v1) ====
-let remoteCredits = null;
-async function loadCreditsFromServer() {
-  try {
-    const response = await 
-const currentUser = netlifyIdentity.currentUser();
-if (!currentUser) {
-  console.error("Usuario no autenticado.");
-} else {
-  fetch('/.netlify/functions/get-usage', {
-    headers: {
-      Authorization: `Bearer ${currentUser.token}`
-    },
+// =================================================================
+// ==      MÓDULO DE SUSCRIPCIONES Y GESTIÓN DE CRÉDITOS          ==
+// =================================================================
 
-      headers: {
-        Authorization: `Bearer ${user.token}` // si usas Netlify Identity
-      }
-    });
-    const data = await response.json();
-    if (data.credits !== undefined) {
-      credits = data.credits;
-      updateCreditsUI(credits); // <-- actualiza la UI si tienes una función así
-    }
-  } catch (err) {
-    console.error('Error fetching credits from server:', err);
-  }
-}
-async function spendRemoteCredits(delta) {
-    if (!currentUserToken) return;
-    try {
-        const res = await fetch('/.netlify/functions/update-usage', {
-            method: 'POST',
-            headers: { 'Content-Type':'application/json', Authorization: `Bearer ${currentUserToken}` },
-            body: JSON.stringify({ delta })
-        });
-        const { credits } = await res.json();
-        if (typeof credits === 'number') remoteCredits = credits;
-        updateCreditCounter?.();
-    } catch (err) { console.error('[Credits] Update error', err); }
-}
-// ==== END PATCH ====
-</script>
-<!-- ==== PARCHE CRÉDITOS SYNC vFinal ==== -->
-<script>
-    // Variables internas para créditos
-    var remoteCredits = null;
+(function() {
+    'use strict';
 
-    // Obtiene JWT de Netlify Identity
-    function getNetlifyToken() {
-      const user = netlifyIdentity.currentUser();
-      return user && user.token && user.token.access_token;
+    // --- Variables de Estado ---
+    let currentUser = null;
+    let currentUserToken = null;
+
+    /**
+     * Actualiza las variables de estado con el usuario y token actual de Netlify Identity.
+     */
+    function updateUserState() {
+        currentUser = window.netlifyIdentity.currentUser();
+        currentUserToken = currentUser?.token?.access_token || null;
     }
 
-    // Carga créditos desde el server
+    // =================================================================
+    // ==     COMUNICACIÓN CON EL BACKEND (NETLIFY FUNCTIONS)         ==
+    // =================================================================
+
+    /**
+     * Carga los créditos del usuario actual desde el servidor.
+     */
     async function loadCreditsFromServer() {
-      const token = getNetlifyToken();
-      if (!token) return;
-      try {
-        const res = await 
-const currentUser = netlifyIdentity.currentUser();
-if (!currentUser) {
-  console.error("Usuario no autenticado.");
-} else {
-  fetch('/.netlify/functions/get-usage', {
-    headers: {
-      Authorization: `Bearer ${currentUser.token}`
-    },
-
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        if (!res.ok) throw new Error('Auth failed ' + res.status);
-        const { credits } = await res.json();
-        if (typeof credits === 'number') {
-          remoteCredits = credits;
-          if (typeof updateCreditCounter === 'function') updateCreditCounter();
-        }
-      } catch (e) {
-        console.error('[Credits] load error', e);
-      }
-    }
-
-    // Actualiza créditos en el server
-    async function spendRemoteCredits(delta) {
-      const token = getNetlifyToken();
-      if (!token) return;
-      try {
-        const res = await fetch('/.netlify/functions/update-usage', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
-          },
-          body: JSON.stringify({ delta })
-        });
-        if (!res.ok) throw new Error('Update failed ' + res.status);
-        const { credits } = await res.json();
-        if (typeof credits === 'number') {
-          remoteCredits = credits;
-          if (typeof updateCreditCounter === 'function') updateCreditCounter();
-        }
-      } catch (e) {
-        console.error('[Credits] update error', e);
-      }
-    }
-
-    // Hook en el front
-    document.addEventListener('DOMContentLoaded', () => {
-      // Reemplaza spendCredits
-      if (typeof window.spendCredits === 'function') {
-        const originalSpend = window.spendCredits;
-        window.spendCredits = async function(cost, ...args) {
-          const result = await originalSpend.call(this, cost, ...args);
-          await spendRemoteCredits(-cost);
-          return result;
-        };
-      }
-      // Carga inicial de créditos
-      netlifyIdentity.on('init', () => loadCreditsFromServer());
-      netlifyIdentity.on('login', () => loadCreditsFromServer());
-    });
-  <!-- ==== FIN PARCHE ==== -->
-<script>
-// Hook spendCredits to sync server automatically
-document.addEventListener('DOMContentLoaded', () => {
-   if (typeof window.spendCredits === 'function') {
-      const _orig = window.spendCredits;
-      window.spendCredits = async function(cost, modelUsed){
-         const result = await _orig.apply(this, arguments);
-         spendRemoteCredits(-cost);
-         return result;
-      };
-   }
-   // Ensure we sync credits on start even if handlers added earlier
-   netlifyIdentity.on('init', () => loadCreditsFromServer());
-   netlifyIdentity.on('login', () => loadCreditsFromServer());
-});
-<script>
-// Al cargar la página, sustituimos la función spendCredits original
-// para que además notifique al servidor del gasto de crédito.
-document.addEventListener('DOMContentLoaded', () => {
-  if (typeof window.spendCredits === 'function') {
-    const originalSpend = window.spendCredits;
-    window.spendCredits = async function(cost, ...args) {
-      const result = await originalSpend.call(this, cost, ...args);
-      const token = netlifyIdentity.currentUser()?.token.access_token;
-      if (token) {
-        await fetch('/.netlify/functions/update-usage', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
-          },
-          body: JSON.stringify({ delta: -cost })
-        });
-      }
-      return result;
-    };
-  }
-});
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-  const user = netlifyIdentity.currentUser();
-  if (!user) return;
-
-  const token = user.token.access_token;
-  let retries = 0;
-
-  const syncCredits = async () => {
-    try {
-      const res = await 
-const currentUser = netlifyIdentity.currentUser();
-if (!currentUser) {
-  console.error("Usuario no autenticado.");
-} else {
-  fetch('/.netlify/functions/get-usage', {
-    headers: {
-      Authorization: `Bearer ${currentUser.token}`
-    },
-
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-      const result = await res.json();
-      const credits = result.credits;
-
-      const interval = setInterval(() => {
-        if (typeof window.setCreditCount === 'function') {
-          window.setCreditCount(credits);
-          clearInterval(interval);
-        } else {
-          retries++;
-          if (retries > 20) {
-            clearInterval(interval);
-            console.warn("⛔ No se pudo sincronizar créditos visualmente: setCreditCount no está disponible.");
-          }
-        }
-      }, 250);
-    } catch (err) {
-      console.error("💥 Error al sincronizar créditos del plan:", err);
-    }
-  };
-
-  syncCredits();
-});
-<script>
-async function getUserCredits(userId) {
-    const { data, error } = await supabase
-        .from('profiles')
-        .select('credits, last_credit_month')
-        .eq('id', userId)
-        .single();
-
-    if (error) {
-        console.error('Error fetching user credits:', error);
-        return { credits: 0, last_credit_month: null };
-    }
-
-    return data;
-}
-
-async function grantMonthlyCreditsIfNeeded(userId) {
-    const nowMonth = dayjs().format('YYYY-MM');
-    const { credits, last_credit_month } = await getUserCredits(userId);
-
-    if (last_credit_month !== nowMonth) {
-        const { error } = await supabase
-            .from('profiles')
-            .update({ credits: 100, last_credit_month: nowMonth })
-            .eq('id', userId);
-
-        if (error) {
-            console.error('Error updating credits:', error);
-        } else {
-            console.log('✅ Créditos mensuales otorgados');
-        }
-    } else {
-        console.log('⏳ Ya se otorgaron créditos este mes');
-    }
-}
-
-// Llamar esto justo después del login exitoso
-// await grantMonthlyCreditsIfNeeded(currentUser.id);
-</script>
-let currentCredits = 5; // Créditos del modo invitado
-let currentUserId = null;
-let supabaseUser = null;
-
-// Mostrar créditos en el DOM
-function updateCreditsDisplay(credits) {
-  const el = document.getElementById("creditos-actuales");
-  if (el) el.textContent = credits;
-}
-
-// Obtener token del usuario logueado
-async function getUserToken() {
-  const session = await supabase.auth.getSession();
-  return session?.data?.session?.access_token || "";
-}
-
-// Obtener créditos desde función serverless
-async function fetchCreditsFromBackend(userId) {
-  try {
-    const response = await fetch("/.netlify/functions/get-usage", {
-      headers: {
-        Authorization: "Bearer " + (await getUserToken())
-      }
-    });
-    const data = await response.json();
-    if (response.ok) {
-      currentCredits = data.credits || 0;
-      updateCreditsDisplay(currentCredits);
-    } else {
-      console.error("⚠️ Error fetching credits:", data.error);
-    }
-  } catch (err) {
-    console.error("💥 Backend error:", err);
-  }
-}
-
-// Sincronizar créditos mensuales si aplica
-async function grantMonthlyCreditsIfNeeded(userId) {
-  await fetchCreditsFromBackend(userId);
-}
-
-// Escuchar eventos de login con Supabase
-supabase.auth.onAuthStateChange(async (event, session) => {
-  if (session?.user) {
-    supabaseUser = session.user;
-    currentUserId = supabaseUser.id;
-    await grantMonthlyCreditsIfNeeded(currentUserId);
-  } else {
-    updateCreditsDisplay(currentCredits); // modo invitado
-  }
-});
-</script>
-const supabase = supabase.createClient('https://gsaubeuxhfkakhvhreqj.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdzYXViZXV4aGZrYWtodmhyZXFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTEzOTIyMTUsImV4cCI6MjA2Njk2ODIxNX0.o9YS5BQvzkUV9Hkpvum9w-Uz8fNeb6b9-P7FkiPNfp8');
-
-async function syncCreditsFromSupabase() {
-    try {
-        const { data: { user }, error } = await supabase.auth.getUser();
-        if (error || !user) {
-            console.error("Authentication failed:", error);
+        updateUserState();
+        if (!currentUserToken) {
+            console.warn("No hay usuario autenticado para cargar créditos.");
+            updateCreditCounterUI(0); // Muestra 0 o créditos de invitado
             return;
         }
-        const userId = user.id;
-        const res = await fetch("/.netlify/functions/get-usage", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({ userId })
+
+        try {
+            const response = await fetch('/.netlify/functions/get-usage', {
+                method: 'GET',
+                headers: { 'Authorization': `Bearer ${currentUserToken}` }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Error del servidor: ${response.status}`);
+            }
+
+            const data = await response.json();
+            if (typeof data.credits === 'number') {
+                console.log(`Créditos cargados del servidor: ${data.credits}`);
+                updateCreditCounterUI(data.credits);
+            }
+        } catch (err) {
+            console.error('Error al cargar los créditos desde el servidor:', err);
+        }
+    }
+
+    /**
+     * Notifica al servidor que el usuario ha gastado créditos.
+     * @param {number} cost - El número de créditos a descontar (valor positivo).
+     */
+    async function spendRemoteCredits(cost) {
+        updateUserState();
+        if (!currentUserToken) return;
+
+        try {
+            const response = await fetch('/.netlify/functions/update-usage', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${currentUserToken}`
+                },
+                body: JSON.stringify({ delta: -cost }) // Se envía un delta negativo para restar
+            });
+
+            if (!response.ok) {
+                throw new Error(`Error en la actualización de créditos: ${response.status}`);
+            }
+
+            const data = await response.json();
+            if (typeof data.credits === 'number') {
+                console.log(`Créditos actualizados en servidor: ${data.credits}`);
+                updateCreditCounterUI(data.credits);
+            }
+        } catch (err) {
+            console.error('Error al actualizar créditos en el servidor:', err);
+        }
+    }
+
+    // =================================================================
+    // ==         MANEJO DE LA INTERFAZ DE USUARIO (UI)               ==
+    // =================================================================
+
+    /**
+     * Actualiza el contador de créditos visible en la página.
+     * @param {number} credits - El total de créditos a mostrar.
+     */
+    function updateCreditCounterUI(credits) {
+        const creditElements = [
+            document.getElementById('plan-credits-display'),
+            document.getElementById('creditos-actuales'),
+            document.getElementById('credit-count'),
+            document.querySelector('#creditDisplay')
+        ];
+        
+        creditElements.forEach(el => {
+            if (el) {
+                el.innerText = credits;
+            }
         });
 
-        const json = await res.json();
-        if (json.credits !== undefined) {
-            document.getElementById("credit-count").innerText = json.credits;
-        } else {
-            console.warn("Unexpected response:", json);
+        // Compatibilidad con una función global `setCreditCount` si existe
+        if (typeof window.setCreditCount === 'function') {
+            window.setCreditCount(credits);
         }
-    } catch (e) {
-        console.error("Failed to sync credits:", e);
     }
-}
+    
+    /**
+     * Muestra una notificación en la aplicación.
+     * @param {string} title - El título de la notificación.
+     * @param {string} message - El mensaje.
+     * @param {number} duration - La duración en milisegundos.
+     */
+    function showInAppNotification(title, message, duration = 5000) {
+        // Puedes reemplazar esto con tu sistema de notificaciones real (p.ej. Toastify.js)
+        alert(`${title}\n\n${message}`);
+        console.log(`[Notificación] ${title}: ${message}`);
+    }
 
-document.addEventListener("DOMContentLoaded", () => {
-    syncCreditsFromSupabase();
-});
-</script>
-  function setCreditCount(credits) {
-    const display = document.querySelector('#creditDisplay');
-    if (display) {
-      display.innerText = `${credits} créditos`;
+    // =================================================================
+    // ==                LÓGICA DE SUSCRIPCIÓN (PAYPAL)               ==
+    // =================================================================
+
+    /**
+     * Vincula los botones de planes para iniciar el flujo de suscripción de PayPal.
+     */
+    function initializePayPalButtons() {
+        document.querySelectorAll('.select-plan-btn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const plan = btn.dataset.plan;
+                console.log('Iniciando suscripción para el plan:', plan);
+
+                updateUserState();
+                if (!currentUser) {
+                    window.netlifyIdentity.open('login');
+                    return;
+                }
+
+                try {
+                    const response = await fetch('/.netlify/functions/create-subscription', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${currentUserToken}`
+                        },
+                        body: JSON.stringify({ plan })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Error al contactar el servidor para crear la suscripción.');
+                    }
+
+                    const data = await response.json();
+                    if (data.approvalUrl) {
+                        window.location.href = data.approvalUrl; // Redirigir al usuario a PayPal
+                    } else {
+                        throw new Error('El servidor no devolvió una URL de aprobación de PayPal.');
+                    }
+                } catch (err) {
+                    console.error('Error en el proceso de suscripción:', err);
+                    alert('No se pudo procesar la suscripción. Por favor, inténtalo de nuevo.');
+                }
+            });
+        });
     }
-  }
+
+    // =================================================================
+    // ==       INICIALIZACIÓN Y MANEJO DE EVENTOS                    ==
+    // =================================================================
+
+    /**
+     * Comprueba si el usuario viene de un pago exitoso y actualiza su estado.
+     */
+    function handlePostPayment() {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('payment') === 'success') {
+            console.log('Pago exitoso detectado. Actualizando estado...');
+            showInAppNotification(
+                "¡Pago Exitoso!",
+                "Tus créditos se están actualizando. ¡Gracias por tu compra!",
+                6000
+            );
+            
+            // Forzamos una recarga de créditos para reflejar la compra inmediatamente
+            loadCreditsFromServer();
+            
+            // Limpia los parámetros de la URL para evitar reprocesar el pago al recargar la página
+            history.replaceState(null, '', window.location.pathname);
+        }
+    }
+    
+    /**
+     * "Intercepta" la función global `spendCredits` para sincronizar el gasto con el servidor.
+     */
+    function hookGlobalSpendCredits() {
+        if (typeof window.spendCredits === 'function') {
+            const originalSpendCredits = window.spendCredits;
+            window.spendCredits = async function(cost, ...args) {
+                // Llama a la función original del frontend
+                const result = await originalSpendCredits.apply(this, arguments);
+                
+                // Si la función original tuvo éxito, notifica al backend
+                // Asumimos que `result` es verdadero (o no hay error) si el gasto fue válido
+                if (result) {
+                    await spendRemoteCredits(cost);
+                }
+                
+                return result;
+            };
+            console.log("La función `spendCredits` ha sido conectada con el servidor.");
+        } else {
+            console.warn("La función global `window.spendCredits` no fue encontrada para ser conectada.");
+        }
+    }
+
+    /**
+     * Punto de entrada principal: se ejecuta cuando el DOM está listo.
+     */
+    document.addEventListener('DOMContentLoaded', () => {
+        if (!window.netlifyIdentity) {
+            alert("Error crítico: El sistema de autenticación (Netlify Identity) no se ha cargado.");
+            return;
+        }
+
+        initializePayPalButtons();
+        handlePostPayment();
+        hookGlobalSpendCredits();
+
+        // Sincronizar créditos en eventos clave del ciclo de vida del usuario
+        window.netlifyIdentity.on('init', user => {
+            console.log("Netlify Identity inicializado.");
+            if (user) {
+                loadCreditsFromServer();
+            } else {
+                updateCreditCounterUI(0); // Estado de invitado
+            }
+        });
+        
+        window.netlifyIdentity.on('login', () => {
+            console.log("Usuario ha iniciado sesión.");
+            loadCreditsFromServer();
+        });
+
+        window.netlifyIdentity.on('logout', () => {
+            console.log("Usuario ha cerrado sesión.");
+            currentUser = null;
+            currentUserToken = null;
+            updateCreditCounterUI(0); // Restablecer a estado de invitado
+        });
+    });
+
+})();
 </script>
+
 </body>
 </html>
