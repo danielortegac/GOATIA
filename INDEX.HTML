@@ -4705,44 +4705,28 @@ if (!currentUser) {
              * @param {string} modelUsed - El ID del modelo utilizado (ej. 'gpt-4o').
              * @returns {boolean} Verdadero si los créditos se gastaron correctamente, falso en caso contrario.
              */
-          function spendCredits(cost, modelUsed) {
-    // Primero, verificamos si hay suficientes créditos ANTES de hacer nada.
-    const creditsInUI = remoteCredits !== null ? remoteCredits : (getCreditCount().remaining || 0);
-    const gamificationCredits = gamificationState.credits || 0;
+            function spendCredits(cost, modelUsed) {
+                // Comprobar el límite diario de GOAT X PRO para usuarios que han iniciado sesión
+                if (modelUsed === 'gpt-4o' && currentUser) {
+                    const today = dayjs().format('YYYY-MM-DD');
+                    const proUsageKey = `goat_x_pro_usage_${currentUser?.id || 'guest'}_${today}`;
+                    goatXProUsage = parseInt(localStorage.getItem(proUsageKey) || '0');
 
-    if (creditsInUI + gamificationCredits < cost) {
-        showInAppNotification(
-            "Créditos Insuficientes",
-            "No tienes suficientes créditos para realizar esta acción. Por favor, recarga.",
-            5000,
-            true // 'true' para indicar que es un error
-        );
-        showPricingModal(); // Muestra la ventana de precios
-        return false; // Detiene la acción
-    }
-
-    // Si el usuario está logueado, llama a la función remota para descontar en Supabase.
-    if (currentUser) {
-        console.log(`Usuario logueado. Descontando ${cost} créditos remotamente.`);
-        spendRemoteCredits(cost); // ¡ESTA ES LA LÍNEA CLAVE QUE FALTABA!
-    } 
-    // Si es un invitado, usa el método antiguo de localStorage.
-    else {
-        const usageKey = `usage_daily_${new Date().toISOString().split('T')[0]}`;
-        let usageData = JSON.parse(localStorage.getItem(usageKey) || '{"count":0}');
-        usageData.count += cost;
-        localStorage.setItem(usageKey, JSON.stringify(usageData));
-    }
-    
-    // Actualiza el contador en la pantalla de forma optimista.
-    // La sincronización real la hará la respuesta del servidor.
-    if (remoteCredits !== null) {
-        remoteCredits -= cost;
-    }
-    updateCreditCounter();
-
-    return true; // Permite que la acción (enviar mensaje) continúe.
-}
+                    if (goatXProUsage >= GOAT_X_PRO_DAILY_LIMIT) {
+                        showModal({
+                            title: 'Límite de Uso Alcanzado para GOAT X PRO',
+                            body: `Has alcanzado el límite de ${GOAT_X_PRO_DAILY_LIMIT} usos diarios para el modelo GOAT X PRO. Por favor, usa el modelo GOAT X (General) o espera hasta mañana para volver a usar GOAT X PRO.`,
+                            confirmText: 'Entendido',
+                            showCancel: false
+                        }).then(() => {
+                            // Revertir el selector de modelo a GOAT X si se alcanza el límite
+                            dom.modelSelector.value = 'gpt-3.5-turbo-1106';
+                            if (document.getElementById('project-model-selector')) document.getElementById('project-model-selector').value = 'gpt-3.5-turbo-1106';
+                            if (document.getElementById('financial-model-selector')) document.getElementById('financial-model-selector').value = 'gpt-3.5-turbo-1106';
+                            if (document.getElementById('notepad-model-selector')) document.getElementById('notepad-model-selector').value = 'gpt-3.5-turbo-1106';
+                        });
+                        return false;
+                    }
                 }
 
                 const { remaining } = getCreditCount();
@@ -9239,13 +9223,15 @@ loadCreditsFromServer();
         });
     });
 </script>
+// ---- INICIO DEL PARCHE PARA ACTUALIZAR CRÉDITOS POST-PAGO ----
+// Este código se ejecuta cuando la página ha cargado completamente.
 document.addEventListener('DOMContentLoaded', () => {
     const urlParams = new URLSearchParams(window.location.search);
     const paymentStatus = urlParams.get('payment');
 
     // Comprueba si la URL contiene "?payment=success"
     if (paymentStatus === 'success') {
-        console.log('Pago exitoso detectado. Forzando recarga de créditos desde el servidor...');
+        console.log('Pago exitoso detectado, recargando datos del usuario...');
         
         // Muestra una notificación amigable al usuario
         showInAppNotification(
@@ -9254,16 +9240,23 @@ document.addEventListener('DOMContentLoaded', () => {
             5000 // La notificación dura 5 segundos
         );
 
-        // Llama DIRECTAMENTE a la función que carga los créditos desde el servidor.
-        // Esto asegura que se obtenga el valor más reciente de Supabase.
-        if (typeof loadCreditsFromServer === 'function') {
-             loadCreditsFromServer();
+        // Llama a la función para cargar los datos más recientes del servidor.
+        // Esto es clave, ya que actualizará el contador de créditos en la UI.
+        if (typeof loadStateForUser === 'function') {
+            // Aseguramos que el usuario esté cargado antes de refrescar el estado
+            setTimeout(() => {
+                const user = window.netlifyIdentity.currentUser();
+                if (user) {
+                    finishInitialization(user);
+                }
+            }, 1000); // Un pequeño retraso para asegurar que todo esté listo.
         }
 
         // Limpia la URL para que si el usuario recarga, no se vuelva a ejecutar
         history.replaceState(null, '', window.location.pathname);
     }
 });
+// ---- FIN DEL PARCHE ----
 <script>
 // ==== REMOTE CREDIT SYNC (PATCH v1) ====
 let remoteCredits = null;
