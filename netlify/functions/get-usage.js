@@ -1,49 +1,66 @@
 // netlify/functions/get-usage.js
+
+// 1) Importa createClient de SupaBase
 const { createClient } = require('@supabase/supabase-js');
 
 exports.handler = async (event, context) => {
-  // 1) Obtenemos el user.sub
+  // 2) Obtiene el UUID del usuario desde Netlify Identity
   const userId = context.clientContext.user?.sub;
   if (!userId) {
-    return { statusCode: 401, body: JSON.stringify({ error: 'Not logged in' }) };
+    return {
+      statusCode: 401,
+      body: JSON.stringify({ error: 'Not logged in' })
+    };
   }
 
-  // 2) Creamos el cliente SupaBase
+  // 3) Inicializa el cliente de SupaBase
   const supabase = createClient(
     process.env.SUPABASE_URL,
     process.env.SUPABASE_SERVICE_KEY
   );
 
   try {
-    // 3) Intentamos leer la fila
+    // 4a) Intenta leer los créditos
     let { data, error, status } = await supabase
       .from('profiles')
       .select('credits')
-      .eq('ident_id', userId)
+      .eq('id', userId)
       .single();
 
-    // 4) Si NO existe aún (status 406 o error.code PGRST116), creamos el perfil
+    // 4b) Si no existe fila (status 406), créala con 100 créditos
     if (error && status === 406) {
-      const { data: newProfile, error: insErr } = await supabase
+      const { data: newProfile, error: insertErr } = await supabase
         .from('profiles')
         .insert({
-          ident_id: userId,
+          id: userId,
           credits: 100,
-          state: {}.  // asegúrate de que estas columnas existan
+          state: {},
           gamification_state: {},
           updated_at: new Date().toISOString()
         })
         .single();
-      if (insErr) throw insErr;
-      return { statusCode: 200, body: JSON.stringify({ credits: newProfile.credits }) };
+      if (insertErr) throw insertErr;
+
+      return {
+        statusCode: 200,
+        body: JSON.stringify({ credits: newProfile.credits })
+      };
     }
+
+    // 4c) Si cualquier otro error, lánzalo
     if (error) throw error;
 
-    // 5) Si todo bien, devolvemos el saldo
-    return { statusCode: 200, body: JSON.stringify({ credits: data.credits }) };
+    // 4d) Devuelve los créditos actuales
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ credits: data.credits })
+    };
 
   } catch (err) {
-    console.error('🛑 get-usage error:', err);
-    return { statusCode: 500, body: JSON.stringify({ error: err.message }) };
+    console.error('get-usage error:', err);
+    return {
+      statusCode: 500,
+      body: JSON.stringify({ error: err.message })
+    };
   }
 };
