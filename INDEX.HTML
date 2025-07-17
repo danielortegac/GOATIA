@@ -9435,25 +9435,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 <script>
-document.addEventListener('DOMContentLoaded', async () => {
+document.addEventListener('DOMContentLoaded', () => {
   const user = netlifyIdentity.currentUser();
   if (!user) return;
 
   const token = user.token.access_token;
-  try {
-    const res = await fetch('/.netlify/functions/get-usage', {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
-    });
-    const result = await res.json();
+  let retries = 0;
 
-    // Solo sincronizamos créditos reales del plan, y no tocamos gamification
-    if (result && typeof window.setCreditCount === 'function') {
-      let existingCredits = result.credits;
-      if (existingCredits === null || existingCredits === undefined) {
-        existingCredits = 100;
+  const syncCredits = async () => {
+    try {
+      const res = await fetch('/.netlify/functions/get-usage', {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      const result = await res.json();
+
+      let credits = result.credits;
+      if (credits === null || credits === undefined) {
+        credits = 100;
         await fetch('/.netlify/functions/update-usage', {
           method: 'POST',
           headers: {
@@ -9463,11 +9464,25 @@ document.addEventListener('DOMContentLoaded', async () => {
           body: JSON.stringify({ delta: 100 })
         });
       }
-      window.setCreditCount(existingCredits);
+
+      const interval = setInterval(() => {
+        if (typeof window.setCreditCount === 'function') {
+          window.setCreditCount(credits);
+          clearInterval(interval);
+        } else {
+          retries++;
+          if (retries > 20) {
+            clearInterval(interval);
+            console.warn("⛔ No se pudo sincronizar créditos visualmente: setCreditCount no está disponible.");
+          }
+        }
+      }, 250);
+    } catch (err) {
+      console.error("💥 Error al sincronizar créditos del plan:", err);
     }
-  } catch (err) {
-    console.error("Error syncing plan credits:", err);
-  }
+  };
+
+  syncCredits();
 });
 </script>
 </body>
