@@ -9259,35 +9259,60 @@ loadCreditsFromServer();
     });
 </script>
 // ---- INICIO DEL PARCHE PARA ACTUALIZAR CRÉDITOS POST-PAGO ----
-// Este código se ejecuta cuando la página ha cargado completamente.
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     const urlParams = new URLSearchParams(window.location.search);
     const paymentStatus = urlParams.get('payment');
 
-    // Comprueba si la URL contiene "?payment=success"
     if (paymentStatus === 'success') {
         console.log('Pago exitoso detectado, recargando datos del usuario...');
-        
-        // Muestra una notificación amigable al usuario
+
+        // Muestra un mensaje de éxito
         showInAppNotification(
-            "¡Pago Exitoso!", 
-            "Tus créditos han sido actualizados. ¡Gracias por tu compra!", 
-            5000 // La notificación dura 5 segundos
+            "¡Pago Exitoso!",
+            "Tus créditos han sido actualizados. ¡Gracias por tu compra!",
+            5000
         );
 
-        // Llama a la función para cargar los datos más recientes del servidor.
-        // Esto es clave, ya que actualizará el contador de créditos en la UI.
-        if (typeof loadStateForUser === 'function') {
-            // Aseguramos que el usuario esté cargado antes de refrescar el estado
-            setTimeout(() => {
-                const user = window.netlifyIdentity.currentUser();
-                if (user) {
-                    finishInitialization(user);
+        const user = window.netlifyIdentity.currentUser();
+        if (user) {
+            try {
+                // Llama a la función que actualiza el pago
+                await fetch('/.netlify/functions/paypal-webhook', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: user.id, plan_id: 'boost' })
+                });
+
+                // Obtiene los créditos nuevos
+                const response = await fetch('/.netlify/functions/get-usage', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: user.id })
+                });
+                const data = await response.json();
+                const newCredits = data.credits;
+
+                // Actualiza el contador de créditos del plan
+                const totalCredits = 1000; // Ajusta este valor según tu plan
+                document.getElementById('plan-credits-display').textContent = `0/${newCredits}`;
+
+                // Recarga la página para asegurarnos de que todo esté actualizado
+                if (typeof loadStateForUser === 'function') {
+                    setTimeout(() => {
+                        finishInitialization(user);
+                    }, 1000);
                 }
-            }, 1000); // Un pequeño retraso para asegurar que todo esté listo.
+            } catch (error) {
+                console.error('Error al actualizar créditos:', error);
+                showInAppNotification(
+                    'Error',
+                    'No se pudieron actualizar los créditos. Intenta de nuevo.',
+                    5000
+                );
+            }
         }
 
-        // Limpia la URL para que si el usuario recarga, no se vuelva a ejecutar
+        // Limpia la URL
         history.replaceState(null, '', window.location.pathname);
     }
 });
