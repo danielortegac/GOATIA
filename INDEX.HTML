@@ -9661,5 +9661,82 @@ if (window.netlifyIdentity) {
 
   netlifyIdentity.init();
 }
-</script></body>
+</script>
+<script>
+// ✅ Declaración limpia de Supabase y Netlify
+const supabase = createClient('https://YOUR_PROJECT.supabase.co', 'YOUR_ANON_KEY');
+
+function setCreditCount(count) {
+  const creditLabel = document.getElementById("credit-count");
+  if (creditLabel) creditLabel.innerText = count;
+}
+
+// ✅ Inicializar Netlify Identity correctamente
+if (window.netlifyIdentity) {
+  netlifyIdentity.on("init", async (user) => {
+    console.log("🟡 Init completo:", user);
+    if (user) {
+      await assignInitialCredits(user.id);
+      await loadCreditsFromServer(user.id);
+    }
+  });
+
+  netlifyIdentity.on("login", async (user) => {
+    console.log("🟢 Login:", user);
+    await assignInitialCredits(user.id);
+    await loadCreditsFromServer(user.id);
+  });
+
+  netlifyIdentity.on("signup", async (user) => {
+    console.log("🔵 Signup:", user);
+    await assignInitialCredits(user.id);
+    await loadCreditsFromServer(user.id);
+  });
+
+  netlifyIdentity.init();
+}
+
+// ✅ Asignar créditos iniciales si no existen
+async function assignInitialCredits(userId) {
+  try {
+    const { data, error } = await supabase
+      .from('user_data')
+      .select('credits')
+      .eq('id', userId)
+      .single();
+
+    if (error && error.code !== 'PGRST116') throw error;
+    if (!data) {
+      console.log("Asignando créditos iniciales...");
+      await supabase.from('user_data').upsert({
+        id: userId,
+        credits: 100,
+        xp: 0,
+        level: 1,
+        lastLogin: new Date().toISOString()
+      });
+    }
+  } catch (e) {
+    console.error("Error al asignar créditos:", e);
+  }
+}
+
+// ✅ Cargar créditos desde Supabase
+async function loadCreditsFromServer(userId) {
+  try {
+    const { data, error } = await supabase
+      .from('user_data')
+      .select('credits')
+      .eq('id', userId)
+      .single();
+    if (error) throw error;
+    console.log("Créditos desde Supabase:", data.credits);
+    if (typeof setCreditCount === "function") setCreditCount(data.credits);
+  } catch (e) {
+    console.error("Error al cargar créditos:", e);
+  }
+}
+</script>
+
+</body>
 </html>
