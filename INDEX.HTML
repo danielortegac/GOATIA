@@ -9748,5 +9748,62 @@
         fetchAndListenCredits(storedUserId);
     }
 </script>
+
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+        if (typeof supabase === "undefined") {
+            console.error("Supabase no está definido. Asegúrate de que el script se haya cargado correctamente.");
+            return;
+        }
+
+        async function fetchAndListenCredits(userId) {
+            if (!userId) {
+                console.warn("No hay user_id en localStorage.");
+                return;
+            }
+
+            async function updateCredits() {
+                try {
+                    const { data, error } = await supabase
+                        .from('users')
+                        .select('credits')
+                        .eq('id', userId)
+                        .single();
+
+                    if (error) {
+                        console.error("Error al obtener créditos:", error);
+                    } else if (data && typeof data.credits === 'number') {
+                        document.getElementById('credits-value').textContent = data.credits;
+                    }
+                } catch (err) {
+                    console.error("Fallo inesperado al obtener créditos:", err);
+                }
+            }
+
+            const channel = supabase.channel('credits-updates')
+                .on(
+                    'postgres_changes',
+                    {
+                        event: 'UPDATE',
+                        schema: 'public',
+                        table: 'users',
+                        filter: `id=eq.${userId}`
+                    },
+                    (payload) => {
+                        if (payload.new && typeof payload.new.credits === 'number') {
+                            document.getElementById('credits-value').textContent = payload.new.credits;
+                            console.log("Créditos actualizados en tiempo real:", payload.new.credits);
+                        }
+                    }
+                )
+                .subscribe();
+
+            await updateCredits();
+        }
+
+        const storedUserId = localStorage.getItem('user_id');
+        fetchAndListenCredits(storedUserId);
+    });
+</script>
 </body>
 </html>
