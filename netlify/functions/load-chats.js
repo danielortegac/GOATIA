@@ -31,7 +31,7 @@ exports.handler = async (event, context) => {
         .single()
     ]);
 
-    // ⚠️ Si el perfil no existe aún (usuario nuevo), lo creamos con 0 créditos
+    // ✅ Si el perfil no existe aún (usuario nuevo), lo creamos con 100 créditos iniciales
     if (profileResult.error && profileResult.error.code === 'PGRST116') {
       const now = new Date();
       const currentMonth = now.toISOString().slice(0, 7); // "YYYY-MM"
@@ -40,7 +40,7 @@ exports.handler = async (event, context) => {
         .from('profiles')
         .insert({
           id: user.sub,
-          credits: 0, // 👈 NO se dan créditos aquí, solo se crea vacío
+          credits: 100, // ✅ SOLUCIÓN: Se otorgan 100 créditos iniciales
           gamification_state: {},
           last_credit_month: currentMonth,
           last_credits_granted_at: now,
@@ -49,9 +49,9 @@ exports.handler = async (event, context) => {
 
       if (insertError) throw insertError;
 
-      // Creamos el objeto vacío del perfil para retornarlo
+      // Creamos el objeto del perfil para retornarlo inmediatamente al frontend
       profileResult.data = {
-        credits: 0,
+        credits: 100, // ✅ Y AQUÍ TAMBIÉN: Se devuelve el valor correcto
         gamification_state: {},
         last_credit_month: currentMonth,
         last_credits_granted_at: now
