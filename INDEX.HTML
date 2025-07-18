@@ -9428,38 +9428,50 @@ document.addEventListener("DOMContentLoaded", () => {
     syncCreditsFromSupabase();
 });
 </script><script>
-async function grantMonthlyCreditsIfNeeded(user) {
-  if (!user) {
-    console.log("Usuario no disponible para otorgar créditos.");
-    return;
-  }
 
-  const currentMonth = dayjs().format('YYYY-MM');
+</script>
+<script>
+// Reemplazo limpio y funcional de grantMonthlyCreditsIfNeeded
+async function grantMonthlyCreditsIfNeeded(userId) {
+    const nowMonth = dayjs().format('YYYY-MM');
 
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('last_credit_month')
-    .eq('id', user.id)
-    .single();
+    const { data, error } = await supabase
+        .from('profiles')
+        .select('credits, last_credit_month')
+        .eq('id', userId)
+        .single();
 
-  if (error) {
-    console.error('Error fetching last_credit_month:', error);
-    return;
-  }
-
-  if (data.last_credit_month !== currentMonth) {
-    console.log("Otorgando créditos mensuales...");
-    const updateResponse = await supabase
-      .rpc('update_profile_monthly_credit', { user_id_input: user.id });
-
-    if (updateResponse.error) {
-      console.error('Error actualizando créditos:', updateResponse.error);
-    } else {
-      console.log('Créditos mensuales otorgados correctamente.');
+    if (error) {
+        console.error('[Supabase] Error fetching credits:', error);
+        return;
     }
-  } else {
-    console.log('Ya se otorgaron créditos este mes.');
-  }
+
+    const { credits, last_credit_month } = data;
+
+    if (last_credit_month !== nowMonth) {
+        const { error: updateError } = await supabase
+            .from('profiles')
+            .update({ credits: 100, last_credit_month: nowMonth })
+            .eq('id', userId);
+
+        if (updateError) {
+            console.error('[Supabase] Error updating monthly credits:', updateError);
+        } else {
+            console.log('✅ Créditos mensuales otorgados desde Supabase');
+        }
+    } else {
+        console.log('⏳ Créditos ya otorgados este mes');
+    }
 }
-</script></body>
+
+// Hook on login para ejecutar una sola vez
+supabase.auth.onAuthStateChange(async (event, session) => {
+  if (session?.user) {
+    const userId = session.user.id;
+    await grantMonthlyCreditsIfNeeded(userId);
+  }
+});
+</script>
+
+</body>
 </html>
