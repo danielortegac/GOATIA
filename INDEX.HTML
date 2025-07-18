@@ -1927,16 +1927,13 @@ async function loadChats(userId) {
 <body class="w-screen overflow-x-hidden dark-theme">
 <script src="https://identity.netlify.com/v1/netlify-identity-widget.js" type="text/javascript"></script>
 <script>var currentUserToken=null;</script>
+<script>
+
 <script type="text/javascript">
-    if (window.netlifyIdentity) {
-        // Este evento se dispara cuando el usuario inicia sesión.
-        // Es útil para cerrar el pop-up y recargar la página.
-        window.netlifyIdentity.on('login', user => {
-            netlifyIdentity.close();
-            location.reload(); // Recarga la página para asegurar que todo se actualice.
-        });
-    }
-</script>
+        if (window.netlifyIdentity) {
+            netlifyIdentity.init();
+        }
+    </script>
 <div class="fixed inset-0 bg-bg-dark bg-opacity-95 flex flex-col items-center justify-center z-[100] transition-opacity duration-300" id="loading-overlay">
 <img alt="Goatify Logo" class="w-24 h-24 object-contain mb-6 animate-pulse" onerror="this.onerror=null;this.src='https://placehold.co/96x96/121212/e0e0e0?text=LOGO';" src="./Logos HD.png"/>
 <div class="text-text-light text-center">
@@ -2739,7 +2736,7 @@ async function loadChats(userId) {
 </div>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js">
 </script>
-<script>
+<script type="module">
     async function syncCreditsFromSupabase() {
     const usageRes = await fetch('/.netlify/functions/get-usage', {
         headers: {
@@ -9254,7 +9251,75 @@ loadCreditsFromServer();
             }
         });
     });
-</script><script>
+</script>
+// ---- INICIO DEL PARCHE PARA ACTUALIZAR CRÉDITOS POST-PAGO ----
+document.addEventListener('DOMContentLoaded', async () =&gt; {
+    const urlParams = new URLSearchParams(window.location.search);
+    const paymentStatus = urlParams.get('payment');
+
+    if (paymentStatus === 'success') {
+        console.log('Pago exitoso detectado, actualizando créditos...');
+
+        showInAppNotification(
+            "¡Pago Exitoso!",
+            "Tus créditos han sido actualizados. ¡Gracias por tu compra!",
+            5000
+        );
+
+        const user = window.netlifyIdentity.currentUser();
+        if (user) {
+            try {
+                await fetch('/.netlify/functions/paypal-webhook', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: user.id, plan_id: 'boost' })
+                });
+
+                const response = await fetch('/.netlify/functions/get-usage', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: user.id })
+                });
+                const data = await response.json();
+                const newCredits = data.credits;
+
+                document.getElementById('plan-credits-display').textContent = `0/${newCredits}`;
+
+                if (typeof loadStateForUser === 'function') {
+                    setTimeout(() =&gt; {
+                        finishInitialization(user);
+                    }, 1000);
+                }
+            } catch (error) {
+                console.error('Error al actualizar créditos:', error);
+                showInAppNotification(
+                    'Error',
+                    'No se pudieron actualizar los créditos. Intenta de nuevo.',
+                    5000
+                );
+            }
+        }
+
+        history.replaceState(null, '', window.location.pathname);
+    }
+});
+// ---- FIN DEL PARCHE ----
+window.netlifyIdentity.on('login', async (user) =&gt; {
+    try {
+        const response = await fetch('/.netlify/functions/get-usage', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: user.id })
+        });
+        const data = await response.json();
+        const newCredits = data.credits;
+
+        document.getElementById('plan-credits-display').textContent = `0/${newCredits}`;
+    } catch (error) {
+        console.error('Error al sincronizar créditos:', error);
+    }
+});
+<script>
 // ==== REMOTE CREDIT SYNC (PATCH v1) ====
 let remoteCredits = null;
 async function loadCreditsFromServer() {
@@ -9287,7 +9352,9 @@ async function spendRemoteCredits(delta) {
     } catch (err) { console.error('[Credits] Update error', err); }
 }
 // ==== END PATCH ====
-</script><script>
+</script>
+<!-- ==== PARCHE CRÉDITOS SYNC vFinal ==== -->
+<script>
     // Variables internas para créditos
     var remoteCredits = null;
 
@@ -9371,7 +9438,8 @@ document.addEventListener('DOMContentLoaded', () => {
    netlifyIdentity.on('init', () => loadCreditsFromServer());
    netlifyIdentity.on('login', () => loadCreditsFromServer());
 });
-</script><script>
+</script>
+<script>
 // Al cargar la página, sustituimos la función spendCredits original
 // para que además notifique al servidor del gasto de crédito.
 document.addEventListener('DOMContentLoaded', () => {
@@ -9392,6 +9460,136 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       return result;
     };
+  }
+});
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const user = netlifyIdentity.currentUser();
+  if (!user) return;
+
+  const token = user.token.access_token;
+  let retries = 0;
+
+  const syncCredits = async () => {
+    try {
+      const res = await fetch('/.netlify/functions/get-usage', {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      const result = await res.json();
+      const credits = result.credits;
+
+      const interval = setInterval(() => {
+        if (typeof window.setCreditCount === 'function') {
+          window.setCreditCount(credits);
+          clearInterval(interval);
+        } else {
+          retries++;
+          if (retries > 20) {
+            clearInterval(interval);
+            console.warn("⛔ No se pudo sincronizar créditos visualmente: setCreditCount no está disponible.");
+          }
+        }
+      }, 250);
+    } catch (err) {
+      console.error("💥 Error al sincronizar créditos del plan:", err);
+    }
+  };
+
+  syncCredits();
+});
+</script>
+<script>
+async function getUserCredits(userId) {
+    const { data, error } = await supabase
+        .from('profiles')
+        .select('credits, last_credit_month')
+        .eq('id', userId)
+        .single();
+
+    if (error) {
+        console.error('Error fetching user credits:', error);
+        return { credits: 0, last_credit_month: null };
+    }
+
+    return data;
+}
+
+async function grantMonthlyCreditsIfNeeded(userId) {
+    const nowMonth = dayjs().format('YYYY-MM');
+    const { credits, last_credit_month } = await getUserCredits(userId);
+
+    if (last_credit_month !== nowMonth) {
+        const { error } = await supabase
+            .from('profiles')
+            .update({ credits: 100, last_credit_month: nowMonth })
+            .eq('id', userId);
+
+        if (error) {
+            console.error('Error updating credits:', error);
+        } else {
+            console.log('✅ Créditos mensuales otorgados');
+        }
+    } else {
+        console.log('⏳ Ya se otorgaron créditos este mes');
+    }
+}
+
+// Llamar esto justo después del login exitoso
+// await grantMonthlyCreditsIfNeeded(currentUser.id);
+</script><script>
+let currentCredits = 5; // Créditos del modo invitado
+let currentUserId = null;
+let supabaseUser = null;
+
+// Mostrar créditos en el DOM
+function updateCreditsDisplay(credits) {
+  const el = document.getElementById("creditos-actuales");
+  if (el) el.textContent = credits;
+}
+
+// Obtener token del usuario logueado
+async function getUserToken() {
+  const session = await supabase.auth.getSession();
+  return session?.data?.session?.access_token || "";
+}
+
+// Obtener créditos desde función serverless
+async function fetchCreditsFromBackend(userId) {
+  try {
+    const response = await fetch("/.netlify/functions/get-usage", {
+      headers: {
+        Authorization: "Bearer " + (await getUserToken())
+      }
+    });
+    const data = await response.json();
+    if (response.ok) {
+      currentCredits = data.credits || 0;
+      updateCreditsDisplay(currentCredits);
+    } else {
+      console.error("⚠️ Error fetching credits:", data.error);
+    }
+  } catch (err) {
+    console.error("💥 Backend error:", err);
+  }
+}
+
+// Sincronizar créditos mensuales si aplica
+async function grantMonthlyCreditsIfNeeded(userId) {
+  await fetchCreditsFromBackend(userId);
+}
+
+// Escuchar eventos de login con Supabase
+supabase.auth.onAuthStateChange(async (event, session) => {
+  if (session?.user) {
+    supabaseUser = session.user;
+    currentUserId = supabaseUser.id;
+    await grantMonthlyCreditsIfNeeded(currentUserId);
+  } else {
+    updateCreditsDisplay(currentCredits); // modo invitado
   }
 });
 </script><script>
@@ -9427,39 +9625,5 @@ async function syncCreditsFromSupabase() {
 document.addEventListener("DOMContentLoaded", () => {
     syncCreditsFromSupabase();
 });
-</script><script>
-async function grantMonthlyCreditsIfNeeded(user) {
-  if (!user) {
-    console.log("Usuario no disponible para otorgar créditos.");
-    return;
-  }
-
-  const currentMonth = dayjs().format('YYYY-MM');
-
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('last_credit_month')
-    .eq('id', user.id)
-    .single();
-
-  if (error) {
-    console.error('Error fetching last_credit_month:', error);
-    return;
-  }
-
-  if (data.last_credit_month !== currentMonth) {
-    console.log("Otorgando créditos mensuales...");
-    const updateResponse = await supabase
-      .rpc('update_profile_monthly_credit', { user_id_input: user.id });
-
-    if (updateResponse.error) {
-      console.error('Error actualizando créditos:', updateResponse.error);
-    } else {
-      console.log('Créditos mensuales otorgados correctamente.');
-    }
-  } else {
-    console.log('Ya se otorgaron créditos este mes.');
-  }
-}
 </script></body>
 </html>
