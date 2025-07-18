@@ -9616,5 +9616,50 @@ async function syncCreditsFromSupabase() {
 document.addEventListener("DOMContentLoaded", () => {
     syncCreditsFromSupabase();
 });
+</script><script>
+// ✅ Inicialización segura
+const supabase = window.supabase || createClient('https://YOUR_PROJECT.supabase.co', 'YOUR_PUBLIC_ANON_KEY');
+let currentUserToken = null;
+
+// ✅ Asignación de créditos al registrarse
+async function assignInitialCredits(userId) {
+  try {
+    const { data, error } = await supabase
+      .from('user_data')
+      .upsert({
+        id: userId,
+        credits: 100,
+        xp: 0,
+        level: 1,
+        lastLogin: new Date().toISOString(),
+      });
+    if (error) throw error;
+    console.log('Créditos iniciales asignados');
+  } catch (e) {
+    console.error('Error asignando créditos:', e);
+  }
+}
+
+if (window.netlifyIdentity) {
+  netlifyIdentity.on("init", async (user) => {
+    if (user) {
+      await assignInitialCredits(user.id);
+    }
+  });
+
+  netlifyIdentity.on("login", async (user) => {
+    if (user) {
+      await assignInitialCredits(user.id);
+    }
+  });
+
+  netlifyIdentity.on("signup", async (user) => {
+    if (user) {
+      await assignInitialCredits(user.id);
+    }
+  });
+
+  netlifyIdentity.init();
+}
 </script></body>
 </html>
