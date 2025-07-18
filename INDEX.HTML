@@ -2739,7 +2739,6 @@ async function loadChats(userId) {
 </div>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js">
 </script>
-
 <script>
     async function syncCreditsFromSupabase() {
     const usageRes = await fetch('/.netlify/functions/get-usage', {
@@ -9396,96 +9395,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 </script><script>
-async function getUserCredits(userId) {
-    const { data, error } = await supabase
-        .from('profiles')
-        .select('credits, last_credit_month')
-        .eq('id', userId)
-        .single();
-
-    if (error) {
-        console.error('Error fetching user credits:', error);
-        return { credits: 0, last_credit_month: null };
-    }
-
-    return data;
-}
-
-async function grantMonthlyCreditsIfNeeded(userId) {
-    const nowMonth = dayjs().format('YYYY-MM');
-    const { credits, last_credit_month } = await getUserCredits(userId);
-
-    if (last_credit_month !== nowMonth) {
-        const { error } = await supabase
-            .from('profiles')
-            .update({ credits: 100, last_credit_month: nowMonth })
-            .eq('id', userId);
-
-        if (error) {
-            console.error('Error updating credits:', error);
-        } else {
-            console.log('✅ Créditos mensuales otorgados');
-        }
-    } else {
-        console.log('⏳ Ya se otorgaron créditos este mes');
-    }
-}
-
-// Llamar esto justo después del login exitoso
-// await grantMonthlyCreditsIfNeeded(currentUser.id);
-</script><script>
-let currentCredits = 5; // Créditos del modo invitado
-let currentUserId = null;
-let supabaseUser = null;
-
-// Mostrar créditos en el DOM
-function updateCreditsDisplay(credits) {
-  const el = document.getElementById("creditos-actuales");
-  if (el) el.textContent = credits;
-}
-
-// Obtener token del usuario logueado
-async function getUserToken() {
-  const session = await supabase.auth.getSession();
-  return session?.data?.session?.access_token || "";
-}
-
-// Obtener créditos desde función serverless
-async function fetchCreditsFromBackend(userId) {
-  try {
-    const response = await fetch("/.netlify/functions/get-usage", {
-      headers: {
-        Authorization: "Bearer " + (await getUserToken())
-      }
-    });
-    const data = await response.json();
-    if (response.ok) {
-      currentCredits = data.credits || 0;
-      updateCreditsDisplay(currentCredits);
-    } else {
-      console.error("⚠️ Error fetching credits:", data.error);
-    }
-  } catch (err) {
-    console.error("💥 Backend error:", err);
-  }
-}
-
-// Sincronizar créditos mensuales si aplica
-async function grantMonthlyCreditsIfNeeded(userId) {
-  await fetchCreditsFromBackend(userId);
-}
-
-// Escuchar eventos de login con Supabase
-supabase.auth.onAuthStateChange(async (event, session) => {
-  if (session?.user) {
-    supabaseUser = session.user;
-    currentUserId = supabaseUser.id;
-    await grantMonthlyCreditsIfNeeded(currentUserId);
-  } else {
-    updateCreditsDisplay(currentCredits); // modo invitado
-  }
-});
-</script><script>
 const supabase = supabase.createClient('https://gsaubeuxhfkakhvhreqj.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdzYXViZXV4aGZrYWtodmhyZXFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTEzOTIyMTUsImV4cCI6MjA2Njk2ODIxNX0.o9YS5BQvzkUV9Hkpvum9w-Uz8fNeb6b9-P7FkiPNfp8');
 
 async function syncCreditsFromSupabase() {
@@ -9518,5 +9427,39 @@ async function syncCreditsFromSupabase() {
 document.addEventListener("DOMContentLoaded", () => {
     syncCreditsFromSupabase();
 });
+</script><script>
+async function grantMonthlyCreditsIfNeeded(user) {
+  if (!user) {
+    console.log("Usuario no disponible para otorgar créditos.");
+    return;
+  }
+
+  const currentMonth = dayjs().format('YYYY-MM');
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('last_credit_month')
+    .eq('id', user.id)
+    .single();
+
+  if (error) {
+    console.error('Error fetching last_credit_month:', error);
+    return;
+  }
+
+  if (data.last_credit_month !== currentMonth) {
+    console.log("Otorgando créditos mensuales...");
+    const updateResponse = await supabase
+      .rpc('update_profile_monthly_credit', { user_id_input: user.id });
+
+    if (updateResponse.error) {
+      console.error('Error actualizando créditos:', updateResponse.error);
+    } else {
+      console.log('Créditos mensuales otorgados correctamente.');
+    }
+  } else {
+    console.log('Ya se otorgaron créditos este mes.');
+  }
+}
 </script></body>
 </html>
