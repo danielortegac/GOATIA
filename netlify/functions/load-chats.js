@@ -33,19 +33,29 @@ exports.handler = async (event, context) => {
 
     // ⚠️ Si el perfil no existe aún (usuario nuevo), lo creamos con 0 créditos
     if (profileResult.error && profileResult.error.code === 'PGRST116') {
+      const now = new Date();
+      const currentMonth = now.toISOString().slice(0, 7); // "YYYY-MM"
+
       const { error: insertError } = await supabase
         .from('profiles')
         .insert({
           id: user.sub,
           credits: 0, // 👈 NO se dan créditos aquí, solo se crea vacío
           gamification_state: {},
-          updated_at: new Date()
+          last_credit_month: currentMonth,
+          last_credits_granted_at: now,
+          updated_at: now
         });
 
       if (insertError) throw insertError;
 
       // Creamos el objeto vacío del perfil para retornarlo
-      profileResult.data = { credits: 0, gamification_state: {} };
+      profileResult.data = {
+        credits: 0,
+        gamification_state: {},
+        last_credit_month: currentMonth,
+        last_credits_granted_at: now
+      };
     } else if (profileResult.error) {
       throw profileResult.error;
     }
