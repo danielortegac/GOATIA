@@ -11,45 +11,7 @@
 <title>Goatify IA - Tu Aliado Estratégico en Productividad y Negocios con IA</title>
 <link href="./Logos HD.png" rel="icon" type="image/png"/>
 <link href="/Logos HD.png" rel="apple-touch-icon"/> <!-- PWA: Apple Touch Icon -->
-<script src="https://cdn.tailwindcss.com">
-async function saveChats(userId, chats) {
-    try {
-        const { data, error } = await supabase
-            .from('user_chats')
-            .upsert({ user_id: userId, chats: JSON.stringify(chats) });
 
-        if (error) throw error;
-        console.log('Chats saved successfully for user:', userId);
-    } catch (error) {
-        console.error('Error saving chats:', error);
-    }
-}
-
-async function loadChats(userId) {
-    try {
-        const { data, error } = await supabase
-            .from('user_chats')
-            .select('chats')
-            .eq('user_id', userId)
-            .single();
-
-        if (error) {
-            if (error.code === 'PGRST116') {
-                console.log('No chats found for user:', userId);
-                return [];
-            }
-            throw error;
-        }
-
-        const parsedChats = JSON.parse(data.chats);
-        console.log('Loaded chats:', parsedChats);
-        return parsedChats;
-    } catch (error) {
-        console.error('Error loading chats:', error);
-        return [];
-    }
-}
-</script>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
 <!-- PDF Generation Library -->
@@ -9494,172 +9456,91 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 <script>
-async function getUserCredits(userId) {
-    const { data, error } = await supabase
-        .from('profiles')
-        .select('credits, last_credit_month')
-        .eq('id', userId)
-        .single();
+// ✅ Inicializar Supabase y Netlify correctamente sin duplicar
+const supabase = window.supabase || supabase = createClient('https://YOUR_PROJECT.supabase.co', 'YOUR_PUBLIC_ANON_KEY');
 
-    if (error) {
-        console.error('Error fetching user credits:', error);
-        return { credits: 0, last_credit_month: null };
-    }
-
-    return data;
-}
-
-async function grantMonthlyCreditsIfNeeded(userId) {
-    const nowMonth = dayjs().format('YYYY-MM');
-    const { credits, last_credit_month } = await getUserCredits(userId);
-
-    if (last_credit_month !== nowMonth) {
-        const { error } = await supabase
-            .from('profiles')
-            .update({ credits: 100, last_credit_month: nowMonth })
-            .eq('id', userId);
-
-        if (error) {
-            console.error('Error updating credits:', error);
-        } else {
-            console.log('✅ Créditos mensuales otorgados');
-        }
-    } else {
-        console.log('⏳ Ya se otorgaron créditos este mes');
-    }
-}
-
-// Llamar esto justo después del login exitoso
-// await grantMonthlyCreditsIfNeeded(currentUser.id);
-</script><script>
-let currentCredits = 5; // Créditos del modo invitado
-let currentUserId = null;
-let supabaseUser = null;
-
-// Mostrar créditos en el DOM
-function updateCreditsDisplay(credits) {
-  const el = document.getElementById("creditos-actuales");
-  if (el) el.textContent = credits;
-}
-
-// Obtener token del usuario logueado
-async function getUserToken() {
-  const session = await supabase.auth.getSession();
-  return session?.data?.session?.access_token || "";
-}
-
-// Obtener créditos desde función serverless
-async function fetchCreditsFromBackend(userId) {
-  try {
-    const response = await fetch("/.netlify/functions/get-usage", {
-      headers: {
-        Authorization: "Bearer " + (await getUserToken())
-      }
-    });
-    const data = await response.json();
-    if (response.ok) {
-      currentCredits = data.credits || 0;
-      updateCreditsDisplay(currentCredits);
-    } else {
-      console.error("⚠️ Error fetching credits:", data.error);
-    }
-  } catch (err) {
-    console.error("💥 Backend error:", err);
-  }
-}
-
-// Sincronizar créditos mensuales si aplica
-async function grantMonthlyCreditsIfNeeded(userId) {
-  await fetchCreditsFromBackend(userId);
-}
-
-// Escuchar eventos de login con Supabase
-supabase.auth.onAuthStateChange(async (event, session) => {
-  if (session?.user) {
-    supabaseUser = session.user;
-    currentUserId = supabaseUser.id;
-    await grantMonthlyCreditsIfNeeded(currentUserId);
-  } else {
-    updateCreditsDisplay(currentCredits); // modo invitado
-  }
-});
-</script><script>
-const supabase = supabase.createClient('https://gsaubeuxhfkakhvhreqj.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdzYXViZXV4aGZrYWtodmhyZXFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTEzOTIyMTUsImV4cCI6MjA2Njk2ODIxNX0.o9YS5BQvzkUV9Hkpvum9w-Uz8fNeb6b9-P7FkiPNfp8');
-
-async function syncCreditsFromSupabase() {
-    try {
-        const { data: { user }, error } = await supabase.auth.getUser();
-        if (error || !user) {
-            console.error("Authentication failed:", error);
-            return;
-        }
-        const userId = user.id;
-        const res = await fetch("/.netlify/functions/get-usage", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({ userId })
-        });
-
-        const json = await res.json();
-        if (json.credits !== undefined) {
-            document.getElementById("credit-count").innerText = json.credits;
-        } else {
-            console.warn("Unexpected response:", json);
-        }
-    } catch (e) {
-        console.error("Failed to sync credits:", e);
-    }
-}
-
-document.addEventListener("DOMContentLoaded", () => {
-    syncCreditsFromSupabase();
-});
-</script><script>
-// ✅ Inicialización segura
-const supabase = window.supabase || createClient('https://YOUR_PROJECT.supabase.co', 'YOUR_PUBLIC_ANON_KEY');
-let currentUserToken = null;
-
-// ✅ Asignación de créditos al registrarse
-async function assignInitialCredits(userId) {
-  try {
-    const { data, error } = await supabase
-      .from('user_data')
-      .upsert({
-        id: userId,
-        credits: 100,
-        xp: 0,
-        level: 1,
-        lastLogin: new Date().toISOString(),
-      });
-    if (error) throw error;
-    console.log('Créditos iniciales asignados');
-  } catch (e) {
-    console.error('Error asignando créditos:', e);
-  }
-}
-
+// ✅ Esperar a que Netlify esté listo antes de interactuar
 if (window.netlifyIdentity) {
   netlifyIdentity.on("init", async (user) => {
     if (user) {
+      console.log("Netlify Identity iniciado con usuario:", user);
       await assignInitialCredits(user.id);
+      await loadCreditsFromServer(user.id);
+    } else {
+      console.log("Netlify Identity iniciado sin usuario.");
     }
   });
 
   netlifyIdentity.on("login", async (user) => {
     if (user) {
+      console.log("Login detectado");
       await assignInitialCredits(user.id);
+      await loadCreditsFromServer(user.id);
     }
   });
 
   netlifyIdentity.on("signup", async (user) => {
     if (user) {
+      console.log("Signup detectado");
       await assignInitialCredits(user.id);
+      await loadCreditsFromServer(user.id);
     }
   });
 
   netlifyIdentity.init();
+}
+
+// ✅ Asignar créditos iniciales si no existen
+async function assignInitialCredits(userId) {
+  try {
+    const { data, error } = await supabase
+      .from('user_data')
+      .select('credits')
+      .eq('id', userId)
+      .single();
+
+    if (error && error.code !== 'PGRST116') throw error; // solo continuar si no existe
+
+    if (!data) {
+      console.log("Asignando créditos iniciales a", userId);
+      await supabase
+        .from('user_data')
+        .upsert({
+          id: userId,
+          credits: 100,
+          xp: 0,
+          level: 1,
+          lastLogin: new Date().toISOString(),
+        });
+    } else {
+      console.log("El usuario ya tiene créditos registrados.");
+    }
+  } catch (e) {
+    console.error("Error asignando créditos:", e);
+  }
+}
+
+// ✅ Cargar créditos desde Supabase y actualizar UI
+async function loadCreditsFromServer(userId) {
+  try {
+    const { data, error } = await supabase
+      .from('user_data')
+      .select('credits')
+      .eq('id', userId)
+      .single();
+
+    if (error) throw error;
+
+    console.log("Créditos obtenidos:", data.credits);
+
+    if (typeof setCreditCount === "function") {
+      setCreditCount(data.credits);
+    } else {
+      console.warn("setCreditCount no está definido.");
+    }
+  } catch (e) {
+    console.error("Error fetching credits from server:", e);
+  }
 }
 </script></body>
 </html>
