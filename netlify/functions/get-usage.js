@@ -17,9 +17,9 @@ exports.handler = async (event, context) => {
   // 2. ✨ PASO CLAVE: Llamar a la función inteligente en Supabase ✨
   // Esta llamada no devuelve datos, pero ejecuta la lógica de dar créditos si es necesario.
   // Es atómica y segura.
-  const { error: rpcError } = await supabase.rpc('grant_monthly_credits_if_needed', {
+  const { error: rpcError } = await supabase.rpc('grant_monthly_credits_by_plan', {
     user_id_param: userId
-  });
+});
 
   if (rpcError) {
     console.error('Error llamando a la RPC grant_monthly_credits_if_needed:', rpcError);
