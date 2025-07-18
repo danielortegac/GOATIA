@@ -2734,124 +2734,33 @@ async function loadChats(userId) {
 <button class="absolute top-4 right-4 text-gray-400 hover:text-text-light" id="close-gamification-rules-modal"><i class="fas fa-times fa-lg"></i></button>
 </div>
 </div>
-<script>
-    // --- INICIO DEL BLOQUE DE CÓDIGO PRINCIPAL ---
-
-    // 1. INICIALIZACIÓN DE SUPABASE Y VARIABLES GLOBALES
-    // Asegúrate de que las variables de entorno estén configuradas en Netlify
-    const supabaseUrl = 'https://gsaubeuxhfkakhvhreqj.supabase.co';
-    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdzYXViZXV4aGZrYWtodmhyZXFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTEzOTIyMTUsImV4cCI6MjA2Njk2ODIxNX0.o9YS5BQvzkUV9Hkpvum9w-Uz8fNeb6b9-P7FkiPNfp8';
-    const supabase = supabase.createClient(supabaseUrl, supabaseKey);
-
-    console.log("Supabase client initialized.");
-
-    let remoteCredits = null; // Variable global para guardar los créditos del servidor
-
-    // 2. FUNCIÓN PARA CARGAR LOS CRÉDITOS DESDE EL SERVIDOR
-    async function loadCreditsFromServer() {
-        const user = netlifyIdentity.currentUser();
-        if (!user || !user.token?.access_token) {
-            console.log("Usuario no autenticado. No se cargan créditos del servidor.");
-            remoteCredits = 0;
-            if (typeof updateCreditCounter === 'function') updateCreditCounter();
-            return;
-        }
-
-        try {
-            const token = user.token.access_token;
-            const res = await fetch('/.netlify/functions/get-usage', { // Asumiendo que esta es tu función para obtener créditos
-                headers: { Authorization: `Bearer ${token}` }
-            });
-
-            if (!res.ok) throw new Error(`El servidor respondió con estado: ${res.status}`);
-            
-            const data = await res.json();
-            if (typeof data.credits === 'number') {
-                remoteCredits = data.credits;
-                console.log(`Créditos cargados exitosamente desde el servidor: ${remoteCredits}`);
-            } else {
-                console.warn("La respuesta del servidor no contenía un número de créditos válido.");
-                remoteCredits = 0;
-            }
-        } catch (e) {
-            console.error('[ERROR] No se pudieron cargar los créditos desde el servidor:', e);
-            remoteCredits = 0; // En caso de error, es más seguro dejarlo en 0
-        }
-
-        if (typeof updateCreditCounter === 'function') {
-            updateCreditCounter();
-        }
-    }
-    
-    // 3. FUNCIÓN PARA GASTAR CRÉDITOS Y NOTIFICAR AL SERVIDOR
-    // (Esta función reemplazará a la que ya tienes dentro del script principal)
-    async function handleSpendCredits(cost) {
-        const user = netlifyIdentity.currentUser();
-        if (!user || !user.token?.access_token) return;
-
-        try {
-            const token = user.token.access_token;
-            // Notificamos al backend que se gastaron créditos
-            await fetch('/.netlify/functions/update-usage', { // Asumiendo que esta es tu función para actualizar
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`
-                },
-                body: JSON.stringify({ delta: -cost }) // Enviamos el costo como un número negativo
-            });
-            // Después de gastar, actualizamos el valor local desde el servidor para mantener la sincronización
-            await loadCreditsFromServer();
-        } catch (e) {
-            console.error('[ERROR] No se pudo notificar al servidor del gasto de créditos:', e);
-        }
-    }
-
-    // 4. LÓGICA DE INICIALIZACIÓN DE LA APLICACIÓN
-    // Este código se ejecuta cuando el DOM está listo
-    document.addEventListener('DOMContentLoaded', () => {
-        
-        // Modificamos la función original 'spendCredits' para que llame a nuestro manejador del backend
-        if (typeof window.spendCredits === 'function') {
-            const originalSpendCredits = window.spendCredits;
-            window.spendCredits = function(cost, modelUsed) {
-                const canSpend = originalSpendCredits.apply(this, arguments);
-                if (canSpend) {
-                    handleSpendCredits(cost); // Si se puede gastar, se notifica al backend
-                }
-                return canSpend;
-            };
-        }
-
-        // Configuración de Netlify Identity
-        if (window.netlifyIdentity) {
-            netlifyIdentity.on('init', async (user) => {
-                console.log("Netlify Identity: Evento 'init' detectado.");
-                await finishInitialization(user); // Función principal que arranca tu app
-                if (user) {
-                    await loadCreditsFromServer(); // Carga los créditos después de inicializar
-                }
-            });
-
-            netlifyIdentity.on('login', (user) => {
-                console.log("Netlify Identity: Evento 'login' detectado.");
-                location.reload(); // La forma más simple y segura de recargar todo el estado
-            });
-
-            netlifyIdentity.on('logout', () => {
-                console.log("Netlify Identity: Evento 'logout' detectado.");
-                localStorage.clear(); // Limpia todo para evitar inconsistencias
-                currentUser = null;
-                remoteCredits = null;
-                location.reload();
-            });
-
-             netlifyIdentity.init();
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js">
+</script>
+<script type="module">
+    async function syncCreditsFromSupabase() {
+    const usageRes = await fetch('/.netlify/functions/get-usage', {
+        headers: {
+            Authorization: `Bearer ${currentUser.token.access_token}`
         }
     });
+    const usageData = await usageRes.json();
 
-    // --- FIN DEL BLOQUE DE CÓDIGO PRINCIPAL ---
-</script>
+    const usageKey = `usage_monthly_${currentUser.id}`;
+    const currentMonth = dayjs().format('YYYY-MM');
+    const savedUsage = JSON.parse(localStorage.getItem(usageKey)) || { count: 0, month: '' };
+
+    // Solo actualiza si el mes cambió o si no existía
+    if (savedUsage.month !== currentMonth || typeof savedUsage.count !== 'number') {
+        localStorage.setItem(usageKey, JSON.stringify({ count: usageData.credits, month: currentMonth }));
+    }
+
+    // Actualiza la UI (si hay elemento para mostrarlo)
+    document.getElementById('credit-count').textContent = usageData.credits;
+}
+
+    
+
+
         //<-- START OF SCRIPT -->
         window.addEventListener('DOMContentLoaded', () => {
             dayjs.extend(window.dayjs_plugin_localizedFormat);
