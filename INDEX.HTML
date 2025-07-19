@@ -4735,106 +4735,119 @@ async function loadChats(userId) {
     return { remaining: Math.max(0, limit - usageData.count), limit, plan };
 }
             /**
-             * Deduce créditos según el costo de la operación y el modelo utilizado.
-             * Muestra modales para créditos insuficientes o límite diario de GOAT X PRO.
-             * Prioriza los créditos del plan, luego los de recompensa. Guarda el uso en localStorage.
-             * @param {number} cost - El número de créditos a gastar.
-             * @param {string} modelUsed - El ID del modelo utilizado (ej. 'gpt-4o').
-             * @returns {boolean} Verdadero si los créditos se gastaron correctamente, falso en caso contrario.
-             */
-            function spendCredits(cost, modelUsed) {
-                // Comprobar el límite diario de GOAT X PRO para usuarios que han iniciado sesión
-                if (modelUsed === 'gpt-4o' && currentUser) {
-                    const today = dayjs().format('YYYY-MM-DD');
-                    const proUsageKey = `goat_x_pro_usage_${currentUser?.id || 'guest'}_${today}`;
-                    goatXProUsage = parseInt(localStorage.getItem(proUsageKey) || '0');
-
-                    if (goatXProUsage >= GOAT_X_PRO_DAILY_LIMIT) {
-                        showModal({
-                            title: 'Límite de Uso Alcanzado para GOAT X PRO',
-                            body: `Has alcanzado el límite de ${GOAT_X_PRO_DAILY_LIMIT} usos diarios para el modelo GOAT X PRO. Por favor, usa el modelo GOAT X (General) o espera hasta mañana para volver a usar GOAT X PRO.`,
-                            confirmText: 'Entendido',
-                            showCancel: false
-                        }).then(() => {
-                            // Revertir el selector de modelo a GOAT X si se alcanza el límite
-                            dom.modelSelector.value = 'gpt-3.5-turbo-1106';
-                            if (document.getElementById('project-model-selector')) document.getElementById('project-model-selector').value = 'gpt-3.5-turbo-1106';
-                            if (document.getElementById('financial-model-selector')) document.getElementById('financial-model-selector').value = 'gpt-3.5-turbo-1106';
-                            if (document.getElementById('notepad-model-selector')) document.getElementById('notepad-model-selector').value = 'gpt-3.5-turbo-1106';
-                        });
-                        return false;
-                    }
-                }
-
-                const { remaining } = getCreditCount();
-                const gamCredits = (gamificationState.credits || 0); // Obtener créditos de recompensa
-
-                // Comprobar si los créditos totales disponibles son suficientes
-                if (remaining < cost && gamCredits < cost) {
-                    const lang = localStorage.getItem('goatify-lang') || 'es';
-                    if (!currentUser) {
-                         // Mostrar modal de inicio de sesión/actualización para usuarios invitados
-                         showModal({
-                            title: translations[lang].login_for_credits_title,
-                            body: translations[lang].login_for_credits_body,
-                            confirmText: translations[lang].login_now_btn,
-                            cancelText: translations[lang].view_plans_btn,
-                        }).then(res => {
-                            if (res.confirmed) {
-                                netlifyIdentity.open('login'); // Abrir el inicio de sesión de Netlify Identity
-                            } else {
-                                showPricingModal(); // Mostrar planes de precios
-                            }
-                        });
-                    } else {
-                        // Mostrar modal de créditos insuficientes para usuarios que han iniciado sesión
-                        showModal({
-                            title: 'Créditos Insuficientes',
-                            body: 'No tienes suficientes créditos de tu plan ni créditos de recompensa. Mejora tu plan para obtener más o espera al próximo mes.',
-                            confirmText: 'Ver Planes'
-                        }).then(res => { if (res.confirmed) showPricingModal(); });
-                    }
-                    return false;
-                }
-
-                // Priorizar los créditos del plan, luego los créditos de recompensa
-                if (remaining >= cost) {
-                    if (!currentUser) {
-                        // Actualizar el uso de invitados en el almacenamiento local
-                        const usageKey = 'guest_usage';
-                        let usageData = JSON.parse(localStorage.getItem(usageKey)) || { count: 0 };
-                        usageData.count += cost;
-                        localStorage.setItem(usageKey, JSON.stringify(usageData));
-                    } else {
-                        // Actualizar el uso mensual del usuario que ha iniciado sesión en el almacenamiento local
-                        const usageKey = `usage_monthly_${currentUser.id}`;
-                        const currentMonth = dayjs().format('YYYY-MM');
-                        let usageData = JSON.parse(localStorage.getItem(usageKey)) || { count: 0, month: '' };
-                        if (usageData.month !== currentMonth) {
-                            usageData = { count: 0, month: currentMonth }; // Reiniciar para el nuevo mes
-                        }
-                        usageData.count += cost;
-                        localStorage.setItem(usageKey, JSON.stringify(usageData));
-                    }
-                } else {
-                    // Usar créditos de recompensa si los créditos del plan son insuficientes
-                    gamificationState.credits -= cost;
-                    saveGamificationState(); // Guardar el estado de gamificación actualizado
-                    showInAppNotification("Crédito de Recompensa Usado", `Se ha utilizado un crédito de recompensa. Te quedan ${gamificationState.credits}.`, 2000);
-                }
-
-
-                updateCreditCounter(); // Actualizar la visualización de créditos en la interfaz de usuario
-
-                // Incrementar el contador de uso diario de GOAT X PRO
-                if (modelUsed === 'gpt-4o' && currentUser) {
-                    const today = dayjs().format('YYYY-MM-DD');
-                    const proUsageKey = `goat_x_pro_usage_${currentUser.id}_${today}`;
-                    goatXProUsage++;
-                    localStorage.setItem(proUsageKey, goatXProUsage.toString());
-                }
-                return true;
+     * @description Esta es la función DEFINITIVA para gastar créditos.
+     * 1. Revisa si el usuario PUEDE gastar los créditos.
+     * 2. Actualiza la pantalla INMEDIATAMENTE para una buena experiencia.
+     * 3. Le avisa al SERVIDOR en segundo plano que descuente los créditos en la base de datos.
+     * @param {number} cost - El número de créditos a gastar.
+     * @param {string} modelUsed - El ID del modelo utilizado (ej. 'gpt-4o').
+     * @returns {boolean} Verdadero si el gasto fue permitido, falso en caso contrario.
+     */
+    function spendCredits(cost, modelUsed) {
+        // --- PASO 1: VERIFICAR SI SE PUEDE GASTAR (Tu lógica original, que está bien) ---
+    
+        // Comprobar el límite diario de GOAT X PRO
+        if (modelUsed === 'gpt-4o' && currentUser) {
+            const today = dayjs().format('YYYY-MM-DD');
+            const proUsageKey = `goat_x_pro_usage_${currentUser.id}_${today}`;
+            let goatXProUsage = parseInt(localStorage.getItem(proUsageKey) || '0');
+    
+            if (goatXProUsage >= GOAT_X_PRO_DAILY_LIMIT) {
+                showModal({
+                    title: 'Límite de Uso Alcanzado para GOAT X PRO',
+                    body: `Has alcanzado el límite de ${GOAT_X_PRO_DAILY_LIMIT} usos diarios para el modelo GOAT X PRO. Por favor, usa el modelo GOAT X (General) o espera hasta mañana.`,
+                    confirmText: 'Entendido',
+                    showCancel: false
+                });
+                return false; // NO se puede gastar
             }
+        }
+    
+        const { remaining } = getCreditCount();
+        const gamCredits = (gamificationState.credits || 0);
+    
+        // Comprobar si hay suficientes créditos en total
+        if ((remaining + gamCredits) < cost) {
+            const lang = localStorage.getItem('goatify-lang') || 'es';
+            if (!currentUser) {
+                showModal({
+                    title: translations[lang].login_for_credits_title,
+                    body: translations[lang].login_for_credits_body,
+                    confirmText: translations[lang].login_now_btn,
+                    cancelText: translations[lang].view_plans_btn,
+                }).then(res => {
+                    if (res.confirmed) { netlifyIdentity.open('login'); } 
+                    else { showPricingModal(); }
+                });
+            } else {
+                showModal({
+                    title: 'Créditos Insuficientes',
+                    body: 'No tienes suficientes créditos de tu plan ni de recompensa. Mejora tu plan para obtener más.',
+                    confirmText: 'Ver Planes'
+                }).then(res => { if (res.confirmed) showPricingModal(); });
+            }
+            return false; // NO se puede gastar
+        }
+    
+        // --- PASO 2: DESCONTAR EN LA PANTALLA (Para que sea instantáneo) ---
+    
+        if (remaining >= cost) {
+            // Usa créditos del plan
+            if (currentUser) {
+                const usageKey = `usage_monthly_${currentUser.id}`;
+                const currentMonth = dayjs().format('YYYY-MM');
+                let usageData = JSON.parse(localStorage.getItem(usageKey)) || { count: 0, month: currentMonth };
+                usageData.count += cost;
+                localStorage.setItem(usageKey, JSON.stringify(usageData));
+            } else {
+                const usageKey = 'guest_usage';
+                let usageData = JSON.parse(localStorage.getItem(usageKey)) || { count: 0 };
+                usageData.count += cost;
+                localStorage.setItem(usageKey, JSON.stringify(usageData));
+            }
+        } else {
+            // Usa créditos de recompensa
+            gamificationState.credits -= cost;
+            saveGamificationState();
+        }
+    
+        // Actualizamos el display de la pantalla inmediatamente
+        updateCreditCounter();
+    
+        // --- PASO 3: AVISAR AL SERVIDOR EN SEGUNDO PLANO ---
+        
+        const token = window.netlifyIdentity.currentUser()?.token?.access_token;
+        if (token) {
+            // No usamos 'await' para que la app no se sienta lenta. Es "dispara y olvida".
+            fetch('/.netlify/functions/update-usage', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({ delta: -cost }) // Enviamos el costo en negativo para que se reste
+            })
+            .then(res => res.json())
+            .then(data => {
+                console.log('Créditos sincronizados con el servidor. Nuevo total:', data.credits);
+                // Opcional: actualizar la variable 'remoteCredits' con la respuesta del servidor
+                window.remoteCredits = data.credits; 
+            })
+            .catch(e => console.error("Error al sincronizar descuento con el servidor:", e));
+        }
+
+        // Incrementar el contador de uso diario de GOAT X PRO si se usó
+        if (modelUsed === 'gpt-4o' && currentUser) {
+            const today = dayjs().format('YYYY-MM-DD');
+            const proUsageKey = `goat_x_pro_usage_${currentUser.id}_${today}`;
+            let goatXProUsage = parseInt(localStorage.getItem(proUsageKey) || '0');
+            goatXProUsage++;
+            localStorage.setItem(proUsageKey, goatXProUsage.toString());
+        }
+    
+        // Si llegamos hasta aquí, el gasto fue exitoso en el frontend.
+        return true;
+    }
 
             /**
              * Carga el estado de la aplicación desde el almacenamiento local o el backend (para usuarios que han iniciado sesión).
