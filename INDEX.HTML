@@ -4688,46 +4688,47 @@ async function loadChats(userId) {
                     throw error;
                 }
             }
-                  /**
+                        /**
              * Calcula el recuento de créditos actual para el usuario.
-             * La única fuente de verdad es la variable `remoteCredits` que se carga desde el servidor.
+             * Maneja usuarios invitados y diferentes planes de suscripción, leyendo desde localStorage para persistencia.
              * @returns {object} Un objeto que contiene los créditos restantes, el límite total y el plan.
              */
-            function getCreditCount() {
-                // Para usuarios no logueados, la lógica de prueba se mantiene local.
-                if (!currentUser) {
-                    const usageData = JSON.parse(localStorage.getItem('guest_usage')) || { count: 0 };
-                    return { remaining: Math.max(0, GUEST_CREDIT_LIMIT - usageData.count), limit: GUEST_CREDIT_LIMIT, plan: 'free (guest)' };
-                }
+      function getCreditCount() {
+    // 1. La lógica para invitados no cambia.
+    if (!currentUser) {
+        const usageData = JSON.parse(localStorage.getItem('guest_usage')) || { count: 0 };
+        return { remaining: Math.max(0, GUEST_CREDIT_LIMIT - usageData.count), limit: GUEST_CREDIT_LIMIT, plan: 'free (guest)' };
+    }
 
-                // Para usuarios logueados, la fuente de la verdad es `remoteCredits` (obtenido del backend).
-                const plan = currentUser.app_metadata?.plan || 'free';
-                let limit;
-                switch (plan) {
-                    case 'boost': limit = BOOST_PLAN_CREDIT_LIMIT; break;
-                    case 'pro': limit = PRO_PLAN_CREDIT_LIMIT; break;
-                    default: limit = LOGGED_IN_FREE_CREDITS;
-                }
+    // 2. Lógica para usuarios logueados (SIMPLIFICADA)
+    const plan = currentUser.app_metadata?.plan || 'free';
+    let limit;
+    switch (plan) {
+        case 'boost': limit = BOOST_PLAN_CREDIT_LIMIT; break;
+        case 'pro': limit = PRO_PLAN_CREDIT_LIMIT; break;
+        default: limit = LOGGED_IN_FREE_CREDITS;
+    }
 
-                // Si remoteCredits aún no se ha cargado (por ejemplo, al inicio), devolvemos 0 para ser seguros.
-                const remainingCredits = (typeof remoteCredits === 'number') ? remoteCredits : 0;
+    // --- ESTE ES EL CAMBIO CLAVE ---
+    // La única fuente de verdad ahora es la variable 'remoteCredits' que se carga desde el servidor.
+    // Si aún no se ha cargado, devolvemos 0 para estar seguros.
+    const remainingCredits = (typeof remoteCredits === 'number') ? remoteCredits : 0;
 
-                return { remaining: remainingCredits, limit: limit, plan: plan };
-            }
-/**
+    return { remaining: remainingCredits, limit: limit, plan: plan };
+}
+            /**
              * Deduce créditos según el costo de la operación y el modelo utilizado.
              * Muestra modales para créditos insuficientes o límite diario de GOAT X PRO.
-             * Prioriza los créditos del plan, luego los de recompensa. NO GUARDA EL USO EN LOCALSTORAGE
+             * Prioriza los créditos del plan, luego los de recompensa. Guarda el uso en localStorage.
              * @param {number} cost - El número de créditos a gastar.
              * @param {string} modelUsed - El ID del modelo utilizado (ej. 'gpt-4o').
              * @returns {boolean} Verdadero si los créditos se gastaron correctamente, falso en caso contrario.
              */
-            async function spendCredits(cost, modelUsed) { // Añade `async` aquí porque haremos una llamada al servidor
-
+            function spendCredits(cost, modelUsed) {
                 // Comprobar el límite diario de GOAT X PRO para usuarios que han iniciado sesión
                 if (modelUsed === 'gpt-4o' && currentUser) {
                     const today = dayjs().format('YYYY-MM-DD');
-                    const proUsageKey = `goat_x_pro_usage_${currentUser.id}_${today}`;
+                    const proUsageKey = `goat_x_pro_usage_${currentUser?.id || 'guest'}_${today}`;
                     goatXProUsage = parseInt(localStorage.getItem(proUsageKey) || '0');
 
                     if (goatXProUsage >= GOAT_X_PRO_DAILY_LIMIT) {
@@ -4737,6 +4738,7 @@ async function loadChats(userId) {
                             confirmText: 'Entendido',
                             showCancel: false
                         }).then(() => {
+                            // Revertir el selector de modelo a GOAT X si se alcanza el límite
                             dom.modelSelector.value = 'gpt-3.5-turbo-1106';
                             if (document.getElementById('project-model-selector')) document.getElementById('project-model-selector').value = 'gpt-3.5-turbo-1106';
                             if (document.getElementById('financial-model-selector')) document.getElementById('financial-model-selector').value = 'gpt-3.5-turbo-1106';
@@ -4746,26 +4748,28 @@ async function loadChats(userId) {
                     }
                 }
 
-                // Esto ya no se usa para deducir, solo para mostrar un mensaje si no hay saldo
                 const { remaining } = getCreditCount();
-                const gamCredits = (gamificationState.credits || 0);
+                const gamCredits = (gamificationState.credits || 0); // Obtener créditos de recompensa
 
+                // Comprobar si los créditos totales disponibles son suficientes
                 if (remaining < cost && gamCredits < cost) {
                     const lang = localStorage.getItem('goatify-lang') || 'es';
                     if (!currentUser) {
-                        showModal({
+                         // Mostrar modal de inicio de sesión/actualización para usuarios invitados
+                         showModal({
                             title: translations[lang].login_for_credits_title,
                             body: translations[lang].login_for_credits_body,
                             confirmText: translations[lang].login_now_btn,
                             cancelText: translations[lang].view_plans_btn,
                         }).then(res => {
                             if (res.confirmed) {
-                                netlifyIdentity.open('login');
+                                netlifyIdentity.open('login'); // Abrir el inicio de sesión de Netlify Identity
                             } else {
-                                showPricingModal();
+                                showPricingModal(); // Mostrar planes de precios
                             }
                         });
                     } else {
+                        // Mostrar modal de créditos insuficientes para usuarios que han iniciado sesión
                         showModal({
                             title: 'Créditos Insuficientes',
                             body: 'No tienes suficientes créditos de tu plan ni créditos de recompensa. Mejora tu plan para obtener más o espera al próximo mes.',
@@ -4774,51 +4778,43 @@ async function loadChats(userId) {
                     }
                     return false;
                 }
-                
-                // --- CAMBIO CLAVE: Llama al backend para descontar créditos ---
-                if (currentUser) {
-                    try {
-                        const res = await fetch('/.netlify/functions/update-usage', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${currentUserToken}` },
-                            body: JSON.stringify({ delta: -cost }) // Enviamos el costo como delta negativo
-                        });
-                        const data = await res.json();
-                        if (!res.ok) {
-                            if (res.status === 402) { // Si el backend ya dice que no hay créditos
-                                showModal({
-                                    title: 'Créditos Insuficientes',
-                                    body: 'El servidor indica que no tienes suficientes créditos. Recarga la página o mejora tu plan.',
-                                    confirmText: 'Entendido',
-                                    showCancel: false
-                                });
-                                return false;
-                            }
-                            throw new Error(data.error || 'Error al descontar créditos en el servidor.');
+
+                // Priorizar los créditos del plan, luego los créditos de recompensa
+                if (remaining >= cost) {
+                    if (!currentUser) {
+                        // Actualizar el uso de invitados en el almacenamiento local
+                        const usageKey = 'guest_usage';
+                        let usageData = JSON.parse(localStorage.getItem(usageKey)) || { count: 0 };
+                        usageData.count += cost;
+                        localStorage.setItem(usageKey, JSON.stringify(usageData));
+                    } else {
+                        // Actualizar el uso mensual del usuario que ha iniciado sesión en el almacenamiento local
+                        const usageKey = `usage_monthly_${currentUser.id}`;
+                        const currentMonth = dayjs().format('YYYY-MM');
+                        let usageData = JSON.parse(localStorage.getItem(usageKey)) || { count: 0, month: '' };
+                        if (usageData.month !== currentMonth) {
+                            usageData = { count: 0, month: currentMonth }; // Reiniciar para el nuevo mes
                         }
-                        // Actualiza el `remoteCredits` con el valor que viene directamente del servidor
-                        remoteCredits = data.credits;
-                    } catch (err) {
-                        console.error('[Credits] Error al descontar créditos en el servidor:', err);
-                        showInAppNotification("Error de Créditos", "Hubo un problema al descontar tus créditos. Intenta de nuevo.", 3000);
-                        return false;
+                        usageData.count += cost;
+                        localStorage.setItem(usageKey, JSON.stringify(usageData));
                     }
-                } else { // Lógica para invitados (se mantiene en frontend por simplicidad)
-                    const usageKey = 'guest_usage';
-                    let usageData = JSON.parse(localStorage.getItem(usageKey)) || { count: 0 };
-                    usageData.count += cost;
-                    localStorage.setItem(usageKey, JSON.stringify(usageData));
+                } else {
+                    // Usar créditos de recompensa si los créditos del plan son insuficientes
+                    gamificationState.credits -= cost;
+                    saveGamificationState(); // Guardar el estado de gamificación actualizado
+                    showInAppNotification("Crédito de Recompensa Usado", `Se ha utilizado un crédito de recompensa. Te quedan ${gamificationState.credits}.`, 2000);
                 }
 
-                // Incrementar el contador de uso diario de GOAT X PRO (si aplica)
-                if (modelUsed === 'gpt-4o' && currentUser) { // Solo cuenta para usuarios logueados
+
+                updateCreditCounter(); // Actualizar la visualización de créditos en la interfaz de usuario
+
+                // Incrementar el contador de uso diario de GOAT X PRO
+                if (modelUsed === 'gpt-4o' && currentUser) {
                     const today = dayjs().format('YYYY-MM-DD');
                     const proUsageKey = `goat_x_pro_usage_${currentUser.id}_${today}`;
                     goatXProUsage++;
                     localStorage.setItem(proUsageKey, goatXProUsage.toString());
                 }
-
-                updateCreditCounter(); // Siempre actualizar la visualización de créditos en la interfaz de usuario
                 return true;
             }
 
