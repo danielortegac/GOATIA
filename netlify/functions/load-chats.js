@@ -1,3 +1,4 @@
+// netlify/functions/load-chats.js
 const { createClient } = require('@supabase/supabase-js');
 
 exports.handler = async (event, context) => {
@@ -16,37 +17,27 @@ exports.handler = async (event, context) => {
       process.env.SUPABASE_SERVICE_KEY
     );
 
-    // 🔄 Obtenemos en paralelo los chats y el perfil del usuario
+    // Obtenemos en paralelo los chats y el perfil del usuario
     const [chatResult, profileResult] = await Promise.all([
       supabase
         .from('user_chats')
         .select('chats')
         .eq('user_id', user.sub)
         .single(),
-
       supabase
         .from('profiles')
-        .select('credits, gamification_state')
+        .select('credits, gamification_state') // Solo seleccionamos lo que necesitamos
         .eq('id', user.sub)
         .single()
     ]);
 
-    // ✅ Si el perfil no existe aún (usuario nuevo), NO lo creamos aquí. Solo devolvemos null en profile.
-    if (profileResult.error && profileResult.error.code === 'PGRST116') {
-      return {
-        statusCode: 200,
-        body: JSON.stringify({
-          ...(chatResult.data?.chats || {}),
-          profile: null
-        })
-      };
-    } else if (profileResult.error) {
+    // Si hay un error en el perfil (que no sea "no encontrado"), lo lanzamos.
+    if (profileResult.error && profileResult.error.code !== 'PGRST116') {
       throw profileResult.error;
     }
 
-    // 🧠 Datos de chats y perfil
     const stateData = chatResult.data?.chats || {};
-    const profileData = profileResult.data || null;
+    const profileData = profileResult.data || { credits: 0, gamification_state: {} }; // Si no hay perfil, devolvemos 0 créditos
 
     const response = {
       ...stateData,
