@@ -1,10 +1,11 @@
 const { createClient } = require('@supabase/supabase-js');
 
-exports.handler = async (event) => {
+exports.handler = async (event, context) => {
   // Parsea los datos del webhook de Netlify Identity
   let user;
   try {
-    user = JSON.parse(event.body).user;
+    const payload = JSON.parse(event.body);
+    user = payload.user || payload; // Ajuste para manejar diferentes formatos de webhook
     if (!user || !user.id || !user.email) {
       throw new Error('Datos de usuario inválidos en el webhook');
     }
@@ -43,16 +44,15 @@ exports.handler = async (event) => {
 
     console.log(`Perfil de Supabase creado/actualizado exitosamente para ${user.email}`);
 
-    // No necesitas crear el usuario en auth.users, Netlify ya lo hizo
     return {
       statusCode: 200,
       body: JSON.stringify({ message: 'Perfil de usuario sincronizado en Supabase.' }),
     };
   } catch (error) {
-    console.error('Error sincronizando el perfil en Supabase:', error);
+    console.error('Error sincronizando el perfil en Supabase:', error.message);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: 'Fallo al sincronizar el perfil en Supabase.' }),
+      body: JSON.stringify({ error: 'Fallo al sincronizar el perfil en Supabase.', details: error.message }),
     };
   }
 };
