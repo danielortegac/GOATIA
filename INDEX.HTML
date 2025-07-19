@@ -9244,56 +9244,130 @@ loadCreditsFromServer();
     });
 </script>
 // ---- INICIO DEL PARCHE PARA ACTUALIZAR CRÉDITOS POST-PAGO ----
-document.addEventListener('DOMContentLoaded', async () =&gt; {
-    const urlParams = new URLSearchParams(window.location.search);
-    const paymentStatus = urlParams.get('payment');
+document.addEventListener('DOMContentLoaded', async () => {
+  const urlParams = new URLSearchParams(window.location.search);
+  const paymentStatus = urlParams.get('payment');
 
-    if (paymentStatus === 'success') {
-        console.log('Pago exitoso detectado, actualizando créditos...');
+  // Manejar el éxito del pago
+  if (paymentStatus === 'success') {
+    console.log('Pago exitoso detectado, actualizando créditos...');
 
-        showInAppNotification(
-            "¡Pago Exitoso!",
-            "Tus créditos han sido actualizados. ¡Gracias por tu compra!",
-            5000
-        );
+    showInAppNotification(
+      "¡Pago Exitoso!",
+      "Tus créditos han sido actualizados. ¡Gracias por tu compra!",
+      5000
+    );
 
-        const user = window.netlifyIdentity.currentUser();
-        if (user) {
-            try {
-                await fetch('/.netlify/functions/paypal-webhook', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ user_id: user.id, plan_id: 'boost' })
-                });
+    const user = window.netlifyIdentity.currentUser();
+    if (user) {
+      try {
+        // Actualizar el plan en el backend
+        await fetch('/.netlify/functions/paypal-webhook', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: user.id, plan_id: urlParams.get('plan') || 'boost' })
+        });
 
-                const response = await fetch('/.netlify/functions/get-usage', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ user_id: user.id })
-                });
-                const data = await response.json();
-                const newCredits = data.credits;
+        // Sincronizar créditos desde Supabase
+        await syncCredits(user.id);
 
-                document.getElementById('plan-credits-display').textContent = `0/${newCredits}`;
-
-                if (typeof loadStateForUser === 'function') {
-                    setTimeout(() =&gt; {
-                        finishInitialization(user);
-                    }, 1000);
-                }
-            } catch (error) {
-                console.error('Error al actualizar créditos:', error);
-                showInAppNotification(
-                    'Error',
-                    'No se pudieron actualizar los créditos. Intenta de nuevo.',
-                    5000
-                );
-            }
+        if (typeof loadStateForUser === 'function') {
+          setTimeout(() => {
+            finishInitialization(user);
+          }, 1000);
         }
+      } catch (error) {
+        console.error('Error al actualizar créditos:', error);
+        showInAppNotification(
+          'Error',
+          'No se pudieron actualizar los créditos. Intenta de nuevo.',
+          5000
+        );
+      }
 
-        history.replaceState(null, '', window.location.pathname);
+      // Limpiar la URL
+      history.replaceState(null, '', window.location.pathname);
     }
+  }
 });
+
+// Sincronizar créditos al iniciar sesión o cuando la pestaña se activa
+window.netlifyIdentity.on('login', async (user) => {
+  await syncCredits(user.id);
+});
+
+// Sincronizar créditos cuando la pestaña vuelve a estar activa
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState === 'visible' && window.netlifyIdentity.currentUser()) {
+    await syncCredits(window.netlifyIdentity.currentUser().id);
+  }
+});
+
+// Función para sincronizar créditos desde Supabase
+async function syncCredits(userId) {
+  try {
+    const response = await fetch('/.netlify/functions/get-usage', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: userId })
+    });
+    const data = await response.json();
+    if (data.credits !== undefined) {
+      // Actualizar la UI con los créditos desde Supabase
+      document.getElementById('plan-credits-display').textContent = `0/${data.credits}`;
+      // Guardar en localStorage solo para referencia, pero Supabase es la fuente de la verdad
+      localStorage.setItem('credits', data.credits);
+    }
+  } catch (error) {
+    console.error('Error al sincronizar créditos:', error);
+    showInAppNotification(
+      'Error',
+      'No se pudieron cargar los créditos. Intenta de nuevo.',
+      5000
+    );
+  }
+}
+
+// Descontar créditos en el frontend de forma optimista
+async function deductCredits(amount) {
+  const user = window.netlifyIdentity.currentUser();
+  if (!user) return false;
+
+  let currentCredits = parseInt(localStorage.getItem('credits') || '0');
+  if (currentCredits < amount) {
+    showInAppNotification('Créditos insuficientes', 'No tienes suficientes créditos.', 5000);
+    return false;
+  }
+
+  // Actualizar optimistamente en la UI
+  currentCredits -= amount;
+  document.getElementById('plan-credits-display').textContent = `0/${currentCredits}`;
+  localStorage.setItem('credits', currentCredits);
+
+  // Enviar la actualización al servidor
+  try {
+    const response = await fetch('/.netlify/functions/update-usage', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ delta: -amount })
+    });
+    const data = await response.json();
+    if (data.credits !== undefined) {
+      // Actualizar la UI con el valor confirmado del servidor
+      document.getElementById('plan-credits-display').textContent = `0/${data.credits}`;
+      localStorage.setItem('credits', data.credits);
+      return true;
+    } else {
+      throw new Error('No se recibieron créditos actualizados');
+    }
+  } catch (error) {
+    console.error('Error al descontar créditos:', error);
+    // Revertir el cambio optimista
+    await syncCredits(user.id);
+    showInAppNotification('Error', 'No se pudo descontar los créditos. Intenta de nuevo.', 5000);
+    return false;
+  }
+}
 // ---- FIN DEL PARCHE ----
 window.netlifyIdentity.on('login', async (user) =&gt; {
     try {
