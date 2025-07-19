@@ -17,7 +17,7 @@ exports.handler = async (event, context) => {
       process.env.SUPABASE_SERVICE_KEY
     );
 
-    // Obtenemos en paralelo los chats y el perfil del usuario
+    // Hacemos las dos peticiones a la vez para más eficiencia.
     const [chatResult, profileResult] = await Promise.all([
       supabase
         .from('user_chats')
@@ -26,18 +26,21 @@ exports.handler = async (event, context) => {
         .single(),
       supabase
         .from('profiles')
-        .select('credits, gamification_state') // Solo seleccionamos lo que necesitamos
+        .select('credits, gamification_state')
         .eq('id', user.sub)
         .single()
     ]);
 
-    // Si hay un error en el perfil (que no sea "no encontrado"), lo lanzamos.
+    // Si hay un error que NO sea "no se encontró la fila", es un problema real.
     if (profileResult.error && profileResult.error.code !== 'PGRST116') {
       throw profileResult.error;
     }
 
+    // Si no se encuentra el perfil, el trigger del Paso 1 aún no ha terminado.
+    // Devolvemos 100 créditos de forma optimista para que el usuario no vea 0.
+    // La base de datos se pondrá al día en segundos.
+    const profileData = profileResult.data || { credits: 100, gamification_state: {} };
     const stateData = chatResult.data?.chats || {};
-    const profileData = profileResult.data || { credits: 0, gamification_state: {} }; // Si no hay perfil, devolvemos 0 créditos
 
     const response = {
       ...stateData,
