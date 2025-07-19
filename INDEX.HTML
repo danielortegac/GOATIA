@@ -9243,67 +9243,82 @@ loadCreditsFromServer();
         });
     });
 </script>
-// ---- INICIO DEL PARCHE PARA ACTUALIZAR CRÉDITOS POST-PAGO ----
+// Inicialización de la aplicación
 document.addEventListener('DOMContentLoaded', async () => {
-  const urlParams = new URLSearchParams(window.location.search);
-  const paymentStatus = urlParams.get('payment');
+  // Iniciar Netlify Identity
+  if (window.netlifyIdentity) {
+    window.netlifyIdentity.on('init', user => {
+      if (user) {
+        initializeApp(user);
+      }
+    });
+    window.netlifyIdentity.on('login', user => {
+      initializeApp(user);
+      syncCredits(user.id); // Asegura que los créditos se sincronicen al logearse
+    });
+    window.netlifyIdentity.on('logout', () => {
+      document.getElementById('plan-credits-display').textContent = '0/0';
+      localStorage.clear();
+      location.reload();
+    });
+    window.netlifyIdentity.init();
+  } else {
+    console.error('Netlify Identity no está disponible. Revisa la configuración.');
+    showInAppNotification('Error', 'No se puede iniciar la sesión. Contacta al soporte.', 5000);
+  }
+
+  // Sincronización de créditos al activar la pestaña
+  document.addEventListener('visibilitychange', async () => {
+    if (document.visibilityState === 'visible' && window.netlifyIdentity.currentUser()) {
+      await syncCredits(window.netlifyIdentity.currentUser().id);
+    }
+  });
 
   // Manejar el éxito del pago
-  if (paymentStatus === 'success') {
-    console.log('Pago exitoso detectado, actualizando créditos...');
-
-    showInAppNotification(
-      "¡Pago Exitoso!",
-      "Tus créditos han sido actualizados. ¡Gracias por tu compra!",
-      5000
-    );
-
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('payment') === 'success') {
     const user = window.netlifyIdentity.currentUser();
     if (user) {
       try {
-        // Actualizar el plan en el backend
         await fetch('/.netlify/functions/paypal-webhook', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ user_id: user.id, plan_id: urlParams.get('plan') || 'boost' })
         });
-
-        // Sincronizar créditos desde Supabase
         await syncCredits(user.id);
-
-        if (typeof loadStateForUser === 'function') {
-          setTimeout(() => {
-            finishInitialization(user);
-          }, 1000);
-        }
+        showInAppNotification('¡Pago Exitoso!', 'Tus créditos han sido actualizados. ¡Gracias!', 5000);
       } catch (error) {
-        console.error('Error al actualizar créditos:', error);
-        showInAppNotification(
-          'Error',
-          'No se pudieron actualizar los créditos. Intenta de nuevo.',
-          5000
-        );
+        console.error('Error al procesar pago:', error);
+        showInAppNotification('Error', 'No se actualizaron los créditos. Intenta de nuevo.', 5000);
       }
-
-      // Limpiar la URL
       history.replaceState(null, '', window.location.pathname);
     }
   }
 });
 
-// Sincronizar créditos al iniciar sesión o cuando la pestaña se activa
-window.netlifyIdentity.on('login', async (user) => {
-  await syncCredits(user.id);
-});
-
-// Sincronizar créditos cuando la pestaña vuelve a estar activa
-document.addEventListener('visibilitychange', async () => {
-  if (document.visibilityState === 'visible' && window.netlifyIdentity.currentUser()) {
-    await syncCredits(window.netlifyIdentity.currentUser().id);
+// Función para inicializar la app con el usuario
+async function initializeApp(user) {
+  try {
+    const response = await fetch('/.netlify/functions/load-chats', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: user.id })
+    });
+    const data = await response.json();
+    if (data.profile && data.profile.credits !== undefined) {
+      document.getElementById('plan-credits-display').textContent = `0/${data.profile.credits}`;
+      localStorage.setItem('credits', data.profile.credits);
+    }
+    if (typeof loadStateForUser === 'function') {
+      finishInitialization(user);
+    }
+  } catch (error) {
+    console.error('Error al inicializar la app:', error);
+    showInAppNotification('Error', 'No se pudo cargar tu perfil. Intenta de nuevo.', 5000);
   }
-});
+}
 
-// Función para sincronizar créditos desde Supabase
+// Función para sincronizar créditos
 async function syncCredits(userId) {
   try {
     const response = await fetch('/.netlify/functions/get-usage', {
@@ -9313,22 +9328,16 @@ async function syncCredits(userId) {
     });
     const data = await response.json();
     if (data.credits !== undefined) {
-      // Actualizar la UI con los créditos desde Supabase
       document.getElementById('plan-credits-display').textContent = `0/${data.credits}`;
-      // Guardar en localStorage solo para referencia, pero Supabase es la fuente de la verdad
       localStorage.setItem('credits', data.credits);
     }
   } catch (error) {
     console.error('Error al sincronizar créditos:', error);
-    showInAppNotification(
-      'Error',
-      'No se pudieron cargar los créditos. Intenta de nuevo.',
-      5000
-    );
+    showInAppNotification('Error', 'No se pudieron cargar los créditos.', 5000);
   }
 }
 
-// Descontar créditos en el frontend de forma optimista
+// Función para descontar créditos (optimista con confirmación)
 async function deductCredits(amount) {
   const user = window.netlifyIdentity.currentUser();
   if (!user) return false;
@@ -9339,12 +9348,10 @@ async function deductCredits(amount) {
     return false;
   }
 
-  // Actualizar optimistamente en la UI
   currentCredits -= amount;
   document.getElementById('plan-credits-display').textContent = `0/${currentCredits}`;
   localStorage.setItem('credits', currentCredits);
 
-  // Enviar la actualización al servidor
   try {
     const response = await fetch('/.netlify/functions/update-usage', {
       method: 'POST',
@@ -9353,7 +9360,6 @@ async function deductCredits(amount) {
     });
     const data = await response.json();
     if (data.credits !== undefined) {
-      // Actualizar la UI con el valor confirmado del servidor
       document.getElementById('plan-credits-display').textContent = `0/${data.credits}`;
       localStorage.setItem('credits', data.credits);
       return true;
@@ -9362,9 +9368,8 @@ async function deductCredits(amount) {
     }
   } catch (error) {
     console.error('Error al descontar créditos:', error);
-    // Revertir el cambio optimista
     await syncCredits(user.id);
-    showInAppNotification('Error', 'No se pudo descontar los créditos. Intenta de nuevo.', 5000);
+    showInAppNotification('Error', 'No se pudo descontar. Intenta de nuevo.', 5000);
     return false;
   }
 }
