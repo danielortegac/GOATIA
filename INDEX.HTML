@@ -9993,21 +9993,6 @@ async function spendCredit() {
 
 </script>
 <script>
-async function getUserCredits(userId) {
-    const { data, error } = await supabase
-        .from('profiles')
-        .select('credits, last_credit_month')
-        .eq('id', userId)
-        .single();
-
-    if (error) {
-        console.error('Error fetching user credits:', error);
-        return { credits: 0, last_credit_month: null };
-    }
-
-    return data;
-}
-
 async function grantMonthlyCreditsIfNeeded(userId) {
     const nowMonth = dayjs().format('YYYY-MM');
     const { credits, last_credit_month } = await getUserCredits(userId);
@@ -10015,18 +10000,19 @@ async function grantMonthlyCreditsIfNeeded(userId) {
     if (last_credit_month !== nowMonth) {
         const { error } = await supabase
             .from('profiles')
-            .update({ credits: 100, last_credit_month: nowMonth })
+            .update({ last_credit_month: nowMonth })
             .eq('id', userId);
 
         if (error) {
-            console.error('Error updating credits:', error);
+            console.error('Error actualizando el mes de créditos:', error);
         } else {
-            console.log('✅ Créditos mensuales otorgados');
+            console.log('🛡 Créditos ya existentes preservados. Solo se actualizó el mes.');
         }
     } else {
         console.log('⏳ Ya se otorgaron créditos este mes');
     }
 }
+
 
 // Llamar esto justo después del login exitoso
 // await grantMonthlyCreditsIfNeeded(currentUser.id);
