@@ -9648,5 +9648,78 @@ async function syncCreditsFromSupabase() {
 document.addEventListener("DOMContentLoaded", () => {
     syncCreditsFromSupabase();
 });
-</script></body>
+</script>
+<script>
+// ====== SISTEMA DE CRÉDITOS ONLINE SIEMPRE SIN LOCALSTORAGE ======
+
+let currentUserToken = null;
+
+// Obtiene el JWT del usuario desde Netlify Identity (asume que tu lógica ya lo asigna)
+function getUserToken() {
+    if (window.netlifyIdentity && netlifyIdentity.currentUser()) {
+        return netlifyIdentity.currentUser().token.access_token;
+    }
+    return null;
+}
+
+// Llama a la función serverless para obtener créditos reales desde Supabase
+async function fetchCreditsFromServer() {
+  try {
+    const token = getUserToken();
+    if (!token) {
+        document.getElementById('credits-badge').textContent = "—";
+        return 0;
+    }
+    const resp = await fetch('/.netlify/functions/get-usage', {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+    const data = await resp.json();
+    let credits = (data && typeof data.credits === "number") ? data.credits : 0;
+    // Actualiza el badge
+    document.getElementById('credits-badge').textContent = credits;
+    return credits;
+  } catch (e) {
+    document.getElementById('credits-badge').textContent = "ERR";
+    console.error('No se pudieron cargar créditos:', e);
+    return 0;
+  }
+}
+
+// Refresca los créditos en la UI
+async function refreshCreditsUI() {
+  await fetchCreditsFromServer();
+}
+
+// Refresca créditos cuando la pestaña vuelve a estar activa
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    refreshCreditsUI();
+  }
+});
+
+// Al iniciar la app, refresca créditos
+window.addEventListener('DOMContentLoaded', () => {
+  refreshCreditsUI();
+});
+
+// Función para llamar después de gastar/agregar créditos
+async function afterCreditsChange() {
+  await refreshCreditsUI();
+}
+
+// Opcional: sincronización entre pestañas en el mismo navegador
+const creditSyncChannel = new BroadcastChannel('goatify-credits');
+creditSyncChannel.onmessage = (msg) => {
+  if (msg.data === 'credits-updated') refreshCreditsUI();
+};
+function notifyCreditUpdate() {
+  creditSyncChannel.postMessage('credits-updated');
+}
+
+// ====== Fin del sistema de créditos ======
+</script>
+
+</body>
 </html>
