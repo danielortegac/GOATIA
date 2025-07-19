@@ -28,7 +28,7 @@ exports.handler = async (event, context) => {
   const thisMonth = new Date().toISOString().slice(0, 7);
   if (profile.last_credit_month !== thisMonth) {
     const { error: creditError } = await supabase.rpc('grant_monthly_credits_by_plan', {
-      user_id: userId
+      user_id_param: userId
     });
     if (creditError) {
       console.error('Error RPC:', creditError);
