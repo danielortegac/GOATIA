@@ -2,6 +2,7 @@
 const { createClient } = require('@supabase/supabase-js');
 
 exports.handler = async (event, context) => {
+  // 1. Autenticación (como ya la tienes, está perfecta)
   const { user } = context.clientContext;
   if (!user) {
     return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized' }) };
@@ -13,62 +14,37 @@ exports.handler = async (event, context) => {
     process.env.SUPABASE_SERVICE_KEY
   );
 
-  const currentMonth = new Date().toISOString().slice(0, 7); // Formato YYYY-MM
+  // 2. ✨ PASO CLAVE: Llamar a la función inteligente en Supabase ✨
+  // Esta llamada ejecuta la lógica de dar créditos si es necesario.
+  const { error: rpcError } = await supabase.rpc('grant_monthly_credits_by_plan', {
+    user_id_param: userId
+  });
 
-  // 1. Obtenemos el perfil actual del usuario.
-  let { data: profile, error: profileError } = await supabase
+  if (rpcError) {
+    console.error('Error llamando a la RPC grant_monthly_credits_by_plan:', rpcError);
+    // Aunque haya un error aquí, intentamos seguir para no bloquear al usuario.
+  }
+
+  // 3. Ahora sí, obtenemos el total de créditos (que ya estará actualizado si correspondía).
+  const { data, error: selectError } = await supabase
     .from('profiles')
-    .select('credits, last_credit_month')
+    .select('credits')
     .eq('id', userId)
     .single();
 
-  // Si hay un error que no sea "perfil no encontrado", lo devolvemos.
-  if (profileError && profileError.code !== 'PGRST116') {
-    console.error('Error fetching profile:', profileError);
-    return { statusCode: 500, body: JSON.stringify({ error: 'Database error fetching profile' }) };
-  }
-
-  // 2. Si el perfil no existe, es un usuario nuevo. Lo creamos con 100 créditos.
-  if (!profile) {
-    const { data: newProfile, error: createError } = await supabase
-      .from('profiles')
-      .insert({
-        id: userId,
-        credits: 100,
-        last_credit_month: currentMonth
-      })
-      .select()
-      .single();
-
-    if (createError) {
-      console.error('Error creating profile:', createError);
-      return { statusCode: 500, body: JSON.stringify({ error: 'Failed to create user profile.' }) };
+  if (selectError) {
+    console.error('get-usage select error:', selectError);
+    // Si no se encuentra el perfil, el trigger debería haberlo creado.
+    // Si aún así falla, devolvemos 0 para no romper el frontend.
+    if (selectError.code === 'PGRST116') {
+        return { statusCode: 200, body: JSON.stringify({ credits: 0 }) };
     }
-    profile = newProfile;
-  }
-  // 3. Si el perfil ya existe, revisamos si necesita sus créditos mensuales.
-  else if (profile.last_credit_month !== currentMonth) {
-    const { data: updatedProfile, error: updateError } = await supabase
-      .from('profiles')
-      .update({
-        credits: 100,
-        last_credit_month: currentMonth
-      })
-      .eq('id', userId)
-      .select()
-      .single();
-
-    if (updateError) {
-      console.error('Error updating monthly credits:', updateError);
-      // No devolvemos error aquí, simplemente usamos los créditos que ya tenía.
-    } else {
-      profile = updatedProfile;
-    }
+    return { statusCode: 500, body: JSON.stringify({ error: 'Database error' }) };
   }
 
-  // 4. Devolvemos la cantidad de créditos final y sincronizada.
+  // 4. Devolvemos la cantidad de créditos correcta y siempre sincronizada desde la DB.
   return {
     statusCode: 200,
-    body: JSON.stringify({ credits: profile.credits })
+    body: JSON.stringify({ credits: data.credits })
   };
 };
