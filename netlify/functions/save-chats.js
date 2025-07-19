@@ -1,3 +1,4 @@
+// netlify/functions/save-chats.js
 const { createClient } = require('@supabase/supabase-js');
 
 exports.handler = async (event, context) => {
@@ -19,7 +20,7 @@ exports.handler = async (event, context) => {
 
     const promises = [];
 
-    // Guardar chats
+    // 1. Guardar (o actualizar) el chat
     if (stateToSave) {
       promises.push(
         supabase
@@ -35,15 +36,16 @@ exports.handler = async (event, context) => {
       );
     }
 
-    // Guardar gamification_state (no credits, ya que se manejan en update-usage.js)
-    if (profileToSave && profileToSave.gamificationState) {
+    // 2. Upsert del perfil (asegura que la fila exista y se actualice)
+    if (profileToSave && typeof profileToSave.credits === 'number') {
       promises.push(
         supabase
           .from('profiles')
           .upsert(
             {
               id: user.sub,
-              gamification_state: profileToSave.gamificationState,
+              credits: profileToSave.credits,
+              gamification_state: profileToSave.gamificationState || {},
               updated_at: new Date().toISOString()
             },
             { onConflict: 'id' }
@@ -51,8 +53,10 @@ exports.handler = async (event, context) => {
       );
     }
 
+    // 3. Ejecuta ambas operaciones
     const results = await Promise.all(promises);
 
+    // 4. Revisa errores
     for (const res of results) {
       if (res.error) throw res.error;
     }
@@ -69,3 +73,4 @@ exports.handler = async (event, context) => {
     };
   }
 };
+
