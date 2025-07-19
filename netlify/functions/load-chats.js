@@ -1,28 +1,48 @@
-// ✅ Si el perfil no existe aún (usuario nuevo), lo creamos con 100 créditos iniciales
-    if (profileResult.error && profileResult.error.code === 'PGRST116') {
-      const now = new Date();
-      const currentMonth = now.toISOString().slice(0, 7); // "YYYY-MM"
+// /netlify/functions/load-chats.js
+const { createClient } = require('@supabase/supabase-js');
 
-      const { error: insertError } = await supabase
-        .from('profiles')
-        .insert({
-          id: user.sub,
-          credits: 100, // ✅ SOLUCIÓN: Se otorgan 100 créditos iniciales
-          gamification_state: {},
-          last_credit_month: currentMonth,
-          last_credits_granted_at: now,
-          updated_at: now
-        });
+exports.handler = async (event, context) => {
+  const { user } = context.clientContext;
 
-      if (insertError) throw insertError;
+  if (!user) {
+    return {
+      statusCode: 401,
+      body: JSON.stringify({ error: 'Authentication required.' })
+    };
+  }
 
-      // Creamos el objeto del perfil para retornarlo inmediatamente al frontend
-      profileResult.data = {
-        credits: 100, // ✅ Y AQUÍ TAMBIÉN: Se devuelve el valor correcto
-        gamification_state: {},
-        last_credit_month: currentMonth,
-        last_credits_granted_at: now
-      };
-    } else if (profileResult.error) {
-      throw profileResult.error;
+  try {
+    const supabase = createClient(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_KEY
+    );
+
+    // Su única responsabilidad ahora es cargar los chats.
+    const { data, error } = await supabase
+      .from('user_chats')
+      .select('chats')
+      .eq('user_id', user.sub)
+      .single();
+
+    if (error && error.code !== 'PGRST116') { // Ignora el error si no se encuentra la fila
+        throw error;
     }
+
+    const stateData = data?.chats || {};
+
+    return {
+      statusCode: 200,
+      body: JSON.stringify(stateData)
+    };
+
+  } catch (err) {
+    console.error('Error in load-chats function:', err);
+    return {
+      statusCode: 500,
+      body: JSON.stringify({
+        error: 'Failed to load chat data.',
+        details: err.message
+      })
+    };
+  }
+};
