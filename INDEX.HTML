@@ -3104,11 +3104,35 @@ async function spendCredit() {
 
 </script>
 <script type="module">
-    async function syncCreditsFromSupabase() {
-    const usageRes = await fetch('/.netlify/functions/get-usage', {
-        headers: {
-            Authorization: `Bearer ${currentUser.token.access_token}`
-        }
+   let lastKnownCredits = null;
+
+async function syncCreditsFromSupabase() {
+  const user = netlifyIdentity.currentUser();
+  if (!user) return;
+
+  try {
+    const res = await fetch("/.netlify/functions/get-usage", {
+      headers: {
+        Authorization: `Bearer ${user.token.access_token}`,
+      },
+    });
+
+    const data = await res.json();
+
+    if (data.credits !== lastKnownCredits) {
+      lastKnownCredits = data.credits;
+      const creditSpan = document.getElementById("creditCount");
+      if (creditSpan) {
+        creditSpan.textContent = data.credits;
+        document.getElementById("creditsInfo").style.display = '';
+        document.getElementById("loginLink").style.display = 'none';
+        document.getElementById("logoutLink").style.display = '';
+      }
+    }
+  } catch (err) {
+    console.error("Error syncing credits:", err);
+  }
+}
     });
     const usageData = await usageRes.json();
 
