@@ -4694,37 +4694,46 @@ async function loadChats(userId) {
              * @returns {object} Un objeto que contiene los créditos restantes, el límite total y el plan.
              */
             function getCreditCount() {
-                
-                if (typeof remoteCredits === 'number') {
-                    return { remaining: remoteCredits, limit: remoteCredits, plan: currentUser?.app_metadata?.plan || 'free' };
-                }
-if (!currentUser) {
-                    // Lógica para usuarios invitados
-                    const usageData = JSON.parse(localStorage.getItem('guest_usage')) || { count: 0 };
-                    return { remaining: Math.max(0, GUEST_CREDIT_LIMIT - usageData.count), limit: GUEST_CREDIT_LIMIT, plan: 'free (guest)' };
-                }
+    // La lógica para invitados no cambia y está bien.
+    if (!currentUser) {
+        const usageData = JSON.parse(localStorage.getItem('guest_usage')) || { count: 0 };
+        return { remaining: Math.max(0, GUEST_CREDIT_LIMIT - usageData.count), limit: GUEST_CREDIT_LIMIT, plan: 'free (guest)' };
+    }
 
-                // Lógica para usuarios que han iniciado sesión
-                const plan = currentUser.app_metadata?.plan || 'free';
-                let limit;
-                switch (plan) {
-                    case 'boost': limit = BOOST_PLAN_CREDIT_LIMIT; break;
-                    case 'pro': limit = PRO_PLAN_CREDIT_LIMIT; break;
-                    default: limit = LOGGED_IN_FREE_CREDITS;
-                }
+    // --- LÓGICA CORREGIDA PARA USUARIOS LOGUEADOS ---
 
-                const usageKey = `usage_monthly_${currentUser.id}`;
-                const currentMonth = dayjs().format('YYYY-MM');
-                const usageData = JSON.parse(localStorage.getItem(usageKey)) || { count: 0, month: '' };
+    // 1. PRIMERO, determina SIEMPRE el límite correcto basado en el plan del usuario.
+    const plan = currentUser.app_metadata?.plan || 'free';
+    let limit;
+    switch (plan) {
+        case 'boost': 
+            limit = BOOST_PLAN_CREDIT_LIMIT; // 1000
+            break;
+        case 'pro': 
+            limit = PRO_PLAN_CREDIT_LIMIT; // 4000
+            break;
+        default: 
+            limit = LOGGED_IN_FREE_CREDITS; // 100
+    }
 
-                // Reiniciar el uso mensual si es un mes nuevo
-                if (usageData.month !== currentMonth) {
-                    localStorage.setItem(usageKey, JSON.stringify({ count: 0, month: currentMonth }));
-                    return { remaining: limit, limit, plan };
-                }
+    // 2. LUEGO, si tenemos el número de créditos del servidor (`remoteCredits`), 
+    //    lo usamos para el valor 'remaining'. El 'limit' ya es el correcto.
+    if (typeof remoteCredits === 'number') {
+        return { remaining: remoteCredits, limit: limit, plan: plan };
+    }
 
-                return { remaining: Math.max(0, limit - usageData.count), limit, plan };
-            }
+    // 3. Si aún no tenemos `remoteCredits`, usamos la lógica de localStorage como respaldo (como antes).
+    const usageKey = `usage_monthly_${currentUser.id}`;
+    const currentMonth = dayjs().format('YYYY-MM');
+    const usageData = JSON.parse(localStorage.getItem(usageKey)) || { count: 0, month: '' };
+
+    if (usageData.month !== currentMonth) {
+        localStorage.setItem(usageKey, JSON.stringify({ count: 0, month: currentMonth }));
+        return { remaining: limit, limit, plan };
+    }
+
+    return { remaining: Math.max(0, limit - usageData.count), limit, plan };
+}
             /**
              * Deduce créditos según el costo de la operación y el modelo utilizado.
              * Muestra modales para créditos insuficientes o límite diario de GOAT X PRO.
