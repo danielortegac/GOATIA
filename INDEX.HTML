@@ -3105,10 +3105,31 @@ async function spendCredit() {
 </script>
 <script type="module">
     async function syncCreditsFromSupabase() {
-    const usageRes = await fetch('/.netlify/functions/get-usage', {
-        headers: {
-            Authorization: `Bearer ${currentUser.token.access_token}`
-        }
+  const user = netlifyIdentity.currentUser();
+  if (!user) {
+    console.warn("No user logged in, skipping credit sync.");
+    return;
+  }
+
+  try {
+    const res = await fetch('/.netlify/functions/get-usage', {
+      headers: {
+        Authorization: `Bearer ${user.token.access_token}`,
+      },
+    });
+    const data = await res.json();
+
+    if (!document.getElementById("creditCount")) {
+      console.warn("Elemento creditCount no está disponible.");
+      return;
+    }
+
+    document.getElementById("creditCount").textContent = data.credits;
+  } catch (error) {
+    console.error("No se pudo sincronizar créditos", error);
+  }
+}
+    
     });
     const usageData = await usageRes.json();
 
@@ -10358,9 +10379,9 @@ async function spendCredit() {
       }
     });
 
-    netlifyIdentity.on('login', async (user) => {
-      currentUser = user;
-      await fetchCredits();
+   netlifyIdentity.on("login", user => {
+  netlifyIdentity.close();
+  syncCreditsFromSupabase(); // ✅ Aquí sí ya está definido el user
     });
 
     netlifyIdentity.on('logout', () => {
