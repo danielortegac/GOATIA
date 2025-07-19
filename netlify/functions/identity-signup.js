@@ -25,3 +25,13 @@ exports.handler = async (event) => {
       body: JSON.stringify({ error: 'Fallo al crear el usuario en Supabase.' }),
     };
   }
+
+  console.log(`Usuario de Supabase creado exitosamente para ${user.email}`);
+  
+  // ¡Listo! El trigger que creamos antes se encargará del resto (crear perfil y chats).
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify({ message: 'Usuario de Supabase creado.' }),
+  };
+};
