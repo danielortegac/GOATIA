@@ -1,37 +1,58 @@
 const { createClient } = require('@supabase/supabase-js');
 
 exports.handler = async (event) => {
-  // Parsea los datos del usuario que Netlify envía en el webhook.
-  const { user } = JSON.parse(event.body);
+  // Parsea los datos del webhook de Netlify Identity
+  let user;
+  try {
+    user = JSON.parse(event.body).user;
+    if (!user || !user.id || !user.email) {
+      throw new Error('Datos de usuario inválidos en el webhook');
+    }
+  } catch (parseError) {
+    console.error('Error al parsear el cuerpo del evento:', parseError);
+    return {
+      statusCode: 400,
+      body: JSON.stringify({ error: 'Datos de usuario inválidos o malformados' }),
+    };
+  }
 
-  // Crea un cliente de Supabase con permisos de administrador.
+  // Crea un cliente de Supabase con permisos de administrador
   const supabaseAdmin = createClient(
     process.env.SUPABASE_URL,
     process.env.SUPABASE_SERVICE_KEY
   );
 
-  // Le ordena a Supabase que cree un nuevo usuario en la tabla 'auth.users'.
-  const { data, error } = await supabaseAdmin.auth.admin.createUser({
-    id: user.id, // Usa el mismo ID de Netlify para mantener la sincronización.
-    email: user.email,
-    user_metadata: user.user_metadata,
-    email_confirm: true // Marca el email como confirmado.
-  });
+  try {
+    // Sincroniza el perfil del usuario en la tabla 'profiles' con 100 créditos iniciales
+    const { error } = await supabaseAdmin.from('profiles').upsert(
+      {
+        id: user.id,
+        email: user.email,
+        credits: 100,
+        last_credit_month: new Date().toISOString().slice(0, 7), // Formato YYYY-MM
+        updated_at: new Date().toISOString(),
+        plan: 'free',
+        user_metadata: user.user_metadata || {}
+      },
+      { onConflict: 'id' }
+    );
 
-  if (error) {
-    console.error('Error creando el usuario en Supabase:', error);
+    if (error) {
+      throw error;
+    }
+
+    console.log(`Perfil de Supabase creado/actualizado exitosamente para ${user.email}`);
+
+    // No necesitas crear el usuario en auth.users, Netlify ya lo hizo
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ message: 'Perfil de usuario sincronizado en Supabase.' }),
+    };
+  } catch (error) {
+    console.error('Error sincronizando el perfil en Supabase:', error);
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: 'Fallo al crear el usuario en Supabase.' }),
+      body: JSON.stringify({ error: 'Fallo al sincronizar el perfil en Supabase.' }),
     };
   }
-
-  console.log(`Usuario de Supabase creado exitosamente para ${user.email}`);
-  
-  // ¡Listo! El trigger que creamos antes se encargará del resto (crear perfil y chats).
-
-  return {
-    statusCode: 200,
-    body: JSON.stringify({ message: 'Usuario de Supabase creado.' }),
-  };
 };
