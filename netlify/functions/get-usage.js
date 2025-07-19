@@ -2,7 +2,6 @@
 const { createClient } = require('@supabase/supabase-js');
 
 exports.handler = async (event, context) => {
-  // 1. Autenticación (como ya la tienes, está perfecta)
   const { user } = context.clientContext;
   if (!user) {
     return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized' }) };
@@ -14,35 +13,24 @@ exports.handler = async (event, context) => {
     process.env.SUPABASE_SERVICE_KEY
   );
 
-  // 2. ✨ PASO CLAVE: Llamar a la función inteligente en Supabase ✨
-  // Esta llamada ejecuta la lógica de dar créditos si es necesario.
-  const { error: rpcError } = await supabase.rpc('grant_monthly_credits_by_plan', {
-    user_id_param: userId
-  });
-
-  if (rpcError) {
-    console.error('Error llamando a la RPC grant_monthly_credits_by_plan:', rpcError);
-    // Aunque haya un error aquí, intentamos seguir para no bloquear al usuario.
-  }
-
-  // 3. Ahora sí, obtenemos el total de créditos (que ya estará actualizado si correspondía).
-  const { data, error: selectError } = await supabase
+  // Simplemente obtenemos los créditos actuales del perfil del usuario.
+  const { data, error } = await supabase
     .from('profiles')
     .select('credits')
     .eq('id', userId)
     .single();
 
-  if (selectError) {
-    console.error('get-usage select error:', selectError);
-    // Si no se encuentra el perfil, el trigger debería haberlo creado.
-    // Si aún así falla, devolvemos 0 para no romper el frontend.
-    if (selectError.code === 'PGRST116') {
-        return { statusCode: 200, body: JSON.stringify({ credits: 0 }) };
+  if (error) {
+    console.error('get-usage select error:', error);
+    // Si no se encuentra el perfil (PGRST116), es probable que sea un usuario nuevo.
+    // Devolvemos 100 para que la UI no muestre 0. El trigger lo creará en la DB.
+    if (error.code === 'PGRST116') {
+        return { statusCode: 200, body: JSON.stringify({ credits: 100 }) };
     }
     return { statusCode: 500, body: JSON.stringify({ error: 'Database error' }) };
   }
 
-  // 4. Devolvemos la cantidad de créditos correcta y siempre sincronizada desde la DB.
+  // Devolvemos la cantidad de créditos correcta y siempre sincronizada.
   return {
     statusCode: 200,
     body: JSON.stringify({ credits: data.credits })
