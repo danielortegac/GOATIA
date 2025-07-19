@@ -5063,12 +5063,93 @@ async function spendCredit() {
              * Maneja usuarios invitados y diferentes planes de suscripción, leyendo desde localStorage para persistencia.
              * @returns {object} Un objeto que contiene los créditos restantes, el límite total y el plan.
              */
+            f// --- LÓGICA DE CRÉDITOS REFACTORIZADA ---
+
+            // SOLUCIÓN: getCreditCount ahora es mucho más simple.
+            // Simplemente nos dice cuántos créditos tenemos guardados en nuestra variable "remota".
             function getCreditCount() {
-    // La lógica para invitados no cambia y está bien.
-    if (!currentUser) {
-        const usageData = JSON.parse(localStorage.getItem('guest_usage')) || { count: 0 };
-        return { remaining: Math.max(0, GUEST_CREDIT_LIMIT - usageData.count), limit: GUEST_CREDIT_LIMIT, plan: 'free (guest)' };
-    }
+                if (!currentUser) {
+                    const usageData = JSON.parse(localStorage.getItem('guest_usage')) || { count: 0 };
+                    return { remaining: Math.max(0, GUEST_CREDIT_LIMIT - usageData.count), limit: GUEST_CREDIT_LIMIT, plan: 'free (guest)' };
+                }
+                return { remaining: remoteCredits, limit: 'sync', plan: currentUser.app_metadata?.plan || 'free' };
+            }
+
+            // SOLUCIÓN: spendCredits ahora es "optimista" y luego sincroniza con el servidor.
+            async function spendCredits(cost, modelUsed) {
+                if (modelUsed === 'gpt-4o' && (!currentUser || (currentUser.app_metadata?.plan || 'free') === 'free')) {
+                     showInAppNotification("Acceso Restringido", "El modelo GOAT X PRO está disponible solo para usuarios con un plan de pago.", 3000);
+                     return false;
+                }
+
+                const { remaining } = getCreditCount();
+                const gamCredits = (gamificationState.credits || 0);
+
+                if (remaining < cost && gamCredits < cost) {
+                    const lang = localStorage.getItem('goatify-lang') || 'es';
+                    if (!currentUser) {
+                         showModal({
+                            title: translations[lang].login_for_credits_title,
+                            body: translations[lang].login_for_credits_body,
+                            confirmText: translations[lang].login_now_btn,
+                            cancelText: translations[lang].view_plans_btn,
+                        }).then(res => {
+                            if (res.confirmed) {
+                                netlifyIdentity.open('login');
+                            } else {
+                                showPricingModal();
+                            }
+                        });
+                    } else {
+                        showModal({
+                            title: 'Créditos Insuficientes',
+                            body: 'No tienes suficientes créditos de tu plan ni créditos de recompensa. Mejora tu plan para obtener más o espera al próximo mes.',
+                            confirmText: 'Ver Planes'
+                        }).then(res => { if (res.confirmed) showPricingModal(); });
+                    }
+                    return false;
+                }
+
+                // Actualización optimista: primero actualizamos la UI para que sea instantáneo.
+                if (remaining >= cost) {
+                    remoteCredits -= cost;
+                } else {
+                    gamificationState.credits -= cost;
+                }
+                updateCreditCounter();
+
+                try {
+                    const token = await currentUser.jwt();
+                    const response = await fetch('/.netlify/functions/update-usage', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            Authorization: `Bearer ${token}`
+                        },
+                        body: JSON.stringify({ delta: -cost })
+                    });
+                    if (!response.ok) throw new Error('Falló la sincronización con el servidor.');
+                    
+                    const data = await response.json();
+                    remoteCredits = data.credits;
+                    updateCreditCounter();
+
+                } catch (error) {
+                    console.error("Error al gastar créditos en el servidor:", error);
+                    remoteCredits += cost; // Revertimos el cambio local
+                    updateCreditCounter();
+                    showInAppNotification("Error de Sincronización", "No se pudo guardar el cambio de créditos. Inténtalo de nuevo.", 3000);
+                    return false;
+                }
+                
+                if (modelUsed === 'gpt-4o' && currentUser) {
+                    const today = dayjs().format('YYYY-MM-DD');
+                    const proUsageKey = `goat_x_pro_usage_${currentUser.id}_${today}`;
+                    goatXProUsage++;
+                    localStorage.setItem(proUsageKey, goatXProUsage.toString());
+                }
+                return true;
+            }
 
     // --- LÓGICA CORREGIDA PARA USUARIOS LOGUEADOS ---
 
