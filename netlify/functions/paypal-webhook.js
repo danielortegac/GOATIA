@@ -2,17 +2,21 @@
 const fetch = require('node-fetch');
 const { createClient } = require('@supabase/supabase-js');
 
-// Helper para obtener el token de administrador de Netlify
+// Helper para obtener el token de administrador de Netlify (VERSIÓN CORREGIDA)
 async function getNetlifyAdminToken() {
+    // Usamos URLSearchParams para formatear el cuerpo correctamente
+    const params = new URLSearchParams();
+    params.append('grant_type', 'client_credentials');
+    params.append('client_id', process.env.NETLIFY_OAUTH_CLIENT_ID);
+    params.append('client_secret', process.env.NETLIFY_OAUTH_CLIENT_SECRET);
+
     const res = await fetch('https://api.netlify.com/oauth/token', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            grant_type: 'client_credentials',
-            client_id: process.env.NETLIFY_OAUTH_CLIENT_ID,
-            client_secret: process.env.NETLIFY_OAUTH_CLIENT_SECRET
-        })
+        // El header DEBE ser 'application/x-www-form-urlencoded'
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: params.toString() // Esto convierte los parámetros al formato correcto
     });
+
     const json = await res.json();
     if (!res.ok) {
         console.error('Error obteniendo el token de Netlify:', json);
@@ -20,6 +24,7 @@ async function getNetlifyAdminToken() {
     }
     return json.access_token;
 }
+
 
 // Handler principal de la función
 exports.handler = async (event) => {
@@ -73,8 +78,7 @@ exports.handler = async (event) => {
                     },
                     body: JSON.stringify({
                         app_metadata: {
-                            // --- ¡AQUÍ ESTÁ LA CORRECCIÓN! ---
-                            plan: planName, // Usamos la variable correcta 'planName'
+                            plan: planName,
                             roles: [planName, 'member'],
                             paypal_subscription_id: resource.id
                         }
@@ -103,8 +107,6 @@ exports.handler = async (event) => {
             console.log('Tabla de suscripciones actualizada en Supabase.');
 
             // b) Añadir los créditos al perfil del usuario
-            // Usamos una función de base de datos (RPC) para hacer esto de forma segura
-            // y evitar condiciones de carrera.
             const { error: rpcError } = await supabase.rpc('increment_credits', {
                 user_id_param: userId,
                 increment_value: bonus
@@ -124,17 +126,3 @@ exports.handler = async (event) => {
         return { statusCode: 500, body: `Error interno del servidor: ${e.message}` };
     }
 };
-
-// Función para incrementar créditos en Supabase (debes añadirla en tu SQL Editor)
-/*
-CREATE OR REPLACE FUNCTION increment_credits(user_id_param uuid, increment_value int)
-RETURNS void
-LANGUAGE plpgsql
-AS $$
-BEGIN
-  UPDATE public.profiles
-  SET credits = credits + increment_value
-  WHERE id = user_id_param;
-END;
-$$;
-*/
