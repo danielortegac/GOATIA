@@ -2,17 +2,16 @@
 const { createClient } = require('@supabase/supabase-js');
 
 exports.handler = async (event, context) => {
-  // 1. Autenticación
   const { user } = context.clientContext;
   if (!user) {
     return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized' }) };
   }
   const userId = user.sub;
 
-  // 2. Obtener la cantidad a cambiar (delta)
   let delta;
   try {
-    delta = JSON.parse(event.body).delta;
+    const body = JSON.parse(event.body);
+    delta = body.delta; // Esperamos un número, ej: -1 para descontar
     if (typeof delta !== 'number') {
       throw new Error('Delta must be a number.');
     }
@@ -20,13 +19,12 @@ exports.handler = async (event, context) => {
     return { statusCode: 400, body: JSON.stringify({ error: 'Bad request: Invalid delta.' }) };
   }
 
-  // 3. Crear cliente de Supabase
   const supabase = createClient(
     process.env.SUPABASE_URL,
     process.env.SUPABASE_SERVICE_KEY
   );
 
-  // 4. ✨ PASO CLAVE: Llamar a la función RPC para actualizar créditos de forma segura ✨
+  // Llamamos a nuestra función SQL segura
   const { error: rpcError } = await supabase.rpc('increment_credits', {
     user_id_param: userId,
     increment_value: delta
@@ -37,7 +35,7 @@ exports.handler = async (event, context) => {
     return { statusCode: 500, body: JSON.stringify({ error: 'Database error while updating credits.' }) };
   }
 
-  // 5. Devolver el nuevo total de créditos al frontend
+  // Devolvemos el nuevo total de créditos al frontend
   const { data: profileData, error: selectError } = await supabase
     .from('profiles')
     .select('credits')
