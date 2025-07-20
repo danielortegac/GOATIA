@@ -9951,11 +9951,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const result = await res.json();
       const credits = result.credits;
 
-      const interval = setInterval(() => {
-        if (typeof window.setCreditCount === 'function') {
-          window.setCreditCount(credits);
-          clearInterval(interval);
-        } else {
+       else {
           retries++;
           if (retries > 20) {
             clearInterval(interval);
@@ -10363,6 +10359,85 @@ async function spendCredit() {
   });
 </script>
 
+
+
+<script>
+function updateCreditsUI(credits) {
+  const creditElements = document.querySelectorAll('.credits-count');
+  creditElements.forEach(el => el.textContent = credits);
+}
+
+async function fetchCredits() {
+  const user = netlifyIdentity.currentUser();
+  if (!user) return;
+  try {
+    const res = await fetch('/.netlify/functions/get-usage', {
+      headers: {
+        Authorization: `Bearer ${user.token.access_token}`
+      }
+    });
+    const result = await res.json();
+    if (result.credits !== undefined) {
+      updateCreditsUI(result.credits);
+    }
+  } catch (err) {
+    console.error("Error obteniendo créditos:", err);
+  }
+}
+
+async function spendCredit() {
+  const user = netlifyIdentity.currentUser();
+  if (!user) return;
+  try {
+    const res = await fetch('/.netlify/functions/update-usage', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${user.token.access_token}`
+      },
+      body: JSON.stringify({ delta: -1 })
+    });
+    const result = await res.json();
+    if (result.credits !== undefined) {
+      updateCreditsUI(result.credits);
+    }
+  } catch (err) {
+    console.error("Error consumiendo crédito:", err);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  netlifyIdentity.init();
+  netlifyIdentity.on('init', async user => {
+    if (user) await fetchCredits();
+  });
+  netlifyIdentity.on('login', async user => {
+    await fetchCredits();
+  });
+  netlifyIdentity.on('logout', () => {
+    updateCreditsUI(0);
+    location.reload();
+  });
+});
+</script>
+
+
+<script>
+// Canal de sincronización entre pestañas
+const bc = new BroadcastChannel('goatify-channel');
+bc.onmessage = event => {
+  if (event.data === 'credit-updated') {
+    if (typeof fetchCredits === 'function') fetchCredits();
+  }
+};
+
+// Hook adicional en spendCredit sin reescribirla
+const originalSpendCredit = spendCredit;
+spendCredit = async function() {
+  await originalSpendCredit();
+  bc.postMessage('credit-updated');
+};
+</script>
 
 </body>
 </html>
