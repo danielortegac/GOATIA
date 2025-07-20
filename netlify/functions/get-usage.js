@@ -13,42 +13,32 @@ exports.handler = async (event, context) => {
 
   const userId = user.sub;
 
-  const { data: profile, error } = await supabase
-    .from('profiles')
-    .select('credits, last_credit_month')
-    .eq('id', userId)
-    .single();
+  // Primero, llamamos a la función inteligente para que otorgue créditos si es necesario.
+  // Esta función es segura, solo dará créditos una vez por mes.
+  const { error: rpcError } = await supabase.rpc('grant_monthly_credits', {
+    // 👇 NOMBRE DE FUNCIÓN Y PARÁMETRO CORREGIDOS
+    user_id_input: userId 
+  });
 
-  if (error) {
-    console.error(error);
-    return { statusCode: 500, body: JSON.stringify({ error: 'DB Error' }) };
+  if (rpcError) {
+    console.error('Error RPC:', rpcError);
+    // No devolvemos un error fatal aquí, para que el usuario al menos pueda ver sus créditos actuales.
   }
 
-  // Chequear si ya recibió créditos este mes
-  const thisMonth = new Date().toISOString().slice(0, 7);
-  if (profile.last_credit_month !== thisMonth) {
-    const { error: creditError } = await supabase.rpc('grant_monthly_credits_by_plan', {
-      user_id_param: userId
-    });
-    if (creditError) {
-      console.error('Error RPC:', creditError);
-      return { statusCode: 500, body: JSON.stringify({ error: 'Credit grant failed' }) };
-    }
-  }
-
-  // Consultar de nuevo
-  const { data: updated, error: finalError } = await supabase
+  // Después de (intentar) otorgar créditos, consultamos el valor final.
+  const { data: updatedProfile, error: finalError } = await supabase
     .from('profiles')
     .select('credits')
     .eq('id', userId)
     .single();
 
   if (finalError) {
-    return { statusCode: 500, body: JSON.stringify({ error: 'Post-RPC fetch failed' }) };
+    console.error('Error fetching final credits:', finalError);
+    return { statusCode: 500, body: JSON.stringify({ error: 'DB Error after RPC' }) };
   }
 
   return {
     statusCode: 200,
-    body: JSON.stringify({ credits: updated.credits })
+    body: JSON.stringify({ credits: updatedProfile.credits })
   };
 };
