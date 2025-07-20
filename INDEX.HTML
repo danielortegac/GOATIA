@@ -5426,11 +5426,11 @@
             }
             /**
              * Calcula el recuento de créditos actual para el usuario.
-             * Maneja usuarios invitados y diferentes planes de suscripción, leyendo desde localStorage para persistencia.
+             * Esta función es la fuente de verdad para los créditos, priorizando los datos del servidor.
              * @returns {object} Un objeto que contiene los créditos restantes, el límite total y el plan.
              */
             function getCreditCount() {
-                // La lógica para invitados no cambia y está bien.
+                // Para usuarios invitados, la lógica se basa en localStorage.
                 if (!currentUser) {
                     const usageData = JSON.parse(localStorage.getItem('guest_usage')) || {
                         count: 0
@@ -5442,24 +5442,22 @@
                     };
                 }
 
-                // --- LÓGICA CORREGIDA PARA USUARIOS LOGUEADOS ---
-
-                // 1. PRIMERO, determina SIEMPRE el límite correcto basado en el plan del usuario.
+                // --- LÓGICA PARA USUARIOS LOGUEADOS ---
+                // 1. Determinar el límite de créditos basado en el plan del usuario.
                 const plan = currentUser.app_metadata ? .plan || 'free';
                 let limit;
                 switch (plan) {
                     case 'boost':
-                        limit = BOOST_PLAN_CREDIT_LIMIT; // 1000
+                        limit = BOOST_PLAN_CREDIT_LIMIT;
                         break;
                     case 'pro':
-                        limit = PRO_PLAN_CREDIT_LIMIT; // 4000
+                        limit = PRO_PLAN_CREDIT_LIMIT;
                         break;
                     default:
-                        limit = LOGGED_IN_FREE_CREDITS; // 100
+                        limit = LOGGED_IN_FREE_CREDITS;
                 }
 
-                // 2. LUEGO, si tenemos el número de créditos del servidor (`remoteCredits`), 
-                //    lo usamos para el valor 'remaining'. El 'limit' ya es el correcto.
+                // 2. Usar los créditos del servidor (`remoteCredits`) como la fuente principal de verdad.
                 if (typeof remoteCredits === 'number') {
                     return {
                         remaining: remoteCredits,
@@ -5468,7 +5466,8 @@
                     };
                 }
 
-                // 3. Si aún no tenemos `remoteCredits`, usamos la lógica de localStorage como respaldo (como antes).
+                // 3. Como respaldo (si `remoteCredits` aún no se ha cargado), usar localStorage.
+                //    Esto es principalmente para la carga inicial antes de la primera sincronización.
                 const usageKey = `usage_monthly_${currentUser.id}`;
                 const currentMonth = dayjs().format('YYYY-MM');
                 const usageData = JSON.parse(localStorage.getItem(usageKey)) || {
@@ -5476,6 +5475,7 @@
                     month: ''
                 };
 
+                // Si es un nuevo mes, los créditos se resetean al límite del plan.
                 if (usageData.month !== currentMonth) {
                     localStorage.setItem(usageKey, JSON.stringify({
                         count: 0,
@@ -5488,6 +5488,7 @@
                     };
                 }
 
+                // Devolver créditos restantes basados en el uso de localStorage.
                 return {
                     remaining: Math.max(0, limit - usageData.count),
                     limit,
@@ -5497,7 +5498,7 @@
             /**
              * Deduce créditos según el costo de la operación y el modelo utilizado.
              * Muestra modales para créditos insuficientes o límite diario de GOAT X PRO.
-             * Prioriza los créditos del plan, luego los de recompensa. Guarda el uso en localStorage.
+             * Prioriza los créditos del plan, luego los de recompensa. Notifica al servidor del gasto.
              * @param {number} cost - El número de créditos a gastar.
              * @param {string} modelUsed - El ID del modelo utilizado (ej. 'gpt-4o').
              * @returns {boolean} Verdadero si los créditos se gastaron correctamente, falso en caso contrario.
@@ -5561,42 +5562,21 @@
                     return false;
                 }
 
-                // Priorizar los créditos del plan, luego los créditos de recompensa
-                if (remaining >= cost) {
-                    if (!currentUser) {
-                        // Actualizar el uso de invitados en el almacenamiento local
-                        const usageKey = 'guest_usage';
-                        let usageData = JSON.parse(localStorage.getItem(usageKey)) || {
-                            count: 0
-                        };
-                        usageData.count += cost;
-                        localStorage.setItem(usageKey, JSON.stringify(usageData));
-                    } else {
-                        // Actualizar el uso mensual del usuario que ha iniciado sesión en el almacenamiento local
-                        const usageKey = `usage_monthly_${currentUser.id}`;
-                        const currentMonth = dayjs().format('YYYY-MM');
-                        let usageData = JSON.parse(localStorage.getItem(usageKey)) || {
-                            count: 0,
-                            month: ''
-                        };
-                        if (usageData.month !== currentMonth) {
-                            usageData = {
-                                count: 0,
-                                month: currentMonth
-                            }; // Reiniciar para el nuevo mes
-                        }
-                        usageData.count += cost;
-                        localStorage.setItem(usageKey, JSON.stringify(usageData));
-                    }
+                // Lógica de gasto de créditos
+                if (currentUser) {
+                    // Para usuarios logueados, SIEMPRE notificamos al servidor.
+                    spendRemoteCredits(-cost);
                 } else {
-                    // Usar créditos de recompensa si los créditos del plan son insuficientes
-                    gamificationState.credits -= cost;
-                    saveGamificationState(); // Guardar el estado de gamificación actualizado
-                    showInAppNotification("Crédito de Recompensa Usado", `Se ha utilizado un crédito de recompensa. Te quedan ${gamificationState.credits}.`, 2000);
+                    // Para invitados, manejamos el conteo en localStorage.
+                    const usageKey = 'guest_usage';
+                    let usageData = JSON.parse(localStorage.getItem(usageKey)) || {
+                        count: 0
+                    };
+                    usageData.count += cost;
+                    localStorage.setItem(usageKey, JSON.stringify(usageData));
+                    updateCreditCounter();
                 }
 
-
-                updateCreditCounter(); // Actualizar la visualización de créditos en la interfaz de usuario
 
                 // Incrementar el contador de uso diario de GOAT X PRO
                 if (modelUsed === 'gpt-4o' && currentUser) {
@@ -7117,7 +7097,6 @@
                     if (checkboxIcon) checkboxIcon.classList.replace('fa-check-square', 'fa-square');
                 });
             }
-
             // --- NOTEPAD FUNCTIONS START ---
 
             let drawingHistory = []; // Almacena los estados del lienzo para deshacer/rehacer
@@ -8206,36 +8185,161 @@
                 });
 
                 // Menú de usuario y cierre de sesión
-                dom.userMenuBtn?.addEventListener('click', (e) => { e.stopPropagation(); dom.userMenuPopup.classList.toggle('hidden'); });
-                dom.logoutBtn?.addEventListener('click', () => {
+                dom.userMenuBtn ? .addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    dom.userMenuPopup.classList.toggle('hidden');
+                });
+                dom.logoutBtn ? .addEventListener('click', () => {
                     if (netlifyIdentity) {
                         netlifyIdentity.logout();
                     }
                 });
 
-                dom.userSettingsIcon?.addEventListener('click', (e) => { e.stopPropagation(); showSettingsModal(); });
+                dom.userSettingsIcon ? .addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    showSettingsModal();
+                });
 
                 // Configuración de botones de flujo de trabajo
                 const workflowConfigs = {
-                    'project-management': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_pm, workflow: 'project-management' },
-                    'financial-assistant': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_financial, workflow: 'financial-assistant' },
-                    'notepad-app': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_notepad, workflow: 'notepad-app' },
-                    'english-teacher-translate': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_eng_1, workflow: 'english-teacher-translate' },
-                    'create-full-post': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_social_1, workflow: 'create-full-post', initialMessages: [{ role: 'assistant', content: '¡Claro! Vamos a crear un post increíble. ¿Para qué red social lo necesitas (Instagram, Facebook, LinkedIn, etc.)?' }] },
-                    'persuasive-copy': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_social_2, workflow: 'persuasive-copy', initialMessages: [{ role: 'assistant', content: 'Estoy listo para redactar textos que vendan. ¿Para qué necesitas este copy? (ej: Anuncio de Facebook, Post de Venta, Descripción de Producto)' }] },
-                    'post-ideas': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_social_3, workflow: 'post-ideas', initialMessages: [{ role: 'assistant', content: '¡Acabemos con el bloqueo creativo! Dime un tema y te daré 7 ideas de contenido excelentes.' }] },
-                    'brand-strategy': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_social_4, workflow: 'brand-strategy', initialMessages: [{ role: 'assistant', content: 'Definamos el corazón de tu marca. ¿Cuál es el nombre de tu negocio y a qué se dedica?' }] },
-                    'competitor-analysis': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_business_1, workflow: 'competitor-analysis', model: 'sonar', initialMessages: [{ role: 'assistant', content: "Estoy listo para analizar a tu competencia usando el buscador web. Por favor, pega la URL (dirección web) de la página que quieres que investigue para entregarte un análisis DAFO simplificado." }] },
-                    'buyer-persona': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_business_2, workflow: 'buyer-persona', initialMessages: [{ role: 'assistant', content: "Vamos a definir a tu cliente ideal (Buyer Persona). Describe tu producto o servicio, y te haré preguntas para construir el perfil detallado paso a paso." }] },
-                    'brand-names': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_business_3, workflow: 'brand-names', initialMessages: [{ role: 'assistant', content: "¡Excelente! Busquemos un nombre increíble. Describe brevemente tu idea de negocio, tu público y el estilo que buscas (ej. moderno, clásico, divertido) para generar nombres y slogans." }] },
-                    'sales-assistant': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_sales_1, workflow: 'sales-assistant', initialMessages: [{ role: 'assistant', content: 'Para ayudarte a cerrar esa venta, pega aquí el mensaje de tu cliente.' }] },
-                    'email-writing': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_sales_2, workflow: 'email-writing', initialMessages: [{ role: 'assistant', content: 'Creemos un email que convierta. ¿Cuál es el objetivo principal de este correo?' }] },
-                    'english-teacher-vocabulary': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_eng_2, workflow: 'english-teacher-vocabulary', initialMessages: [{ role: 'assistant', content: 'Excellent! Let\'s learn some new vocabulary. What topic are you interested in? (e.g., "business negotiations", "travel")' }] },
-                    'english-teacher-practice': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_eng_3, workflow: 'english-teacher-practice', initialMessages: [{ role: 'assistant', content: 'Great! Let\'s practice our conversation. So, tell me about your day.' }] },
-                    'social-skills': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_sales_4, workflow: 'social-skills', initialMessages: [{ role: 'assistant', content: 'Las habilidades sociales son clave. ¿En qué situación te gustaría mejorar tu comunicación? (Ej: una reunión de networking, una conversación difícil, etc.)' }] },
-                    'design-web': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_sales_3, workflow: 'design-web', model: 'gpt-4o', initialMessages: [{ role: 'assistant', content: 'Estoy listo para diseñar con código. Describe la página o componente que quieres crear, y lo programaré para ti.' }] },
-                    'conflict-resolution': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_expert_2, workflow: 'conflict-resolution', initialMessages: [{ role: 'assistant', content: 'Entiendo. Las situaciones difíciles requieren una comunicación clara. Por favor, describe el conflicto objetivamente: ¿quiénes están involucrados y cuál es el punto principal de desacuerdo?' }] },
-                    'decision-lab': { title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_expert_1, workflow: 'decision-lab', initialMessages: [{ role: 'assistant', content: 'Bienvenido al Laboratorio de Decisiones. Recuerda que una decisión puede cambiar el rumbo de tu vida. Para ayudarte a analizar tu situación, por favor, dime: ¿Cuál es la decisión que necesitas tomar y qué opciones estás considerando?' }] },
+                    'project-management': {
+                        title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_pm,
+                        workflow: 'project-management'
+                    },
+                    'financial-assistant': {
+                        title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_financial,
+                        workflow: 'financial-assistant'
+                    },
+                    'notepad-app': {
+                        title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_notepad,
+                        workflow: 'notepad-app'
+                    },
+                    'english-teacher-translate': {
+                        title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_eng_1,
+                        workflow: 'english-teacher-translate'
+                    },
+                    'create-full-post': {
+                        title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_social_1,
+                        workflow: 'create-full-post',
+                        initialMessages: [{
+                            role: 'assistant',
+                            content: '¡Claro! Vamos a crear un post increíble. ¿Para qué red social lo necesitas (Instagram, Facebook, LinkedIn, etc.)?'
+                        }]
+                    },
+                    'persuasive-copy': {
+                        title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_social_2,
+                        workflow: 'persuasive-copy',
+                        initialMessages: [{
+                            role: 'assistant',
+                            content: 'Estoy listo para redactar textos que vendan. ¿Para qué necesitas este copy? (ej: Anuncio de Facebook, Post de Venta, Descripción de Producto)'
+                        }]
+                    },
+                    'post-ideas': {
+                        title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_social_3,
+                        workflow: 'post-ideas',
+                        initialMessages: [{
+                            role: 'assistant',
+                            content: '¡Acabemos con el bloqueo creativo! Dime un tema y te daré 7 ideas de contenido excelentes.'
+                        }]
+                    },
+                    'brand-strategy': {
+                        title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_social_4,
+                        workflow: 'brand-strategy',
+                        initialMessages: [{
+                            role: 'assistant',
+                            content: 'Definamos el corazón de tu marca. ¿Cuál es el nombre de tu negocio y a qué se dedica?'
+                        }]
+                    },
+                    'competitor-analysis': {
+                        title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_business_1,
+                        workflow: 'competitor-analysis',
+                        model: 'sonar',
+                        initialMessages: [{
+                            role: 'assistant',
+                            content: "Estoy listo para analizar a tu competencia usando el buscador web. Por favor, pega la URL (dirección web) de la página que quieres que investigue para entregarte un análisis DAFO simplificado."
+                        }]
+                    },
+                    'buyer-persona': {
+                        title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_business_2,
+                        workflow: 'buyer-persona',
+                        initialMessages: [{
+                            role: 'assistant',
+                            content: "Vamos a definir a tu cliente ideal (Buyer Persona). Describe tu producto o servicio, y te haré preguntas para construir el perfil detallado paso a paso."
+                        }]
+                    },
+                    'brand-names': {
+                        title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_business_3,
+                        workflow: 'brand-names',
+                        initialMessages: [{
+                            role: 'assistant',
+                            content: "¡Excelente! Busquemos un nombre increíble. Describe brevemente tu idea de negocio, tu público y el estilo que buscas (ej. moderno, clásico, divertido) para generar nombres y slogans."
+                        }]
+                    },
+                    'sales-assistant': {
+                        title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_sales_1,
+                        workflow: 'sales-assistant',
+                        initialMessages: [{
+                            role: 'assistant',
+                            content: 'Para ayudarte a cerrar esa venta, pega aquí el mensaje de tu cliente.'
+                        }]
+                    },
+                    'email-writing': {
+                        title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_sales_2,
+                        workflow: 'email-writing',
+                        initialMessages: [{
+                            role: 'assistant',
+                            content: 'Creemos un email que convierta. ¿Cuál es el objetivo principal de este correo?'
+                        }]
+                    },
+                    'english-teacher-vocabulary': {
+                        title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_eng_2,
+                        workflow: 'english-teacher-vocabulary',
+                        initialMessages: [{
+                            role: 'assistant',
+                            content: 'Excellent! Let\'s learn some new vocabulary. What topic are you interested in? (e.g., "business negotiations", "travel")'
+                        }]
+                    },
+                    'english-teacher-practice': {
+                        title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_eng_3,
+                        workflow: 'english-teacher-practice',
+                        initialMessages: [{
+                            role: 'assistant',
+                            content: 'Great! Let\'s practice our conversation. So, tell me about your day.'
+                        }]
+                    },
+                    'social-skills': {
+                        title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_sales_4,
+                        workflow: 'social-skills',
+                        initialMessages: [{
+                            role: 'assistant',
+                            content: 'Las habilidades sociales son clave. ¿En qué situación te gustaría mejorar tu comunicación? (Ej: una reunión de networking, una conversación difícil, etc.)'
+                        }]
+                    },
+                    'design-web': {
+                        title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_sales_3,
+                        workflow: 'design-web',
+                        model: 'gpt-4o',
+                        initialMessages: [{
+                            role: 'assistant',
+                            content: 'Estoy listo para diseñar con código. Describe la página o componente que quieres crear, y lo programaré para ti.'
+                        }]
+                    },
+                    'conflict-resolution': {
+                        title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_expert_2,
+                        workflow: 'conflict-resolution',
+                        initialMessages: [{
+                            role: 'assistant',
+                            content: 'Entiendo. Las situaciones difíciles requieren una comunicación clara. Por favor, describe el conflicto objetivamente: ¿quiénes están involucrados y cuál es el punto principal de desacuerdo?'
+                        }]
+                    },
+                    'decision-lab': {
+                        title: translations[localStorage.getItem('goatify-lang') || 'es'].wf_expert_1,
+                        workflow: 'decision-lab',
+                        initialMessages: [{
+                            role: 'assistant',
+                            content: 'Bienvenido al Laboratorio de Decisiones. Recuerda que una decisión puede cambiar el rumbo de tu vida. Para ayudarte a analizar tu situación, por favor, dime: ¿Cuál es la decisión que necesitas tomar y qué opciones estás considerando?'
+                        }]
+                    },
                 };
 
                 // Escuchador de eventos para alternar categorías de flujo de trabajo y botones de flujo de trabajo
@@ -8255,7 +8359,7 @@
                                 // Para carpetas de proyectos, persistir su estado abierto/cerrado
                                 if (category.classList.contains('project')) {
                                     const project = state.projects[category.dataset.id];
-                                    if(project) {
+                                    if (project) {
                                         project.isOpen = isOpen;
                                         saveState();
                                     }
@@ -8268,13 +8372,12 @@
                     if (workflowButton && workflowButton.closest('.workflow-content, #sidebar-top-actions')) {
                         const workflowKey = workflowButton.dataset.workflow;
                         const config = workflowConfigs[workflowKey];
-                         if (config) {
+                        if (config) {
                             if (workflowKey === 'notepad-app') {
                                 selectChat('notepad-app'); // Manejo especial para la aplicación de bloc de notas
                             } else if (workflowKey === 'english-teacher-translate') {
                                 selectChat('translator-view'); // Manejo especial para la vista del traductor
-                            }
-                            else {
+                            } else {
                                 createNewChat(config); // Crear un nuevo chat para otros flujos de trabajo
                             }
                         }
@@ -8285,14 +8388,46 @@
                     const lang = localStorage.getItem('goatify-lang') || 'es';
                     const offerTitle = `<i class="fas fa-gift mr-2"></i>${'Tu Oferta de Lanzamiento Exclusiva'}`;
                     const offerMessage = `<p class="font-bold mb-2">${'Al suscribirte a nuestro Plan Pro por $17/mes, desbloqueas:'}</p><ul class="list-disc list-inside space-y-2 text-left"><li><strong>${'Acceso Ilimitado a Goatify IA:'}</strong> ${'Todos los modelos y workflows sin restricciones.'}</li><li><strong>${'Construcción de tu Página Web Profesional:'}</strong> ${'Nosotros construiremos la primera versión, ¡gratis!'}</li></ul><p class="font-bold mt-4 mb-2">${'¿Cómo funciona?'}</p><ol class="list-decimal list-inside space-y-1 text-left"><li><strong>${'Agenda tu Sesión Estratégica:'}</strong> ${'Al confirmar, agenda tu llamada de 20 min.'}</li><li><strong>${'Co-creación:'}</strong> ${'En la llamada definiremos objetivos y crearemos el borrador con IA.'}</li><li><strong>${'Entrega:'}</strong> ${'Nuestro equipo lo pulirá y te entregará una web de una sección, lista.'}</li></ol><p class="text-xs mt-4 italic"><strong>${'Importante:'}</strong> ${'La web es tuya para siempre. Para mantenerla online con nuestro hosting, necesitas tu suscripción Pro activa. Si cancelas, te entregamos el código completo.'}</p>`;
-                    showModal({ title: offerTitle, body: offerMessage, confirmText: 'Agendar Sesión Estratégica' }).then(res => { if (res.confirmed) { window.open('[https://calendly.com/goatify](https://calendly.com/goatify)', '_blank'); } });
+                    showModal({
+                        title: offerTitle,
+                        body: offerMessage,
+                        confirmText: 'Agendar Sesión Estratégica'
+                    }).then(res => {
+                        if (res.confirmed) {
+                            window.open('[https://calendly.com/goatify](https://calendly.com/goatify)', '_blank');
+                        }
+                    });
                 });
-                dom.freeGuidesLink.addEventListener('click', (e) => { e.preventDefault(); const isPaidUser = currentUser && currentUser.app_metadata?.plan && currentUser.app_metadata.plan !== 'free'; if (isPaidUser) { window.open('[https://goatify.app/guiasIA](https://goatify.app/guiasIA)', '_blank'); } else { const lang = localStorage.getItem('goatify-lang') || 'es'; const title = 'Acceso Exclusivo para Suscriptores'; const message = 'Estas guías se actualizan semanalmente con estrategias de negocio que te ayudarán a crecer un montón. Son un beneficio exclusivo para nuestros suscriptores. ¡Únete a un plan para desbloquearlas!'; showModal({ title, body: message, confirmText: 'Ver Planes' }).then(res => { if (res.confirmed) { showPricingModal(); } }); } });
-                dom.closeHtmlPreviewModalBtn?.addEventListener('click', () => { dom.htmlPreviewModal.classList.add('hidden'); dom.htmlPreviewModal.classList.remove('flex'); });
+                dom.freeGuidesLink.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const isPaidUser = currentUser && currentUser.app_metadata ? .plan && currentUser.app_metadata.plan !== 'free';
+                    if (isPaidUser) {
+                        window.open('[https://goatify.app/guiasIA](https://goatify.app/guiasIA)', '_blank');
+                    } else {
+                        const lang = localStorage.getItem('goatify-lang') || 'es';
+                        const title = 'Acceso Exclusivo para Suscriptores';
+                        const message = 'Estas guías se actualizan semanalmente con estrategias de negocio que te ayudarán a crecer un montón. Son un beneficio exclusivo para nuestros suscriptores. ¡Únete a un plan para desbloquearlas!';
+                        showModal({
+                            title,
+                            body: message,
+                            confirmText: 'Ver Planes'
+                        }).then(res => {
+                            if (res.confirmed) {
+                                showPricingModal();
+                            }
+                        });
+                    }
+                });
+                dom.closeHtmlPreviewModalBtn ? .addEventListener('click', () => {
+                    dom.htmlPreviewModal.classList.add('hidden');
+                    dom.htmlPreviewModal.classList.remove('flex');
+                });
 
-                dom.downloadHtmlBtn?.addEventListener('click', () => {
+                dom.downloadHtmlBtn ? .addEventListener('click', () => {
                     const htmlContent = dom.htmlPreviewIframe.srcdoc;
-                    const blob = new Blob([htmlContent], { type: 'text/html' });
+                    const blob = new Blob([htmlContent], {
+                        type: 'text/html'
+                    });
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = url;
@@ -8304,7 +8439,7 @@
                     showInAppNotification("Descarga Exitosa", "El archivo HTML ha sido descargado.", 800);
                 });
 
-                dom.copyHtmlBtn?.addEventListener('click', () => {
+                dom.copyHtmlBtn ? .addEventListener('click', () => {
                     const htmlContent = dom.htmlPreviewIframe.srcdoc;
                     navigator.clipboard.writeText(htmlContent)
                         .then(() => showInAppNotification("Copiado", "El código HTML ha sido copiado al portapapeles.", 800))
@@ -8312,11 +8447,15 @@
                 });
 
 
-                dom.voiceSelector?.addEventListener('change', (e) => { selectedVoice = availableVoices.find(voice => voice.name === e.target.value); });
+                dom.voiceSelector ? .addEventListener('change', (e) => {
+                    selectedVoice = availableVoices.find(voice => voice.name === e.target.value);
+                });
 
                 document.addEventListener('click', (e) => {
                     // Cerrar el menú emergente de usuario si se hace clic fuera
-                    if (dom.userMenuBtn && dom.userMenuPopup && !dom.userMenuBtn.contains(e.target) && !dom.userMenuPopup.contains(e.target) && !dom.userSettingsIcon.contains(e.target)) { dom.userMenuPopup.classList.add('hidden'); }
+                    if (dom.userMenuBtn && dom.userMenuPopup && !dom.userMenuBtn.contains(e.target) && !dom.userMenuPopup.contains(e.target) && !dom.userSettingsIcon.contains(e.target)) {
+                        dom.userMenuPopup.classList.add('hidden');
+                    }
 
                     // Cerrar el menú de servicios si se hace clic fuera
                     const servicesMenu = dom.servicesMenu;
@@ -8328,7 +8467,7 @@
                     if (dom.tagFilterDropdown && dom.tagFilterBtn && !dom.tagFilterBtn.contains(e.target) && !dom.tagFilterDropdown.contains(e.target)) {
                         dom.tagFilterDropdown.classList.add('hidden');
                     }
-                     if (dom.calendarTagFilterDropdown && dom.calendarTagFilterBtn && !dom.calendarTagFilterBtn.contains(e.target) && !dom.calendarTagFilterDropdown.contains(e.target)) {
+                    if (dom.calendarTagFilterDropdown && dom.calendarTagFilterBtn && !dom.calendarTagFilterBtn.contains(e.target) && !dom.calendarTagFilterDropdown.contains(e.target)) {
                         dom.calendarTagFilterDropdown.classList.add('hidden');
                     }
                     // Cerrar los menús desplegables "añadir a carpeta" si se hace clic fuera
@@ -8364,17 +8503,25 @@
                 });
 
                 // Establecer la altura del contenedor de la aplicación al redimensionar
-                const setAppHeight = () => { const app = document.getElementById('app-container'); if(app) app.style.height = `${window.innerHeight}px`; };
+                const setAppHeight = () => {
+                    const app = document.getElementById('app-container');
+                    if (app) app.style.height = `${window.innerHeight}px`;
+                };
                 setAppHeight();
                 window.addEventListener('resize', setAppHeight);
 
                 // Botones de modo de selección múltiple
-                dom.selectChatsBtn?.addEventListener('click', () => toggleSelectMode(true));
-                dom.cancelSelectModeBtn?.addEventListener('click', () => toggleSelectMode(false));
-                dom.deleteSelectedBtn?.addEventListener('click', async () => {
+                dom.selectChatsBtn ? .addEventListener('click', () => toggleSelectMode(true));
+                dom.cancelSelectModeBtn ? .addEventListener('click', () => toggleSelectMode(false));
+                dom.deleteSelectedBtn ? .addEventListener('click', async () => {
                     if (chatsToDelete.size === 0) return;
                     const lang = localStorage.getItem('goatify-lang') || 'es';
-                    const confirm = await showModal({ title: `Eliminar ${chatsToDelete.size} elemento(s)`, body: 'Esta acción es irreversible. ¿Confirmas la eliminación?', confirmText: 'Eliminar', dangerConfirm: true });
+                    const confirm = await showModal({
+                        title: `Eliminar ${chatsToDelete.size} elemento(s)`,
+                        body: 'Esta acción es irreversible. ¿Confirmas la eliminación?',
+                        confirmText: 'Eliminar',
+                        dangerConfirm: true
+                    });
                     if (confirm.confirmed) {
                         chatsToDelete.forEach(id => deleteItem(id.split('-')[0], id)); // Eliminar cada elemento seleccionado
                         toggleSelectMode(false); // Salir del modo de selección
@@ -8382,18 +8529,21 @@
                 });
 
                 // Botones y controles del modal de configuración
-                dom.settingsBtn?.addEventListener('click', showSettingsModal);
-                dom.closeSettingsModal?.addEventListener('click', hideSettingsModal);
-                dom.settingsUpgradePlanBtn?.addEventListener('click', () => { hideSettingsModal(); showPricingModal(); });
-                dom.fontSizeSlider?.addEventListener('input', (e) => {
+                dom.settingsBtn ? .addEventListener('click', showSettingsModal);
+                dom.closeSettingsModal ? .addEventListener('click', hideSettingsModal);
+                dom.settingsUpgradePlanBtn ? .addEventListener('click', () => {
+                    hideSettingsModal();
+                    showPricingModal();
+                });
+                dom.fontSizeSlider ? .addEventListener('input', (e) => {
                     const fontSize = e.target.value;
                     document.body.style.setProperty('--base-font-size', `${fontSize}px`); // Actualizar la variable CSS para el tamaño de fuente
                     dom.fontSizeValue.textContent = `${fontSize}px`;
                 });
-                dom.settingsThemeToggle?.addEventListener('click', () => {
+                dom.settingsThemeToggle ? .addEventListener('click', () => {
                     setTheme(!document.body.classList.contains('dark-theme'));
                 });
-                dom.notificationsToggle?.addEventListener('change', async () => {
+                dom.notificationsToggle ? .addEventListener('change', async () => {
                     notificationsEnabled = dom.notificationsToggle.checked;
                     localStorage.setItem('goatify-notifications-enabled', notificationsEnabled);
                     if (notificationsEnabled) {
@@ -8404,46 +8554,78 @@
                             // Si el permiso es denegado, revertir el interruptor y deshabilitar las notificaciones
                             notificationsEnabled = false;
                             dom.notificationsToggle.checked = false;
-                             localStorage.setItem('goatify-notifications-enabled', 'false');
+                            localStorage.setItem('goatify-notifications-enabled', 'false');
                         }
                     }
                 });
-                dom.languageSelector?.addEventListener('change', (e) => {
+                dom.languageSelector ? .addEventListener('change', (e) => {
                     setLanguage(e.target.value);
                 });
-                dom.connectWhatsappBtn?.addEventListener('click', () => {
+                dom.connectWhatsappBtn ? .addEventListener('click', () => {
                     window.open('[https://wa.me/17439106116?text=Hola%2C%20me%20gustar%C3%ADa%20conectar%20mi%20cuenta%20de%20Goatify%20IA%20a%20WhatsApp](https://wa.me/17439106116?text=Hola%2C%20me%20gustar%C3%ADa%20conectar%20mi%20cuenta%20de%20Goatify%20IA%20a%20WhatsApp).', '_blank');
                 });
-                dom.scheduleMeetingBtn?.addEventListener('click', () => {
+                dom.scheduleMeetingBtn ? .addEventListener('click', () => {
                     window.open('[https://calendly.com/goatify](https://calendly.com/goatify)', '_blank');
                 });
-                dom.freePlanButton?.addEventListener('click', showPricingModal);
+                dom.freePlanButton ? .addEventListener('click', showPricingModal);
 
                 // Botones y controles del modal del calendario
-                dom.calendarBtn?.addEventListener('click', showCalendarModal);
-                dom.mobileCalendarBtn?.addEventListener('click', showCalendarModal);
+                dom.calendarBtn ? .addEventListener('click', showCalendarModal);
+                dom.mobileCalendarBtn ? .addEventListener('click', showCalendarModal);
 
-                dom.projectCalendarBtn?.addEventListener('click', showCalendarModal);
-                dom.closeCalendarModal?.addEventListener('click', hideCalendarModal);
+                dom.projectCalendarBtn ? .addEventListener('click', showCalendarModal);
+                dom.closeCalendarModal ? .addEventListener('click', hideCalendarModal);
 
-                dom.prevMonthBtn?.addEventListener('click', () => { selectedCalendarDate = selectedCalendarDate.subtract(1, 'month'); renderCalendarView(); });
-                dom.nextMonthBtn?.addEventListener('click', () => { selectedCalendarDate = selectedCalendarDate.add(1, 'month'); renderCalendarView(); });
-                dom.prevWeekBtn?.addEventListener('click', () => { selectedCalendarDate = selectedCalendarDate.subtract(1, 'week'); renderCalendarView(); });
-                dom.nextWeekBtn?.addEventListener('click', () => { selectedCalendarDate = selectedCalendarDate.add(1, 'week'); renderCalendarView(); });
-                dom.prevDayBtn?.addEventListener('click', () => { selectedCalendarDate = selectedCalendarDate.subtract(1, 'day'); renderCalendarView(); });
-                dom.nextDayBtn?.addEventListener('click', () => { selectedCalendarDate = selectedCalendarDate.add(1, 'day'); renderCalendarView(); });
+                dom.prevMonthBtn ? .addEventListener('click', () => {
+                    selectedCalendarDate = selectedCalendarDate.subtract(1, 'month');
+                    renderCalendarView();
+                });
+                dom.nextMonthBtn ? .addEventListener('click', () => {
+                    selectedCalendarDate = selectedCalendarDate.add(1, 'month');
+                    renderCalendarView();
+                });
+                dom.prevWeekBtn ? .addEventListener('click', () => {
+                    selectedCalendarDate = selectedCalendarDate.subtract(1, 'week');
+                    renderCalendarView();
+                });
+                dom.nextWeekBtn ? .addEventListener('click', () => {
+                    selectedCalendarDate = selectedCalendarDate.add(1, 'week');
+                    renderCalendarView();
+                });
+                dom.prevDayBtn ? .addEventListener('click', () => {
+                    selectedCalendarDate = selectedCalendarDate.subtract(1, 'day');
+                    renderCalendarView();
+                });
+                dom.nextDayBtn ? .addEventListener('click', () => {
+                    selectedCalendarDate = selectedCalendarDate.add(1, 'day');
+                    renderCalendarView();
+                });
 
-                dom.monthViewBtn.addEventListener('click', () => { currentCalendarView = 'month'; renderCalendarView(); });
-                dom.weekViewBtn.addEventListener('click', () => { currentCalendarView = 'week'; renderCalendarView(); });
-                dom.dayViewBtn.addEventListener('click', () => { currentCalendarView = 'day'; renderCalendarView(); });
-                dom.addTaskBtn?.addEventListener('click', () => editCalendarTask(null, selectedCalendarDate.format('YYYY-MM-DD')));
+                dom.monthViewBtn.addEventListener('click', () => {
+                    currentCalendarView = 'month';
+                    renderCalendarView();
+                });
+                dom.weekViewBtn.addEventListener('click', () => {
+                    currentCalendarView = 'week';
+                    renderCalendarView();
+                });
+                dom.dayViewBtn.addEventListener('click', () => {
+                    currentCalendarView = 'day';
+                    renderCalendarView();
+                });
+                dom.addTaskBtn ? .addEventListener('click', () => editCalendarTask(null, selectedCalendarDate.format('YYYY-MM-DD')));
 
                 // Escuchador de eventos para iconos de información en modales
                 document.body.addEventListener('click', (e) => {
                     if (e.target.classList.contains('fa-info-circle')) {
-                        const title = e.target.closest('h4')?.textContent.trim().replace(/\s*[\r\n].*/g, '').replace(/\s*(\r|\n)\s*/g, ' ').replace(/\s{2,}/g, ' '); // Limpiar título
+                        const title = e.target.closest('h4') ? .textContent.trim().replace(/\s*[\r\n].*/g, '').replace(/\s*(\r|\n)\s*/g, ' ').replace(/\s{2,}/g, ' '); // Limpiar título
                         const description = e.target.title;
-                        showModal({ title: title, body: description, showConfirm: false, cancelText: 'Cerrar' });
+                        showModal({
+                            title: title,
+                            body: description,
+                            showConfirm: false,
+                            cancelText: 'Cerrar'
+                        });
                     }
                 });
 
@@ -8453,16 +8635,16 @@
                     const chat = state.chats[currentChatId];
                     if (!chat || !chat.projectData) return;
                     chat.projectData.currentView = 'kanban';
-                     renderProjectBoard(currentChatId);
+                    renderProjectBoard(currentChatId);
                 });
                 dom.viewToggleList.addEventListener('click', () => {
                     if (!currentChatId) return;
                     const chat = state.chats[currentChatId];
                     if (!chat || !chat.projectData) return;
                     chat.projectData.currentView = 'list';
-                     renderProjectBoard(currentChatId);
+                    renderProjectBoard(currentChatId);
                 });
-                 dom.addTaskListViewBtn.addEventListener('click', () => {
+                dom.addTaskListViewBtn.addEventListener('click', () => {
                     if (currentChatId) {
                         editProjectTask(currentChatId, null, 'todo'); // Añadir tarea a la columna 'todo'
                     }
@@ -8470,29 +8652,34 @@
 
                 // Alternadores de colapso de chat para asistentes de proyecto, financiero, bloc de notas
                 document.body.addEventListener('click', e => {
-                    const toggleAndContainer = [
-                        { header: '#project-chat-container-header', container: dom.projectChatContainer },
-                        { header: '#financial-chat-header', container: document.getElementById('financial-chat-container') },
-                        { header: '#notepad-chat-header', container: dom.notepadChatContainer }
-                    ];
+                    const toggleAndContainer = [{
+                        header: '#project-chat-container-header',
+                        container: dom.projectChatContainer
+                    }, {
+                        header: '#financial-chat-header',
+                        container: document.getElementById('financial-chat-container')
+                    }, {
+                        header: '#notepad-chat-header',
+                        container: dom.notepadChatContainer
+                    }];
 
                     toggleAndContainer.forEach(item => {
                         if (e.target.closest(item.header)) {
-                             item.container?.classList.toggle('collapsed');
+                            item.container ? .classList.toggle('collapsed');
                         }
                     });
                 });
 
                 // Escuchadores de eventos del BLOC DE NOTAS
-                dom.addNewNoteBtn?.addEventListener('click', () => createNewNote('text'));
-                dom.addNewDrawingBtn?.addEventListener('click', () => createNewNote('drawing'));
-                dom.deleteNoteBtn?.addEventListener('click', () => deleteItem('note', currentNoteId));
-                dom.shareNoteBtn?.addEventListener('click', shareNote);
-                dom.exportPdfBtn?.addEventListener('click', exportNoteAsPdf); // Nuevo: Botón Exportar a PDF
-                dom.noteBackBtn?.addEventListener('click', () => {
+                dom.addNewNoteBtn ? .addEventListener('click', () => createNewNote('text'));
+                dom.addNewDrawingBtn ? .addEventListener('click', () => createNewNote('drawing'));
+                dom.deleteNoteBtn ? .addEventListener('click', () => deleteItem('note', currentNoteId));
+                dom.shareNoteBtn ? .addEventListener('click', shareNote);
+                dom.exportPdfBtn ? .addEventListener('click', exportNoteAsPdf); // Nuevo: Botón Exportar a PDF
+                dom.noteBackBtn ? .addEventListener('click', () => {
                     dom.notepadViewContainer.classList.remove('mobile-editor-active'); // Volver a la lista de notas en móvil
                 });
-                dom.noteTitleInput?.addEventListener('input', (e) => {
+                dom.noteTitleInput ? .addEventListener('input', (e) => {
                     const note = state.notes.find(n => n.id === currentNoteId);
                     if (note && note.title !== e.target.value) {
                         note.title = e.target.value;
@@ -8500,14 +8687,14 @@
                         renderSidebar(); // Actualizar la barra lateral con el nuevo título
                     }
                 });
-                dom.noteContentEditor?.addEventListener('input', () => {
+                dom.noteContentEditor ? .addEventListener('input', () => {
                     const note = state.notes.find(n => n.id === currentNoteId);
-                     if (note && note.type === 'text') {
+                    if (note && note.type === 'text') {
                         note.content = dom.noteContentEditor.innerHTML; // Guardar contenido del editor
                         saveState();
                     }
                 });
-                dom.noteContentEditor?.addEventListener('keydown', (e) => {
+                dom.noteContentEditor ? .addEventListener('keydown', (e) => {
                     // Manejar la tecla Enter para elementos de la lista de verificación
                     if (e.key === 'Enter' && !e.shiftKey) {
                         const selection = window.getSelection();
@@ -8521,18 +8708,18 @@
                 });
 
                 // Botones de formato del editor de texto
-                dom.boldBtn?.addEventListener('click', () => applyTextFormat('bold'));
-                dom.italicBtn?.addEventListener('click', () => applyTextFormat('italic'));
-                dom.underlineBtn?.addEventListener('click', () => applyTextFormat('underline'));
-                dom.copyBtn?.addEventListener('click', () => document.execCommand('copy'));
-                dom.cutBtn?.addEventListener('click', () => document.execCommand('cut'));
-                dom.pasteBtn?.addEventListener('click', () => document.execCommand('paste'));
-                dom.alignLeftBtn?.addEventListener('click', () => applyTextFormat('justifyLeft'));
-                dom.alignCenterBtn?.addEventListener('click', () => applyTextFormat('justifyCenter'));
-                dom.alignRightBtn?.addEventListener('click', () => applyTextFormat('justifyRight'));
-                dom.justifyBtn?.addEventListener('click', () => applyTextFormat('justifyFull')); // Botón Justificar añadido
+                dom.boldBtn ? .addEventListener('click', () => applyTextFormat('bold'));
+                dom.italicBtn ? .addEventListener('click', () => applyTextFormat('italic'));
+                dom.underlineBtn ? .addEventListener('click', () => applyTextFormat('underline'));
+                dom.copyBtn ? .addEventListener('click', () => document.execCommand('copy'));
+                dom.cutBtn ? .addEventListener('click', () => document.execCommand('cut'));
+                dom.pasteBtn ? .addEventListener('click', () => document.execCommand('paste'));
+                dom.alignLeftBtn ? .addEventListener('click', () => applyTextFormat('justifyLeft'));
+                dom.alignCenterBtn ? .addEventListener('click', () => applyTextFormat('justifyCenter'));
+                dom.alignRightBtn ? .addEventListener('click', () => applyTextFormat('justifyRight'));
+                dom.justifyBtn ? .addEventListener('click', () => applyTextFormat('justifyFull')); // Botón Justificar añadido
 
-                dom.fontFamilySelector?.addEventListener('change', (e) => {
+                dom.fontFamilySelector ? .addEventListener('change', (e) => {
                     const selectedFont = e.target.value;
                     dom.noteContentEditor.style.fontFamily = selectedFont; // Aplicar familia de fuentes
                     localStorage.setItem('notepad-font-family', selectedFont); // Guardar preferencia
@@ -8544,16 +8731,16 @@
                 });
 
 
-                dom.noteContentEditor?.addEventListener('mouseup', updateToolbarButtonStates); // Actualizar estados de botones al cambiar la selección
-                dom.noteContentEditor?.addEventListener('keyup', updateToolbarButtonStates); // Actualizar estados de botones al soltar la tecla
-                dom.noteContentEditor?.addEventListener('click', e => {
+                dom.noteContentEditor ? .addEventListener('mouseup', updateToolbarButtonStates); // Actualizar estados de botones al cambiar la selección
+                dom.noteContentEditor ? .addEventListener('keyup', updateToolbarButtonStates); // Actualizar estados de botones al soltar la tecla
+                dom.noteContentEditor ? .addEventListener('click', e => {
                     handleChecklistItem(e.target); // Manejar clics en elementos de la lista de verificación
                     updateToolbarButtonStates();
                 });
-                dom.addChecklistItemBtn?.addEventListener('click', () => {
+                dom.addChecklistItemBtn ? .addEventListener('click', () => {
                     const selection = window.getSelection();
                     const range = selection.getRangeAt(0);
-                    const currentContainer = selection.focusNode?.parentElement?.closest('#note-content-editor, .checklist-item-text');
+                    const currentContainer = selection.focusNode ? .parentElement ? .closest('#note-content-editor, .checklist-item-text');
 
                     if (!currentContainer) {
                         // Si no hay un contenedor específico, añadir al editor
@@ -8606,10 +8793,12 @@
                         const details = button.nextElementSibling;
                         details.classList.toggle('open');
                     });
-                 });
+                });
 
                 // Configurar escuchadores de clic fuera para modales
-                setupModalClickOutside(dom.genericModal, ()=>hideModal({confirmed: false}));
+                setupModalClickOutside(dom.genericModal, () => hideModal({
+                    confirmed: false
+                }));
                 setupModalClickOutside(dom.pricingModal, hidePricingModal);
                 setupModalClickOutside(dom.settingsModal, hideSettingsModal);
                 setupModalClickOutside(dom.calendarModalOverlay, hideCalendarModal);
@@ -8624,19 +8813,22 @@
                 });
 
                 // Escuchadores de modales de gamificación
-                dom.gamificationBtn?.addEventListener('click', () => {
-                    if(!currentUser) {
+                dom.gamificationBtn ? .addEventListener('click', () => {
+                    if (!currentUser) {
                         showInAppNotification(translations[localStorage.getItem('goatify-lang') || 'es'].exclusive_feature_title || "Función Exclusiva", translations[localStorage.getItem('goatify-lang') || 'es'].exclusive_feature_message || "La gamificación está disponible para usuarios logueados.", 3000);
                         return;
                     }
                     renderGamificationModal();
                     dom.gamificationModal.classList.remove('hidden');
                     dom.gamificationModal.classList.add('flex');
-                     setTimeout(() => dom.gamificationModal.querySelector('.modal-content').classList.remove('scale-95'), 10);
+                    setTimeout(() => dom.gamificationModal.querySelector('.modal-content').classList.remove('scale-95'), 10);
                 });
-                dom.closeGamificationModal?.addEventListener('click', () => {
+                dom.closeGamificationModal ? .addEventListener('click', () => {
                     dom.gamificationModal.querySelector('.modal-content').classList.add('scale-95');
-                    setTimeout(() => { dom.gamificationModal.classList.add('hidden'); dom.gamificationModal.classList.remove('flex'); }, 300);
+                    setTimeout(() => {
+                        dom.gamificationModal.classList.add('hidden');
+                        dom.gamificationModal.classList.remove('flex');
+                    }, 300);
                 });
                 dom.gamificationModal.addEventListener('click', (e) => {
                     if (e.target === dom.gamificationModal) {
@@ -8645,11 +8837,11 @@
                 });
 
                 // Modal de reglas de gamificación
-                dom.gamificationRulesBtn?.addEventListener('click', () => {
+                dom.gamificationRulesBtn ? .addEventListener('click', () => {
                     dom.gamificationRulesModal.classList.remove('hidden');
                     dom.gamificationRulesModal.classList.add('flex');
                 });
-                dom.closeGamificationRulesModal?.addEventListener('click', () => {
+                dom.closeGamificationRulesModal ? .addEventListener('click', () => {
                     dom.gamificationRulesModal.classList.add('hidden');
                     dom.gamificationRulesModal.classList.remove('flex');
                 });
@@ -8665,7 +8857,7 @@
                         if (currentActive) currentActive.classList.remove('active');
                         tab.classList.add('active');
                         dom.gamificationModal.querySelectorAll('.gamification-tab-content').forEach(content => content.classList.add('hidden'));
-                         dom.gamificationModal.querySelector(`#gamification-tab-${tab.dataset.tab}`).classList.remove('hidden');
+                        dom.gamificationModal.querySelector(`#gamification-tab-${tab.dataset.tab}`).classList.remove('hidden');
                     });
                 });
                 // Botones de misión de gamificación
@@ -8676,7 +8868,7 @@
                         const mission = MISSIONS[missionId];
                         if (mission && mission.workflow) {
                             const workflowButton = document.querySelector(`[data-workflow="${mission.workflow}"]`);
-                            if(workflowButton) {
+                            if (workflowButton) {
                                 workflowButton.click(); // Simular clic en el botón del flujo de trabajo
                                 dom.closeGamificationModal.click(); // Cerrar el modal de gamificación
                             }
@@ -8736,20 +8928,28 @@
                     // Inicializar datos de proyecto predeterminados si no están presentes
                     chat.projectData = {
                         title: chat.title,
-                        columns: [
-                             { id: 'todo', title: 'Por Hacer', tasks: [] },
-                            { id: 'doing', title: 'En Progreso', tasks: [] },
-                            { id: 'done', title: 'Hecho', tasks: [] }
-                         ],
+                        columns: [{
+                            id: 'todo',
+                            title: 'Por Hacer',
+                            tasks: []
+                        }, {
+                            id: 'doing',
+                            title: 'En Progreso',
+                            tasks: []
+                        }, {
+                            id: 'done',
+                            title: 'Hecho',
+                            tasks: []
+                        }],
                         currentView: 'list'
                     };
                 }
 
                 dom.projectViewTitle.textContent = chat.projectData.title; // Establecer título del proyecto
-                
+
                 // Volver a asignar los elementos DOM del chat del proyecto después de recrearlos
                 const projectChatMessages = document.getElementById('project-chat-messages');
-                if(projectChatMessages) {
+                if (projectChatMessages) {
                     projectChatMessages.innerHTML = '';
                     // Mostrar mensajes de chat del proyecto
                     (chat.messages || []).forEach((msg, index) => addMessageToUI(msg.role, msg.content, msg.image, index, projectChatMessages));
@@ -8780,11 +8980,15 @@
                     const goatXProOption = projectModelSelector.querySelector('.goat-x-pro-model');
                     if (goatXProOption) goatXProOption.disabled = !currentUser;
                 }
-                if(sendBtn) sendBtn.addEventListener('click', () => sendMessage(false, null, { assistantType: 'project' }));
-                if(msgInput) msgInput.addEventListener('keydown', e => {
+                if (sendBtn) sendBtn.addEventListener('click', () => sendMessage(false, null, {
+                    assistantType: 'project'
+                }));
+                if (msgInput) msgInput.addEventListener('keydown', e => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                         e.preventDefault();
-                        sendMessage(false, null, { assistantType: 'project' });
+                        sendMessage(false, null, {
+                            assistantType: 'project'
+                        });
                     }
                 });
             }
@@ -8795,8 +8999,10 @@
              */
             function renderProjectBoard(chatId) {
                 const chat = state.chats[chatId];
-                if(!chat || !chat.projectData) return;
-                const { projectData } = chat;
+                if (!chat || !chat.projectData) return;
+                const {
+                    projectData
+                } = chat;
                 const isMobile = window.innerWidth < 768;
 
                 const isKanban = projectData.currentView === 'kanban';
@@ -8826,7 +9032,9 @@
              * @param {string} chatId - El ID del chat del proyecto.
              */
             function renderKanbanView(chatId) {
-                const { projectData } = state.chats[chatId];
+                const {
+                    projectData
+                } = state.chats[chatId];
                 dom.kanbanView.innerHTML = ''; // Limpiar el contenido Kanban existente
 
                 projectData.columns.forEach(column => {
@@ -8844,7 +9052,7 @@
 
                     tasksToRender.forEach(task => {
                         const cardEl = document.createElement('div');
-                         cardEl.className = 'kanban-card';
+                        cardEl.className = 'kanban-card';
                         if (task.urgent) cardEl.classList.add('urgent');
                         if (task.completed) cardEl.classList.add('task-item-completed');
                         cardEl.draggable = true;
@@ -8866,7 +9074,9 @@
                             e.dataTransfer.setData('text/plain', task.id);
                             e.dataTransfer.effectAllowed = 'move';
                         });
-                        cardEl.addEventListener('touchstart', handleTouchStart, {passive: false}); // Arrastre táctil para móvil
+                        cardEl.addEventListener('touchstart', handleTouchStart, {
+                            passive: false
+                        }); // Arrastre táctil para móvil
 
                         cardEl.addEventListener('click', (e) => {
                             if (e.target.classList.contains('delete-task-icon')) {
@@ -8881,14 +9091,19 @@
                     });
 
                     // Escuchadores de arrastrar y soltar para las columnas Kanban
-                    cardsContainer.addEventListener('dragover', e => { e.preventDefault(); cardsContainer.classList.add('drag-over'); });
-                    cardsContainer.addEventListener('dragleave', () => { cardsContainer.classList.remove('drag-over'); });
+                    cardsContainer.addEventListener('dragover', e => {
+                        e.preventDefault();
+                        cardsContainer.classList.add('drag-over');
+                    });
+                    cardsContainer.addEventListener('dragleave', () => {
+                        cardsContainer.classList.remove('drag-over');
+                    });
                     cardsContainer.addEventListener('drop', e => {
                         e.preventDefault();
                         cardsContainer.classList.remove('drag-over');
                         const taskId = e.dataTransfer.getData('text/plain');
                         if (!taskId.startsWith('proj-')) return; // Solo aceptar tareas de proyecto
-                         moveTask(chatId, taskId, column.id); // Mover tarea a esta columna
+                        moveTask(chatId, taskId, column.id); // Mover tarea a esta columna
                     });
                     dom.kanbanView.appendChild(columnEl);
                 });
@@ -8907,7 +9122,9 @@
              * @param {string} chatId - El ID del chat del proyecto.
              */
             function renderListView(chatId) {
-                const { projectData } = state.chats[chatId];
+                const {
+                    projectData
+                } = state.chats[chatId];
                 dom.listView.innerHTML = ''; // Limpiar el contenido de la lista existente
 
                 const header = document.createElement('div');
@@ -8929,8 +9146,13 @@
                     columnTitle.className = 'font-bold text-text-medium p-2 bg-current-bg-light mt-2 rounded cursor-pointer';
                     columnTitle.textContent = column.title;
                     // Escuchadores de arrastrar y soltar para los títulos de las columnas (para soltar tareas en las columnas)
-                    columnTitle.addEventListener('dragover', e => { e.preventDefault(); e.currentTarget.style.backgroundColor = 'var(--current-primary)'; });
-                    columnTitle.addEventListener('dragleave', e => { e.currentTarget.style.backgroundColor = ''; });
+                    columnTitle.addEventListener('dragover', e => {
+                        e.preventDefault();
+                        e.currentTarget.style.backgroundColor = 'var(--current-primary)';
+                    });
+                    columnTitle.addEventListener('dragleave', e => {
+                        e.currentTarget.style.backgroundColor = '';
+                    });
                     columnTitle.addEventListener('drop', e => {
                         e.preventDefault();
                         e.currentTarget.style.backgroundColor = '';
@@ -8947,7 +9169,7 @@
                     tasksToRender.forEach(task => {
                         const taskEl = document.createElement('div');
                         taskEl.className = 'list-view-task';
-                        if(column.id !== 'done') taskEl.draggable = true; // No permitir arrastrar desde la columna 'done'
+                        if (column.id !== 'done') taskEl.draggable = true; // No permitir arrastrar desde la columna 'done'
                         taskEl.dataset.taskId = task.id;
 
                         const labelsHtml = (task.labels || []).map(label => `<span class="task-label" style="background-color: ${getLabelColor(label)}; color: white;">${label}</span>`).join('');
@@ -8967,8 +9189,12 @@
                             </div>
                         `;
 
-                        taskEl.addEventListener('dragstart', (e) => { e.dataTransfer.setData('text/plain', task.id); });
-                        taskEl.addEventListener('touchstart', handleTouchStart, {passive: false}); // Arrastre táctil para móvil
+                        taskEl.addEventListener('dragstart', (e) => {
+                            e.dataTransfer.setData('text/plain', task.id);
+                        });
+                        taskEl.addEventListener('touchstart', handleTouchStart, {
+                            passive: false
+                        }); // Arrastre táctil para móvil
                         listContent.appendChild(taskEl);
                     });
 
@@ -8990,28 +9216,36 @@
                 dom.listView.querySelectorAll('.task-content-list input').forEach(input => {
                     const save = () => {
                         const taskId = input.closest('.list-view-task').dataset.taskId;
-                        updateTaskStatus(taskId, { content: input.value });
+                        updateTaskStatus(taskId, {
+                            content: input.value
+                        });
                     };
                     input.addEventListener('blur', save); // Guardar al perder el foco
-                    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') input.blur(); }); // Guardar al presionar Enter
+                    input.addEventListener('keydown', (e) => {
+                        if (e.key === 'Enter') input.blur();
+                    }); // Guardar al presionar Enter
                 });
-                 dom.listView.querySelectorAll('.task-date-input, .task-time-input').forEach(input => {
+                dom.listView.querySelectorAll('.task-date-input, .task-time-input').forEach(input => {
                     input.addEventListener('change', (e) => {
-                         const taskId = e.currentTarget.dataset.taskId;
-                         const field = e.currentTarget.classList.contains('task-date-input') ? 'dueDate' : 'time';
-                         updateTaskStatus(taskId, { [field]: e.currentTarget.value });
+                        const taskId = e.currentTarget.dataset.taskId;
+                        const field = e.currentTarget.classList.contains('task-date-input') ? 'dueDate' : 'time';
+                        updateTaskStatus(taskId, {
+                            [field]: e.currentTarget.value
+                        });
                     });
                 });
                 dom.listView.querySelectorAll('.priority-cell').forEach(cell => {
-                     cell.addEventListener('click', (e) => {
+                    cell.addEventListener('click', (e) => {
                         e.stopPropagation();
                         const taskId = e.currentTarget.dataset.taskId;
-                        const task = findTask(taskId)?.task;
-                        if(task) updateTaskStatus(taskId, { urgent: !task.urgent }); // Alternar estado urgente
+                        const task = findTask(taskId) ? .task;
+                        if (task) updateTaskStatus(taskId, {
+                            urgent: !task.urgent
+                        }); // Alternar estado urgente
                     });
                 });
                 dom.listView.querySelectorAll('.delete-task-icon').forEach(btn => {
-                     btn.addEventListener('click', (e) => {
+                    btn.addEventListener('click', (e) => {
                         e.stopPropagation();
                         deleteTask(e.currentTarget.dataset.taskId, chatId);
                     });
@@ -9023,7 +9257,9 @@
              * @param {string} chatId - El ID del chat del proyecto.
              */
             function renderListViewMobile(chatId) {
-                const { projectData } = state.chats[chatId];
+                const {
+                    projectData
+                } = state.chats[chatId];
                 dom.listViewMobile.innerHTML = ''; // Limpiar el contenido de la lista móvil existente
 
                 projectData.columns.forEach(column => {
@@ -9044,7 +9280,7 @@
                         taskEl.className = 'list-view-task-mobile';
                         taskEl.draggable = true;
                         taskEl.dataset.taskId = task.id;
-                         if (task.completed) taskEl.classList.add('task-item-completed');
+                        if (task.completed) taskEl.classList.add('task-item-completed');
 
                         const labelsHtml = (task.labels || []).map(label => `<span class="task-label" style="background-color: ${getLabelColor(label)}; color: white;">${label}</span>`).join('');
 
@@ -9061,7 +9297,9 @@
                                 </div>
                             </div>
                         `;
-                        taskEl.addEventListener('touchstart', handleTouchStart, {passive: false}); // Arrastre táctil para móvil
+                        taskEl.addEventListener('touchstart', handleTouchStart, {
+                            passive: false
+                        }); // Arrastre táctil para móvil
                         tasksContainer.appendChild(taskEl);
                     });
 
@@ -9069,21 +9307,26 @@
                     addTaskBtn.className = 'add-task-to-list-btn text-left text-text-medium hover:text-primary p-2 w-full';
                     addTaskBtn.innerHTML = `<i class="fas fa-plus mr-2"></i>Añadir tarea`;
                     addTaskBtn.onclick = () => {
-                         editProjectTask(chatId, null, column.id); // Añadir nueva tarea a una columna específica
+                        editProjectTask(chatId, null, column.id); // Añadir nueva tarea a una columna específica
                     };
                     tasksContainer.appendChild(addTaskBtn);
 
                     columnEl.appendChild(tasksContainer);
                     // Escuchadores de arrastrar y soltar para columnas de lista móvil
-                    columnEl.addEventListener('dragover', e => { e.preventDefault(); columnEl.style.backgroundColor = 'rgba(138, 79, 255, 0.1)'; });
-                    columnEl.addEventListener('dragleave', e => { columnEl.style.backgroundColor = ''; });
+                    columnEl.addEventListener('dragover', e => {
+                        e.preventDefault();
+                        columnEl.style.backgroundColor = 'rgba(138, 79, 255, 0.1)';
+                    });
+                    columnEl.addEventListener('dragleave', e => {
+                        columnEl.style.backgroundColor = '';
+                    });
                     columnEl.addEventListener('drop', e => {
-                         e.preventDefault();
-                         columnEl.style.backgroundColor = '';
-                         const taskId = e.dataTransfer.getData('text/plain');
-                         if(taskId.startsWith('proj-')) {
+                        e.preventDefault();
+                        columnEl.style.backgroundColor = '';
+                        const taskId = e.dataTransfer.getData('text/plain');
+                        if (taskId.startsWith('proj-')) {
                             moveTask(chatId, taskId, column.id);
-                         }
+                        }
                     });
                     dom.listViewMobile.appendChild(columnEl);
                 });
@@ -9098,20 +9341,26 @@
                         span.replaceWith(input);
                         input.focus();
                         input.addEventListener('blur', () => {
-                            updateTaskStatus(input.closest('.list-view-task-mobile').dataset.taskId, { content: input.value });
+                            updateTaskStatus(input.closest('.list-view-task-mobile').dataset.taskId, {
+                                content: input.value
+                            });
                         });
-                        input.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') input.blur(); });
+                        input.addEventListener('keydown', (ev) => {
+                            if (ev.key === 'Enter') input.blur();
+                        });
                     });
                 });
                 dom.listViewMobile.querySelectorAll('.task-date-input, .task-time-input').forEach(input => {
                     input.addEventListener('change', (e) => {
-                         const taskId = e.currentTarget.dataset.taskId;
-                         const field = e.currentTarget.classList.contains('task-date-input') ? 'dueDate' : 'time';
-                         updateTaskStatus(taskId, { [field]: e.currentTarget.value });
+                        const taskId = e.currentTarget.dataset.taskId;
+                        const field = e.currentTarget.classList.contains('task-date-input') ? 'dueDate' : 'time';
+                        updateTaskStatus(taskId, {
+                            [field]: e.currentTarget.value
+                        });
                     });
                 });
                 dom.listViewMobile.querySelectorAll('.delete-task-icon').forEach(btn => {
-                     btn.addEventListener('click', (e) => {
+                    btn.addEventListener('click', (e) => {
                         e.stopPropagation();
                         deleteTask(e.currentTarget.dataset.taskId, chatId);
                     });
@@ -9138,11 +9387,17 @@
                     if (!found) return;
 
                     if (found.type === 'personal') {
-                        const { dayKey, taskIndex } = found;
+                        const {
+                            dayKey,
+                            taskIndex
+                        } = found;
                         state.calendar[dayKey].splice(taskIndex, 1); // Eliminar del calendario personal
-                        if(state.calendar[dayKey].length === 0) delete state.calendar[dayKey]; // Eliminar entrada del día si está vacía
+                        if (state.calendar[dayKey].length === 0) delete state.calendar[dayKey]; // Eliminar entrada del día si está vacía
                     } else if (found.type === 'project') {
-                        const { column, taskIndex } = found;
+                        const {
+                            column,
+                            taskIndex
+                        } = found;
                         column.tasks.splice(taskIndex, 1); // Eliminar de la columna del proyecto
                     }
                     saveState(); // Guardar el estado actualizado
@@ -9159,7 +9414,7 @@
              * @param {string} [columnIdForNew] - El ID de la columna a la que añadir una nueva tarea.
              */
             async function editProjectTask(chatId, taskId, columnIdForNew) {
-                const task = taskId ? findTask(taskId)?.task : null;
+                const task = taskId ? findTask(taskId) ? .task : null;
                 const isNew = !task;
                 const lang = localStorage.getItem('goatify-lang') || 'es';
 
@@ -9189,7 +9444,11 @@
                             const column = state.chats[chatId].projectData.columns.find(c => c.id === columnIdForNew);
                             if (column) {
                                 if (!column.tasks) column.tasks = [];
-                                column.tasks.push({ id: `proj-${crypto.randomUUID()}`, ...updatedTaskData, completed: false });
+                                column.tasks.push({
+                                    id: `proj-${crypto.randomUUID()}`,
+                                    ...updatedTaskData,
+                                    completed: false
+                                });
                                 saveState();
                                 renderProjectBoard(chatId);
                                 completeMission('project-created', chatId); // Completar misión para nueva tarea de proyecto
@@ -9209,8 +9468,8 @@
              * @param {string} [preselectedTime=null] - Hora preseleccionada para una nueva tarea.
              */
             async function editCalendarTask(taskId, preselectedDate = null, preselectedTime = null) {
-                const task = taskId ? findTask(taskId)?.task : null;
-                const taskDayKey = taskId ? findTask(taskId)?.dayKey : null;
+                const task = taskId ? findTask(taskId) ? .task : null;
+                const taskDayKey = taskId ? findTask(taskId) ? .dayKey : null;
                 const isNew = !task;
                 const lang = localStorage.getItem('goatify-lang') || 'es';
 
@@ -9221,29 +9480,41 @@
                     hideModal(); // Ocultar modal actual
 
                     setTimeout(async () => {
-                         const projResult = await showModal({
+                        const projResult = await showModal({
                             title: 'Crear Nuevo Proyecto',
                             body: `<p>Ingresa un nombre para el nuevo proyecto basado en la tarea "${content.substring(0,30)}...".</p>
                                 <input type="text" id="new-proj-name" class="w-full p-2 rounded bg-input border border-themed mt-2" value="${content.split(' ').slice(0,4).join(' ')}">`,
                             confirmText: 'Crear Proyecto'
                         });
 
-                        if(projResult.confirmed && projResult.data['new-proj-name']) {
+                        if (projResult.confirmed && projResult.data['new-proj-name']) {
                             const newProjectId = 'project-' + crypto.randomUUID();
-                            state.projects[newProjectId] = { id: newProjectId, title: projResult.data['new-proj-name'], itemIds: [] };
+                            state.projects[newProjectId] = {
+                                id: newProjectId,
+                                title: projResult.data['new-proj-name'],
+                                itemIds: []
+                            };
                             state.structure.unshift(newProjectId);
 
-                            const newTaskChatId = createNewChat({title: projResult.data['new-proj-name'], workflow: 'project-management'});
+                            const newTaskChatId = createNewChat({
+                                title: projResult.data['new-proj-name'],
+                                workflow: 'project-management'
+                            });
                             state.projects[newProjectId].itemIds.push(newTaskChatId);
 
                             const taskDataFromModal = {
                                 content: content,
                                 dueDate: modalBody.querySelector('#cal-task-date').value || null,
                                 time: modalBody.querySelector('#cal-task-time').value || null,
-                                labels: [], urgent: false, completed: false
+                                labels: [],
+                                urgent: false,
+                                completed: false
                             };
                             const todoColumn = state.chats[newTaskChatId].projectData.columns.find(c => c.id === 'todo');
-                            todoColumn.tasks.push({ id: `proj-${crypto.randomUUID()}`, ...taskDataFromModal });
+                            todoColumn.tasks.push({
+                                id: `proj-${crypto.randomUUID()}`,
+                                ...taskDataFromModal
+                            });
 
                             await saveState();
                             renderSidebar();
@@ -9269,15 +9540,15 @@
                     const newDate = result.data['cal-task-date'];
 
                     if (newContent.trim() && newDate) {
-                        if(isNew && result.data['create-project-checkbox']) {
-                             // Si se crea un nuevo proyecto, pasar los datos del modal actual a la función de creación del proyecto
-                             const tempModalBody = document.createElement('div');
-                             tempModalBody.innerHTML = dom.genericModal.querySelector('#modal-body').innerHTML;
-                             tempModalBody.querySelector('#cal-task-content-edit').value = newContent;
-                             tempModalBody.querySelector('#cal-task-date').value = newDate;
-                             tempModalBody.querySelector('#cal-task-time').value = result.data['cal-task-time'];
-                             await createProjectFromTask(tempModalBody);
-                             return;
+                        if (isNew && result.data['create-project-checkbox']) {
+                            // Si se crea un nuevo proyecto, pasar los datos del modal actual a la función de creación del proyecto
+                            const tempModalBody = document.createElement('div');
+                            tempModalBody.innerHTML = dom.genericModal.querySelector('#modal-body').innerHTML;
+                            tempModalBody.querySelector('#cal-task-content-edit').value = newContent;
+                            tempModalBody.querySelector('#cal-task-date').value = newDate;
+                            tempModalBody.querySelector('#cal-task-time').value = result.data['cal-task-time'];
+                            await createProjectFromTask(tempModalBody);
+                            return;
                         }
 
                         const updatedTaskData = {
@@ -9288,7 +9559,11 @@
 
                         if (isNew) {
                             const newId = `cal-${crypto.randomUUID()}`;
-                            const newTask = { id: newId, completed: false, ...updatedTaskData };
+                            const newTask = {
+                                id: newId,
+                                completed: false,
+                                ...updatedTaskData
+                            };
                             if (!state.calendar[newDate]) state.calendar[newDate] = [];
                             state.calendar[newDate].push(newTask);
                         } else {
@@ -9351,7 +9626,9 @@
              * @param {string} chatId - El ID del chat del proyecto.
              */
             function renderTagFilter(chatId) {
-                const { projectData } = state.chats[chatId];
+                const {
+                    projectData
+                } = state.chats[chatId];
                 const allTasks = projectData.columns.flatMap(c => c.tasks || []);
                 const allTags = [...new Set(allTasks.flatMap(t => t.labels || []))]; // Obtener etiquetas únicas
 
@@ -9370,11 +9647,11 @@
                     const btn = document.createElement('button');
                     btn.className = 'block w-full text-left p-2 hover:bg-medium rounded-md text-sm';
                     btn.innerHTML = `<span class="task-label inline-block mr-2" style="background-color: ${getLabelColor(tag)}; color: white;">${tag}</span>`;
-                     btn.onclick = () => {
+                    btn.onclick = () => {
                         activeTagFilter = tag; // Establecer filtro activo
                         dom.tagFilterBtn.innerHTML = `<span class="task-label inline-block mr-2" style="background-color: ${getLabelColor(tag)}; color: white;">${tag}</span>`;
                         dom.tagFilterDropdown.classList.add('hidden');
-                         renderProjectBoard(chatId); // Volver a renderizar el tablero con filtro
+                        renderProjectBoard(chatId); // Volver a renderizar el tablero con filtro
                     };
                     dom.tagFilterDropdown.appendChild(btn);
                 });
@@ -9391,12 +9668,12 @@
                     .filter(c => c.projectData)
                     .flatMap(c => c.projectData.columns)
                     .flatMap(col => col.tasks || []);
-                
+
                 const allTags = [...new Set(allProjectTasks.flatMap(t => t.labels || []))];
                 allTags.unshift('Personal'); // Añadir 'Personal' como una etiqueta filtrable
 
                 dom.calendarTagFilterDropdown.innerHTML = '';
-                
+
                 const allBtn = document.createElement('button');
                 allBtn.className = 'block w-full text-left p-2 hover:bg-medium rounded-md text-sm';
                 allBtn.textContent = 'Todas las Etiquetas';
@@ -9522,13 +9799,18 @@
             function renderFinancialData(chatId) {
                 const chat = state.chats[chatId];
                 if (!chat.financialData) {
-                    chat.financialData = { incomeCategories: [], expenseCategories: [] };
+                    chat.financialData = {
+                        incomeCategories: [],
+                        expenseCategories: []
+                    };
                 }
-                const { incomeCategories = [], expenseCategories = [] } = chat.financialData;
+                const {
+                    incomeCategories = [], expenseCategories = []
+                } = chat.financialData;
 
                 const incomeList = dom.financialAssistantView.querySelector('#income-categories-list');
                 const expenseList = dom.financialAssistantView.querySelector('#expense-categories-list');
-                if(!incomeList || !expenseList) return;
+                if (!incomeList || !expenseList) return;
 
                 // Ayudante para renderizar una sola categoría financiera
                 const renderCategory = (category, type) => {
@@ -9563,12 +9845,12 @@
                 // Renderizar categorías de ingresos
                 incomeList.innerHTML = '';
                 incomeCategories.forEach(cat => incomeList.appendChild(renderCategory(cat, 'income')));
-                if(incomeList.innerHTML === '') incomeList.innerHTML = `<p class="text-xs text-text-medium italic p-2">Crea carpetas para organizar tus ingresos.</p>`;
+                if (incomeList.innerHTML === '') incomeList.innerHTML = `<p class="text-xs text-text-medium italic p-2">Crea carpetas para organizar tus ingresos.</p>`;
 
                 // Renderizar categorías de gastos
                 expenseList.innerHTML = '';
                 expenseCategories.forEach(cat => expenseList.appendChild(renderCategory(cat, 'expense')));
-                if(expenseList.innerHTML === '') expenseList.innerHTML = `<p class="text-xs text-text-medium italic p-2">Crea carpetas para organizar tus gastos.</p>`;
+                if (expenseList.innerHTML === '') expenseList.innerHTML = `<p class="text-xs text-text-medium italic p-2">Crea carpetas para organizar tus gastos.</p>`;
 
                 recalculateFinances(chatId); // Recalcular y mostrar totales
             }
@@ -9587,13 +9869,17 @@
                 const financialInput = view.querySelector('#financial-msg');
                 const financialSendBtn = view.querySelector('#financial-send');
                 if (financialSendBtn) {
-                    financialSendBtn.addEventListener('click', () => sendMessage(false, null, { assistantType: 'financial' }));
+                    financialSendBtn.addEventListener('click', () => sendMessage(false, null, {
+                        assistantType: 'financial'
+                    }));
                 }
                 if (financialInput) {
                     financialInput.addEventListener('keydown', (e) => {
                         if (e.key === 'Enter' && !e.shiftKey) {
                             e.preventDefault();
-                            sendMessage(false, null, { assistantType: 'financial' });
+                            sendMessage(false, null, {
+                                assistantType: 'financial'
+                            });
                         }
                     });
                 }
@@ -9616,11 +9902,11 @@
                         const itemId = itemRow.dataset.itemId;
                         const type = catEl.dataset.type;
                         const category = chat.financialData[`${type}Categories`].find(c => c.id === catId);
-                        const item = category?.items.find(i => i.id === itemId);
+                        const item = category ? .items.find(i => i.id === itemId);
                         if (item) {
-                           item[e.target.dataset.field] = e.target.type === 'number' ? parseFloat(e.target.value) || 0 : e.target.value;
-                           recalculateFinances(chatId); // Recalcular totales al cambiar la cantidad del elemento
-                           saveState();
+                            item[e.target.dataset.field] = e.target.type === 'number' ? parseFloat(e.target.value) || 0 : e.target.value;
+                            recalculateFinances(chatId); // Recalcular totales al cambiar la cantidad del elemento
+                            saveState();
                         }
                     }
                 });
@@ -9631,14 +9917,18 @@
                     if (!chat || !chat.financialData) return;
 
                     const addItemBtn = e.target.closest('.add-finance-item-btn');
-                    if(addItemBtn) {
+                    if (addItemBtn) {
                         const catEl = addItemBtn.closest('.finance-category');
                         const catId = catEl.dataset.categoryId;
                         const type = catEl.dataset.type;
                         const category = chat.financialData[`${type}Categories`].find(c => c.id === catId);
                         if (category) {
                             if (!category.items) category.items = [];
-                            category.items.push({ id: `fin-${crypto.randomUUID()}`, description: '', amount: 0 });
+                            category.items.push({
+                                id: `fin-${crypto.randomUUID()}`,
+                                description: '',
+                                amount: 0
+                            });
                             renderFinancialData(chatId); // Volver a renderizar para mostrar el nuevo elemento
                             saveState();
                         }
@@ -9674,16 +9964,24 @@
                 });
 
                 // Añadir botones de categoría
-                view.querySelector('#add-income-category-btn')?.addEventListener('click', () => {
-                    const newCategory = { id: `fin-cat-${crypto.randomUUID()}`, name: 'Nueva Carpeta de Ingresos', items: [] };
+                view.querySelector('#add-income-category-btn') ? .addEventListener('click', () => {
+                    const newCategory = {
+                        id: `fin-cat-${crypto.randomUUID()}`,
+                        name: 'Nueva Carpeta de Ingresos',
+                        items: []
+                    };
                     if (!chat.financialData.incomeCategories) chat.financialData.incomeCategories = [];
                     chat.financialData.incomeCategories.push(newCategory);
                     renderFinancialData(chatId);
                     saveState();
                 });
 
-                view.querySelector('#add-expense-category-btn')?.addEventListener('click', () => {
-                    const newCategory = { id: `fin-cat-${crypto.randomUUID()}`, name: 'Nueva Carpeta de Gastos', items: [] };
+                view.querySelector('#add-expense-category-btn') ? .addEventListener('click', () => {
+                    const newCategory = {
+                        id: `fin-cat-${crypto.randomUUID()}`,
+                        name: 'Nueva Carpeta de Gastos',
+                        items: []
+                    };
                     if (!chat.financialData.expenseCategories) chat.financialData.expenseCategories = [];
                     chat.financialData.expenseCategories.push(newCategory);
                     renderFinancialData(chatId);
@@ -9748,7 +10046,7 @@
             function checkProjectCreated(chatId, taskCount) {
                 const chat = state.chats[chatId];
                 if (!chat || !chat.projectData) return false;
-                const totalTasks = chat.projectData.columns.reduce((sum, col) => sum + (col.tasks?.length || 0), 0);
+                const totalTasks = chat.projectData.columns.reduce((sum, col) => sum + (col.tasks ? .length || 0), 0);
                 return totalTasks >= taskCount;
             }
 
@@ -9759,12 +10057,12 @@
             function getDefaultGamificationState() {
                 return {
                     xp: 0,
-                     credits: 0,
+                    credits: 0,
                     level: 1,
                     dailyStreak: 0,
                     lastLogin: null,
                     completedMissions: [],
-                     unlockedAchievements: []
+                    unlockedAchievements: []
                 };
             }
 
@@ -9774,7 +10072,7 @@
              * Comprueba y actualiza la racha diaria.
              */
             async function loadGamificationState() {
-                if(!currentUser) {
+                if (!currentUser) {
                     gamificationState = getDefaultGamificationState(); // Restablecer para invitados
                     return;
                 }
@@ -9795,7 +10093,7 @@
              * Guarda el estado actual de gamificación en el almacenamiento local.
              */
             function saveGamificationState() {
-                if(!currentUser) return;
+                if (!currentUser) return;
                 const key = `gamificationState_${currentUser.id}`;
                 localStorage.setItem(key, JSON.stringify(gamificationState));
                 // Persistir créditos de recompensa por separado también (para compatibilidad con versiones anteriores/simplicidad)
@@ -9810,7 +10108,7 @@
              * @param {number} amount - La cantidad de XP a añadir.
              */
             function addXp(amount) {
-                if(!currentUser) return;
+                if (!currentUser) return;
                 gamificationState.xp += amount;
                 const currentLevel = gamificationState.level;
                 if (currentLevel >= LEVEL_NAMES.length) return; // Ya en el nivel máximo
@@ -9840,7 +10138,7 @@
              * @param {number} amount - La cantidad de créditos a añadir.
              */
             function addCredits(amount) {
-                if(!currentUser) return;
+                if (!currentUser) return;
                 gamificationState.credits += amount;
                 saveGamificationState(); // Guardar el estado actualizado
             }
@@ -9851,7 +10149,7 @@
              * Activa la apertura del Cofre GOAT el día 7.
              */
             async function checkDailyStreak() {
-                if(!currentUser) {
+                if (!currentUser) {
                     gamificationState = getDefaultGamificationState();
                     return;
                 }
@@ -9875,8 +10173,12 @@
 
                 gamificationState.lastLogin = today; // Actualizar la fecha del último inicio de sesión
                 const streak = gamificationState.dailyStreak;
-                let xpReward = 10, creditReward = 5;
-                if (streak > 3 && streak <=6) { xpReward = 20; creditReward = 10; } // Recompensas aumentadas para rachas más largas
+                let xpReward = 10,
+                    creditReward = 5;
+                if (streak > 3 && streak <= 6) {
+                    xpReward = 20;
+                    creditReward = 10;
+                } // Recompensas aumentadas para rachas más largas
 
                 if (streak % 7 === 0 && streak > 0) {
                     addXp(100); // XP de bonificación por racha de 7 días
@@ -9921,7 +10223,7 @@
                     title: `<i class="fas fa-gift text-gold mr-2"></i>¡Cofre GOAT Abierto!`,
                     body: `<p class="text-lg text-center">¡Completaste una racha de 7 días y obtuviste una${rewardTitle}</p><p class="mt-4 text-center">${rewardBody}</p>`,
                     confirmText: '¡Fantástico!',
-                     showCancel: false
+                    showCancel: false
                 });
             }
 
@@ -9940,7 +10242,7 @@
                 if (mission.condition) {
                     isCompleted = mission.condition(contextId); // Comprobar condición personalizada
                 } else {
-                     isCompleted = true; // Sin condición específica, autocompletar
+                    isCompleted = true; // Sin condición específica, autocompletar
                 }
 
                 if (isCompleted) {
@@ -9951,7 +10253,7 @@
                         title: `<i class="fas fa-check-circle text-green-400 mr-2"></i> Misión Completada`,
                         body: `<p class="text-lg text-center">¡Completaste "${mission.text}"!</p><p class="text-center font-bold mt-2">+${mission.xp} XP | +${mission.credits} Créditos de Recompensa</p>`,
                         confirmText: '¡Vamos!',
-                         showCancel: false
+                        showCancel: false
                     });
                     saveGamificationState(); // Guardar el estado actualizado
                 }
@@ -9974,7 +10276,7 @@
                     title: `<i class="fas fa-medal text-gold mr-2"></i> ¡Logro Desbloqueado!`,
                     body: `<p class="text-xl text-center font-bold">${achievement.title}</p><p class="text-center mt-2">${achievement.description}</p><p class="text-center font-bold mt-4">+${achievement.xp} XP ${achievement.reward ? `| ${achievement.reward}` : ''}</p>`,
                     confirmText: '¡Impresionante!',
-                     showCancel: false
+                    showCancel: false
                 });
                 saveGamificationState(); // Guardar el estado actualizado
             }
@@ -9983,7 +10285,7 @@
              * Renderiza el modal de gamificación con el nivel actual, XP, racha, misiones y logros.
              */
             function renderGamificationModal() {
-                if(!currentUser || !dom.gamificationModal) return;
+                if (!currentUser || !dom.gamificationModal) return;
                 const level = gamificationState.level;
                 const currentXp = gamificationState.xp;
                 const xpForCurrentLevel = XP_FOR_LEVEL[level - 1];
@@ -10029,7 +10331,7 @@
                     const isCompleted = gamificationState.completedMissions.includes(mission.id);
                     const missionEl = document.createElement('div');
                     missionEl.className = `mission-item p-4 rounded-lg flex items-center justify-between bg-input ${isCompleted ? 'completed' : ''}`;
-                     missionEl.innerHTML = `
+                    missionEl.innerHTML = `
                         <div>
                             <p class="font-semibold">${mission.text}</p>
                             <p class="text-sm text-text-medium">+${mission.xp} XP | +${mission.credits} Créditos</p>
@@ -10047,7 +10349,7 @@
                     const isUnlocked = gamificationState.unlockedAchievements.includes(ach.id);
                     const achEl = document.createElement('div');
                     achEl.className = `achievement-badge p-4 rounded-lg text-center flex flex-col items-center justify-center ${isUnlocked ? 'unlocked' : ''}`;
-                     achEl.innerHTML = `
+                    achEl.innerHTML = `
                         <i class="fas ${ach.icon} fa-3x mb-2"></i>
                         <p class="font-bold">${ach.title}</p>
                         <p class="text-xs text-text-medium mt-1">${ach.description}</p>
@@ -10064,9 +10366,15 @@
              */
             const finishInitialization = async (user) => {
                 // Evitar la reinicialización si ya se activó para el mismo usuario
-                if (initFired && user?.id === currentUser?.id) return;
+                if (initFired && user ? .id === currentUser ? .id) return;
                 initFired = true;
-                if (user && !currentUserToken) { try { currentUserToken = await user.jwt(); } catch(e) { console.error(e); } }
+                if (user && !currentUserToken) {
+                    try {
+                        currentUserToken = await user.jwt();
+                    } catch (e) {
+                        console.error(e);
+                    }
+                }
                 const wasGuest = !currentUser; // Comprobar si el usuario era previamente un invitado
                 currentUser = user; // Establecer el usuario actual
 
@@ -10078,15 +10386,15 @@
 
                     // Registrar Service Worker y suscribirse a las notificaciones push si las notificaciones están habilitadas y el usuario ha iniciado sesión
                     if (currentUser && notificationsEnabled) {
-                         registerServiceWorkerAndSubscribe();
+                        registerServiceWorkerAndSubscribe();
                     }
-                    updateContextualFooter(state.chats[currentChatId]?.workflow); // Actualizar el mensaje inicial del pie de página contextual
+                    updateContextualFooter(state.chats[currentChatId] ? .workflow); // Actualizar el mensaje inicial del pie de página contextual
                     setupMotivationInterval(); // Iniciar notificaciones de motivación periódicas
 
-                     if (loadingInterval) {
+                    if (loadingInterval) {
                         clearInterval(loadingInterval);
                     }
-                    
+
                     dom.appContainer.classList.remove('opacity-0'); // Mostrar el contenedor principal de la aplicación
                     dom.loadingOverlay.style.display = 'none'; // Ocultar la superposición de carga
 
@@ -10129,37 +10437,46 @@
                 document.body.removeEventListener('touchstart', unlockAudio);
                 document.body.removeEventListener('click', unlockAudio);
             };
-            document.body.addEventListener('touchstart', unlockAudio, { once: true });
-            document.body.addEventListener('click', unlockAudio, { once: true });
+            document.body.addEventListener('touchstart', unlockAudio, {
+                once: true
+            });
+            document.body.addEventListener('click', unlockAudio, {
+                once: true
+            });
 
             // Integración del widget de Netlify Identity
             if (window.netlifyIdentity) {
                 // Inicializar en el evento 'init'
                 netlifyIdentity.on('init', async (user) => {
-    if (user) {
-        try {
-            currentUserToken = await user.jwt();
-            console.log('[Goatify] Token recuperado en init');
-        } catch (e) {
-            console.warn('[Goatify] No se pudo obtener JWT en init', e);
-        }
-    }
-    finishInitialization(user);
-loadCreditsFromServer();
-        await loadCreditsFromServer();
-                    });
+                    if (user) {
+                        try {
+                            currentUserToken = await user.jwt();
+                            console.log('[Goatify] Token recuperado en init');
+                        } catch (e) {
+                            console.warn('[Goatify] No se pudo obtener JWT en init', e);
+                        }
+                    }
+                    finishInitialization(user);
+                    loadCreditsFromServer();
+                    await loadCreditsFromServer();
+                });
                 // Manejar el inicio de sesión del usuario
                 netlifyIdentity.on('login', async (user) => {
-        try { currentUserToken = await user.jwt(); } catch(e) { console.warn('JWT error', e); }
+                    try {
+                        currentUserToken = await user.jwt();
+                    } catch (e) {
+                        console.warn('JWT error', e);
+                    }
                     netlifyIdentity.close(); // Cerrar el widget de identidad
-                    finishInitialization(user); loadCreditsFromServer();
-        // Finalizar la inicialización de la aplicación
+                    finishInitialization(user);
+                    loadCreditsFromServer();
+                    // Finalizar la inicialización de la aplicación
                 });
                 // Manejar el cierre de sesión del usuario
                 netlifyIdentity.on('logout', () => {
                     // Borrar todo el almacenamiento local relacionado con los datos del usuario al cerrar sesión
-                    localStorage.removeItem('goatbotState_' + currentUser?.id);
-                    localStorage.removeItem('gamificationState_' + currentUser?.id);
+                    localStorage.removeItem('goatbotState_' + currentUser ? .id);
+                    localStorage.removeItem('gamificationState_' + currentUser ? .id);
                     localStorage.removeItem(`goat_x_pro_usage_${currentUser?.id}_${dayjs().format('YYYY-MM-DD')}`);
                     localStorage.removeItem(`usage_monthly_${currentUser?.id}`);
                     currentUser = null; // Establecer explícitamente currentUser a null
@@ -10173,8 +10490,8 @@ loadCreditsFromServer();
                     if (!initFired) finishInitialization(null); // Volver al modo de invitado si hay un error durante la inicialización inicial
                 });
             } else {
-                 console.warn("Widget de Netlify Identity no encontrado. Procediendo como invitado.");
-                 finishInitialization(null); // Proceder como invitado si el widget no está disponible
+                console.warn("Widget de Netlify Identity no encontrado. Procediendo como invitado.");
+                finishInitialization(null); // Proceder como invitado si el widget no está disponible
             }
 
             // Fallback para la inicialización de Netlify Identity si el evento 'init' no se activa dentro de un tiempo de espera
@@ -10183,7 +10500,7 @@ loadCreditsFromServer();
                 if (!initFired) {
                     console.warn("El evento 'init' de Netlify Identity no se activó dentro del tiempo de espera. Forzando la inicialización de la aplicación.");
                     finishInitialization(window.netlifyIdentity ? netlifyIdentity.currentUser() : null);
-                 }
+                }
             }, 3000); // Tiempo de espera de 3 segundos
 
             // Manejar el botón de retroceso/avance del navegador para la navegación del historial de chat
@@ -10195,782 +10512,51 @@ loadCreditsFromServer();
                 }
             });
         }); // Fin de DOMContentLoaded
-     
-    // ---- Suscripción PayPal ----
-    document.querySelectorAll('.select-plan-btn').forEach(btn=>{
-        btn.addEventListener('click', async ()=> {
-            const plan = btn.dataset.plan;
-            console.log('[Goatify] Click suscripción', plan);
-            // Asegúrate de que Netlify Identity esté cargado
-            if (!window.netlifyIdentity) {
-                alert('Netlify Identity no está disponible.');
-                return;
-            }
-            const user = window.netlifyIdentity.currentUser();
-            if (!user) {
-                // Si no está logueado, abre el widget de login
-                window.netlifyIdentity.open('login');
-                return;
-            }
-            try {
-                const token = await user.jwt();
-                const res = await fetch('/.netlify/functions/create-subscription', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify({ plan })
-                });
-                if (!res.ok) {
-                    throw new Error('Error al crear la suscripción');
+
+        // ---- Suscripción PayPal ----
+        document.querySelectorAll('.select-plan-btn').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const plan = btn.dataset.plan;
+                console.log('[Goatify] Click suscripción', plan);
+                // Asegúrate de que Netlify Identity esté cargado
+                if (!window.netlifyIdentity) {
+                    alert('Netlify Identity no está disponible.');
+                    return;
                 }
-                const data = await res.json();
-                if (data.approvalUrl) {
-                    window.location.href = data.approvalUrl; // Redirección a PayPal
-                } else {
-                    console.error('No se recibió la URL de aprobación.');
-                    alert('Error al iniciar el pago. Intenta nuevamente.');
+                const user = window.netlifyIdentity.currentUser();
+                if (!user) {
+                    // Si no está logueado, abre el widget de login
+                    window.netlifyIdentity.open('login');
+                    return;
                 }
-            } catch (err) {
-                console.error('[Goatify] Error durante la suscripción:', err);
-                alert('No se pudo procesar la suscripción. Vuelve a intentarlo.');
-            }
-        });
-    });
-
-async function spendCredit() {
-  try {
-    const response = await fetch('/.netlify/functions/update-usage', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${currentUser.token.access_token}`
-      },
-      body: JSON.stringify({ used: 1 })
-    });
-    const result = await response.json();
-    if (result.credits !== undefined) {
-      currentCredits = result.credits;
-      updateCreditsUI(currentCredits);
-    }
-  } catch (error) {
-    console.error("Error spending credit:", error);
-  }
-}
-
-</script>
-// ---- INICIO DEL PARCHE PARA ACTUALIZAR CRÉDITOS POST-PAGO (VERSIÓN CORREGIDA) ----
-document.addEventListener('DOMContentLoaded', () => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const paymentStatus = urlParams.get('payment');
-
-    if (paymentStatus === 'success') {
-        // 1. Muestra una notificación de que se está procesando
-        showInAppNotification(
-            "¡Pago Exitoso!",
-            "Procesando tu compra... Tus créditos aparecerán en un momento.",
-            8000 // Aumentamos la duración de la notificación
-        );
-
-        const user = window.netlifyIdentity.currentUser();
-        if (user) {
-            const token = user.token.access_token;
-            let attempts = 0;
-            const maxAttempts = 10; // Intentará durante 20 segundos (10 intentos * 2 segundos)
-
-            // 2. Inicia un "poller" que pregunta al servidor cada 2 segundos
-            const pollForCredits = setInterval(async () => {
-                attempts++;
-                console.log(`Buscando créditos actualizados (intento ${attempts})...`);
-                
-                // Llama a la función que obtiene los créditos actuales
-                const response = await fetch('/.netlify/functions/get-usage', {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-                const data = await response.json();
-                const newCreditCount = data.credits;
-
-                // 3. Comprueba si los créditos han aumentado o si ya se rindió
-                if (newCreditCount > remoteCredits || attempts >= maxAttempts) {
-                    clearInterval(pollForCredits); // Detiene la búsqueda
-                    
-                    console.log('¡Créditos actualizados en el display!', newCreditCount);
-                    remoteCredits = newCreditCount; // Actualiza la variable global
-                    
-                    // Llama a tu función principal para actualizar el contador en la pantalla
-                    if (typeof updateCreditCounter === 'function') {
-                        updateCreditCounter();
+                try {
+                    const token = await user.jwt();
+                    const res = await fetch('/.netlify/functions/create-subscription', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({
+                            plan
+                        })
+                    });
+                    if (!res.ok) {
+                        throw new Error('Error al crear la suscripción');
                     }
-                    
-                    // Muestra una notificación de éxito final
-                    showInAppNotification(
-                        "¡Créditos Añadidos!",
-                        `Se han añadido los créditos a tu cuenta.`,
-                        5000
-                    );
+                    const data = await res.json();
+                    if (data.approvalUrl) {
+                        window.location.href = data.approvalUrl; // Redirección a PayPal
+                    } else {
+                        console.error('No se recibió la URL de aprobación.');
+                        alert('Error al iniciar el pago. Intenta nuevamente.');
+                    }
+                } catch (err) {
+                    console.error('[Goatify] Error durante la suscripción:', err);
+                    alert('No se pudo procesar la suscripción. Vuelve a intentarlo.');
                 }
-            }, 2000); // Pregunta cada 2 segundos
-        }
-        
-        // 4. Limpia la URL para que no se vuelva a ejecutar al recargar la página
-        history.replaceState(null, '', window.location.pathname);
-    }
-});
-// ---- FIN DEL PARCHE ----
-window.netlifyIdentity.on('login', async (user) =&gt; {
-    try {
-        const response = await fetch('/.netlify/functions/get-usage', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id: user.id })
+            });
         });
-        const data = await response.json();
-        const newCredits = data.credits;
-
-        document.getElementById('plan-credits-display').textContent = `0/${newCredits}`;
-    } catch (error) {
-        console.error('Error al sincronizar créditos:', error);
-    }
-});
-<script>
-// ==== REMOTE CREDIT SYNC (PATCH v1) ====
-let remoteCredits = null;
-async function loadCreditsFromServer() {
-  try {
-    const response = await fetch('/.netlify/functions/get-usage', {
-      headers: {
-        Authorization: `Bearer ${user.token}` // si usas Netlify Identity
-      }
-    });
-    const data = await response.json();
-    if (data.credits !== undefined) {
-      credits = data.credits;
-      updateCreditsUI(credits); // <-- actualiza la UI si tienes una función así
-    }
-  } catch (err) {
-    console.error('Error fetching credits from server:', err);
-  }
-}
-async function spendRemoteCredits(delta) {
-    if (!currentUserToken) return;
-    try {
-        const res = await fetch('/.netlify/functions/update-usage', {
-            method: 'POST',
-            headers: { 'Content-Type':'application/json', Authorization: `Bearer ${currentUserToken}` },
-            body: JSON.stringify({ delta })
-        });
-        const { credits } = await res.json();
-        if (typeof credits === 'number') remoteCredits = credits;
-        updateCreditCounter?.();
-    } catch (err) { console.error('[Credits] Update error', err); }
-}
-// ==== END PATCH ====
-
-async function spendCredit() {
-  try {
-    const response = await fetch('/.netlify/functions/update-usage', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${currentUser.token.access_token}`
-      },
-      body: JSON.stringify({ used: 1 })
-    });
-    const result = await response.json();
-    if (result.credits !== undefined) {
-      currentCredits = result.credits;
-      updateCreditsUI(currentCredits);
-    }
-  } catch (error) {
-    console.error("Error spending credit:", error);
-  }
-}
-
-</script>
-<!-- ==== PARCHE CRÉDITOS SYNC vFinal ==== -->
-<script>
-    // Variables internas para créditos
-    var remoteCredits = null;
-
-    // Obtiene JWT de Netlify Identity
-    function getNetlifyToken() {
-      const user = netlifyIdentity.currentUser();
-      return user && user.token && user.token.access_token;
-    }
-
-    // Carga créditos desde el server
-    async function loadCreditsFromServer() {
-      const token = getNetlifyToken();
-      if (!token) return;
-      try {
-        const res = await fetch('/.netlify/functions/get-usage', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        if (!res.ok) throw new Error('Auth failed ' + res.status);
-        const { credits } = await res.json();
-        if (typeof credits === 'number') {
-          remoteCredits = credits;
-          if (typeof updateCreditCounter === 'function') updateCreditCounter();
-        }
-      } catch (e) {
-        console.error('[Credits] load error', e);
-      }
-    }
-
-    // Actualiza créditos en el server
-    async function spendRemoteCredits(delta) {
-      const token = getNetlifyToken();
-      if (!token) return;
-      try {
-        const res = await fetch('/.netlify/functions/update-usage', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
-          },
-          body: JSON.stringify({ delta })
-        });
-        if (!res.ok) throw new Error('Update failed ' + res.status);
-        const { credits } = await res.json();
-        if (typeof credits === 'number') {
-          remoteCredits = credits;
-          if (typeof updateCreditCounter === 'function') updateCreditCounter();
-        }
-      } catch (e) {
-        console.error('[Credits] update error', e);
-      }
-    }
-
-    // Hook en el front
-    document.addEventListener('DOMContentLoaded', () => {
-      // Reemplaza spendCredits
-      if (typeof window.spendCredits === 'function') {
-        const originalSpend = window.spendCredits;
-        window.spendCredits = async function(cost, ...args) {
-          const result = await originalSpend.call(this, cost, ...args);
-          await spendRemoteCredits(-cost);
-          return result;
-        };
-      }
-      // Carga inicial de créditos
-      netlifyIdentity.on('init', () => loadCreditsFromServer());
-      netlifyIdentity.on('login', () => loadCreditsFromServer());
-    });
-  <!-- ==== FIN PARCHE ==== -->
-<script>
-// Hook spendCredits to sync server automatically
-document.addEventListener('DOMContentLoaded', () => {
-   if (typeof window.spendCredits === 'function') {
-      const _orig = window.spendCredits;
-      window.spendCredits = async function(cost, modelUsed){
-         const result = await _orig.apply(this, arguments);
-         spendRemoteCredits(-cost);
-         return result;
-      };
-   }
-   // Ensure we sync credits on start even if handlers added earlier
-   netlifyIdentity.on('init', () => loadCreditsFromServer());
-   netlifyIdentity.on('login', () => loadCreditsFromServer());
-});
-
-async function spendCredit() {
-  try {
-    const response = await fetch('/.netlify/functions/update-usage', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${currentUser.token.access_token}`
-      },
-      body: JSON.stringify({ used: 1 })
-    });
-    const result = await response.json();
-    if (result.credits !== undefined) {
-      currentCredits = result.credits;
-      updateCreditsUI(currentCredits);
-    }
-  } catch (error) {
-    console.error("Error spending credit:", error);
-  }
-}
-
-</script>
-<script>
-// Al cargar la página, sustituimos la función spendCredits original
-// para que además notifique al servidor del gasto de crédito.
-document.addEventListener('DOMContentLoaded', () => {
-  if (typeof window.spendCredits === 'function') {
-    const originalSpend = window.spendCredits;
-    window.spendCredits = async function(cost, ...args) {
-      const result = await originalSpend.call(this, cost, ...args);
-      const token = netlifyIdentity.currentUser()?.token.access_token;
-      if (token) {
-        await fetch('/.netlify/functions/update-usage', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
-          },
-          body: JSON.stringify({ delta: -cost })
-        });
-      }
-      return result;
-    };
-  }
-});
-
-async function spendCredit() {
-  try {
-    const response = await fetch('/.netlify/functions/update-usage', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${currentUser.token.access_token}`
-      },
-      body: JSON.stringify({ used: 1 })
-    });
-    const result = await response.json();
-    if (result.credits !== undefined) {
-      currentCredits = result.credits;
-      updateCreditsUI(currentCredits);
-    }
-  } catch (error) {
-    console.error("Error spending credit:", error);
-  }
-}
-
-</script>
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-  const user = netlifyIdentity.currentUser();
-  if (!user) return;
-
-  const token = user.token.access_token;
-  let retries = 0;
-
-  const syncCredits = async () => {
-    try {
-      const res = await fetch('/.netlify/functions/get-usage', {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-      const result = await res.json();
-      const credits = result.credits;
-
-      const interval = setInterval(() => {
-        if (typeof window.setCreditCount === 'function') {
-          window.setCreditCount(credits);
-          clearInterval(interval);
-        } else {
-          retries++;
-          if (retries > 20) {
-            clearInterval(interval);
-            console.warn("⛔ No se pudo sincronizar créditos visualmente: setCreditCount no está disponible.");
-          }
-        }
-      }, 250);
-    } catch (err) {
-      console.error("💥 Error al sincronizar créditos del plan:", err);
-    }
-  };
-
-  syncCredits();
-});
-
-async function spendCredit() {
-  const user = netlifyIdentity.currentUser();
-  if (!user) return;
-  const token = user.token.access_token;
-
-  try {
-    const response = await fetch('/.netlify/functions/update-usage', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify({ delta: -1 }) // 👈 AQUÍ estaba el bug
-    });
-    const result = await response.json();
-    if (result.credits !== undefined) {
-      currentCredits = result.credits;
-      updateCreditsUI(currentCredits);
-    }
-  } catch (error) {
-    console.error("Error spending credit:", error);
-  }
-}
-
-</script>
-<script>
-async function grantMonthlyCreditsIfNeeded(userId) {
-    const { error } = await supabase.rpc('grant_monthly_credits_by_plan', {
-        user_id_param: userId
-    });
-
-    if (error) {
-        console.error('❌ Error otorgando créditos mensuales:', error);
-    } else {
-        console.log('✅ Créditos mensuales otorgados (si correspondía)');
-    }
-}
-
-
-
-// Llamar esto justo después del login exitoso
-// await grantMonthlyCreditsIfNeeded(currentUser.id);
-
-async function spendCredit() {
-  try {
-    const response = await fetch('/.netlify/functions/update-usage', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${currentUser.token.access_token}`
-      },
-      body: JSON.stringify({ used: 1 })
-    });
-    const result = await response.json();
-    if (result.credits !== undefined) {
-      currentCredits = result.credits;
-      updateCreditsUI(currentCredits);
-    }
-  } catch (error) {
-    console.error("Error spending credit:", error);
-  }
-}
-
-</script><script>
-let currentCredits = 5; // Créditos del modo invitado
-let currentUserId = null;
-let supabaseUser = null;
-
-// Mostrar créditos en el DOM
-function updateCreditsDisplay(credits) {
-  const el = document.getElementById("creditos-actuales");
-  if (el) el.textContent = credits;
-}
-
-// Obtener token del usuario logueado
-async function getUserToken() {
-  const session = await supabase.auth.getSession();
-  return session?.data?.session?.access_token || "";
-}
-
-// Obtener créditos desde función serverless
-async function fetchCreditsFromBackend(userId) {
-  try {
-    const response = await fetch("/.netlify/functions/get-usage", {
-      headers: {
-        Authorization: "Bearer " + (await getUserToken())
-      }
-    });
-    const data = await response.json();
-    if (response.ok) {
-      currentCredits = data.credits || 0;
-      updateCreditsDisplay(currentCredits);
-    } else {
-      console.error("⚠️ Error fetching credits:", data.error);
-    }
-  } catch (err) {
-    console.error("💥 Backend error:", err);
-  }
-}
-
-// Sincronizar créditos mensuales si aplica
-async function grantMonthlyCreditsIfNeeded(userId) {
-  await fetchCreditsFromBackend(userId);
-}
-
-// Escuchar eventos de login con Supabase
-// ESTA ES LA VERSIÓN CORREGIDA Y DEFINITIVA
-supabase.auth.onAuthStateChange(async (event, session) => {
-  if (session?.user) {
-    // Cuando el usuario inicia sesión, simplemente cargamos sus datos.
-    supabaseUser = session.user;
-    currentUserId = supabaseUser.id;
-
-    // Esta función SÍ es correcta aquí, porque solo LEE los créditos del servidor.
-    await fetchCreditsFromBackend(currentUserId); 
-
-  } else {
-    // Si no hay sesión, se queda en modo invitado.
-    currentUserId = null;
-    supabaseUser = null;
-    updateCreditsDisplay(5); // Créditos para modo invitado
-  }
-});
-
-async function spendCredit() {
-  try {
-    const response = await fetch('/.netlify/functions/update-usage', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${currentUser.token.access_token}`
-      },
-      body: JSON.stringify({ used: 1 })
-    });
-    const result = await response.json();
-    if (result.credits !== undefined) {
-      currentCredits = result.credits;
-      updateCreditsUI(currentCredits);
-    }
-  } catch (error) {
-    console.error("Error spending credit:", error);
-  }
-}
-
-</script><script>
-const supabase = supabase.createClient('https://gsaubeuxhfkakhvhreqj.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdzYXViZXV4aGZrYWtodmhyZXFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTEzOTIyMTUsImV4cCI6MjA2Njk2ODIxNX0.o9YS5BQvzkUV9Hkpvum9w-Uz8fNeb6b9-P7FkiPNfp8');
-
-async function syncCreditsFromSupabase() {
-    try {
-        const { data: { user }, error } = await supabase.auth.getUser();
-        if (error || !user) {
-            console.error("Authentication failed:", error);
-            return;
-        }
-        const userId = user.id;
-        const res = await fetch("/.netlify/functions/get-usage", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({ userId })
-        });
-
-        const json = await res.json();
-        if (json.credits !== undefined) {
-            document.getElementById("credit-count").innerText = json.credits;
-        } else {
-            console.warn("Unexpected response:", json);
-        }
-    } catch (e) {
-        console.error("Failed to sync credits:", e);
-    }
-}
-
-document.addEventListener("DOMContentLoaded", () => {
-    syncCreditsFromSupabase();
-});
-
-async function spendCredit() {
-  try {
-    const response = await fetch('/.netlify/functions/update-usage', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${currentUser.token.access_token}`
-      },
-      body: JSON.stringify({ used: 1 })
-    });
-    const result = await response.json();
-    if (result.credits !== undefined) {
-      currentCredits = result.credits;
-      updateCreditsUI(currentCredits);
-    }
-  } catch (error) {
-    console.error("Error spending credit:", error);
-  }
-}
-
-</script>
-<script>
-// ====== SISTEMA DE CRÉDITOS ONLINE SIEMPRE SIN LOCALSTORAGE ======
-
-let currentUserToken = null;
-
-// Obtiene el JWT del usuario desde Netlify Identity (asume que tu lógica ya lo asigna)
-function getUserToken() {
-    if (window.netlifyIdentity && netlifyIdentity.currentUser()) {
-        return netlifyIdentity.currentUser().token.access_token;
-    }
-    return null;
-}
-
-// Llama a la función serverless para obtener créditos reales desde Supabase
-async function fetchCreditsFromServer() {
-  try {
-    const token = getUserToken();
-    if (!token) {
-        document.getElementById('credits-badge').textContent = "—";
-        return 0;
-    }
-    const resp = await fetch('/.netlify/functions/get-usage', {
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
-    });
-    const data = await resp.json();
-    let credits = (data && typeof data.credits === "number") ? data.credits : 0;
-    // Actualiza el badge
-    document.getElementById('credits-badge').textContent = credits;
-    return credits;
-  } catch (e) {
-    document.getElementById('credits-badge').textContent = "ERR";
-    console.error('No se pudieron cargar créditos:', e);
-    return 0;
-  }
-}
-
-// Refresca los créditos en la UI
-async function refreshCreditsUI() {
-  await fetchCreditsFromServer();
-}
-
-// Refresca créditos cuando la pestaña vuelve a estar activa
-document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') {
-    refreshCreditsUI();
-  }
-});
-
-// Al iniciar la app, refresca créditos
-window.addEventListener('DOMContentLoaded', () => {
-  refreshCreditsUI();
-});
-
-// Función para llamar después de gastar/agregar créditos
-async function afterCreditsChange() {
-  await refreshCreditsUI();
-}
-
-// Opcional: sincronización entre pestañas en el mismo navegador
-const creditSyncChannel = new BroadcastChannel('goatify-credits');
-creditSyncChannel.onmessage = (msg) => {
-  if (msg.data === 'credits-updated') refreshCreditsUI();
-};
-function notifyCreditUpdate() {
-  creditSyncChannel.postMessage('credits-updated');
-}
-
-// ====== Fin del sistema de créditos ======
-
-async function spendCredit() {
-  try {
-    const response = await fetch('/.netlify/functions/update-usage', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${currentUser.token.access_token}`
-      },
-      body: JSON.stringify({ used: 1 })
-    });
-    const result = await response.json();
-    if (result.credits !== undefined) {
-      currentCredits = result.credits;
-      updateCreditsUI(currentCredits);
-    }
-  } catch (error) {
-    console.error("Error spending credit:", error);
-  }
-}
-
-</script>
-
-
-
-<script type="text/javascript">
-  let currentUser = null;
-  let currentCredits = 0;
-
-  async function fetchCredits() {
-    try {
-      const response = await fetch('/.netlify/functions/get-usage', {
-        headers: {
-          Authorization: `Bearer ${currentUser.token.access_token}`
-        }
-      });
-
-      const result = await response.json();
-      if (result.credits !== undefined) {
-        currentCredits = result.credits;
-        updateCreditsUI(currentCredits);
-        document.getElementById("username").textContent = result.user_metadata?.full_name || "Usuario";
-        document.getElementById("plan-name").textContent = result.plan || "-";
-      } else {
-        updateCreditsUI("ERR");
-      }
-    } catch (err) {
-      console.error('Error fetching credits:', err);
-      updateCreditsUI("ERR");
-    }
-  }
-
-  async function spendCredit() {
-    try {
-      currentCredits--;
-      updateCreditsUI(currentCredits);
-      const response = await fetch('/.netlify/functions/update-usage', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${currentUser.token.access_token}`
-        },
-        body: JSON.stringify({ used: 1 })
-      });
-      const result = await response.json();
-      if (result.credits !== undefined) {
-        currentCredits = result.credits;
-        updateCreditsUI(currentCredits);
-        updateStatus("Crédito consumido ✔️");
-      } else {
-        updateStatus("⚠️ Error al sincronizar con backend");
-      }
-    } catch (error) {
-      console.error("Error spending credit:", error);
-      updateStatus("❌ Error en la conexión");
-    }
-  }
-
-  function updateCreditsUI(credits) {
-    const creditsElements = document.querySelectorAll('.credits-count');
-    creditsElements.forEach(el => el.textContent = credits);
-  }
-
-  function updateStatus(msg) {
-    const statusEl = document.getElementById("credit-status");
-    if (statusEl) statusEl.textContent = msg;
-  }
-
-  function handleAction() {
-    if (currentCredits > 0) {
-      spendCredit();
-    } else {
-      updateStatus("No tienes créditos disponibles ❌");
-    }
-  }
-
-  document.addEventListener('DOMContentLoaded', async () => {
-    netlifyIdentity.on('init', async (user) => {
-      if (user) {
-        currentUser = user;
-        await fetchCredits();
-      }
-    });
-
-    netlifyIdentity.on('login', async (user) => {
-      currentUser = user;
-      await fetchCredits();
-    });
-
-    netlifyIdentity.on('logout', () => {
-      currentUser = null;
-      updateCreditsUI(0);
-      updateStatus("");
-    });
-
-    document.addEventListener("visibilitychange", () => {
-      if (document.visibilityState === "visible" && currentUser) {
-        fetchCredits();
-      }
-    });
-  });
-</script>
-
-
+    </script>
 </body>
 </html>
