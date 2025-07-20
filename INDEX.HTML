@@ -9589,9 +9589,7 @@ loadCreditsFromServer();
             });
         }); // Fin de DOMContentLoaded
      
-    // ----<!-- Pega este código desde la sección de PayPal hasta el final de tu archivo -->
-
-<script type="module">
+  <script type="module">
     //<-- INICIO DEL SCRIPT PRINCIPAL UNIFICADO -->
     
     // ---- LÓGICA DE SUSCRIPCIÓN PAYPAL (SIN CAMBIOS, YA FUNCIONA) ----
@@ -9638,7 +9636,8 @@ loadCreditsFromServer();
     
     // Variable global que será la ÚNICA fuente de la verdad para los créditos.
     let remoteCredits = null;
-    let currentUserToken = null;
+    // Hacemos currentUser global para que otras funciones puedan acceder a él de forma segura.
+    window.currentUser = null;
 
     // Canal de comunicación para sincronizar créditos entre pestañas.
     const creditSyncChannel = new BroadcastChannel('goatify_credit_sync');
@@ -9767,30 +9766,40 @@ loadCreditsFromServer();
             history.replaceState(null, '', window.location.pathname);
         }
 
-        // ---- MANEJO DE SESIÓN DE NETLIFY IDENTITY ----
-        netlifyIdentity.on('init', user => {
-            currentUser = user;
-            loadCreditsFromServer(); // Carga inicial de créditos
-        });
+        // ---- MANEJO DE SESIÓN DE NETLIFY IDENTITY (CORREGIDO) ----
+        const setupIdentityListeners = () => {
+            netlifyIdentity.on('init', user => {
+                window.currentUser = user;
+                loadCreditsFromServer(); // Carga inicial de créditos
+            });
 
-        netlifyIdentity.on('login', user => {
-            currentUser = user;
-            netlifyIdentity.close();
-            loadCreditsFromServer();
-        });
+            netlifyIdentity.on('login', user => {
+                window.currentUser = user;
+                netlifyIdentity.close();
+                loadCreditsFromServer();
+            });
 
-        netlifyIdentity.on('logout', () => {
-            currentUser = null;
-            remoteCredits = 5; // Créditos de invitado
-            updateCreditCounterUI();
-        });
+            netlifyIdentity.on('logout', () => {
+                window.currentUser = null;
+                remoteCredits = 5; // Créditos de invitado
+                updateCreditCounterUI();
+            });
+        };
+
+        // Bucle para esperar a que el objeto netlifyIdentity esté disponible
+        const identityCheckInterval = setInterval(() => {
+            if (window.netlifyIdentity) {
+                clearInterval(identityCheckInterval); // Detenemos el bucle una vez que lo encontramos
+                setupIdentityListeners(); // Configuramos los listeners de forma segura
+            }
+        }, 100); // Revisa cada 100 milisegundos
+
 
         // Sobrescribimos la función `spendCredits` global para que se conecte a nuestro nuevo sistema
         if (typeof window.spendCredits === 'function') {
             const originalSpend = window.spendCredits;
             window.spendCredits = async function(cost, modelUsed) {
-                // La función original `spendCredits` ya no manejará la lógica de créditos,
-                // solo decidirá si el usuario *puede* gastar.
+                // Esta función ahora solo verifica si se puede gastar. La lógica real está en el servidor.
                 const canSpend = (remoteCredits >= cost);
                 if (!canSpend) {
                      // Aquí puedes poner tu lógica de modal "sin créditos"
