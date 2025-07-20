@@ -2,9 +2,9 @@
 const fetch = require('node-fetch');
 const { createClient } = require('@supabase/supabase-js');
 
-// Helper para obtener el token de administrador de Netlify (VERSIÓN CORREGIDA Y FUNCIONAL)
+// Helper para obtener el token de administrador de Netlify (NUEVA ESTRATEGIA)
 async function getNetlifyAdminToken() {
-    // Usamos URLSearchParams para formatear el cuerpo correctamente
+    console.log("--- Intentando obtener el token de Netlify (Estrategia v4) ---");
     const params = new URLSearchParams();
     params.append('grant_type', 'client_credentials');
     params.append('client_id', process.env.NETLIFY_OAUTH_CLIENT_ID);
@@ -12,19 +12,18 @@ async function getNetlifyAdminToken() {
 
     const res = await fetch('https://api.netlify.com/oauth/token', {
         method: 'POST',
-        // El header DEBE ser 'application/x-www-form-urlencoded'
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: params.toString() // Esto convierte los parámetros al formato correcto
+        body: params.toString()
     });
 
     const json = await res.json();
     if (!res.ok) {
-        console.error('Error obteniendo el token de Netlify:', json);
+        console.error('ERROR CRÍTICO obteniendo el token de Netlify:', json);
         throw new Error('No se pudo obtener el token de administrador de Netlify.');
     }
+    console.log("--- TOKEN DE NETLIFY OBTENIDO EXITOSAMENTE ---");
     return json.access_token;
 }
-
 
 // Handler principal de la función
 exports.handler = async (event) => {
@@ -34,7 +33,7 @@ exports.handler = async (event) => {
 
     try {
         const paypalEvent = JSON.parse(event.body);
-        
+        console.log('--- EJECUTANDO WEBHOOK V4 ---');
         console.log('Evento de PayPal recibido:', JSON.stringify(paypalEvent, null, 2));
 
         if (paypalEvent.event_type === 'BILLING.SUBSCRIPTION.ACTIVATED') {
@@ -63,8 +62,8 @@ exports.handler = async (event) => {
             
             console.log(`Procesando activación para Usuario ID: ${userId}, Plan: ${planName}, Créditos a añadir: ${bonus}`);
 
-            // 1) Actualizar rol y plan del usuario en Netlify Identity
             const adminToken = await getNetlifyAdminToken();
+            
             const netlifyUserUpdateResponse = await fetch(
                 `https://api.netlify.com/api/v1/sites/${process.env.SITE_ID}/identity/${userId}`,
                 {
@@ -90,10 +89,8 @@ exports.handler = async (event) => {
             }
             console.log('Metadatos del usuario en Netlify actualizados exitosamente.');
 
-            // 2) Actualizar tablas y créditos en Supabase
             const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 
-            // a) Insertar en la tabla de suscripciones
             await supabase.from('subscriptions').insert({
                 user_id: userId,
                 plan_id: paypalPlanId,
@@ -103,7 +100,6 @@ exports.handler = async (event) => {
             });
             console.log('Tabla de suscripciones actualizada en Supabase.');
 
-            // b) Añadir los créditos al perfil del usuario
             const { error: rpcError } = await supabase.rpc('increment_credits', {
                 user_id_param: userId,
                 increment_value: bonus
