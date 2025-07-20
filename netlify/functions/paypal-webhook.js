@@ -2,7 +2,7 @@
 const fetch = require('node-fetch');
 const { createClient } = require('@supabase/supabase-js');
 
-// Helper para obtener el token de administrador de Netlify (VERSIÓN CORREGIDA)
+// Helper para obtener el token de administrador de Netlify (VERSIÓN CORREGIDA Y FUNCIONAL)
 async function getNetlifyAdminToken() {
     // Usamos URLSearchParams para formatear el cuerpo correctamente
     const params = new URLSearchParams();
@@ -35,10 +35,8 @@ exports.handler = async (event) => {
     try {
         const paypalEvent = JSON.parse(event.body);
         
-        // Log para ver el evento completo que llega de PayPal (muy útil para depurar)
         console.log('Evento de PayPal recibido:', JSON.stringify(paypalEvent, null, 2));
 
-        // Nos aseguramos de que sea el evento de activación de una suscripción
         if (paypalEvent.event_type === 'BILLING.SUBSCRIPTION.ACTIVATED') {
             const { resource } = paypalEvent;
             const userId = resource.custom_id;
@@ -49,7 +47,6 @@ exports.handler = async (event) => {
                 return { statusCode: 400, body: 'Falta userId en el webhook.' };
             }
 
-            // Asignamos el nombre del plan y los créditos a otorgar
             let planName;
             let bonus = 0;
 
