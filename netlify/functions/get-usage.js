@@ -1,11 +1,13 @@
 const { createClient } = require('@supabase/supabase-js');
 
+// ESTA ES LA VERSIÓN FINAL Y CORRECTA DE TU FUNCIÓN get-usage.js
 exports.handler = async (event, context) => {
   const { user } = context.clientContext;
   if (!user) {
     return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized' }) };
   }
 
+  // Claves de entorno para la conexión segura
   const supabase = createClient(
     process.env.SUPABASE_URL,
     process.env.SUPABASE_SERVICE_KEY
@@ -13,32 +15,32 @@ exports.handler = async (event, context) => {
 
   const userId = user.sub;
 
-  // Primero, llamamos a la función inteligente para que otorgue créditos si es necesario.
-  // Esta función es segura, solo dará créditos una vez por mes.
-  const { error: rpcError } = await supabase.rpc('grant_monthly_credits', {
-    // 👇 NOMBRE DE FUNCIÓN Y PARÁMETRO CORREGIDOS
-    user_id_input: userId 
+  // 1. Llama a la función "inteligente" de la base de datos
+  // Esta función SOLO dará créditos si corresponde (plan gratis, mes nuevo)
+  const { error: rpcError } = await supabase.rpc('handle_monthly_credits', {
+    user_id_input: userId // Usando el nombre correcto de la función
   });
 
   if (rpcError) {
-    console.error('Error RPC:', rpcError);
-    // No devolvemos un error fatal aquí, para que el usuario al menos pueda ver sus créditos actuales.
+    console.error('Error en RPC al manejar créditos mensuales:', rpcError);
+    // No devolvemos un error fatal, para que al menos pueda obtener los créditos actuales
   }
 
-  // Después de (intentar) otorgar créditos, consultamos el valor final.
-  const { data: updatedProfile, error: finalError } = await supabase
+  // 2. Después de la lógica de créditos, consulta el saldo final del usuario
+  const { data: finalProfile, error: fetchError } = await supabase
     .from('profiles')
     .select('credits')
     .eq('id', userId)
     .single();
 
-  if (finalError) {
-    console.error('Error fetching final credits:', finalError);
-    return { statusCode: 500, body: JSON.stringify({ error: 'DB Error after RPC' }) };
+  if (fetchError) {
+    console.error('Error al consultar créditos finales:', fetchError);
+    return { statusCode: 500, body: JSON.stringify({ error: 'Error al leer la base de datos' }) };
   }
 
+  // 3. Devuelve los créditos actuales al usuario
   return {
     statusCode: 200,
-    body: JSON.stringify({ credits: updatedProfile.credits })
+    body: JSON.stringify({ credits: finalProfile.credits })
   };
 };
