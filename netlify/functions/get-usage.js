@@ -1,3 +1,4 @@
+// netlify/functions/get-usage.js
 const { createClient } = require('@supabase/supabase-js');
 
 exports.handler = async (event, context) => {
@@ -13,22 +14,34 @@ exports.handler = async (event, context) => {
 
   const userId = user.sub;
 
-  const { data: profile, error } = await supabase
+  /*
+  // LÍNEAS ELIMINADAS PARA BLOQUEAR LOS 100 CRÉDITOS AL INICIAR SESIÓN
+  const { error: grantError } = await supabase.rpc('grant_monthly_credits_by_plan', {
+    user_id: userId
+  });
+
+  if (grantError) {
+    console.error('Error al intentar otorgar créditos:', grantError);
+  }
+  */
+
+  // Obtiene y devuelve el perfil actualizado
+  const { data: profile, error: profileError } = await supabase
     .from('profiles')
     .select('credits, plan')
     .eq('id', userId)
     .single();
 
-  if (error) {
-    console.error('Error al consultar el perfil:', error);
+  if (profileError) {
+    console.error('Error al consultar el perfil:', profileError);
     return { statusCode: 500, body: JSON.stringify({ error: 'Error al leer la base de datos' }) };
   }
 
   return {
     statusCode: 200,
-    body: JSON.stringify({ 
+    body: JSON.stringify({
       credits: profile.credits,
-      plan: profile.plan 
+      plan: profile.plan
     })
   };
 };
