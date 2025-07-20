@@ -9934,12 +9934,13 @@ async function spendCredit() {
 </script>
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-  const user = netlifyIdentity.currentUser();
-  if (!user) return;
+  const currentUser = netlifyIdentity.currentUser();
+  if (!currentUser) return;
 
-  const token = user.token.access_token;
+  const token = currentUser.token.access_token;
   let retries = 0;
 
+  // Esta función sincroniza los créditos reales desde Supabase y los muestra en la UI
   const syncCredits = async () => {
     try {
       const res = await fetch('/.netlify/functions/get-usage', {
@@ -9949,6 +9950,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       });
       const result = await res.json();
+
+      if (!result.credits && result.error) {
+        console.error('Error desde backend:', result.error);
+        return;
+      }
+
       const credits = result.credits;
 
       const interval = setInterval(() => {
@@ -9972,28 +9979,30 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 async function spendCredit() {
-  const user = netlifyIdentity.currentUser();
-  if (!user) return;
-  const token = user.token.access_token;
+  const currentUser = netlifyIdentity.currentUser();
+  if (!currentUser) return;
 
   try {
     const response = await fetch('/.netlify/functions/update-usage', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
+        Authorization: `Bearer ${currentUser.token.access_token}`
       },
-      body: JSON.stringify({ delta: -1 }) // 👈 AQUÍ estaba el bug
+      body: JSON.stringify({ delta: -1 }) // 👈 este es el delta negativo que descuenta créditos
     });
     const result = await response.json();
     if (result.credits !== undefined) {
       currentCredits = result.credits;
-      updateCreditsUI(currentCredits);
+      if (typeof window.setCreditCount === 'function') {
+        window.setCreditCount(currentCredits);
+      }
     }
   } catch (error) {
     console.error("Error spending credit:", error);
   }
 }
+
 
 </script>
 <script>
