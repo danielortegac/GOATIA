@@ -6269,7 +6269,7 @@ async function spendCredit() {
              */
             function hasFile() { return selectedImageBase64 || selectedPdfText; }
 
-            /**
+           /**
              * Envía un mensaje a la IA.
              * Maneja diferentes tipos de asistentes (principal, proyecto, financiero, bloc de notas, traductor).
              * Gestiona la deducción de créditos, las actualizaciones de la interfaz de usuario y la finalización de misiones.
@@ -6319,6 +6319,16 @@ async function spendCredit() {
                 // No enviar mensajes vacíos a menos que se adjunte un archivo
                 if (!userMessage && !selectedImageBase64 && !selectedPdfText) return;
 
+                // --- BLOQUE CORREGIDO Y FUNCIONAL ---
+                // Se intentará gastar un crédito ANTES de enviar el mensaje.
+                const canSpend = await window.spendCredit(1); // Llama a la función global.
+                if (!canSpend) {
+                    console.log("No hay créditos suficientes para enviar el mensaje.");
+                    // Aquí puedes mostrar un modal de "sin créditos" si lo deseas.
+                    return; // Detiene el envío del mensaje si no hay créditos.
+                }
+                // --- FIN DE LA CORRECCIÓN ---
+                
                 const currentChat = state.chats[chatIdToUpdate];
                 if (!currentChat && assistantType !== 'translator') return; // Asegurarse de que el chat exista para tipos que no son traductores
 
@@ -6326,18 +6336,6 @@ async function spendCredit() {
                 const webSearchTriggers = ['busca', 'investiga', 'en internet', 'tiempo real', 'qué día es hoy', 'qué fecha es hoy', 'cuál es el precio de', 'quién es', 'qué es', 'noticias sobre'];
                 const requiresWebSearch = webSearchTriggers.some(trigger => userMessage.toLowerCase().startsWith(trigger));
                 if (requiresWebSearch && !hasFile() && currentChat && !currentChat.workflow) { modelToUse = 'sonar'; }
-
-                // Determinar el costo del crédito en función del modelo y los tipos de archivo
-                let cost = COSTS.GENERAL;
-                if(assistantType === 'translator') cost = COSTS.TRANSLATOR;
-                else if(modelToUse === 'sonar') cost = COSTS.SEARCH;
-                else if(currentChat && currentChat.workflow) cost = COSTS.WORKFLOW;
-                else if(selectedPdfText) cost = COSTS.PDF_ANALYSIS;
-                else if(selectedImageBase64) cost = COSTS.IMAGE_ANALYSIS;
-                else if(modelToUse === 'gpt-4o') cost = COSTS.GPT4O;
-
-                // Intentar gastar créditos; si no tiene éxito, detener el envío del mensaje
-                if (!spendCredits(cost, modelToUse)) return;
 
                 // Renombrar automáticamente el título del chat para nuevos chats generales
                 if(currentChat && currentChat.title === (translations[localStorage.getItem('goatify-lang') || 'es'].default_chat_title || 'Conversación Cósmica') && userMessage.length > 5 && assistantType === 'main') {
@@ -6353,11 +6351,9 @@ async function spendCredit() {
                     thinkingBubble = addMessageToUI('assistant', '…', null, null, messageContainer); // Mostrar indicador de pensamiento
                     inputEl.value = ''; // Borrar el campo de entrada
                     inputEl.style.height = 'auto'; // Restablecer la altura de entrada
-                   
                 } else {
                     messageContainer.value = '…'; // Mostrar indicador de pensamiento para el traductor
                 }
-
 
                 try {
                     const userNameForCall = currentUser ? (currentUser.user_metadata.full_name || currentUser.email) : 'viajero';
@@ -6366,8 +6362,7 @@ async function spendCredit() {
                      if(assistantType === 'main') {
                         clearImageData(); // Borrar la vista previa de la imagen
                         clearPdfData(); // Borrar la vista previa del PDF
-                }
-                    updateCreditCounter(); // Actualizar la visualización de créditos después de la respuesta
+                    }
 
                     if (assistantType === 'translator') {
                         messageContainer.value = responseData.reply; // Mostrar la traducción directamente
