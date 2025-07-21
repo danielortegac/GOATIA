@@ -1,4 +1,4 @@
-// CÓDIGO FINAL Y VERIFICADO PARA EL NUEVO ARCHIVO paypal-webhook.js
+// CÓDIGO COMPLETO Y VERIFICADO PARA paypal-webhook.js
 
 const fetch = require('node-fetch');
 const { createClient } = require('@supabase/supabase-js');
@@ -43,7 +43,7 @@ exports.handler = async (event) => {
             if (paypalPlanId === process.env.PAYPAL_BOOST_PLAN_ID) planName = 'boost';
             else if (paypalPlanId === process.env.PAYPAL_PRO_PLAN_ID) planName = 'pro';
             else throw new Error(`ID de plan de PayPal desconocido: ${paypalPlanId}`);
-
+            
             console.log(`Plan de Goatify identificado como: '${planName}'. Iniciando proceso de actualización.`);
 
             const adminToken = await getNetlifyAdminToken();
@@ -62,7 +62,7 @@ exports.handler = async (event) => {
             console.log('--- [ÉXITO PASO 2] Metadatos del usuario actualizados en Netlify. ---');
 
             const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
-
+            
             console.log("--- [PASO 3] Llamando a RPC 'upgrade_user_plan' en Supabase... ---");
             const { error: rpcError } = await supabase.rpc('upgrade_user_plan', { user_id_input: userId, new_plan: planName });
             if (rpcError) throw rpcError;
@@ -74,12 +74,12 @@ exports.handler = async (event) => {
             }, { onConflict: 'user_id' });
             if (upsertError) throw upsertError;
             console.log('--- [ÉXITO PASO 4] Tabla "subscriptions" actualizada. ---');
-
+            
             console.log(`--- [COMPLETADO] Proceso finalizado para el usuario ${userId}. ---`);
         } else {
             console.log("Evento ignorado (no es BILLING.SUBSCRIPTION.ACTIVATED).");
         }
-
+        
         return { statusCode: 200, body: 'Webhook procesado.' };
     } catch (e) {
         console.error('--- [ERROR FATAL] Ocurrió un error en el handler del webhook:', e.message);
