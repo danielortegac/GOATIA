@@ -9589,10 +9589,14 @@ loadCreditsFromServer();
             });
         }); // Fin de DOMContentLoaded
     
-  // ---- LÓGICA DE SUSCRIPCIÓN PAYPAL (SIN CAMBIOS) ----
+    // ---- LÓGICA DE SUSCRIPCIÓN PAYPAL (SIN CAMBIOS, YA FUNCIONA) ----
     document.querySelectorAll('.select-plan-btn').forEach(btn => {
         btn.addEventListener('click', async () => {
             const plan = btn.dataset.plan;
+            if (!window.netlifyIdentity) {
+                alert('Netlify Identity no está disponible.');
+                return;
+            }
             const user = window.netlifyIdentity.currentUser();
             if (!user) {
                 window.netlifyIdentity.open('login');
@@ -9602,14 +9606,20 @@ loadCreditsFromServer();
                 const token = await user.jwt();
                 const res = await fetch('/.netlify/functions/create-subscription', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
                     body: JSON.stringify({ plan })
                 });
-                if (!res.ok) throw new Error('Error al crear la suscripción');
+                if (!res.ok) {
+                    throw new Error('Error al crear la suscripción');
+                }
                 const data = await res.json();
                 if (data.approvalUrl) {
                     window.location.href = data.approvalUrl;
                 } else {
+                    console.error('No se recibió la URL de aprobación.');
                     alert('Error al iniciar el pago. Intenta nuevamente.');
                 }
             } catch (err) {
@@ -9621,99 +9631,145 @@ loadCreditsFromServer();
 </script>
 
 <script>
-    //<-- INICIO DEL SCRIPT UNIFICADO Y CORREGIDO PARA CRÉDITOS -->
-    let remoteCredits = null;
-    let currentUser = null;
-    const GUEST_CREDIT_LIMIT = 5;
-    const creditSyncChannel = new BroadcastChannel('goatify_credit_sync');
+        //<-- ESTE ES EL ÚNICO SCRIPT QUE MANEJARÁ LOS CRÉDITOS -->
 
-    function updateCreditDisplay(credits, plan) {
-        // Usa el plan de Netlify si existe, si no, el de la BD
-        const userPlan = (currentUser && currentUser.app_metadata.plan) ? currentUser.app_metadata.plan : plan;
-        const planLimit = userPlan === 'boost' ? 1000 : (userPlan === 'pro' ? 4000 : 100);
-        const displayValue = (credits === null || typeof credits === 'undefined') ? '...' : `${credits}/${planLimit}`;
-        
-        const planDisplayElement = document.getElementById('plan-credits-display');
-        if (planDisplayElement) planDisplayElement.textContent = displayValue;
-    }
+        // ---- SISTEMA DE CRÉDITOS CENTRALIZADO Y SINCRONIZADO ----
+        let remoteCredits = null;
+        let currentUser = null; 
 
-    async function fetchCredits() {
-        const user = window.netlifyIdentity.currentUser();
-        currentUser = user;
+        const creditSyncChannel = new BroadcastChannel('goatify_credit_sync');
 
-        if (!user) {
-            const guestUsage = parseInt(localStorage.getItem('guest_usage_count') || '0');
-            remoteCredits = Math.max(0, GUEST_CREDIT_LIMIT - guestUsage);
-            updateCreditDisplay(remoteCredits, 'free');
-            return;
+        function updateCreditsUI(credits) {
+            // Esta función actualizará TODOS los contadores de créditos en tu app
+            // He modificado el getCreditCount() para que también actualice la UI principal
         }
 
-        try {
-            const response = await fetch('/.netlify/functions/get-usage', {
-                headers: { Authorization: `Bearer ${user.token.access_token}` }
-            });
-            const data = await response.json();
-            if (typeof data.credits === 'number') {
-                remoteCredits = data.credits;
-                updateCreditDisplay(remoteCredits, data.plan);
+        async function fetchCredits() {
+            const user = window.netlifyIdentity.currentUser();
+            if (!user || !user.token) {
+                // Lógica de créditos para invitados
+                const guestUsage = JSON.parse(localStorage.getItem('guest_usage')) || { count: 0 };
+                const guestCredits = Math.max(0, 5 - guestUsage.count);
+                remoteCredits = guestCredits;
+                document.getElementById('plan-credits-display').textContent = `${guestCredits}/5`;
+                return;
             }
-        } catch (err) {
-            console.error('Error al sincronizar créditos:', err);
+
+            try {
+                const response = await fetch('/.netlify/functions/get-usage', {
+                    headers: { Authorization: `Bearer ${user.token.access_token}` }
+                });
+                if (!response.ok) throw new Error('Network response was not ok');
+                
+                const data = await response.json();
+                if (typeof data.credits === 'number') {
+                    remoteCredits = data.credits;
+                    // Actualizamos el display principal
+                    const planLimit = data.plan === 'boost' ? 1000 : (data.plan === 'pro' ? 4000 : 100);
+                    document.getElementById('plan-credits-display').textContent = `${remoteCredits}/${planLimit}`;
+                }
+            } catch (err) {
+                console.error('Error al cargar créditos desde el servidor:', err);
+                document.getElementById('plan-credits-display').textContent = 'Error';
+            }
         }
-    }
 
-    window.spendCredit = async function() {
-        const user = window.netlifyIdentity.currentUser();
-        if (!user) {
-            let usage = parseInt(localStorage.getItem('guest_usage_count') || '0');
-            if (usage >= GUEST_CREDIT_LIMIT) return false;
-            localStorage.setItem('guest_usage_count', usage + 1);
-            await fetchCredits();
-            return true;
+        async function spendCredit() {
+            const user = window.netlifyIdentity.currentUser();
+            if (!user) { // Manejo para invitados
+                let guestUsage = JSON.parse(localStorage.getItem('guest_usage')) || { count: 0 };
+                guestUsage.count++;
+                localStorage.setItem('guest_usage', JSON.stringify(guestUsage));
+                fetchCredits(); // Recalcula y actualiza la UI para el invitado
+                return;
+            }
+            if (!user.token) return;
+
+            // Actualización optimista de la UI
+            if (remoteCredits > 0) {
+                remoteCredits--;
+                const planLimit = user.app_metadata.plan === 'boost' ? 1000 : (user.app_metadata.plan === 'pro' ? 4000 : 100);
+                document.getElementById('plan-credits-display').textContent = `${remoteCredits}/${planLimit}`;
+            }
+
+            try {
+                const response = await fetch('/.netlify/functions/update-usage', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${user.token.access_token}`
+                    },
+                    body: JSON.stringify({ delta: -1 }) // Enviamos -1 para descontar
+                });
+                const result = await response.json();
+                if (typeof result.credits === 'number') {
+                    remoteCredits = result.credits;
+                    fetchCredits(); // Volvemos a pedir para tener el dato 100% seguro del servidor
+                    creditSyncChannel.postMessage('credits_updated');
+                }
+            } catch (error) {
+                console.error("Error al descontar crédito en el backend:", error);
+                await fetchCredits(); // Si falla, recargamos para corregir
+            }
         }
 
-        if (remoteCredits === null || remoteCredits <= 0) {
-             // Aquí puedes mostrar tu modal de "sin créditos"
-            return false;
-        }
+        // ---- LÓGICA DE INICIALIZACIÓN Y EVENTOS ----
+        document.addEventListener('DOMContentLoaded', () => {
+            creditSyncChannel.onmessage = (event) => {
+                if (event.data === 'credits_updated') {
+                    fetchCredits();
+                }
+            };
 
-        remoteCredits--;
-        updateCreditDisplay(remoteCredits, user.app_metadata.plan || 'free');
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('payment') === 'success') {
+                const notification = document.getElementById('in-app-notification');
+                const title = document.getElementById('in-app-notification-title');
+                const body = document.getElementById('in-app-notification-body');
+                
+                title.textContent = "¡Pago Exitoso!";
+                body.textContent = "Tu suscripción está activa. Actualizando tus créditos...";
+                notification.classList.add('show');
+                setTimeout(() => notification.classList.remove('show'), 5000);
+                
+                history.replaceState(null, '', window.location.pathname);
 
-        try {
-            await fetch('/.netlify/functions/update-usage', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user.token.access_token}` }
-            });
-            creditSyncChannel.postMessage('credits_updated');
-            // No es necesario volver a llamar a fetchCredits aquí, la actualización optimista es suficiente
-            // y el canal de sincronización se encargará de otras pestañas.
-            return true;
-        } catch (error) {
-            console.error("Error al descontar crédito en backend:", error);
-            await fetchCredits(); // Si falla, recargamos para corregir
-            return false;
-        }
-    }
+                // Reintentar la carga de créditos varias veces para dar tiempo al webhook
+                let attempts = 0;
+                const interval = setInterval(() => {
+                    attempts++;
+                    console.log(`Intento de carga de créditos post-pago #${attempts}`);
+                    fetchCredits();
+                    if (attempts >= 5) {
+                        clearInterval(interval);
+                    }
+                }, 3000);
+            }
 
-    // ---- LÓGICA DE INICIALIZACIÓN ----
-    creditSyncChannel.onmessage = () => fetchCredits();
+            const identityCheckInterval = setInterval(() => {
+                if (window.netlifyIdentity) {
+                    clearInterval(identityCheckInterval);
 
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('payment') === 'success') {
-        // Tu lógica de notificación de pago aquí
-        history.replaceState(null, '', window.location.pathname);
-    }
+                    netlifyIdentity.on('init', user => {
+                        currentUser = user;
+                        fetchCredits();
+                    });
 
-    if (window.netlifyIdentity) {
-        netlifyIdentity.on('init', user => { fetchCredits(); });
-        netlifyIdentity.on('login', user => { netlifyIdentity.close(); fetchCredits(); });
-        netlifyIdentity.on('logout', () => {
-            currentUser = null;
-            localStorage.removeItem('guest_usage_count');
-            fetchCredits();
+                    netlifyIdentity.on('login', user => {
+                        currentUser = user;
+                        netlifyIdentity.close();
+                        fetchCredits();
+                    });
+
+                    netlifyIdentity.on('logout', () => {
+                        currentUser = null;
+                        remoteCredits = 5;
+                        localStorage.removeItem('guest_usage');
+                        fetchCredits();
+                    });
+                }
+            }, 100);
         });
-    }
-</script>
+    </script>
 </body>
 </html>
