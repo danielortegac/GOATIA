@@ -6318,12 +6318,12 @@ async function spendCredit() {
                 const userMessage = spokenMessage || inputEl.value.trim();
                 // No enviar mensajes vacíos a menos que se adjunte un archivo
                 if (!userMessage && !selectedImageBase64 && !selectedPdfText) return;
-               const canSpend = await window.spendCredit();
-    if (!canSpend) {
-        console.log("No hay créditos suficientes para enviar el mensaje.");
-        // Aquí puedes llamar a tu modal para mostrar que no hay créditos.
-        return; 
-    }
+                const canSpend = await window.spendCredit();
+                if (!canSpend) {
+                console.log("No hay créditos suficientes para enviar el mensaje.");
+                // Aquí puedes mostrar tu modal de "sin créditos"
+                return; 
+                }
                 const currentChat = state.chats[chatIdToUpdate];
                 if (!currentChat && assistantType !== 'translator') return; // Asegurarse de que el chat exista para tipos que no son traductores
 
@@ -9594,54 +9594,38 @@ loadCreditsFromServer();
             });
         }); // Fin de DOMContentLoaded
     
- //<-- INICIO DEL BLOQUE DE SCRIPT FINAL Y CORREGIDO -->
-
-    // ---- LÓGICA DE SUSCRIPCIÓN PAYPAL (CORREGIDA Y FUNCIONAL) ----
+// ---- LÓGICA DE SUSCRIPCIÓN PAYPAL (SIN CAMBIOS) ----
     document.querySelectorAll('.select-plan-btn').forEach(btn => {
         btn.addEventListener('click', async () => {
             const plan = btn.dataset.plan;
             const user = window.netlifyIdentity.currentUser();
-
             if (!user) {
-                // Si el usuario no está logueado, se abre el widget para que inicie sesión.
                 window.netlifyIdentity.open('login');
                 return;
             }
-
             try {
-                // Una vez logueado, obtenemos su token de autenticación.
                 const token = await user.jwt();
-                
-                // Llamamos a la función serverless para crear la suscripción.
                 const res = await fetch('/.netlify/functions/create-subscription', {
                     method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json', 
-                        'Authorization': `Bearer ${token}` 
-                    },
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                     body: JSON.stringify({ plan })
                 });
-
-                if (!res.ok) {
-                    const errorData = await res.json();
-                    console.error('Error al crear la suscripción:', errorData);
-                    throw new Error('No se pudo iniciar el proceso de pago.');
-                }
-
+                if (!res.ok) throw new Error('Error al crear la suscripción');
                 const data = await res.json();
                 if (data.approvalUrl) {
-                    // Si todo va bien, redirigimos al usuario a PayPal para que complete el pago.
                     window.location.href = data.approvalUrl;
                 } else {
                     alert('Error al iniciar el pago. Intenta nuevamente.');
                 }
             } catch (err) {
                 console.error('[Goatify] Error durante la suscripción:', err);
-                alert('No se pudo procesar la suscripción. Por favor, vuelve a intentarlo.');
+                alert('No se pudo procesar la suscripción. Vuelve a intentarlo.');
             }
         });
     });
+</script>
 
+<script>
     //<-- INICIO DEL SCRIPT UNIFICADO Y CORREGIDO PARA CRÉDITOS -->
     let remoteCredits = null;
     let currentUser = null;
@@ -9649,15 +9633,9 @@ loadCreditsFromServer();
     const creditSyncChannel = new BroadcastChannel('goatify_credit_sync');
 
     function updateCreditDisplay(credits, plan) {
+        // Usa el plan de Netlify si existe, si no, el de la BD
         const userPlan = (currentUser && currentUser.app_metadata.plan) ? currentUser.app_metadata.plan : plan;
-        
-        let planLimit;
-        switch (userPlan) {
-            case 'boost': planLimit = 1000; break;
-            case 'pro': planLimit = 4000; break;
-            default: planLimit = 100;
-        }
-        
+        const planLimit = userPlan === 'boost' ? 1000 : (userPlan === 'pro' ? 4000 : 100);
         const displayValue = (credits === null || typeof credits === 'undefined') ? '...' : `${credits}/${planLimit}`;
         
         const planDisplayElement = document.getElementById('plan-credits-display');
@@ -9694,31 +9672,31 @@ loadCreditsFromServer();
         if (!user) {
             let usage = parseInt(localStorage.getItem('guest_usage_count') || '0');
             if (usage >= GUEST_CREDIT_LIMIT) return false;
-            localStorage.setItem('guest_usage_count', String(usage + 1));
+            localStorage.setItem('guest_usage_count', usage + 1);
             await fetchCredits();
             return true;
         }
 
         if (remoteCredits === null || remoteCredits <= 0) {
-            // Aquí puedes llamar a tu modal de "sin créditos"
+             // Aquí puedes mostrar tu modal de "sin créditos"
             return false;
         }
 
-        // Actualización Optimista: Descontamos en el frontend inmediatamente.
         remoteCredits--;
         updateCreditDisplay(remoteCredits, user.app_metadata.plan || 'free');
 
-        // Y luego, notificamos al backend de forma asíncrona.
         try {
             await fetch('/.netlify/functions/update-usage', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user.token.access_token}` }
             });
-            creditSyncChannel.postMessage('credits_updated'); // Sincroniza con otras pestañas
+            creditSyncChannel.postMessage('credits_updated');
+            // No es necesario volver a llamar a fetchCredits aquí, la actualización optimista es suficiente
+            // y el canal de sincronización se encargará de otras pestañas.
             return true;
         } catch (error) {
             console.error("Error al descontar crédito en backend:", error);
-            await fetchCredits(); // Si falla, resincronizamos para corregir el dato.
+            await fetchCredits(); // Si falla, recargamos para corregir
             return false;
         }
     }
@@ -9726,23 +9704,15 @@ loadCreditsFromServer();
     // ---- LÓGICA DE INICIALIZACIÓN ----
     creditSyncChannel.onmessage = () => fetchCredits();
 
-    // Maneja la redirección de PayPal
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('payment') === 'success') {
-        // Muestra una notificación de éxito al usuario
-        showInAppNotification("¡Pago Exitoso!", "Tu suscripción ha sido activada. Los créditos pueden tardar unos segundos en reflejarse.", 5000);
-        // Limpia la URL para que el mensaje no aparezca si recargan la página
+        // Tu lógica de notificación de pago aquí
         history.replaceState(null, '', window.location.pathname);
-        // Forzamos una recarga de créditos para acelerar la actualización visual
-        setTimeout(fetchCredits, 2000); 
     }
 
     if (window.netlifyIdentity) {
         netlifyIdentity.on('init', user => { fetchCredits(); });
-        netlifyIdentity.on('login', user => { 
-            netlifyIdentity.close(); 
-            fetchCredits(); 
-        });
+        netlifyIdentity.on('login', user => { netlifyIdentity.close(); fetchCredits(); });
         netlifyIdentity.on('logout', () => {
             currentUser = null;
             localStorage.removeItem('guest_usage_count');
