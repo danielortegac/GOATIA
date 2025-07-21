@@ -2,8 +2,9 @@
 const fetch = require('node-fetch');
 const { createClient } = require('@supabase/supabase-js');
 
+// Helper to get Netlify admin token with the corrected header
 async function getNetlifyAdminToken() {
-    console.log("--- Obteniendo token de Netlify (Estrategia Definitiva v3) ---");
+    console.log("--- Obteniendo token de Netlify (Estrategia Final v5) ---");
     const params = new URLSearchParams();
     params.append('grant_type', 'client_credentials');
     params.append('client_id', process.env.NETLIFY_OAUTH_CLIENT_ID);
@@ -11,7 +12,8 @@ async function getNetlifyAdminToken() {
 
     const res = await fetch('https://api.netlify.com/oauth/token', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, // CORRECCIÓN CLAVE
+        // This is the critical fix: setting the correct Content-Type
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, 
         body: params.toString()
     });
 
@@ -38,54 +40,50 @@ exports.handler = async (event) => {
             if (!userId) throw new Error('Falta custom_id (userId) en PayPal.');
 
             let planName;
-            let creditsToAdd = 0;
             if (paypalPlanId === process.env.PAYPAL_BOOST_PLAN_ID) {
                 planName = 'boost';
-                creditsToAdd = 1000;
             } else if (paypalPlanId === process.env.PAYPAL_PRO_PLAN_ID) {
                 planName = 'pro';
-                creditsToAdd = 4000;
             } else {
                 throw new Error(`Plan ID de PayPal desconocido: ${paypalPlanId}`);
             }
             
-            console.log(`Procesando: User ID: ${userId}, Plan: ${planName}, Créditos: ${creditsToAdd}`);
+            console.log(`Procesando: User ID: ${userId}, Plan: ${planName}`);
 
-            // 1. Actualizar Netlify Identity
+            // 1. Update Netlify Identity
             const adminToken = await getNetlifyAdminToken();
-            await fetch(`https://api.netlify.com/api/v1/sites/${process.env.SITE_ID}/identity/${userId}`, {
+            const netlifyResponse = await fetch(`https://api.netlify.com/api/v1/sites/${process.env.SITE_ID}/identity/${userId}`, {
                 method: 'PUT',
                 headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
                 body: JSON.stringify({ app_metadata: { plan: planName } })
             });
+            if (!netlifyResponse.ok) {
+                const errorBody = await netlifyResponse.text();
+                console.error('Error al actualizar Netlify Identity:', errorBody);
+                throw new Error('No se pudo actualizar los metadatos en Netlify.');
+            }
             console.log('Metadatos del usuario en Netlify actualizados.');
 
-            // 2. Actualizar Supabase
+            // 2. Update Supabase
             const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
             
-            // Actualizamos el plan en la tabla de perfiles
-            await supabase.from('profiles').update({ plan: planName }).eq('id', userId);
-            console.log('Tabla de perfiles actualizada con el nuevo plan.');
-
-            // Usamos la función SQL unificada para AÑADIR los créditos
-            const { error: rpcError } = await supabase.rpc('increment_credits', {
-                user_id_param: userId,
-                increment_value: creditsToAdd
+            // Use your existing SQL function to upgrade the plan and grant credits
+            const { error: rpcError } = await supabase.rpc('upgrade_user_plan', {
+                user_id_input: userId,
+                new_plan: planName
             });
             if (rpcError) throw rpcError;
-            
-            // Insertamos el registro en la tabla de suscripciones
+            console.log('Tabla de perfiles actualizada en Supabase con el nuevo plan y créditos.');
+
+            // Insert/update the record in the 'subscriptions' table
             await supabase.from('subscriptions').upsert({
                 user_id: userId,
                 plan_id: paypalPlanId,
                 paypal_subscription_id: resource.id,
                 status: 'active'
             }, { onConflict: 'user_id' });
-            console.log('Tabla de suscripciones actualizada.');
-                
-            console.log(`ÉXITO: Se actualizó el plan y se añadieron créditos al usuario ${userId}.`);
+            console.log('Tabla de suscripciones actualizada en Supabase.');
         }
-
         return { statusCode: 200, body: 'Webhook procesado.' };
     } catch (e) {
         console.error('Error fatal en la función paypal-webhook:', e);
