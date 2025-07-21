@@ -9635,14 +9635,13 @@ loadCreditsFromServer();
 
     // ---- SISTEMA DE CRÉDITOS CENTRALIZADO Y SINCRONIZADO ----
     let remoteCredits = null;
-    let currentUser = null;
+    let currentUser = null; 
     const GUEST_CREDIT_LIMIT = 5;
-
-    // Canal para sincronizar créditos entre diferentes pestañas del navegador
     const creditSyncChannel = new BroadcastChannel('goatify_credit_sync');
 
     /**
      * Actualiza TODOS los contadores de créditos visibles en la página.
+     * Esta es la única función que debe modificar la UI de créditos.
      * @param {number | null} credits - El número de créditos a mostrar.
      * @param {string} plan - El plan actual del usuario ('free', 'boost', 'pro').
      */
@@ -9662,6 +9661,8 @@ loadCreditsFromServer();
      */
     async function fetchCredits() {
         const user = window.netlifyIdentity.currentUser();
+        currentUser = user; // Actualizamos la variable global
+
         if (!user) {
             // Lógica para usuarios invitados
             const guestUsage = parseInt(localStorage.getItem('guest_usage_count') || '0');
@@ -9690,7 +9691,7 @@ loadCreditsFromServer();
 
     /**
      * Descuenta un crédito. Primero lo hace visualmente y luego lo confirma con el backend.
-     * Esta función debe ser accesible globalmente para que tu otro script pueda llamarla.
+     * Esta función es accesible globalmente para que tu otro script pueda llamarla.
      */
     window.spendCredit = async function() {
         const user = window.netlifyIdentity.currentUser();
@@ -9750,48 +9751,44 @@ loadCreditsFromServer();
     }
 
     // ---- LÓGICA DE INICIALIZACIÓN Y EVENTOS ----
-    document.addEventListener('DOMContentLoaded', () => {
-        // Sincroniza esta pestaña si otra pestaña realizó un cambio
-        creditSyncChannel.onmessage = () => fetchCredits();
+    creditSyncChannel.onmessage = () => fetchCredits();
 
-        // Maneja la redirección después de un pago exitoso
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('payment') === 'success') {
-            const notification = document.getElementById('in-app-notification');
-            const title = document.getElementById('in-app-notification-title');
-            const body = document.getElementById('in-app-notification-body');
-            
-            if(notification && title && body){
-                title.textContent = "¡Pago Exitoso!";
-                body.textContent = "Tu suscripción está activa. Actualizando tus créditos...";
-                notification.classList.add('show');
-                setTimeout(() => notification.classList.remove('show'), 5000);
+    // Maneja la redirección después de un pago exitoso
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('payment') === 'success') {
+        const notification = document.getElementById('in-app-notification');
+        const title = document.getElementById('in-app-notification-title');
+        const body = document.getElementById('in-app-notification-body');
+        
+        if(notification && title && body){
+            title.textContent = "¡Pago Exitoso!";
+            body.textContent = "Tu suscripción está activa. Actualizando tus créditos...";
+            notification.classList.add('show');
+            setTimeout(() => notification.classList.remove('show'), 5000);
+        }
+        history.replaceState(null, '', window.location.pathname);
+
+        // Reintentar la carga de créditos para dar tiempo al webhook
+        let attempts = 0;
+        const interval = setInterval(() => {
+            attempts++;
+            console.log(`Intento de carga de créditos post-pago #${attempts}`);
+            fetchCredits();
+            if (attempts >= 5 || (remoteCredits && remoteCredits > 100)) {
+                clearInterval(interval);
             }
-            history.replaceState(null, '', window.location.pathname);
+        }, 2500);
+    }
 
-            // Reintentar la carga de créditos para dar tiempo al webhook
-            let attempts = 0;
-            const interval = setInterval(() => {
-                attempts++;
-                console.log(`Intento de carga de créditos post-pago #${attempts}`);
-                fetchCredits();
-                if (attempts >= 5 || (remoteCredits && remoteCredits > 100)) {
-                    clearInterval(interval);
-                }
-            }, 2500);
-        }
-
-        // Inicializa Netlify Identity y asigna los listeners
-        if (window.netlifyIdentity) {
-            netlifyIdentity.on('init', user => { currentUser = user; fetchCredits(); });
-            netlifyIdentity.on('login', user => { currentUser = user; netlifyIdentity.close(); fetchCredits(); });
-            netlifyIdentity.on('logout', () => {
-                currentUser = null;
-                localStorage.removeItem('guest_usage_count');
-                fetchCredits();
-            });
-        }
-    });
+    // Inicializa Netlify Identity y asigna los listeners
+    if (window.netlifyIdentity) {
+        netlifyIdentity.on('init', user => { fetchCredits(); });
+        netlifyIdentity.on('login', user => { netlifyIdentity.close(); fetchCredits(); });
+        netlifyIdentity.on('logout', () => {
+            localStorage.removeItem('guest_usage_count');
+            fetchCredits();
+        });
+    }
 </script>
 </body>
 </html>
