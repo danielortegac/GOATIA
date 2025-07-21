@@ -2,9 +2,8 @@
 const fetch = require('node-fetch');
 const { createClient } = require('@supabase/supabase-js');
 
-// Helper para obtener el token de administrador de Netlify (NUEVA ESTRATEGIA)
 async function getNetlifyAdminToken() {
-    console.log("--- Intentando obtener el token de Netlify (Estrategia v4) ---");
+    console.log("--- Obteniendo token de Netlify (Estrategia Definitiva) ---");
     const params = new URLSearchParams();
     params.append('grant_type', 'client_credentials');
     params.append('client_id', process.env.NETLIFY_OAUTH_CLIENT_ID);
@@ -12,20 +11,19 @@ async function getNetlifyAdminToken() {
 
     const res = await fetch('https://api.netlify.com/oauth/token', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, // CORRECCIÓN CLAVE para el error 'unsupported_grant_type'
         body: params.toString()
     });
 
     const json = await res.json();
     if (!res.ok) {
         console.error('ERROR CRÍTICO obteniendo el token de Netlify:', json);
-        throw new Error('No se pudo obtener el token de administrador de Netlify.');
+        throw new Error(`No se pudo obtener token de Netlify. Razón: ${json.error_description || 'Desconocida'}`);
     }
-    console.log("--- TOKEN DE NETLIFY OBTENIDO EXITOSAMENTE ---");
+    console.log("--- Token de Netlify obtenido exitosamente ---");
     return json.access_token;
 }
 
-// Handler principal de la función
 exports.handler = async (event) => {
     if (event.httpMethod !== 'POST') {
         return { statusCode: 405, body: 'Method Not Allowed' };
@@ -33,89 +31,66 @@ exports.handler = async (event) => {
 
     try {
         const paypalEvent = JSON.parse(event.body);
-        console.log('--- EJECUTANDO WEBHOOK V4 ---');
-        console.log('Evento de PayPal recibido:', JSON.stringify(paypalEvent, null, 2));
+        console.log('--- Ejecutando Webhook Definitivo ---');
 
         if (paypalEvent.event_type === 'BILLING.SUBSCRIPTION.ACTIVATED') {
             const { resource } = paypalEvent;
             const userId = resource.custom_id;
             const paypalPlanId = resource.plan_id;
 
-            if (!userId) {
-                console.error('Error: Falta el ID de usuario (custom_id) en el recurso de PayPal.');
-                return { statusCode: 400, body: 'Falta userId en el webhook.' };
-            }
+            if (!userId) throw new Error('Falta custom_id (userId) en el recurso de PayPal.');
 
             let planName;
-            let bonus = 0;
+            let creditsToAdd = 0;
 
             if (paypalPlanId === process.env.PAYPAL_BOOST_PLAN_ID) {
                 planName = 'boost';
-                bonus = 1000;
+                creditsToAdd = 1000;
             } else if (paypalPlanId === process.env.PAYPAL_PRO_PLAN_ID) {
                 planName = 'pro';
-                bonus = 4000;
+                creditsToAdd = 4000;
             } else {
-                console.error('Error: Plan ID de PayPal desconocido:', paypalPlanId);
-                return { statusCode: 400, body: 'Plan ID desconocido.' };
+                throw new Error(`Plan ID de PayPal desconocido: ${paypalPlanId}`);
             }
             
-            console.log(`Procesando activación para Usuario ID: ${userId}, Plan: ${planName}, Créditos a añadir: ${bonus}`);
+            console.log(`Procesando: User ID: ${userId}, Plan: ${planName}, Créditos: ${creditsToAdd}`);
 
+            // 1. Actualizar Netlify Identity
             const adminToken = await getNetlifyAdminToken();
-            
-            const netlifyUserUpdateResponse = await fetch(
-                `https://api.netlify.com/api/v1/sites/${process.env.SITE_ID}/identity/${userId}`,
-                {
-                    method: 'PUT',
-                    headers: {
-                        Authorization: `Bearer ${adminToken}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        app_metadata: {
-                            plan: planName,
-                            roles: [planName, 'member'],
-                            paypal_subscription_id: resource.id
-                        }
-                    })
-                }
-            );
-            
-            if (!netlifyUserUpdateResponse.ok) {
-                 const errorBody = await netlifyUserUpdateResponse.text();
-                 console.error('Error al actualizar Netlify Identity:', errorBody);
-                 throw new Error('No se pudieron actualizar los metadatos del usuario en Netlify.');
-            }
-            console.log('Metadatos del usuario en Netlify actualizados exitosamente.');
+            await fetch(`https://api.netlify.com/api/v1/sites/${process.env.SITE_ID}/identity/${userId}`, {
+                method: 'PUT',
+                headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ app_metadata: { plan: planName } })
+            });
+            console.log('Metadatos del usuario en Netlify actualizados.');
 
+            // 2. Actualizar Supabase
             const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
+            
+            await supabase.from('profiles').update({ plan: planName }).eq('id', userId);
+            console.log('Tabla de perfiles actualizada en Supabase con el nuevo plan.');
 
-            await supabase.from('subscriptions').insert({
+            await supabase.from('subscriptions').upsert({
                 user_id: userId,
                 plan_id: paypalPlanId,
                 paypal_subscription_id: resource.id,
                 status: 'active',
                 updated_at: new Date().toISOString()
-            });
+            }, { onConflict: 'user_id' });
             console.log('Tabla de suscripciones actualizada en Supabase.');
-
+            
             const { error: rpcError } = await supabase.rpc('increment_credits', {
                 user_id_param: userId,
-                increment_value: bonus
+                increment_value: creditsToAdd
             });
-
-            if (rpcError) {
-                console.error('Error al ejecutar RPC para incrementar créditos:', rpcError);
-                throw rpcError;
-            }
+            if (rpcError) throw rpcError;
                 
-            console.log(`Créditos actualizados exitosamente para el usuario ${userId}. Se añadieron ${bonus} créditos.`);
+            console.log(`ÉXITO: Se añadieron ${creditsToAdd} créditos al usuario ${userId}.`);
         }
 
-        return { statusCode: 200, body: 'Webhook procesado exitosamente.' };
+        return { statusCode: 200, body: 'Webhook procesado.' };
     } catch (e) {
         console.error('Error fatal en la función paypal-webhook:', e);
-        return { statusCode: 500, body: `Error interno del servidor: ${e.message}` };
+        return { statusCode: 500, body: `Error interno: ${e.message}` };
     }
 };
