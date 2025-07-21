@@ -1,18 +1,18 @@
 // RUTA: netlify/functions/paypal-webhook.js
-// Reemplaza todo el contenido de tu archivo con este código.
+// ESTA ES LA VERSIÓN COMPLETA Y VERIFICADA. REEMPLAZA TODO TU ARCHIVO CON ESTO.
 
 const fetch = require('node-fetch');
 const { createClient } = require('@supabase/supabase-js');
 
 /**
  * Obtiene el token de administrador de Netlify.
- * ESTA FUNCIÓN CONTIENE LA CORRECCIÓN CRÍTICA.
+ * Contiene la corrección crítica para el error 'unsupported_grant_type'.
  */
 async function getNetlifyAdminToken() {
     console.log("--- [PASO 1] Iniciando obtención de token de Netlify ---");
     
     if (!process.env.NETLIFY_OAUTH_CLIENT_ID || !process.env.NETLIFY_OAUTH_CLIENT_SECRET) {
-        throw new Error("Las variables de entorno NETLIFY_OAUTH_CLIENT_ID o NETLIFY_OAUTH_CLIENT_SECRET no están definidas. Revisa la configuración de tu sitio en Netlify.");
+        throw new Error("Variables de entorno NETLIFY_OAUTH_CLIENT_ID o NETLIFY_OAUTH_CLIENT_SECRET no están definidas.");
     }
 
     const params = new URLSearchParams();
@@ -29,8 +29,8 @@ async function getNetlifyAdminToken() {
     const jsonResponse = await response.json();
 
     if (!response.ok) {
-        console.error('--- [ERROR CRÍTICO] Falló la obtención del token de Netlify. Respuesta de la API:', jsonResponse);
-        throw new Error(`No se pudo obtener el token de Netlify: ${jsonResponse.error_description || 'Respuesta desconocida del servidor.'}`);
+        console.error('--- [ERROR CRÍTICO] Falló la obtención del token de Netlify. Respuesta:', jsonResponse);
+        throw new Error(`No se pudo obtener el token de Netlify: ${jsonResponse.error_description || 'Respuesta desconocida.'}`);
     }
 
     console.log("--- [ÉXITO PASO 1] Token de administrador de Netlify obtenido. ---");
@@ -47,9 +47,18 @@ exports.handler = async (event) => {
         return { statusCode: 405, body: 'Método no permitido.' };
     }
 
+    // Verificación de variables de entorno críticas al inicio
+    const requiredEnvVars = ['SITE_ID', 'SUPABASE_URL', 'SUPABASE_SERVICE_KEY', 'PAYPAL_BOOST_PLAN_ID', 'PAYPAL_PRO_PLAN_ID'];
+    for (const varName of requiredEnvVars) {
+        if (!process.env[varName]) {
+            console.error(`--- [ERROR FATAL] La variable de entorno '${varName}' no está configurada.`);
+            return { statusCode: 500, body: `Error de configuración del servidor: Falta ${varName}.` };
+        }
+    }
+
     try {
         const paypalEvent = JSON.parse(event.body);
-        console.log(`Evento recibido: ${paypalEvent.event_type}`);
+        console.log(`Evento de PayPal recibido: ${paypalEvent.event_type}`);
 
         if (paypalEvent.event_type === 'BILLING.SUBSCRIPTION.ACTIVATED') {
             const { resource } = paypalEvent;
@@ -57,33 +66,24 @@ exports.handler = async (event) => {
             const paypalPlanId = resource.plan_id;
 
             if (!userId) {
-                console.error("--- [ERROR] No se encontró 'custom_id' (userId) en el payload de PayPal.");
                 throw new Error("Falta 'custom_id' (userId) en el payload de PayPal.");
             }
             console.log(`Datos extraídos: User ID: ${userId}, PayPal Plan ID: ${paypalPlanId}`);
 
             let planName;
-            if (paypalPlanId === process.env.PAYPAL_BOOST_PLAN_ID) {
-                planName = 'boost';
-            } else if (paypalPlanId === process.env.PAYPAL_PRO_PLAN_ID) {
-                planName = 'pro';
-            } else {
-                 console.error(`--- [ERROR] ID de plan de PayPal desconocido: ${paypalPlanId}`);
-                throw new Error(`ID de plan de PayPal desconocido: ${paypalPlanId}`);
-            }
+            if (paypalPlanId === process.env.PAYPAL_BOOST_PLAN_ID) planName = 'boost';
+            else if (paypalPlanId === process.env.PAYPAL_PRO_PLAN_ID) planName = 'pro';
+            else throw new Error(`ID de plan de PayPal desconocido: ${paypalPlanId}`);
             
             console.log(`Plan de Goatify identificado como: '${planName}'. Iniciando proceso de actualización.`);
 
-            // --- PROCESO DE ACTUALIZACIÓN ---
+            // --- INICIO DE LA TRANSACCIÓN ---
             const adminToken = await getNetlifyAdminToken();
 
-            console.log("--- [PASO 2] Intentando actualizar metadatos en Netlify Identity... ---");
+            console.log("--- [PASO 2] Actualizando metadatos en Netlify Identity... ---");
             const netlifyResponse = await fetch(`https://api.netlify.com/api/v1/sites/${process.env.SITE_ID}/identity/${userId}`, {
                 method: 'PUT',
-                headers: { 
-                    'Authorization': `Bearer ${adminToken}`, 
-                    'Content-Type': 'application/json' 
-                },
+                headers: { 'Authorization': `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
                 body: JSON.stringify({ app_metadata: { plan: planName } })
             });
 
@@ -96,19 +96,16 @@ exports.handler = async (event) => {
 
             const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
             
-            console.log("--- [PASO 3] Llamando a la función RPC 'upgrade_user_plan' en Supabase... ---");
-            const { error: rpcError } = await supabase.rpc('upgrade_user_plan', {
-                user_id_input: userId,
-                new_plan: planName
-            });
+            console.log("--- [PASO 3] Llamando a RPC 'upgrade_user_plan' en Supabase... ---");
+            const { error: rpcError } = await supabase.rpc('upgrade_user_plan', { user_id_input: userId, new_plan: planName });
 
             if (rpcError) {
-                console.error("--- [ERROR PASO 3] Falló la llamada a la función RPC:", rpcError);
+                console.error("--- [ERROR PASO 3] Falló la llamada a RPC:", rpcError);
                 throw rpcError;
             }
             console.log('--- [ÉXITO PASO 3] Tabla "profiles" actualizada con nuevo plan y créditos. ---');
 
-            console.log("--- [PASO 4] Insertando/actualizando registro en la tabla 'subscriptions'... ---");
+            console.log("--- [PASO 4] Actualizando tabla 'subscriptions'... ---");
             const { error: upsertError } = await supabase.from('subscriptions').upsert({
                 user_id: userId,
                 plan_id: paypalPlanId,
@@ -117,12 +114,12 @@ exports.handler = async (event) => {
             }, { onConflict: 'user_id' });
 
             if (upsertError) {
-                console.error("--- [ERROR PASO 4] Falló el upsert en la tabla 'subscriptions':", upsertError);
+                console.error("--- [ERROR PASO 4] Falló el upsert en 'subscriptions':", upsertError);
                 throw upsertError;
             }
             console.log('--- [ÉXITO PASO 4] Tabla "subscriptions" actualizada. ---');
             
-            console.log(`--- [COMPLETADO] Proceso finalizado exitosamente para el usuario ${userId}. ---`);
+            console.log(`--- [COMPLETADO] Proceso finalizado para el usuario ${userId}. ---`);
         } else {
             console.log("Evento ignorado (no es BILLING.SUBSCRIPTION.ACTIVATED).");
         }
@@ -130,7 +127,7 @@ exports.handler = async (event) => {
         return { statusCode: 200, body: 'Webhook procesado.' };
 
     } catch (e) {
-        console.error('--- [ERROR FATAL] Ocurrió un error en el handler del webhook:', e);
+        console.error('--- [ERROR FATAL] Ocurrió un error en el handler del webhook:', e.message);
         return { statusCode: 500, body: `Error interno del servidor: ${e.message}` };
     }
 };
