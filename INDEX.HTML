@@ -9635,20 +9635,21 @@ loadCreditsFromServer();
 </script>
 
 <script>
-    //<-- INICIO DEL SCRIPT UNIFICADO Y CORREGIDO PARA CRÉDITOS -->
+    //<-- INICIO DEL SCRIPT UNIFICADO Y CORREGIDO PARA CRÉDITOS Y PAGOS -->
     let remoteCredits = null;
     let currentUser = null;
     const GUEST_CREDIT_LIMIT = 5;
     const creditSyncChannel = new BroadcastChannel('goatify_credit_sync');
 
     function updateCreditDisplay(credits, plan) {
-        // Usa el plan de Netlify si existe, si no, el de la BD
-        const userPlan = (currentUser && currentUser.app_metadata.plan) ? currentUser.app_metadata.plan : plan;
+        const userPlan = (currentUser && currentUser.app_metadata && currentUser.app_metadata.plan) ? currentUser.app_metadata.plan : plan;
         const planLimit = userPlan === 'boost' ? 1000 : (userPlan === 'pro' ? 4000 : 100);
         const displayValue = (credits === null || typeof credits === 'undefined') ? '...' : `${credits}/${planLimit}`;
         
         const planDisplayElement = document.getElementById('plan-credits-display');
-        if (planDisplayElement) planDisplayElement.textContent = displayValue;
+        if (planDisplayElement) {
+            planDisplayElement.textContent = displayValue;
+        }
     }
 
     async function fetchCredits() {
@@ -9687,7 +9688,6 @@ loadCreditsFromServer();
         }
 
         if (remoteCredits === null || remoteCredits <= 0) {
-             // Aquí puedes mostrar tu modal de "sin créditos"
             return false;
         }
 
@@ -9700,12 +9700,10 @@ loadCreditsFromServer();
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user.token.access_token}` }
             });
             creditSyncChannel.postMessage('credits_updated');
-            // No es necesario volver a llamar a fetchCredits aquí, la actualización optimista es suficiente
-            // y el canal de sincronización se encargará de otras pestañas.
             return true;
         } catch (error) {
             console.error("Error al descontar crédito en backend:", error);
-            await fetchCredits(); // Si falla, recargamos para corregir
+            await fetchCredits();
             return false;
         }
     }
@@ -9713,11 +9711,22 @@ loadCreditsFromServer();
     // ---- LÓGICA DE INICIALIZACIÓN ----
     creditSyncChannel.onmessage = () => fetchCredits();
 
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('payment') === 'success') {
-        // Tu lógica de notificación de pago aquí
-        history.replaceState(null, '', window.location.pathname);
-    }
+    // NUEVA LÓGICA MEJORADA PARA EL MENSAJE DE PAGO EXITOSO
+    document.addEventListener('DOMContentLoaded', () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('payment') === 'success') {
+            alert('¡Pago realizado con éxito! Tu plan y créditos se actualizarán en unos momentos.');
+            
+            setTimeout(() => {
+                if (window.netlifyIdentity.currentUser()) {
+                    console.log('Refrescando créditos después del pago...');
+                    fetchCredits();
+                }
+            }, 5000); // Espera 5 segundos para dar tiempo al webhook
+
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+    });
 
     if (window.netlifyIdentity) {
         netlifyIdentity.on('init', user => { fetchCredits(); });
