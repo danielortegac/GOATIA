@@ -4,21 +4,40 @@ const fetch = require('node-fetch');
 const { createClient } = require('@supabase/supabase-js');
 
 async function getNetlifyAdminToken() {
-    console.log("--- [PASO 1] Iniciando obtención de token de Netlify ---");
+    console.log("--- [PASO 1 - NUEVA VERSIÓN] Iniciando obtención de token de Netlify ---");
+
+    // Estas son las "llaves" que le damos a Netlify
     const params = new URLSearchParams();
     params.append('grant_type', 'client_credentials');
     params.append('client_id', process.env.NETLIFY_OAUTH_CLIENT_ID);
     params.append('client_secret', process.env.NETLIFY_OAUTH_CLIENT_SECRET);
-    const response = await fetch('https://api.netlify.com/oauth/token', {
+
+    // Estas son las "instrucciones" exactas que enviamos
+    const requestOptions = {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: params.toString()
-    });
+    };
+
+    // VAMOS A IMPRIMIR EN LOS LOGS EXACTAMENTE LO QUE ESTAMOS ENVIANDO
+    console.log("--- DEBUG: Enviando la siguiente petición a la API de Netlify: ---");
+    console.log(JSON.stringify(requestOptions, null, 2));
+
+    // TAMBIÉN VAMOS A VERIFICAR SI LAS "LLAVES" ESTÁN PRESENTES
+    console.log("--- DEBUG: Verificando credenciales (solo si existen, no el valor) ---");
+    console.log("NETLIFY_OAUTH_CLIENT_ID presente:", process.env.NETLIFY_OAUTH_CLIENT_ID ? 'Sí, existe.' : 'NO, ESTÁ VACÍO O NO EXISTE.');
+    console.log("NETLIFY_OAUTH_CLIENT_SECRET presente:", process.env.NETLIFY_OAUTH_CLIENT_SECRET ? 'Sí, existe.' : 'NO, ESTÁ VACÍO O NO EXISTE.');
+    console.log("------------------------------------------------------------------");
+
+    const response = await fetch('https://api.netlify.com/oauth/token', requestOptions);
+    
     const jsonResponse = await response.json();
+
     if (!response.ok) {
         console.error('--- [ERROR CRÍTICO] Falló la obtención del token de Netlify. Respuesta:', jsonResponse);
         throw new Error(`No se pudo obtener el token de Netlify: ${jsonResponse.error_description || 'Respuesta desconocida.'}`);
     }
+
     console.log("--- [ÉXITO PASO 1] Token de administrador de Netlify obtenido. ---");
     return jsonResponse.access_token;
 }
