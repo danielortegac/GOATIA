@@ -9589,7 +9589,7 @@ loadCreditsFromServer();
             });
         }); // Fin de DOMContentLoaded
     
-  // ---- LÓGICA DE SUSCRIPCIÓN PAYPAL (SIN CAMBIOS, YA FUNCIONA) ----
+  // ---- LÓGICA DE SUSCRIPCIÓN PAYPAL (SIN CAMBIOS) ----
     document.querySelectorAll('.select-plan-btn').forEach(btn => {
         btn.addEventListener('click', async () => {
             const plan = btn.dataset.plan;
@@ -9628,8 +9628,11 @@ loadCreditsFromServer();
     const creditSyncChannel = new BroadcastChannel('goatify_credit_sync');
 
     function updateCreditDisplay(credits, plan) {
-        const planLimit = plan === 'boost' ? 1000 : (plan === 'pro' ? 4000 : 100);
+        // Usa el plan de Netlify si existe, si no, el de la BD
+        const userPlan = (currentUser && currentUser.app_metadata.plan) ? currentUser.app_metadata.plan : plan;
+        const planLimit = userPlan === 'boost' ? 1000 : (userPlan === 'pro' ? 4000 : 100);
         const displayValue = (credits === null || typeof credits === 'undefined') ? '...' : `${credits}/${planLimit}`;
+        
         const planDisplayElement = document.getElementById('plan-credits-display');
         if (planDisplayElement) planDisplayElement.textContent = displayValue;
     }
@@ -9661,7 +9664,6 @@ loadCreditsFromServer();
 
     window.spendCredit = async function() {
         const user = window.netlifyIdentity.currentUser();
-        
         if (!user) {
             let usage = parseInt(localStorage.getItem('guest_usage_count') || '0');
             if (usage >= GUEST_CREDIT_LIMIT) return false;
@@ -9670,26 +9672,26 @@ loadCreditsFromServer();
             return true;
         }
 
-        if (remoteCredits === null || remoteCredits <= 0) return false;
+        if (remoteCredits === null || remoteCredits <= 0) {
+             // Aquí puedes mostrar tu modal de "sin créditos"
+            return false;
+        }
 
         remoteCredits--;
         updateCreditDisplay(remoteCredits, user.app_metadata.plan || 'free');
 
         try {
-            const response = await fetch('/.netlify/functions/update-usage', {
+            await fetch('/.netlify/functions/update-usage', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user.token.access_token}` }
             });
-            const result = await response.json();
-            if (typeof result.credits === 'number') {
-                remoteCredits = result.credits;
-                updateCreditDisplay(remoteCredits, user.app_metadata.plan || 'free');
-            }
             creditSyncChannel.postMessage('credits_updated');
+            // No es necesario volver a llamar a fetchCredits aquí, la actualización optimista es suficiente
+            // y el canal de sincronización se encargará de otras pestañas.
             return true;
         } catch (error) {
             console.error("Error al descontar crédito en backend:", error);
-            await fetchCredits();
+            await fetchCredits(); // Si falla, recargamos para corregir
             return false;
         }
     }
@@ -9699,27 +9701,13 @@ loadCreditsFromServer();
 
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('payment') === 'success') {
-        const notification = document.getElementById('in-app-notification');
-        if (notification) {
-            document.getElementById('in-app-notification-title').textContent = "¡Pago Exitoso!";
-            document.getElementById('in-app-notification-body').textContent = "Tu suscripción está activa. Actualizando tus créditos...";
-            notification.classList.add('show');
-            setTimeout(() => notification.classList.remove('show'), 5000);
-        }
+        // Tu lógica de notificación de pago aquí
         history.replaceState(null, '', window.location.pathname);
-        let attempts = 0;
-        const interval = setInterval(() => {
-            attempts++;
-            fetchCredits();
-            if (attempts >= 5 || (remoteCredits && remoteCredits > 100)) {
-                clearInterval(interval);
-            }
-        }, 3000);
     }
 
     if (window.netlifyIdentity) {
-        netlifyIdentity.on('init', user => { currentUser = user; fetchCredits(); });
-        netlifyIdentity.on('login', user => { currentUser = user; netlifyIdentity.close(); fetchCredits(); });
+        netlifyIdentity.on('init', user => { fetchCredits(); });
+        netlifyIdentity.on('login', user => { netlifyIdentity.close(); fetchCredits(); });
         netlifyIdentity.on('logout', () => {
             currentUser = null;
             localStorage.removeItem('guest_usage_count');
