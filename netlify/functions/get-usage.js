@@ -12,36 +12,29 @@ exports.handler = async (event, context) => {
     process.env.SUPABASE_SERVICE_KEY
   );
 
-  const userId = user.sub;
-
-  /*
-  // LÍNEAS ELIMINADAS PARA BLOQUEAR LOS 100 CRÉDITOS AL INICIAR SESIÓN
-  const { error: grantError } = await supabase.rpc('grant_monthly_credits_by_plan', {
-    user_id: userId
-  });
-
-  if (grantError) {
-    console.error('Error al intentar otorgar créditos:', grantError);
-  }
-  */
-
-  // Obtiene y devuelve el perfil actualizado
-  const { data: profile, error: profileError } = await supabase
+  // Esta función ahora solo consulta los datos, no los modifica.
+  const { data: profile, error } = await supabase
     .from('profiles')
     .select('credits, plan')
-    .eq('id', userId)
+    .eq('id', user.sub)
     .single();
 
-  if (profileError) {
-    console.error('Error al consultar el perfil:', profileError);
+  if (error && error.code !== 'PGRST116') { // Ignora el error "fila no encontrada"
+    console.error('Error al consultar el perfil:', error);
     return { statusCode: 500, body: JSON.stringify({ error: 'Error al leer la base de datos' }) };
   }
+  
+  // Si el perfil no existe, es un usuario nuevo. El trigger SQL ya le dio 100 créditos.
+  const credits = profile ? profile.credits : 100;
+  // El plan de Netlify siempre es la fuente de verdad.
+  const plan = user.app_metadata.plan || (profile ? profile.plan : 'free');
 
   return {
     statusCode: 200,
     body: JSON.stringify({
-      credits: profile.credits,
-      plan: profile.plan
+      credits: credits,
+      plan: plan,
+      user_metadata: user.user_metadata
     })
   };
 };
