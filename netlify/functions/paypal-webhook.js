@@ -2,6 +2,7 @@
 const fetch = require('node-fetch');
 const { createClient } = require('@supabase/supabase-js');
 
+// Helper para obtener el token de administrador de Netlify (CORREGIDO)
 async function getNetlifyAdminToken() {
     console.log("--- Obteniendo token de Netlify (Estrategia Definitiva) ---");
     const params = new URLSearchParams();
@@ -67,9 +68,15 @@ exports.handler = async (event) => {
             // 2. Actualizar Supabase
             const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
             
-            await supabase.from('profiles').update({ plan: planName }).eq('id', userId);
-            console.log('Tabla de perfiles actualizada en Supabase con el nuevo plan.');
+            // Usamos la función que ya tienes para sumar créditos y actualizar el plan
+            const { error: rpcError } = await supabase.rpc('upgrade_user_plan', {
+                user_id_input: userId,
+                new_plan: planName
+            });
+            if (rpcError) throw rpcError;
+            console.log('Tabla de perfiles actualizada en Supabase con el nuevo plan y créditos.');
 
+            // Insertar o actualizar registro en la tabla 'subscriptions'
             await supabase.from('subscriptions').upsert({
                 user_id: userId,
                 plan_id: paypalPlanId,
@@ -78,14 +85,8 @@ exports.handler = async (event) => {
                 updated_at: new Date().toISOString()
             }, { onConflict: 'user_id' });
             console.log('Tabla de suscripciones actualizada en Supabase.');
-            
-            const { error: rpcError } = await supabase.rpc('increment_credits', {
-                user_id_param: userId,
-                increment_value: creditsToAdd
-            });
-            if (rpcError) throw rpcError;
                 
-            console.log(`ÉXITO: Se añadieron ${creditsToAdd} créditos al usuario ${userId}.`);
+            console.log(`ÉXITO: Se actualizó el plan a ${planName} y se añadieron créditos al usuario ${userId}.`);
         }
 
         return { statusCode: 200, body: 'Webhook procesado.' };
