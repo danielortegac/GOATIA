@@ -6,16 +6,27 @@ exports.handler = async (event, context) => {
   if (!user) {
     return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized' }) };
   }
+
+  // Obtenemos el costo del cuerpo de la solicitud, con un valor por defecto de 1
+  let costToDecrement = 1;
+  try {
+      const body = JSON.parse(event.body || '{}');
+      if (typeof body.cost === 'number' && body.cost > 0) {
+          costToDecrement = body.cost;
+      }
+  } catch (e) {
+      // Ignoramos el error si el cuerpo está vacío, usamos el costo por defecto
+  }
   
   const supabase = createClient(
     process.env.SUPABASE_URL,
     process.env.SUPABASE_SERVICE_KEY
   );
 
-  // Llamamos a nuestra función SQL unificada, enviando -1 para restar un crédito.
+  // Usamos nuestra función SQL unificada, enviando un número negativo para restar.
   const { error } = await supabase.rpc('increment_credits', {
     user_id_param: user.sub,
-    increment_value: -1
+    increment_value: -costToDecrement
   });
 
   if (error) {
@@ -28,6 +39,6 @@ exports.handler = async (event, context) => {
 
   return {
     statusCode: 200,
-    body: JSON.stringify({ credits: data.credits })
+    body: JSON.stringify({ credits: data ? data.credits : 0 })
   };
 };
