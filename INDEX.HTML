@@ -9603,35 +9603,37 @@ loadCreditsFromServer();
             });
         }); // Fin de DOMContentLoaded
     
-// ---- LÓGICA DE SUSCRIPCIÓN PAYPAL (SIN CAMBIOS) ----
-    document.querySelectorAll('.select-plan-btn').forEach(btn => {
-        btn.addEventListener('click', async () => {
-            const plan = btn.dataset.plan;
-            const user = window.netlifyIdentity.currentUser();
-            if (!user) {
-                window.netlifyIdentity.open('login');
-                return;
-            }
-            try {
-                const token = await user.jwt();
-                const res = await fetch('/.netlify/functions/create-subscription', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                    body: JSON.stringify({ plan })
-                });
-                if (!res.ok) throw new Error('Error al crear la suscripción');
-                const data = await res.json();
-                if (data.approvalUrl) {
-                    window.location.href = data.approvalUrl;
-                } else {
-                    alert('Error al iniciar el pago. Intenta nuevamente.');
-                }
-            } catch (err) {
-                console.error('[Goatify] Error durante la suscripción:', err);
-                alert('No se pudo procesar la suscripción. Vuelve a intentarlo.');
-            }
-        });
-    });
+// ---- LÓGICA DE SUSCRIPCIÓN PAYPAL (CORREGIDA) ----
+document.querySelectorAll('.select-plan-btn').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    const plan = btn.dataset.plan;                       // 'boost' o 'pro'
+    const user = window.netlifyIdentity.currentUser();
+    if (!user) { window.netlifyIdentity.open('login'); return; }
+
+    try {
+      const token  = await user.jwt();                   // JWT para auth
+      const userId = user.id;                            // UUID real 👈
+
+      const res = await fetch('/.netlify/functions/create-subscription', {
+        method:  'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ plan, userId })           // ← enviamos ambos
+      });
+
+      if (!res.ok) throw new Error('Error al crear la suscripción');
+      const { approvalUrl } = await res.json();
+      if (approvalUrl) window.location.href = approvalUrl;
+      else             alert('Error al iniciar el pago. Intenta nuevamente.');
+
+    } catch (err) {
+      console.error('[Goatify] Error durante la suscripción:', err);
+      alert('No se pudo procesar la suscripción. Vuelve a intentarlo.');
+    }
+  });
+});
 </script>
 
 <script>
