@@ -1,40 +1,30 @@
-// netlify/functions/paypal-webhook.js
 const fetch = require('node-fetch');
 const { createClient } = require('@supabase/supabase-js');
 
 exports.handler = async (event) => {
   console.log('--- WEBHOOK INIT ---');
-
-  if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, body: 'Method Not Allowed' };
-  }
+  if (event.httpMethod !== 'POST') return { statusCode: 405, body: 'Method Not Allowed' };
 
   try {
-    const paypalEvent = JSON.parse(event.body);
-    if (paypalEvent.event_type !== 'BILLING.SUBSCRIPTION.ACTIVATED') {
-      console.log('Evento ignorado:', paypalEvent.event_type);
+    const pe = JSON.parse(event.body);
+    if (pe.event_type !== 'BILLING.SUBSCRIPTION.ACTIVATED') {
+      console.log('Evento ignorado:', pe.event_type);
       return { statusCode: 200, body: 'Ignored' };
     }
 
-    const { resource } = paypalEvent;
-    console.log('DEBUG custom_id recibido →', resource.custom_id);
-    console.log('DEBUG MY_SITE_ID →', process.env.MY_SITE_ID);
+    const { resource } = pe;
     const userId       = resource.custom_id;
     const paypalPlanId = resource.plan_id;
-    if (!userId) throw new Error('custom_id faltante en PayPal');
+    console.log('DEBUG custom_id →', userId);
 
     let planName;
-    if (paypalPlanId === process.env.PAYPAL_BOOST_PLAN_ID) planName = 'boost';
-    else if (paypalPlanId === process.env.PAYPAL_PRO_PLAN_ID) planName = 'pro';
-    else throw new Error('plan_id desconocido: ' + paypalPlanId);
+    if      (paypalPlanId === process.env.PAYPAL_BOOST_PLAN_ID) planName = 'boost';
+    else if (paypalPlanId === process.env.PAYPAL_PRO_PLAN_ID)   planName = 'pro';
+    else  throw new Error('plan_id desconocido:' + paypalPlanId);
 
-    /* --- Netlify Identity ------------------------------------------------ */
-    const adminToken = process.env.NETLIFY_API_TOKEN;
-    if (!adminToken) throw new Error('NETLIFY_API_TOKEN faltante');
-
-    const identityUrl =
-      `https://api.netlify.com/api/v1/sites/${process.env.MY_SITE_ID}` +
-      `/identity/users/${userId}`;
+    /* ---------- Netlify Identity (endpoint global) ------------------- */
+    const adminToken  = process.env.NETLIFY_API_TOKEN;
+    const identityUrl = `https://api.netlify.com/api/v1/identity/users/${userId}`;
 
     const idRes = await fetch(identityUrl, {
       method: 'PUT',
@@ -50,7 +40,7 @@ exports.handler = async (event) => {
     }
     console.log('Identity actualizado');
 
-    /* --- Supabase -------------------------------------------------------- */
+    /* ---------- Supabase --------------------------------------------- */
     const supabase = createClient(
       process.env.SUPABASE_URL,
       process.env.SUPABASE_SERVICE_KEY
@@ -64,10 +54,10 @@ exports.handler = async (event) => {
 
     const { error: upsertErr } = await supabase.from('subscriptions').upsert(
       {
-        user_id:                 userId,
-        plan_id:                 paypalPlanId,
-        paypal_subscription_id:  resource.id,
-        status:                  'active'
+        user_id:                userId,
+        plan_id:                paypalPlanId,
+        paypal_subscription_id: resource.id,
+        status:                 'active'
       },
       { onConflict: 'user_id' }
     );
