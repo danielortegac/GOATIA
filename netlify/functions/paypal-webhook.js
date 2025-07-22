@@ -17,6 +17,8 @@ exports.handler = async (event) => {
     }
 
     const { resource } = paypalEvent;
+    console.log('DEBUG custom_id recibido →', resource.custom_id);
+    console.log('DEBUG MY_SITE_ID →', process.env.MY_SITE_ID);
     const userId       = resource.custom_id;
     const paypalPlanId = resource.plan_id;
     if (!userId) throw new Error('custom_id faltante en PayPal');
