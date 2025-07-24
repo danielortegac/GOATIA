@@ -71,7 +71,7 @@ exports.handler = async (event) => {
     let customId  = resource.custom_id || resource.customId || null;
     const subId   = resource.id || resource.subscription_id || resource.billing_agreement_id || null;
     const ppPlanId = resource.plan_id || null;
-    const status  = (resource.status || 'active').toLowerCase();
+    const status  = (resource.status || 'ACTIVE').toLowerCase();
 
     console.log('DEBUG custom_id recibido =>', customId);
     console.log('DEBUG subscription_id  =>', subId);
