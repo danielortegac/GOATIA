@@ -9637,30 +9637,28 @@ document.querySelectorAll('.select-plan-btn').forEach(btn => {
 </script>
 
 <script>
-//<-- INICIO DEL SCRIPT UNIFICADO Y CORREGIDO PARA CRÉDITOS, PLAN Y DISPLAY -->
+// ====== CONFIGURACIÓN ======
+const SHOW_LIMIT = false; // false => muestra sólo "3994", true => "3994/4000"
+const GUEST_CREDIT_LIMIT = 5;
 
-// Cambia esto a false si quieres SOLO el número de créditos (sin "/1000")
-const SHOW_LIMIT = false;
-
-// Límite por plan
 const PLAN_LIMITS = {
   free: 100,
   boost: 1000,
   pro: 4000
 };
 
-// Elementos donde quieres que se refleje el plan y los créditos.
-// Ponle esos atributos a los elementos en tu HTML si aún no los tienes.
 const CREDIT_ELE_SELECTOR = '[data-credit-counter]';
 const PLAN_ELE_SELECTOR   = '[data-plan-name]';
 
-let remoteCredits   = null;
-let lastKnownPlan   = 'free';
-let currentUser     = null;
-const GUEST_CREDIT_LIMIT = 5;
+// ====== ESTADO GLOBAL ======
+let remoteCredits = null;
+let lastKnownPlan = 'free';
+let currentUser   = null;
+let isSpending    = false; // evita doble descuento
+
 const creditSyncChannel = new BroadcastChannel('goatify_credit_sync');
 
-// ---------- Helpers UI ----------
+// ====== HELPERS ======
 function getPlanLimit(plan) {
   return PLAN_LIMITS[plan] ?? 100;
 }
@@ -9669,23 +9667,17 @@ function updateCreditDisplay(credits, plan) {
   const limit = getPlanLimit(plan);
   const text  = SHOW_LIMIT ? `${credits}/${limit}` : `${credits}`;
 
-  // Por compatibilidad, si aún usas un ID específico:
-  const single = document.getElementById('plan-credits-display');
-  if (single) single.textContent = text;
+  // Compatibilidad con ID viejo
+  const legacy = document.getElementById('plan-credits-display');
+  if (legacy) legacy.textContent = text;
 
-  // Y ahora, en TODOS los lugares marcados:
-  document.querySelectorAll(CREDIT_ELE_SELECTOR).forEach(el => {
-    el.textContent = text;
-  });
-
-  document.querySelectorAll(PLAN_ELE_SELECTOR).forEach(el => {
-    el.textContent = plan.toUpperCase();
-  });
+  // Todos los lugares con data-atributos
+  document.querySelectorAll(CREDIT_ELE_SELECTOR).forEach(el => { el.textContent = text; });
+  document.querySelectorAll(PLAN_ELE_SELECTOR).forEach(el => { el.textContent = plan.toUpperCase(); });
 }
 
-// ---------- Sincroniza créditos desde backend (server wins) ----------
 async function fetchCredits() {
-  const user = window.netlifyIdentity.currentUser();
+  const user = window.netlifyIdentity?.currentUser() || null;
   currentUser = user;
 
   if (!user) {
@@ -9701,28 +9693,31 @@ async function fetchCredits() {
     const res = await fetch('/.netlify/functions/get-usage', {
       headers: { Authorization: `Bearer ${user.token.access_token}` }
     });
-
     const data = await res.json();
-    // Garantizamos que el plan venga de Supabase; si no, fallback al app_metadata
+
     lastKnownPlan = (data.plan || user.app_metadata?.plan || 'free').toLowerCase();
     remoteCredits = (typeof data.credits === 'number') ? data.credits : 0;
 
     updateCreditDisplay(remoteCredits, lastKnownPlan);
-
   } catch (err) {
-    console.error('Error al sincronizar créditos:', err);
+    console.error('[Credits] Error al sincronizar créditos:', err);
   }
 }
 
-// ---------- Gasta crédito (SIEMPRE confiando en la respuesta del server) ----------
-window.spendCredit = async function(delta = -1) {
-  const user = window.netlifyIdentity.currentUser();
+// Evita descontar dos veces por mensaje
+async function spendCredit(delta = -1) {
+  if (isSpending) return false; // ya hay una petición en curso
+  isSpending = true;
+
+  const user = window.netlifyIdentity?.currentUser() || null;
 
   if (!user) {
+    // Invitado
     let usage = parseInt(localStorage.getItem('guest_usage_count') || '0', 10);
-    if (usage >= GUEST_CREDIT_LIMIT) return false;
+    if (usage >= GUEST_CREDIT_LIMIT) { isSpending = false; return false; }
     localStorage.setItem('guest_usage_count', usage + 1);
     await fetchCredits();
+    isSpending = false;
     return true;
   }
 
@@ -9742,42 +9737,68 @@ window.spendCredit = async function(delta = -1) {
       lastKnownPlan = (result.plan || lastKnownPlan).toLowerCase();
       updateCreditDisplay(remoteCredits, lastKnownPlan);
       creditSyncChannel.postMessage('credits_updated');
+      isSpending = false;
       return true;
     } else {
-      console.warn("Respuesta inesperada al gastar crédito:", result);
+      console.warn("[Credits] Respuesta inesperada al gastar crédito:", result);
+      isSpending = false;
       return false;
     }
   } catch (error) {
-    console.error("Error al descontar crédito en backend:", error);
+    console.error("[Credits] Error al descontar crédito en backend:", error);
     await fetchCredits();
+    isSpending = false;
     return false;
   }
-};
+}
 
-// ---------- Post-pago: recarga créditos + plan ----------
+// ---- SUSCRIPCIÓN PAYPAL (Botón de planes) ----
+document.querySelectorAll('.select-plan-btn').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    const plan = btn.dataset.plan; // 'boost' o 'pro'
+    const user = window.netlifyIdentity.currentUser();
+    if (!user) { window.netlifyIdentity.open('login'); return; }
+
+    try {
+      const token  = await user.jwt();
+      const userId = user.id;
+
+      const res = await fetch('/.netlify/functions/create-subscription', {
+        method:  'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ plan, userId })
+      });
+
+      if (!res.ok) throw new Error('Error al crear la suscripción');
+      const { approvalUrl } = await res.json();
+      if (approvalUrl) window.location.href = approvalUrl;
+      else             alert('Error al iniciar el pago. Intenta nuevamente.');
+    } catch (err) {
+      console.error('[Goatify] Error durante la suscripción:', err);
+      alert('No se pudo procesar la suscripción. Vuelve a intentarlo.');
+    }
+  });
+});
+
+// ---- Post pago (landing ?payment=success) ----
 document.addEventListener('DOMContentLoaded', () => {
   const urlParams = new URLSearchParams(window.location.search);
   if (urlParams.get('payment') === 'success') {
     alert('¡Pago realizado con éxito! Tu plan y créditos se actualizarán en unos momentos.');
-
     setTimeout(() => {
-      if (window.netlifyIdentity.currentUser()) {
-        console.log('Refrescando créditos después del pago...');
-        fetchCredits();
-      }
-    }, 6000); // espera a que el webhook haga su trabajo
-
+      if (window.netlifyIdentity.currentUser()) fetchCredits();
+    }, 6000);
     window.history.replaceState({}, document.title, window.location.pathname);
   }
 });
 
-// ---------- Eventos de Identity ----------
+// ---- Eventos de Netlify Identity ----
 if (window.netlifyIdentity) {
-  netlifyIdentity.on('init', () => { fetchCredits(); });
-  netlifyIdentity.on('login', () => {
-    netlifyIdentity.close();
-    fetchCredits();
-  });
+  netlifyIdentity.on('init',  fetchCredits);
+  netlifyIdentity.on('login', () => { netlifyIdentity.close(); fetchCredits(); });
   netlifyIdentity.on('logout', () => {
     currentUser = null;
     localStorage.removeItem('guest_usage_count');
@@ -9785,10 +9806,13 @@ if (window.netlifyIdentity) {
   });
 }
 
-// ---------- Sync entre tabs ----------
+// ---- Sync entre pestañas ----
 creditSyncChannel.onmessage = () => fetchCredits();
 
-//<-- FIN DEL SCRIPT UNIFICADO -->
+// Exporta helpers si los usas en otros módulos
+window.fetchCredits  = fetchCredits;
+window.spendCredit   = spendCredit;
+window.updateDisplay = updateCreditDisplay;
 </script>
 
 </body>
