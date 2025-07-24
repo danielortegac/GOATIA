@@ -1,44 +1,61 @@
-// netlify/functions/update-usage.js
+/* ------------------------------------------------------------------
+   Goatify IA – update-usage
+   Descuenta (o suma) créditos usando un delta. Nunca pisa valores a lo loco.
+------------------------------------------------------------------- */
 const { createClient } = require('@supabase/supabase-js');
 
-exports.handler = async (event, context) => {
-  const { user } = context.clientContext;
-  if (!user) {
-    return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized' }) };
-  }
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
-  // Obtenemos el costo del cuerpo de la solicitud, con un valor por defecto de 1
-  let costToDecrement = 1;
+exports.handler = async (event) => {
   try {
-      const body = JSON.parse(event.body || '{}');
-      if (typeof body.cost === 'number' && body.cost > 0) {
-          costToDecrement = body.cost;
-      }
-  } catch (e) {
-      // Ignoramos el error si el cuerpo está vacío, usamos el costo por defecto
+    // Autenticación del usuario (token de Netlify Identity)
+    const authHeader = event.headers.authorization || event.headers.Authorization;
+    if (!authHeader) return { statusCode: 401, body: 'Falta token' };
+
+    const [, jwt] = authHeader.split(' ');
+    const payload = JSON.parse(Buffer.from(jwt.split('.')[1], 'base64').toString('utf8'));
+    const userId  = payload.sub;
+
+    const body = JSON.parse(event.body || '{}');
+    // delta negativo para gastar 1 crédito. Ej: { "delta": -1 }
+    // si no viene, por defecto gastamos 1 crédito
+    const delta = typeof body.delta === 'number' ? body.delta : (body.used ? -Math.abs(body.used) : -1);
+
+    // Traemos créditos actuales
+    const { data: profile, error: selErr } = await supabase
+      .from('profiles')
+      .select('credits, plan')
+      .eq('id', userId)
+      .single();
+
+    if (selErr || !profile) {
+      console.error('update-usage: no se pudo leer perfil =>', selErr);
+      return { statusCode: 500, body: 'No se pudo leer créditos' };
+    }
+
+    let newCredits = profile.credits + delta;
+    if (newCredits < 0) newCredits = 0;
+
+    // Guardamos créditos actualizados
+    const { data: updated, error: updErr } = await supabase
+      .from('profiles')
+      .update({ credits: newCredits, updated_at: new Date().toISOString() })
+      .eq('id', userId)
+      .select('credits, plan')
+      .single();
+
+    if (updErr) {
+      console.error('update-usage: no se pudo actualizar =>', updErr);
+      return { statusCode: 500, body: 'Error al actualizar créditos' };
+    }
+
+    return {
+      statusCode: 200,
+      body: JSON.stringify({ credits: updated.credits, plan: updated.plan })
+    };
+
+  } catch (err) {
+    console.error('[update-usage] fatal:', err);
+    return { statusCode: 500, body: 'error interno' };
   }
-  
-  const supabase = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_KEY
-  );
-
-  // Usamos nuestra función SQL unificada, enviando un número negativo para restar.
-  const { error } = await supabase.rpc('increment_credits', {
-    user_id_param: user.sub,
-    increment_value: -costToDecrement
-  });
-
-  if (error) {
-    console.error('Error al descontar crédito:', error);
-    return { statusCode: 500, body: JSON.stringify({ error: 'Error en la base de datos.' }) };
-  }
-
-  // Devolvemos el nuevo total de créditos para mantener sincronizado el frontend.
-  const { data } = await supabase.from('profiles').select('credits').eq('id', user.sub).single();
-
-  return {
-    statusCode: 200,
-    body: JSON.stringify({ credits: data ? data.credits : 0 })
-  };
 };
