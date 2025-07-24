@@ -9600,38 +9600,34 @@ loadCreditsFromServer();
                 } else {
                     resetChatView(); // Restablecer vista si no hay ID de chat en el estado
                 }
-}); // Fin de DOMContentLoaded
-</script>
-
-<!-- ================== PAYPAL & CRÉDITOS (BLOQUE ÚNICO) ================== -->
-<script>
+            });
+        }); // Fin de DOMContentLoaded
+    
 // ---- LÓGICA DE SUSCRIPCIÓN PAYPAL (CORREGIDA) ----
 document.querySelectorAll('.select-plan-btn').forEach(btn => {
   btn.addEventListener('click', async () => {
-    const plan = btn.dataset.plan; // 'boost' o 'pro'
+    const plan = btn.dataset.plan;                       // 'boost' o 'pro'
     const user = window.netlifyIdentity.currentUser();
     if (!user) { window.netlifyIdentity.open('login'); return; }
 
     try {
-      const token  = await user.jwt();   // JWT para auth
-      const userId = user.id;            // UUID real de Netlify Identity
+      const token  = await user.jwt();                   // JWT para auth
+      const userId = user.id;                            // UUID real 👈
 
       const res = await fetch('/.netlify/functions/create-subscription', {
-        method: 'POST',
+        method:  'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ plan, userId })
+        body: JSON.stringify({ plan, userId })           // ← enviamos ambos
       });
 
       if (!res.ok) throw new Error('Error al crear la suscripción');
       const { approvalUrl } = await res.json();
-      if (approvalUrl) {
-        window.location.href = approvalUrl;
-      } else {
-        alert('Error al iniciar el pago. Intenta nuevamente.');
-      }
+      if (approvalUrl) window.location.href = approvalUrl;
+      else             alert('Error al iniciar el pago. Intenta nuevamente.');
+
     } catch (err) {
       console.error('[Goatify] Error durante la suscripción:', err);
       alert('No se pudo procesar la suscripción. Vuelve a intentarlo.');
@@ -9641,135 +9637,108 @@ document.querySelectorAll('.select-plan-btn').forEach(btn => {
 </script>
 
 <script>
-// ================== CRÉDITOS (SCRIPT UNIFICADO) ==================
-let remoteCredits   = null;
-let lastKnownPlan   = 'free';
-let currentUser     = null;
+    //<-- INICIO DEL SCRIPT UNIFICADO Y CORREGIDO PARA CRÉDITOS Y PAGOS -->
+    let remoteCredits = null;
+    let currentUser = null;
+    const GUEST_CREDIT_LIMIT = 5;
+    const creditSyncChannel = new BroadcastChannel('goatify_credit_sync');
 
-const GUEST_CREDIT_LIMIT = 5;
-const creditSyncChannel  = new BroadcastChannel('goatify_credit_sync');
-
-// Helpers
-function getPlanLimit(plan) {
-  if (plan === 'boost') return 1000;
-  if (plan === 'pro')   return 4000;
-  return 100;
-}
-
-function safeText(id, value) {
-  const el = document.getElementById(id);
-  if (el) el.textContent = value;
-}
-
-function updateCreditDisplay(credits, plan) {
-  const limit = getPlanLimit(plan);
-  const c     = Number(credits);
-  const value = Number.isFinite(c) ? `${c}/${limit}` : `.../${limit}`;
-  safeText('plan-credits-display', value);
-}
-
-// Sincroniza créditos desde el backend (server wins)
-async function fetchCredits() {
-  const user = window.netlifyIdentity.currentUser();
-  currentUser = user;
-
-  if (!user) {
-    const guestUsage = parseInt(localStorage.getItem('guest_usage_count') || '0', 10);
-    remoteCredits    = Math.max(0, GUEST_CREDIT_LIMIT - guestUsage);
-    lastKnownPlan    = 'free';
-    updateCreditDisplay(remoteCredits, lastKnownPlan);
-    return;
-  }
-
-  try {
-    const res = await fetch('/.netlify/functions/get-usage', {
-      headers: { Authorization: `Bearer ${user.token.access_token}` }
-    });
-    const data = await res.json();
-    if (typeof data.credits === 'number') {
-      remoteCredits = data.credits;
-      lastKnownPlan = data.plan || 'free';
-      updateCreditDisplay(remoteCredits, lastKnownPlan);
-    } else {
-      console.warn('[Goatify] Respuesta get-usage inesperada:', data);
+    function updateCreditDisplay(credits, plan) {
+        const userPlan = plan || (currentUser?.app_metadata?.plan) || 'free';
+        const planLimit = userPlan === 'boost' ? 1000 : (userPlan === 'pro' ? 4000 : 100);
+        const displayValue = (credits === null || typeof credits === 'undefined') ? '...' : `${credits}/${planLimit}`;
+        
+        const planDisplayElement = document.getElementById('plan-credits-display');
+        if (planDisplayElement) {
+            planDisplayElement.textContent = displayValue;
+        }
     }
-  } catch (err) {
-    console.error('Error al sincronizar créditos:', err);
-  }
-}
 
-// Gastar crédito (delta negativo)
-window.spendCredit = async function(delta = -1) {
-  const user = window.netlifyIdentity.currentUser();
+    async function fetchCredits() {
+        const user = window.netlifyIdentity.currentUser();
+        currentUser = user;
 
-  if (!user) {
-    let usage = parseInt(localStorage.getItem('guest_usage_count') || '0', 10);
-    if (usage >= GUEST_CREDIT_LIMIT) return false;
-    localStorage.setItem('guest_usage_count', usage + 1);
-    await fetchCredits();
-    return true;
-  }
+        if (!user) {
+            const guestUsage = parseInt(localStorage.getItem('guest_usage_count') || '0');
+            remoteCredits = Math.max(0, GUEST_CREDIT_LIMIT - guestUsage);
+            updateCreditDisplay(remoteCredits, 'free');
+            return;
+        }
 
-  try {
-    const resp = await fetch('/.netlify/functions/update-usage', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${user.token.access_token}`
-      },
-      body: JSON.stringify({ delta })
+        try {
+            const response = await fetch('/.netlify/functions/get-usage', {
+                headers: { Authorization: `Bearer ${user.token.access_token}` }
+            });
+            const data = await response.json();
+            if (typeof data.credits === 'number') {
+                remoteCredits = data.credits;
+                updateCreditDisplay(remoteCredits, data.plan);
+            }
+        } catch (err) {
+            console.error('Error al sincronizar créditos:', err);
+        }
+    }
+
+    window.spendCredit = async function() {
+        const user = window.netlifyIdentity.currentUser();
+        if (!user) {
+            let usage = parseInt(localStorage.getItem('guest_usage_count') || '0');
+            if (usage >= GUEST_CREDIT_LIMIT) return false;
+            localStorage.setItem('guest_usage_count', usage + 1);
+            await fetchCredits();
+            return true;
+        }
+
+        if (remoteCredits === null || remoteCredits <= 0) {
+            return false;
+        }
+
+        remoteCredits--;
+        updateCreditDisplay(remoteCredits, user.app_metadata.plan || 'free');
+
+        try {
+            await fetch('/.netlify/functions/update-usage', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user.token.access_token}` }
+            });
+            creditSyncChannel.postMessage('credits_updated');
+            return true;
+        } catch (error) {
+            console.error("Error al descontar crédito en backend:", error);
+            await fetchCredits();
+            return false;
+        }
+    }
+
+    // ---- LÓGICA DE INICIALIZACIÓN ----
+    creditSyncChannel.onmessage = () => fetchCredits();
+
+    // NUEVA LÓGICA MEJORADA PARA EL MENSAJE DE PAGO EXITOSO
+    document.addEventListener('DOMContentLoaded', () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('payment') === 'success') {
+            alert('¡Pago realizado con éxito! Tu plan y créditos se actualizarán en unos momentos.');
+            
+            setTimeout(() => {
+                if (window.netlifyIdentity.currentUser()) {
+                    console.log('Refrescando créditos después del pago...');
+                    fetchCredits();
+                }
+            }, 5000); // Espera 5 segundos para dar tiempo al webhook
+
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
     });
 
-    const result = await resp.json();
-    if (typeof result.credits === 'number') {
-      remoteCredits = result.credits;
-      lastKnownPlan = result.plan || lastKnownPlan;
-      updateCreditDisplay(remoteCredits, lastKnownPlan);
-      creditSyncChannel.postMessage('credits_updated');
-      return true;
-    } else {
-      console.warn('[Goatify] Respuesta inesperada al gastar crédito:', result);
-      return false;
+    if (window.netlifyIdentity) {
+        netlifyIdentity.on('init', user => { fetchCredits(); });
+        netlifyIdentity.on('login', user => { netlifyIdentity.close(); fetchCredits(); });
+        netlifyIdentity.on('logout', () => {
+            currentUser = null;
+            localStorage.removeItem('guest_usage_count');
+            fetchCredits();
+        });
     }
-  } catch (error) {
-    console.error('Error al descontar crédito en backend:', error);
-    await fetchCredits();
-    return false;
-  }
-};
-
-// Inicialización
-creditSyncChannel.onmessage = () => fetchCredits();
-
-document.addEventListener('DOMContentLoaded', () => {
-  const urlParams = new URLSearchParams(window.location.search);
-
-  if (urlParams.get('payment') === 'success') {
-    alert('¡Pago realizado con éxito! Tu plan y créditos se actualizarán en unos momentos.');
-    setTimeout(() => {
-      if (window.netlifyIdentity.currentUser()) {
-        console.log('Refrescando créditos después del pago...');
-        fetchCredits();
-      }
-    }, 6000);
-    window.history.replaceState({}, document.title, window.location.pathname);
-  }
-
-  fetchCredits();
-});
-
-if (window.netlifyIdentity) {
-  netlifyIdentity.on('init',  () => fetchCredits());
-  netlifyIdentity.on('login', () => { netlifyIdentity.close(); fetchCredits(); });
-  netlifyIdentity.on('logout', () => {
-    currentUser = null;
-    localStorage.removeItem('guest_usage_count');
-    fetchCredits();
-  });
-}
-// ================== FIN SCRIPT UNIFICADO ==================
 </script>
-
 </body>
 </html>
-
