@@ -2479,7 +2479,7 @@ async function spendCredit() {
 <div class="flex items-center space-x-1 sm:space-x-2 header-right-icons">
 <div class="flex items-center space-x-2 text-xs font-mono whitespace-nowrap block mx-2 cursor-pointer" id="message-counter-wrapper">
 <div class="flex items-center" id="plan-credits-info">
-<i class="fas fa-trophy text-primary mr-1 text-base"></i><span id="plan-credits-display" data-credit-counter></span>
+<i class="fas fa-trophy text-primary mr-1 text-base"></i><span id="plan-credits-display" data-credit-counter>0</span>
 </div>
 <div class="flex items-center" id="reward-credits-info">
 <i class="fas fa-coins text-gold ml-2 mr-1 text-base"></i> <span id="reward-credits-display">0</span>
@@ -9665,58 +9665,16 @@ function getPlanLimit(plan) {
 
 function updateCreditDisplay(credits, plan) {
   const limit = getPlanLimit(plan);
-  // Si SHOW_LIMIT es false, mostramos SOLO el número
-  const text = SHOW_LIMIT ? `${credits}/${limit}` : `${credits}`;
+  const text  = SHOW_LIMIT ? `${credits}/${limit}` : `${credits}`;
 
-  // 1) Legacy element (si lo sigues usando)
+  // Compatibilidad con ID viejo
   const legacy = document.getElementById('plan-credits-display');
   if (legacy) legacy.textContent = text;
 
-  // 2) Elementos con data-credit-counter
-  document.querySelectorAll(CREDIT_ELE_SELECTOR).forEach(el => {
-    el.textContent = text;
-  });
-
-  // 3) Elementos con data-plan-name
-  document.querySelectorAll(PLAN_ELE_SELECTOR).forEach(el => {
-    el.textContent = plan.toUpperCase();
-  });
-
-  // 4) Si tienes algún texto hardcodeado tipo "/100" en el DOM fijo,
-  //    bórralo o envuélvelo en spans separados y ocúltalo cuando SHOW_LIMIT=false.
+  // Todos los lugares con data-atributos
+  document.querySelectorAll(CREDIT_ELE_SELECTOR).forEach(el => { el.textContent = text; });
+  document.querySelectorAll(PLAN_ELE_SELECTOR).forEach(el => { el.textContent = plan.toUpperCase(); });
 }
-function refreshPlanButtons(currentPlan) {
-  // Mapea plan -> botón
-  document.querySelectorAll('.select-plan-btn').forEach(btn => {
-    const plan = btn.dataset.plan; // 'boost' o 'pro'
-    if (plan === currentPlan) {
-      btn.textContent = 'Tu Plan Actual';
-      btn.disabled = true;
-      btn.classList.add('btn-disabled');
-    } else {
-      // Recupera el texto original según el plan
-      if (plan === 'boost') btn.textContent = 'Obtener Boost';
-      if (plan === 'pro')   btn.textContent = 'Quiero mi Plan Pro + Web';
-      btn.disabled = false;
-      btn.classList.remove('btn-disabled');
-    }
-  });
-
-  // Para el botón FREE (si lo tienes con id)
-  const freeBtn = document.getElementById('free-plan-button');
-  if (freeBtn) {
-    if (currentPlan === 'free') {
-      freeBtn.textContent = 'Tu Plan Actual';
-      freeBtn.disabled = true;
-      freeBtn.classList.add('btn-disabled');
-    } else {
-      freeBtn.textContent = 'Cambiar a Free';
-      freeBtn.disabled = false;
-      freeBtn.classList.remove('btn-disabled');
-    }
-  }
-}
-
 
 async function fetchCredits() {
   const user = window.netlifyIdentity?.currentUser() || null;
@@ -9857,5 +9815,134 @@ window.spendCredit   = spendCredit;
 window.updateDisplay = updateCreditDisplay;
 </script>
 
+
+<!-- START GOATIFY FIX PATCH v1 -->
+<script>
+(function(){
+  // ===== CONFIG =====
+  const SHOW_LIMIT = false; // ensure only number shown
+  const CREDIT_ELE_SELECTOR = '[data-credit-counter]';
+  const PLAN_ELE_SELECTOR   = '[data-plan-name]';
+  const CALENDLY_URL = 'https://calendly.com/tu-link-aqui'; // TODO: replace with real link
+  const CALENDLY_STORAGE_KEY = 'calendly_popup_shown_v1';
+
+  // Get plan limit helper (fallbacks if not defined globally)
+  const PLAN_LIMITS = (typeof window.PLAN_LIMITS !== 'undefined') ? window.PLAN_LIMITS : { free: 100, boost: 1000, pro: 4000 };
+  function getPlanLimit(plan){
+    const p = (plan || 'free').toLowerCase();
+    return PLAN_LIMITS[p] || PLAN_LIMITS.free || 100;
+  }
+
+  // Override / define updateCreditDisplay
+  window.updateCreditDisplay = function(credits, plan){
+    const limit = getPlanLimit(plan);
+    const text = SHOW_LIMIT ? (credits + '/' + limit) : ('' + credits);
+
+    // Legacy ID
+    const legacy = document.getElementById('plan-credits-display');
+    if (legacy) legacy.textContent = text;
+
+    // data-credit-counter
+    document.querySelectorAll(CREDIT_ELE_SELECTOR).forEach(el=>{
+      el.textContent = text;
+    });
+
+    // data-plan-name
+    document.querySelectorAll(PLAN_ELE_SELECTOR).forEach(el=>{
+      el.textContent = (plan || 'free').toUpperCase();
+    });
+  };
+
+  // Refresh plan buttons (disable current)
+  window.refreshPlanButtons = function(currentPlan){
+    document.querySelectorAll('.select-plan-btn').forEach(btn=>{
+      const plan = (btn.dataset.plan || '').toLowerCase();
+      if (!plan) return;
+      if (plan === currentPlan) {
+        btn.textContent = 'Tu Plan Actual';
+        btn.disabled = true;
+        btn.classList.add('btn-disabled');
+      } else {
+        // restore default CTA per plan
+        if (plan === 'boost') btn.textContent = 'Obtener Boost';
+        else if (plan === 'pro') btn.textContent = 'Quiero Plan Pro + Web';
+        else if (plan === 'free') btn.textContent = 'Cambiar a Free';
+        btn.disabled = false;
+        btn.classList.remove('btn-disabled');
+      }
+    });
+
+    const freeBtn = document.getElementById('free-plan-button');
+    if (freeBtn){
+      if (currentPlan === 'free') {
+        freeBtn.textContent = 'Tu Plan Actual';
+        freeBtn.disabled = true;
+        freeBtn.classList.add('btn-disabled');
+      } else {
+        freeBtn.textContent = 'Cambiar a Free';
+        freeBtn.disabled = false;
+        freeBtn.classList.remove('btn-disabled');
+      }
+    }
+  };
+
+  // Calendly popup once for PRO
+  window.showCalendlyOnce = function(plan){
+    if ((plan || '').toLowerCase() !== 'pro') return;
+    if (localStorage.getItem(CALENDLY_STORAGE_KEY) === 'yes') return;
+    if (!CALENDLY_URL || CALENDLY_URL.includes('tu-link-aqui')) return; // skip if not set
+
+    const modal = document.createElement('div');
+    modal.className = 'fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4';
+    modal.innerHTML = `
+      <div class="modal-content rounded-lg w-full max-w-2xl p-6 relative bg-current-bg-medium">
+        <button class="absolute top-4 right-4 text-text-medium hover:text-white" id="close-calendly-modal"><i class="fas fa-times fa-lg"></i></button>
+        <h3 class="text-xl font-bold mb-4">Agenda tu sesión de Consultoría PRO</h3>
+        <iframe src="${CALENDLY_URL}" style="width:100%; height:600px; border:none;"></iframe>
+      </div>`;
+    document.body.appendChild(modal);
+    document.getElementById('close-calendly-modal').addEventListener('click', ()=> modal.remove());
+    localStorage.setItem(CALENDLY_STORAGE_KEY, 'yes');
+  };
+
+  // Patch fetchCredits if exists (monkey patch)
+  if (typeof window.fetchCredits === 'function'){
+    const originalFetchCredits = window.fetchCredits;
+    window.fetchCredits = async function(){
+      const result = await originalFetchCredits.apply(this, arguments);
+      try{
+        // Try reading globals set by your original function
+        const plan = (window.lastKnownPlan || 'free').toLowerCase();
+        const credits = (window.currentCredits != null) ? window.currentCredits : (window.lastKnownCredits || 0);
+        window.updateCreditDisplay(credits, plan);
+        window.refreshPlanButtons(plan);
+        window.showCalendlyOnce(plan);
+      }catch(e){ console.warn('Patch post-fetchCredits failed', e); }
+      return result;
+    };
+  } else {
+    // If no fetchCredits, run after DOMContentLoaded using known globals
+    document.addEventListener('DOMContentLoaded', ()=>{
+      try{
+        const plan = (window.lastKnownPlan || 'free').toLowerCase();
+        const credits = (window.currentCredits != null) ? window.currentCredits : (window.lastKnownCredits || 0);
+        window.updateCreditDisplay(credits, plan);
+        window.refreshPlanButtons(plan);
+        window.showCalendlyOnce(plan);
+      }catch(e){ console.warn('Patch DOMContentLoaded init failed', e); }
+    });
+  }
+
+  // Ensure wrapper spans exist
+  document.addEventListener('DOMContentLoaded', ()=>{
+    const wrapper = document.getElementById('message-counter-wrapper');
+    if (wrapper && wrapper.querySelector('[data-credit-counter]') == null){
+      wrapper.innerHTML = '<span data-plan-name></span> • <span data-credit-counter></span>';
+    }
+  });
+
+})(); 
+</script>
+<!-- END GOATIFY FIX PATCH v1 -->
 </body>
 </html>
