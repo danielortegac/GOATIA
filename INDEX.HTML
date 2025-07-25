@@ -9944,5 +9944,60 @@ window.updateDisplay = updateCreditDisplay;
 })(); 
 </script>
 <!-- END GOATIFY FIX PATCH v1 -->
+
+<!-- START GOATIFY FIX PATCH v2 -->
+<script>
+(function(){
+  const SHOW_LIMIT = false; // fuerza mostrar sólo el número
+  const CREDIT_SELECTOR = '.credits-count, [data-credit-counter], #plan-credits-display';
+  const PLAN_SELECTOR   = '[data-plan-name], #plan-name';
+
+  function cleanSlash(node){
+    if(!node) return;
+    // Si el siguiente nodo de texto es "/100" o "/####", lo borramos
+    if(node.nextSibling && node.nextSibling.nodeType === 3 && /^\\s*\\/\\d+/.test(node.nextSibling.textContent)){
+      node.nextSibling.textContent = '';
+    }
+  }
+
+  function applyFix(){
+    const credits = window.currentCredits ?? window.remoteCredits ?? '';
+    const plan    = (window.lastKnownPlan ||
+                     window.currentPlan ||
+                     (window.netlifyIdentity?.currentUser()?.app_metadata?.plan) ||
+                     'free').toString().toUpperCase();
+
+    // Créditos
+    document.querySelectorAll(CREDIT_SELECTOR).forEach(el=>{
+      if(credits !== '') el.textContent = credits;
+      cleanSlash(el);
+    });
+
+    // Plan
+    document.querySelectorAll(PLAN_SELECTOR).forEach(el=>{
+      el.textContent = plan;
+    });
+
+    // Asegura wrapper limpio en el header
+    const wrapper = document.getElementById('message-counter-wrapper');
+    if(wrapper){
+      // icono de copa si ya estaba, lo buscamos
+      const trophy = '<i class="fas fa-trophy text-primary mr-1"></i>';
+      wrapper.innerHTML = trophy + '<span data-credit-counter>'+credits+'</span>';
+    }
+  }
+
+  // Ejecutamos al cargar
+  document.addEventListener('DOMContentLoaded', applyFix);
+  // También después de cada actualización posible
+  const bc = new BroadcastChannel('goatify_credit_sync');
+  bc.onmessage = applyFix;
+  window.addEventListener('focus', applyFix);
+
+  // Export
+  window.__goatifyFixV2__ = applyFix;
+})();
+</script>
+<!-- END GOATIFY FIX PATCH v2 -->
 </body>
 </html>
