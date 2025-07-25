@@ -2479,7 +2479,7 @@ async function spendCredit() {
 <div class="flex items-center space-x-1 sm:space-x-2 header-right-icons">
 <div class="flex items-center space-x-2 text-xs font-mono whitespace-nowrap block mx-2 cursor-pointer" id="message-counter-wrapper">
 <div class="flex items-center" id="plan-credits-info">
-<i class="fas fa-trophy text-primary mr-1 text-base"></i><span id="plan-credits-display" data-credit-counter>0</span>
+<i class="fas fa-trophy text-primary mr-1 text-base"></i><span id="plan-credits-display" data-credit-counter></span>
 </div>
 <div class="flex items-center" id="reward-credits-info">
 <i class="fas fa-coins text-gold ml-2 mr-1 text-base"></i> <span id="reward-credits-display">0</span>
@@ -9665,16 +9665,58 @@ function getPlanLimit(plan) {
 
 function updateCreditDisplay(credits, plan) {
   const limit = getPlanLimit(plan);
-  const text  = SHOW_LIMIT ? `${credits}/${limit}` : `${credits}`;
+  // Si SHOW_LIMIT es false, mostramos SOLO el número
+  const text = SHOW_LIMIT ? `${credits}/${limit}` : `${credits}`;
 
-  // Compatibilidad con ID viejo
+  // 1) Legacy element (si lo sigues usando)
   const legacy = document.getElementById('plan-credits-display');
   if (legacy) legacy.textContent = text;
 
-  // Todos los lugares con data-atributos
-  document.querySelectorAll(CREDIT_ELE_SELECTOR).forEach(el => { el.textContent = text; });
-  document.querySelectorAll(PLAN_ELE_SELECTOR).forEach(el => { el.textContent = plan.toUpperCase(); });
+  // 2) Elementos con data-credit-counter
+  document.querySelectorAll(CREDIT_ELE_SELECTOR).forEach(el => {
+    el.textContent = text;
+  });
+
+  // 3) Elementos con data-plan-name
+  document.querySelectorAll(PLAN_ELE_SELECTOR).forEach(el => {
+    el.textContent = plan.toUpperCase();
+  });
+
+  // 4) Si tienes algún texto hardcodeado tipo "/100" en el DOM fijo,
+  //    bórralo o envuélvelo en spans separados y ocúltalo cuando SHOW_LIMIT=false.
 }
+function refreshPlanButtons(currentPlan) {
+  // Mapea plan -> botón
+  document.querySelectorAll('.select-plan-btn').forEach(btn => {
+    const plan = btn.dataset.plan; // 'boost' o 'pro'
+    if (plan === currentPlan) {
+      btn.textContent = 'Tu Plan Actual';
+      btn.disabled = true;
+      btn.classList.add('btn-disabled');
+    } else {
+      // Recupera el texto original según el plan
+      if (plan === 'boost') btn.textContent = 'Obtener Boost';
+      if (plan === 'pro')   btn.textContent = 'Quiero mi Plan Pro + Web';
+      btn.disabled = false;
+      btn.classList.remove('btn-disabled');
+    }
+  });
+
+  // Para el botón FREE (si lo tienes con id)
+  const freeBtn = document.getElementById('free-plan-button');
+  if (freeBtn) {
+    if (currentPlan === 'free') {
+      freeBtn.textContent = 'Tu Plan Actual';
+      freeBtn.disabled = true;
+      freeBtn.classList.add('btn-disabled');
+    } else {
+      freeBtn.textContent = 'Cambiar a Free';
+      freeBtn.disabled = false;
+      freeBtn.classList.remove('btn-disabled');
+    }
+  }
+}
+
 
 async function fetchCredits() {
   const user = window.netlifyIdentity?.currentUser() || null;
