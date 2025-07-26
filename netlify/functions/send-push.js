@@ -1,4 +1,3 @@
-// netlify/functions/send-push.js
 const webpush = require('web-push');
 const { createClient } = require('@supabase/supabase-js');
 
@@ -16,27 +15,39 @@ exports.handler = async (event) => {
   }
 
   try {
-    const { userId, email, title = 'Goatify IA', body = '¡Tienes una nueva notificación!' } =
-      JSON.parse(event.body || '{}');
+    const payload = JSON.parse(event.body || '{}');
+    const { userId, email, title = 'Goatify IA', body = '¡Tienes una nueva notificación!' } = payload;
 
     if (!userId && !email) {
-      return { statusCode: 400, body: 'Falta userId o email' };
+      return { statusCode: 400, body: 'Falta userId o email.' };
     }
 
-    const supabase = createClient(
-      process.env.SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_KEY
-    );
+    const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 
-    let query = supabase.from('profiles').select('id, push_subscription').single();
-    if (userId) query = query.eq('id', userId);
-    else query = query.eq('email', email);
+    // 1) Buscar por id si viene
+    let profile = null;
+    if (userId) {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, email, push_subscription')
+        .eq('id', userId)
+        .single();
+      if (!error && data) profile = data;
+    }
 
-    const { data: profile, error } = await query;
+    // 2) Fallback por email si no hay resultado
+    if (!profile && email) {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, email, push_subscription')
+        .eq('email', email.toLowerCase())
+        .single();
+      if (!error && data) profile = data;
+    }
 
-    if (error || !profile || !profile.push_subscription) {
-      console.error('[send-push] No sub para', userId || email, error);
-      return { statusCode: 404, body: 'Suscripción no encontrada' };
+    if (!profile || !profile.push_subscription) {
+      console.error('[send-push] No sub para', userId || email, profile ? 'sin subscription' : 'no row');
+      return { statusCode: 404, body: 'Suscripción no encontrada.' };
     }
 
     await webpush.sendNotification(
@@ -44,11 +55,14 @@ exports.handler = async (event) => {
       JSON.stringify({ title, body })
     );
 
-    console.log('[send-push] ok');
+    console.log('[send-push] OK');
     return { statusCode: 200, body: 'Push enviado correctamente.' };
   } catch (e) {
     console.error('[send-push] error', e);
-    if (e.statusCode === 410) return { statusCode: 410, body: 'Suscripción expirada' };
+    if (e.statusCode === 410) {
+      // 410 = suscripción vencida; puedes limpiar aquí si quieres
+      console.warn('[send-push] Suscripción expirada (410).');
+    }
     return { statusCode: 500, body: e.message };
   }
 };
