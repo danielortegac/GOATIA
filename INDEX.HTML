@@ -2202,7 +2202,21 @@ async function spendCredit() {
         currentCredits = result.credits;
         updateCreditsUI(currentCredits);
         document.getElementById("username").textContent = result.user_metadata?.full_name || "Usuario";
-        document.getElementById("plan-name").textContent = result.plan || "-";
+        window.lastKnownPlan = (result.plan || 'free');
+window.lastKnownCredits = result.credits;
+// Update legacy element but always uppercase
+document.getElementById("plan-name").textContent = window.lastKnownPlan.toUpperCase();
+// Update unified displays
+if (typeof window.updateCreditDisplay === 'function') {
+  window.updateCreditDisplay(currentCredits, (window.lastKnownPlan || 'free').toLowerCase());
+}
+try {
+  if (typeof creditSyncChannel !== 'undefined' && creditSyncChannel) {
+    creditSyncChannel.postMessage({ type: 'sync', plan: window.lastKnownPlan, credits: currentCredits });
+  }
+} catch (e) { console.warn('BC postMessage failed', e); }
+if (typeof window.__goatifyFixV2__ === 'function') window.__goatifyFixV2__();
+
       } else {
         updateCreditsUI("ERR");
       }
@@ -2281,7 +2295,19 @@ async function spendCredit() {
       }
     });
   });
+</script><script>
+// Ensure any lingering FREE/Boost/pro label is unified to Supabase plan (uppercase)
+document.addEventListener('DOMContentLoaded', function() {
+  try {
+    var p = (window.lastKnownPlan ||
+             window.currentPlan ||
+             (window.netlifyIdentity && window.netlifyIdentity.currentUser() && window.netlifyIdentity.currentUser().app_metadata && window.netlifyIdentity.currentUser().app_metadata.plan) ||
+             'free').toString().toUpperCase();
+    document.querySelectorAll('[data-plan-name], #plan-name, #settings-user-plan').forEach(function(el){ el.textContent = p; });
+  } catch(e) { console.warn('Plan uppercase sync failed', e); }
+});
 </script>
+
 <script>
     document.addEventListener('DOMContentLoaded', () => {
         const urlParams = new URLSearchParams(window.location.search);
@@ -3941,9 +3967,9 @@ async function spendCredit() {
                 if (currentUser) {
     syncCreditsFromSupabase();
                     dom.settingsUserEmail.textContent = currentUser.email;
-                    const userPlan = currentUser.app_metadata?.plan || 'free';
-                    dom.settingsUserPlan.textContent = userPlan.charAt(0).toUpperCase() + userPlan.slice(1);
-                    dom.settingsUpgradePlanBtn.classList.toggle('hidden', userPlan !== 'free'); // Ocultar el botón de actualización si no es gratis
+                    const userPlanRaw = (window.lastKnownPlan || currentUser.app_metadata?.plan || 'free').toLowerCase();
+dom.settingsUserPlan.textContent = userPlanRaw.toUpperCase();
+dom.settingsUpgradePlanBtn.classList.toggle('hidden', userPlanRaw !== 'free'); // Ocultar el botón de actualización si no es gratis
                 } else {
                     dom.settingsUserEmail.textContent = 'No ha iniciado sesión';
                     dom.settingsUserPlan.textContent = 'Gratis (Invitado)';
@@ -9999,5 +10025,78 @@ window.updateDisplay = updateCreditDisplay;
 })();
 </script>
 <!-- END GOATIFY FIX PATCH v2 -->
+
+<!-- FINAL PATCH: Remove any '/limit' artifacts next to the credit counter and always show only the number -->
+<script>
+(function () {
+  const CREDIT_SELECTORS = '.credits-count, [data-credit-counter], #plan-credits-display';
+
+  function stripSlash(node) {
+    if (!node) return;
+    try {
+      // If the element itself contains something like '3994/100', keep only the first number
+      if (node.nodeType === 1) {
+        const txt = node.textContent;
+        if (/^\s*\d+\s*\/\s*\d+/.test(txt)) {
+          const m = txt.match(/\d+/);
+          if (m) node.textContent = m[0];
+        }
+      }
+      // Remove following siblings that are '/100' either as text or as a small element
+      let sib = node.nextSibling;
+      while (sib) {
+        if (sib.nodeType === 3) {
+          if (/^\s*\/\s*\d+/.test(sib.textContent)) {
+            sib.textContent = '';
+          }
+        } else if (sib.nodeType === 1) {
+          const t = sib.textContent.trim();
+          if (/^\/\s*\d+$/.test(t)) {
+            sib.remove();
+            break;
+          }
+        }
+        sib = sib.nextSibling;
+      }
+    } catch (e) {
+      console.warn('stripSlash error', e);
+    }
+  }
+
+  function enforceCreditsOnly(creditsVal) {
+    const els = document.querySelectorAll(CREDIT_SELECTORS);
+    els.forEach(el => {
+      if (typeof creditsVal === 'number') {
+        el.textContent = String(creditsVal);
+      }
+      stripSlash(el);
+    });
+  }
+
+  // Run often and on key lifecycle moments
+  window.addEventListener('DOMContentLoaded', () => enforceCreditsOnly());
+  window.addEventListener('focus', () => enforceCreditsOnly());
+  setInterval(() => enforceCreditsOnly(), 1500);
+
+  const wrapper = document.getElementById('message-counter-wrapper');
+  if (wrapper) {
+    const obs = new MutationObserver(() => enforceCreditsOnly());
+    obs.observe(wrapper, { childList: true, characterData: true, subtree: true });
+  }
+
+  // Monkey-patch existing helpers so any future updates also respect the rule
+  const _origUpdateCreditDisplay = window.updateCreditDisplay;
+  window.updateCreditDisplay = function (credits, plan) {
+    try { if (_origUpdateCreditDisplay) _origUpdateCreditDisplay(credits, plan); } catch (e) {}
+    enforceCreditsOnly(credits);
+  };
+
+  const _origUpdateCreditsUI = window.updateCreditsUI;
+  window.updateCreditsUI = function (credits) {
+    try { if (_origUpdateCreditsUI) _origUpdateCreditsUI(credits); } catch (e) {}
+    enforceCreditsOnly(credits);
+  };
+})();
+</script>
 </body>
 </html>
