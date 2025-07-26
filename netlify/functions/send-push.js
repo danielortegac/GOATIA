@@ -1,38 +1,54 @@
-const { ensureVapid, fetchSubscription, sendToSubscription } = require('./_send_push_common');
+// netlify/functions/send-push.js
+const webpush = require('web-push');
+const { createClient } = require('@supabase/supabase-js');
+
+webpush.setVapidDetails(
+  'mailto:info@goatify.app',
+  process.env.VAPID_PUBLIC_KEY,
+  process.env.VAPID_PRIVATE_KEY
+);
 
 exports.handler = async (event) => {
+  console.log('[send-push inline] start');
+
   if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, body: 'Method Not Allowed' };
+    return { statusCode: 405, body: 'Método no permitido' };
   }
-  console.log('[send-push] Función iniciada.');
 
   try {
-    ensureVapid();
+    const { userId, email, title = 'Goatify IA', body = '¡Tienes una nueva notificación!' } =
+      JSON.parse(event.body || '{}');
 
-    const { userId, payload } = JSON.parse(event.body || '{}');
-    if (!userId) {
-      return { statusCode: 400, body: JSON.stringify({ error: 'Missing userId' }) };
-    }
-    console.log('[send-push] Buscando suscripción push para el usuario:', userId);
-
-    let subscription;
-    try {
-      subscription = await fetchSubscription(userId);
-    } catch (err) {
-      if (err.code === 'NO_SUB') {
-        console.error('[send-push] No se encontró la suscripción push para el usuario:', userId);
-        return { statusCode: 200, body: JSON.stringify({ ok: false, reason: 'no-subscription' }) };
-      }
-      throw err;
+    if (!userId && !email) {
+      return { statusCode: 400, body: 'Falta userId o email' };
     }
 
-    const effectivePayload = payload || { title: 'Goatify', body: 'Tienes una notificación.' };
-    await sendToSubscription(subscription, effectivePayload);
+    const supabase = createClient(
+      process.env.SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_KEY
+    );
 
-    console.log('[send-push] Notificación enviada.');
-    return { statusCode: 200, body: JSON.stringify({ ok: true }) };
-  } catch (err) {
-    console.error('[send-push] Error', err);
-    return { statusCode: 500, body: JSON.stringify({ error: err.message }) };
+    let query = supabase.from('profiles').select('id, push_subscription').single();
+    if (userId) query = query.eq('id', userId);
+    else query = query.eq('email', email);
+
+    const { data: profile, error } = await query;
+
+    if (error || !profile || !profile.push_subscription) {
+      console.error('[send-push] No sub para', userId || email, error);
+      return { statusCode: 404, body: 'Suscripción no encontrada' };
+    }
+
+    await webpush.sendNotification(
+      profile.push_subscription,
+      JSON.stringify({ title, body })
+    );
+
+    console.log('[send-push] ok');
+    return { statusCode: 200, body: 'Push enviado correctamente.' };
+  } catch (e) {
+    console.error('[send-push] error', e);
+    if (e.statusCode === 410) return { statusCode: 410, body: 'Suscripción expirada' };
+    return { statusCode: 500, body: e.message };
   }
 };
