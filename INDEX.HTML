@@ -10367,5 +10367,100 @@ document.addEventListener('DOMContentLoaded', () => {
   mo.observe(document.documentElement, { childList: true, subtree: true });
 })();
 </script>
+
+<!-- Goatify popup fix v27m -->
+<script>
+(function(){
+  if (window.__goatifyPopupFixV27m) return;
+  window.__goatifyPopupFixV27m = true;
+
+  const GUEST_FLAG_KEY = 'goatify_hide_guest_popup';
+
+  function isLogged(){
+    try { return !!(window.netlifyIdentity && window.netlifyIdentity.currentUser()); }
+    catch(e){ return false; }
+  }
+
+  if (window.netlifyIdentity){
+    window.netlifyIdentity.on('login', function(user){
+      try { localStorage.setItem(GUEST_FLAG_KEY, '1'); } catch(e){}
+    });
+    window.netlifyIdentity.on('init', function(user){
+      if (user){ try { localStorage.setItem(GUEST_FLAG_KEY, '1'); } catch(e){} }
+    });
+  }
+
+  async function getIdentityAuth(){
+    const user = (window.netlifyIdentity && window.netlifyIdentity.currentUser) ? window.netlifyIdentity.currentUser() : null;
+    if (!user) return { user:null, token:null };
+    try {
+      const jwt = await user.jwt();
+      return { user, token: jwt };
+    } catch(e){
+      console.warn('[popup-fix] JWT error', e);
+      return { user, token: (user.token && user.token.access_token) ? user.token.access_token : null };
+    }
+  }
+
+  window.spendCredit = async function(cost = 1){
+    try {
+      const { user, token } = await getIdentityAuth();
+
+      if (user){
+        const res = await fetch('/.netlify/functions/update-usage', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          },
+          body: JSON.stringify({ delta: -cost })
+        });
+        const result = await res.json();
+        if (typeof result.credits === 'number'){
+          if (typeof window.remoteCredits === 'number') window.remoteCredits = result.credits;
+          window.currentCredits = result.credits;
+          if (typeof window.updateCreditCounter === 'function') window.updateCreditCounter();
+          if (typeof window.updateCreditsUI === 'function') window.updateCreditsUI(result.credits);
+          return true;
+        }
+        console.warn('[spendCredit override] Respuesta inesperada', result);
+        return false;
+      }
+
+      const suppress = localStorage.getItem(GUEST_FLAG_KEY) === '1';
+      const GUEST_CREDIT_LIMIT = (window.GUEST_CREDIT_LIMIT || 5);
+      const usageObj = JSON.parse(localStorage.getItem('guest_usage') || '{"count":0}');
+      const used = usageObj.count || 0;
+
+      if ((used + cost) > GUEST_CREDIT_LIMIT){
+        if (suppress){
+          return false;
+        }
+        const lang = localStorage.getItem('goatify-lang') || 'es';
+        if (typeof window.showModal === 'function'){
+          const res = await window.showModal({
+            title: (window.translations?.[lang]?.login_for_credits_title) || 'Necesitas iniciar sesión',
+            body:  (window.translations?.[lang]?.login_for_credits_body)  || 'Inicia sesión para obtener más créditos.',
+            confirmText: (window.translations?.[lang]?.login_now_btn) || 'Iniciar Sesión',
+            cancelText: (window.translations?.[lang]?.view_plans_btn) || 'Ver Planes'
+          });
+          if (res && res.confirmed && window.netlifyIdentity){
+            window.netlifyIdentity.open('login');
+          } else if (typeof window.showPricingModal === 'function'){
+            window.showPricingModal();
+          }
+        }
+        return false;
+      }
+      return true;
+    } catch(err){
+      console.error('[spendCredit override] Error', err);
+      return false;
+    }
+  };
+
+})();
+</script>
+
 </body>
 </html>
