@@ -2241,16 +2241,11 @@ try {
 if (typeof window.__goatifyFixV2__ === 'function') window.__goatifyFixV2__();
 
       } else {
-        const plan = (result.plan || window.lastKnownPlan || 'free').toLowerCase();
-        const fallback = (PLAN_LIMITS && PLAN_LIMITS[plan]) ? PLAN_LIMITS[plan] : PLAN_LIMITS.free;
-        currentCredits = (typeof result.credits === 'number') ? result.credits : fallback;
-        window.lastKnownPlan = plan;
-        updateCreditsUI(currentCredits);
-        if (typeof window.updateCreditDisplay === 'function') window.updateCreditDisplay(currentCredits, plan);
+        updateCreditsUI("ERR");
       }
     } catch (err) {
       console.error('Error fetching credits:', err);
-      if (typeof window.updateCreditDisplay==='function') window.updateCreditDisplay(currentCredits || 0, (window.lastKnownPlan||'free'));
+      updateCreditsUI("ERR");
     }
   }
 
@@ -2335,7 +2330,6 @@ document.addEventListener('DOMContentLoaded', function() {
   } catch(e) { console.warn('Plan uppercase sync failed', e); }
 });
 </script>
-
 <script>
     document.addEventListener('DOMContentLoaded', () => {
         const urlParams = new URLSearchParams(window.location.search);
@@ -2533,7 +2527,7 @@ document.addEventListener('DOMContentLoaded', function() {
 <div class="flex items-center space-x-1 sm:space-x-2 header-right-icons">
 <div class="flex items-center space-x-2 text-xs font-mono whitespace-nowrap block mx-2 cursor-pointer" id="message-counter-wrapper">
 <div class="flex items-center" id="plan-credits-info">
-<i class="fas fa-trophy text-primary mr-1 text-base"></i><span id="plan-credits-display" data-credit-counter>0</span>
+<i class="fas fa-trophy text-primary mr-1 text-base"></i><span data-credit-counter="" id="plan-credits-display">0</span>
 </div>
 <div class="flex items-center" id="reward-credits-info">
 <i class="fas fa-coins text-gold ml-2 mr-1 text-base"></i> <span id="reward-credits-display">0</span>
@@ -7467,14 +7461,7 @@ dom.settingsUpgradePlanBtn.classList.toggle('hidden', userPlanRaw !== 'free'); /
                 });
 
                 // Escuchadores de eventos para crear nuevo chat y carpeta
-                let __newChatLock = false;
-                let __newChatLast = 0;
-                const newChatHandler = () => {
-                    const now = Date.now();
-                    if (__newChatLock || now - __newChatLast < 350) return;
-                    __newChatLock = true; __newChatLast = now;
-                    Promise.resolve(createNewChat()).finally(() => { __newChatLock = false; });
-                };
+                const newChatHandler = () => createNewChat();
                 dom.newChatBtn?.addEventListener('click', newChatHandler);
                 dom.newChatIconBtn?.addEventListener('click', newChatHandler);
 
@@ -9700,7 +9687,6 @@ document.querySelectorAll('.select-plan-btn').forEach(btn => {
   });
 });
 </script>
-
 <script>
 // ====== CONFIGURACIÓN ======
 const SHOW_LIMIT = false; // false => muestra sólo "3994", true => "3994/4000"
@@ -9761,7 +9747,7 @@ async function fetchCredits() {
     const data = await res.json();
 
     lastKnownPlan = (data.plan || user.app_metadata?.plan || 'free').toLowerCase();
-    remoteCredits = (typeof data.credits === 'number') ? data.credits : (PLAN_LIMITS[(lastKnownPlan||'free')]||PLAN_LIMITS.free);
+    remoteCredits = (typeof data.credits === 'number') ? data.credits : 0;
 
     updateCreditDisplay(remoteCredits, lastKnownPlan);
   } catch (err) {
@@ -9879,8 +9865,6 @@ window.fetchCredits  = fetchCredits;
 window.spendCredit   = spendCredit;
 window.updateDisplay = updateCreditDisplay;
 </script>
-
-
 <!-- START GOATIFY FIX PATCH v1 -->
 <script>
 (function(){
@@ -10009,7 +9993,6 @@ window.updateDisplay = updateCreditDisplay;
 })(); 
 </script>
 <!-- END GOATIFY FIX PATCH v1 -->
-
 <!-- START GOATIFY FIX PATCH v2 -->
 <script>
 (function(){
@@ -10068,7 +10051,6 @@ window.updateDisplay = updateCreditDisplay;
 })();
 </script>
 <!-- END GOATIFY FIX PATCH v2 -->
-
 <!-- FINAL PATCH: Remove any '/limit' artifacts next to the credit counter and always show only the number -->
 <script>
 (function () {
@@ -10142,157 +10124,176 @@ window.updateDisplay = updateCreditDisplay;
 })();
 </script>
 
-<!-- === GOATIFY Hotfix Block v2025-07-27 === -->
+<script>
+// --- Goatify collapsibles fix (minimal, idempotent) ---
+document.addEventListener('DOMContentLoaded', () => {
+  const toggleCategory = (categoryEl, arrowSelector) => {
+    const arrow = categoryEl.querySelector(arrowSelector);
+    const content = categoryEl.querySelector('.workflow-content, .actions-content, .folders-content');
+    const isOpen = categoryEl.classList.toggle('open');
+    if (arrow) arrow.style.transform = isOpen ? 'rotate(90deg)' : 'rotate(0deg)';
+    if (content) {
+      if (isOpen) {
+        content.classList.remove('hidden');
+        content.classList.add('block');
+        content.style.display = '';
+      } else {
+        content.classList.remove('block');
+        content.classList.add('hidden');
+        content.style.display = 'none';
+      }
+    }
+  };
+
+  // Attach click handlers
+  document.querySelectorAll('.workflow-category .workflow-header').forEach(h => {
+    h.addEventListener('click', () => toggleCategory(h.closest('.workflow-category'), '.workflow-arrow'));
+  });
+  document.querySelectorAll('.actions-category .actions-header').forEach(h => {
+    h.addEventListener('click', () => toggleCategory(h.closest('.actions-category'), '.actions-arrow'));
+  });
+  document.querySelectorAll('.folders-category .folders-header').forEach(h => {
+    h.addEventListener('click', () => toggleCategory(h.closest('.folders-category'), '.folder-arrow'));
+  });
+
+  // Normalize initial state: show when .open, hide otherwise
+  document.querySelectorAll('.workflow-category, .actions-category, .folders-category').forEach(cat => {
+    const content = cat.querySelector('.workflow-content, .actions-content, .folders-content');
+    const arrow = cat.querySelector('.workflow-arrow, .actions-arrow, .folder-arrow');
+    const isOpen = cat.classList.contains('open');
+    if (content) {
+      if (isOpen) {
+        content.classList.remove('hidden');
+        content.classList.add('block');
+        content.style.display = '';
+      } else {
+        content.classList.remove('block');
+        content.classList.add('hidden');
+        content.style.display = 'none';
+      }
+    }
+    if (arrow) {
+      arrow.style.transform = isOpen ? 'rotate(90deg)' : 'rotate(0deg)';
+    }
+  });
+
+  // Mobile: ensure action tool buttons stay visible in one line
+  const toolsContainer = document.querySelector('#input-area-model-row .action-buttons-container');
+  if (toolsContainer) {
+    toolsContainer.style.flexWrap = 'nowrap';
+  }
+});
+</script>
+
+<!-- Goatify collapsibles v27k (delegated, nested, idempotent) -->
 <script>
 (function(){
-  if (window.__goatifyHotfixApplied) return;
-  window.__goatifyHotfixApplied = true;
+  if (window.__goatifyCollapsersV27k) return;
+  window.__goatifyCollapsersV27k = true;
 
-  function byId(id){ return document.getElementById(id); }
+  const CONTENT_SELECTORS = ['.workflow-content','.actions-content','.folders-content','.project-body','.folder-chat-list','.section-content'];
+  const ARROW_SELECTORS = ['.workflow-arrow','.actions-arrow','.folder-arrow','.project-arrow','.fa-chevron-right','.chevron','.arrow'];
 
-  // ---------- One-flight guard ----------
-  window.__oneActions = window.__oneActions || {};
-  function onceRun(key, fn){
-    const now = performance.now();
-    const last = window.__oneActions[key] || 0;
-    if (now - last < 450) return; // ignore double clicks within 450ms
-    window.__oneActions[key] = now;
-    try { return fn(); } catch(e){ console.warn('onceRun error', key, e); }
-  }
-
-  // ---------- Rebind helpers (remove previous listeners) ----------
-  function rebindClick(id, handler, stopBubble){
-    const el = byId(id);
-    if (!el) return;
-    const clone = el.cloneNode(true);
-    el.parentNode.replaceChild(clone, el);
-    clone.addEventListener('click', function(ev){
-      if (stopBubble) ev.stopPropagation();
-      onceRun(id, handler);
-    }, true);
-    return clone;
-  }
-
-  // ---------- Create Chat / Folder: avoid duplicates ----------
-  const newChatHandler = function(){
-    if (typeof window.createNewChat === 'function') return window.createNewChat();
-    // fallback: dispatch custom event others may listen to
-    document.dispatchEvent(new CustomEvent('goatify:new-chat'));
-  };
-  const newFolderHandler = function(){
-    if (typeof window.createNewProjectFolder === 'function') return window.createNewProjectFolder();
-    document.dispatchEvent(new CustomEvent('goatify:new-folder'));
-  };
-
-  rebindClick('new-chat-btn', newChatHandler, false);
-  rebindClick('new-chat-icon-btn', newChatHandler, true); // stop bubbling so it doesn't reach the parent
-  rebindClick('new-folder-btn', newFolderHandler, false);
-  rebindClick('add-project-folder-btn', newFolderHandler, true);
-
-  // ---------- Accordions: Acciones Rápidas & Mis Proyectos ----------
-  function bindAccordion(containerId, headerSel, contentSel, arrowSel){
-    const c = byId(containerId);
-    if (!c) return;
-    const header = c.querySelector(headerSel);
-    const content = c.querySelector(contentSel);
-    const arrow = c.querySelector(arrowSel);
-    if (!header || header.dataset.bound) return;
-    header.dataset.bound = "1";
-    function setState(open){
-      c.classList.toggle('open', open);
-      if (content) content.style.display = open ? 'block' : 'none';
-      if (arrow) arrow.style.transform = open ? 'rotate(90deg)' : 'rotate(0deg)';
+  function findContent(container){
+    for (const sel of CONTENT_SELECTORS){
+      const el = container.querySelector(sel);
+      if (el) return el;
     }
-    header.addEventListener('click', function(){
-      setState(!c.classList.contains('open'));
-    });
-    // initial
-    setState(c.classList.contains('open'));
+    return null;
   }
-  bindAccordion('actions-category', '.actions-header', '.actions-content', '.actions-arrow');
-  bindAccordion('folders-category', '.folders-header', '.folders-content', '.folder-arrow');
-
-  // ---------- Credits & Plan: ensure update right after login ----------
-  async function hardSyncProfile(){
-    try{
-      if (!window.supabase) return;
-      const uid = window.currentUser?.id || window.currentUser?.user?.id || window.currentUser?.sub || window.currentUser?.user?.sub;
-      if (!uid) return;
-      const { data, error } = await window.supabase
-        .from('profiles')
-        .select('plan, usage_base, credits')
-        .eq('id', uid)
-        .single();
-      if (error) { console.warn('[hotfix] profile select error', error); return; }
-      const plan = (data?.plan || 'free').toUpperCase();
-      const credits = (data?.usage_base && typeof data.usage_base.credits === 'number')
-        ? data.usage_base.credits
-        : (typeof data?.credits === 'number' ? data.credits : 0);
-      window.currentCredits = credits;
-
-      // Update counters already in DOM
-      document.querySelectorAll('[data-credit-counter]').forEach(el => { el.textContent = String(credits); });
-      // Top header coin (legacy)
-      const topCounter = document.querySelector('#plan-credits-display');
-      if (topCounter) topCounter.textContent = String(credits);
-
-      // Plan text spots
-      document.querySelectorAll('[data-plan-name]').forEach(el => { el.textContent = plan; });
-      const planActiveEl = document.getElementById('plan-active-text');
-      if (planActiveEl) planActiveEl.textContent = plan;
-      const subscriptionPlanEl = document.getElementById('subscription-plan-text');
-      if (subscriptionPlanEl) subscriptionPlanEl.textContent = plan;
-    }catch(e){ console.warn('[hotfix] hardSyncProfile error', e); }
-  }
-
-  function ensureJwtInCurrentUser(user){
-    if (!user) return user;
-    if (user.token && user.token.access_token) return user;
-    // try to fetch a fresh jwt from netlify-identity user
-    if (typeof user.jwt === 'function'){
-      return user.jwt().then(function(jwt){
-        user.token = { access_token: jwt };
-        return user;
-      }).catch(function(e){ console.warn('[hotfix] jwt fetch fail', e); return user; });
+  function findArrow(container){
+    for (const sel of ARROW_SELECTORS){
+      const el = container.querySelector(sel);
+      if (el) return el;
     }
-    return user;
+    return null;
+  }
+  function setState(container, open){
+    container.classList.toggle('open', open);
+    const content = findContent(container);
+    if (content){
+      if (open){
+        content.classList.remove('hidden');
+        content.classList.add('block');
+        content.style.display = '';
+      } else {
+        content.classList.remove('block');
+        content.classList.add('hidden');
+        content.style.display = 'none';
+      }
+    }
+    const arrow = findArrow(container);
+    if (arrow){
+      arrow.style.transition = 'transform .15s ease';
+      arrow.style.transform = open ? 'rotate(90deg)' : 'rotate(0deg)';
+    }
+  }
+  function toggle(container){
+    const open = !container.classList.contains('open');
+    setState(container, open);
   }
 
-  // Netlify Identity hooks
-  if (window.netlifyIdentity && !window.__patchedNetlifyLogin){
-    window.__patchedNetlifyLogin = true;
-    window.netlifyIdentity.on('login', async function(user){
-      window.currentUser = user;
-      await ensureJwtInCurrentUser(user);
-      await hardSyncProfile();
-      if (typeof window.fetchCredits === 'function'){
-        try { await window.fetchCredits(); } catch(e){ console.warn('[hotfix] fetchCredits after login', e); }
-      }
-    });
-    window.netlifyIdentity.on('init', async function(user){
-      if (user){
-        window.currentUser = user;
-        await ensureJwtInCurrentUser(user);
-        hardSyncProfile();
-      }
+  function isHeaderClick(target, headerSel){
+    const header = target.closest(headerSel);
+    if (!header) return false;
+    if (target.closest('button, a, input, select, textarea, [role="button"], .chat-move-btn')) return false;
+    return true;
+  }
+
+  function normalize(){
+    document.querySelectorAll('.workflow-category, .actions-category, .folders-category, .project.folder, .project').forEach(c=>{
+      const open = c.classList.contains('open');
+      setState(c, open);
     });
   }
 
-  // Supabase auth hook (if used)
-  if (window.supabase && window.supabase.auth && !window.__patchedSupabaseAuth){
-    window.__patchedSupabaseAuth = true;
-    window.supabase.auth.onAuthStateChange(async function(_e, session){
-      if (session?.user){
-        window.currentUser = { id: session.user.id, email: session.user.email, token: { access_token: session.access_token } };
-        await hardSyncProfile();
-      }
-    });
+  document.addEventListener('click', function(e){
+    if (isHeaderClick(e.target, '.workflow-category .workflow-header') ||
+        e.target.closest('.workflow-category .workflow-arrow')){
+      const c = e.target.closest('.workflow-category');
+      if (c){ toggle(c); e.stopPropagation(); return; }
+    }
+    if (isHeaderClick(e.target, '.actions-category .actions-header') ||
+        e.target.closest('.actions-category .actions-arrow')){
+      const c = e.target.closest('.actions-category');
+      if (c){ toggle(c); e.stopPropagation(); return; }
+    }
+    if (isHeaderClick(e.target, '.folders-category .folders-header') ||
+        e.target.closest('.folders-category .folder-arrow')){
+      const c = e.target.closest('.folders-category');
+      if (c){ toggle(c); e.stopPropagation(); return; }
+    }
+    if (isHeaderClick(e.target, '.project.folder .project-header, .project .project-header, .project.folder .folders-header')){
+      const c = e.target.closest('.project.folder, .project');
+      if (c){ toggle(c); e.stopPropagation(); return; }
+    }
+  }, true);
+
+  if (document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', normalize);
+  } else {
+    normalize();
   }
 
-  // run once on load after a short delay (DOM ready)
-  setTimeout(hardSyncProfile, 1200);
+  const mo = new MutationObserver(muts => {
+    for (const mu of muts){
+      mu.addedNodes && mu.addedNodes.forEach(n => {
+        if (n.nodeType !== 1) return;
+        if (n.matches && (n.matches('.workflow-category, .actions-category, .folders-category, .project.folder, .project'))){
+          const open = n.classList.contains('open');
+          setState(n, open);
+        } else {
+          const c = n.closest && n.closest('.workflow-category, .actions-category, .folders-category, .project.folder, .project');
+          if (c) {
+            const open = c.classList.contains('open');
+            setState(c, open);
+          }
+        }
+      });
+    }
+  });
+  mo.observe(document.documentElement, { childList: true, subtree: true });
 })();
 </script>
-<!-- === /GOATIFY Hotfix Block === -->
 </body>
 </html>
