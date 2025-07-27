@@ -50,26 +50,51 @@ async function loadChats(userId) {
     }
 }
 
-async function spendCredit() {
+async function spendCredit(cost = 1) {
   try {
+    // Invitado: solo validamos y mostramos popup. No descontamos aquí;
+    // el descuento real se hace en spendCredits(cost,...).
+    if (!currentUser) {
+      const usageData = JSON.parse(localStorage.getItem('guest_usage')) || { count: 0 };
+      const used = usageData.count || 0;
+      if ((used + cost) > GUEST_CREDIT_LIMIT) {
+        const lang = localStorage.getItem('goatify-lang') || 'es';
+        await showModal({
+          title: translations[lang].login_for_credits_title,
+          body: translations[lang].login_for_credits_body,
+          confirmText: translations[lang].login_now_btn,
+          cancelText: translations[lang].view_plans_btn,
+        }).then(res => {
+          if (res?.confirmed) netlifyIdentity.open('login');
+          else showPricingModal();
+        });
+        return false;
+      }
+      return true;
+    }
+
+    // Usuario con sesión: descontamos en el backend y actualizamos contador remoto.
     const response = await fetch('/.netlify/functions/update-usage', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${currentUser.token.access_token}`
       },
-      body: JSON.stringify({ delta: -1 }) // 👈 ¡Esta es la forma correcta!
+      body: JSON.stringify({ delta: -cost })
     });
-
     const result = await response.json();
-    if (result.credits !== undefined) {
+    if (typeof result.credits === 'number') {
+      // Mantén una copia local para que getCreditCount() lo muestre de inmediato
+      if (typeof remoteCredits === 'number') remoteCredits = result.credits;
       currentCredits = result.credits;
-      updateCreditsUI(currentCredits);
-    } else {
-      console.warn("Respuesta inesperada al gastar crédito:", result);
+      updateCreditCounter();
+      return true;
     }
+    console.warn('[spendCredit] Respuesta inesperada:', result);
+    return false;
   } catch (error) {
-    console.error("Error al gastar crédito:", error);
+    console.error('[spendCredit] Error al gastar crédito:', error);
+    return false;
   }
 }
 
@@ -2103,7 +2128,20 @@ async function spendCredit() {
             object-fit: contain; /* Keep aspect ratio */
         }
 
-    </style>
+    
+/* --- Mobile tools row: ensure one line and visible icons --- */
+@media (max-width: 767px){
+  #input-area-model-row{
+    flex-wrap: nowrap;
+    gap: 0.25rem;
+  }
+  #input-area-model-row .action-buttons-container button{
+    padding: 0.25rem 0.4rem;
+    font-size: 0.8rem;
+  }
+  #voice-selector-container{ flex-shrink: 0; }
+}
+</style>
 <meta content="Goatify IA es tu copiloto estratégico, una inteligencia artificial avanzada que combina dirección de proyectos, asistente financiero, y herramientas creativas únicas en el mercado para potenciar tu negocio y productividad." name="description"/>
 <meta content="Goatify IA, inteligencia artificial, dirección de proyectos, asistente financiero, productividad, automatización de ventas, estrategias de marketing, creación de contenido, SEO, herramientas de IA, negocio digital" name="keywords"/>
 <meta content="Goatify IA Team" name="author"/>
@@ -2873,6 +2911,27 @@ document.addEventListener('DOMContentLoaded', function() {
 </div>
 <button class="mt-auto w-full p-3 rounded-lg font-semibold border-2 border-primary text-primary hover:bg-primary hover:text-white transition-colors" data-translate-key="plan_free_cta" id="free-plan-button">Tu Plan Actual</button>
 </div>
+<script>
+// --- Guest credit modal buttons (safety) ---
+document.addEventListener('DOMContentLoaded', () => {
+  const loginBtn = document.getElementById('credit-modal-login-btn');
+  const closeBtn = document.getElementById('credit-modal-close-btn');
+  const modal = document.getElementById('credit-limit-modal');
+  if (loginBtn) {
+    loginBtn.addEventListener('click', () => {
+      try { netlifyIdentity.open('login'); } catch (e) { console.error(e); }
+      if (modal) modal.classList.add('hidden');
+    });
+  }
+  if (closeBtn) {
+    closeBtn.addEventListener('click', () => {
+      if (modal) modal.classList.add('hidden');
+      try { showPricingModal(); } catch(e){}
+    });
+  }
+});
+</script>
+
 <!-- Boost Plan Card -->
 <div class="plan-card border-2 rounded-xl p-6 flex flex-col bg-current-bg-dark plan-card-highlight">
 <h3 class="text-2xl font-bold">GOAT <span class="text-primary">BOOST</span></h3>
@@ -6382,10 +6441,23 @@ dom.settingsUpgradePlanBtn.classList.toggle('hidden', userPlanRaw !== 'free'); /
                 const canSpend = await window.spendCredit();
                 if (!canSpend) {
                 console.log("No hay créditos suficientes para enviar el mensaje.");
-                // Aquí puedes mostrar tu modal de "sin créditos"
-                return; 
-                }
-                const currentChat = state.chats[chatIdToUpdate];
+                const lang = (localStorage.getItem('goatify-lang') || 'es');
+                const t = translations[lang] || translations['es'];
+                try {
+                  const res = await showModal({
+                    title: t.login_for_credits_title,
+                    body: t.login_for_credits_body,
+                    confirmText: t.login_now_btn,
+                    cancelText: t.view_plans_btn,
+                  });
+                  if (res && res.confirmed && window.netlifyIdentity) {
+                    window.netlifyIdentity.open('login');
+                  } else if (typeof showPricingModal === 'function') {
+                    showPricingModal();
+                  }
+                } catch (e) { console.warn('[popup]', e); }
+                return;
+              }                const currentChat = state.chats[chatIdToUpdate];
                 if (!currentChat && assistantType !== 'translator') return; // Asegurarse de que el chat exista para tipos que no son traductores
 
                 // Determinar si se necesita una búsqueda web en función de las palabras clave
