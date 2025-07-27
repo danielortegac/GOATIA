@@ -8,23 +8,29 @@ webpush.setVapidDetails(
 );
 
 exports.handler = async (event) => {
-  console.log('[send-push inline] start');
+  console.info('[send-push] start');
 
   if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, body: 'Método no permitido' };
+    return { statusCode: 405, body: 'Method Not Allowed' };
   }
 
   try {
-    const payload = JSON.parse(event.body || '{}');
-    const { userId, email, title = 'Goatify IA', body = '¡Tienes una nueva notificación!' } = payload;
+    const { userId, email, title = 'Goatify IA', body = '¡Tienes una nueva notificación!' } =
+      JSON.parse(event.body || '{}');
 
     if (!userId && !email) {
-      return { statusCode: 400, body: 'Falta userId o email.' };
+      return { statusCode: 400, body: 'userId or email required' };
     }
 
-    const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
+    const SUPABASE_URL = process.env.SUPABASE_URL;
+    const SERVICE_KEY  = process.env.SUPABASE_SERVICE_KEY; // <- única variable
 
-    // 1) Buscar por id si viene
+    if (!SUPABASE_URL || !SERVICE_KEY) {
+      return { statusCode: 500, body: 'Missing SUPABASE_URL or SUPABASE_SERVICE_KEY' };
+    }
+
+    const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
+
     let profile = null;
     if (userId) {
       const { data, error } = await supabase
@@ -34,8 +40,6 @@ exports.handler = async (event) => {
         .single();
       if (!error && data) profile = data;
     }
-
-    // 2) Fallback por email si no hay resultado
     if (!profile && email) {
       const { data, error } = await supabase
         .from('profiles')
@@ -46,23 +50,17 @@ exports.handler = async (event) => {
     }
 
     if (!profile || !profile.push_subscription) {
-      console.error('[send-push] No sub para', userId || email, profile ? 'sin subscription' : 'no row');
-      return { statusCode: 404, body: 'Suscripción no encontrada.' };
+      console.error('[send-push] No sub for', userId || email, 'sin subscription');
+      return { statusCode: 404, body: 'Subscription not found' };
     }
 
-    await webpush.sendNotification(
-      profile.push_subscription,
-      JSON.stringify({ title, body })
-    );
+    await webpush.sendNotification(profile.push_subscription, JSON.stringify({ title, body }));
 
-    console.log('[send-push] OK');
-    return { statusCode: 200, body: 'Push enviado correctamente.' };
+    console.info('[send-push] sent ok to', profile.id);
+    return { statusCode: 200, body: 'OK' };
   } catch (e) {
     console.error('[send-push] error', e);
-    if (e.statusCode === 410) {
-      // 410 = suscripción vencida; puedes limpiar aquí si quieres
-      console.warn('[send-push] Suscripción expirada (410).');
-    }
-    return { statusCode: 500, body: e.message };
+    if (e.statusCode === 410) return { statusCode: 410, body: 'Subscription gone' };
+    return { statusCode: 500, body: e.message || 'Error' };
   }
 };
