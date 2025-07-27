@@ -6,34 +6,45 @@ exports.handler = async (event) => {
   }
 
   try {
-    const { userId, subscription } = JSON.parse(event.body || '{}');
+    const { userId, email, subscription } = JSON.parse(event.body || '{}');
     if (!userId || !subscription) {
       return { statusCode: 400, body: JSON.stringify({ error: 'Missing userId or subscription' }) };
     }
 
     const SUPABASE_URL = process.env.SUPABASE_URL;
-    const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const SERVICE_KEY  = process.env.SUPABASE_SERVICE_KEY; // <- única variable
 
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    if (!SUPABASE_URL || !SERVICE_KEY) {
+      return { statusCode: 500, body: JSON.stringify({ error: 'Missing SUPABASE_URL or SUPABASE_SERVICE_KEY' }) };
+    }
 
-    // Quickest fix to match your existing query path in send-push v2:
-    // store the subscription in profiles.push_subscription (jsonb)
-    const { data, error } = await supabase
+    const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
+
+    // Actualiza por id; si no toca fila y hay email, intenta por email.
+    let { data, error } = await supabase
       .from('profiles')
       .update({ push_subscription: subscription })
       .eq('id', userId)
       .select('id')
       .single();
 
-    if (error) {
-      console.error('save-subscription supabase error', error);
-      return { statusCode: 500, body: JSON.stringify({ error: error.message }) };
+    if (error || !data) {
+      if (email) {
+        const res2 = await supabase
+          .from('profiles')
+          .update({ push_subscription: subscription })
+          .eq('email', email.toLowerCase())
+          .select('id')
+          .single();
+        if (res2.error) {
+          return { statusCode: 500, body: JSON.stringify({ error: res2.error.message }) };
+        }
+      } else {
+        return { statusCode: 404, body: JSON.stringify({ error: 'Profile not found by id and no email provided' }) };
+      }
     }
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ ok: true })
-    };
+    return { statusCode: 200, body: JSON.stringify({ ok: true }) };
   } catch (err) {
     console.error('[save-subscription] unexpected error', err);
     return { statusCode: 500, body: JSON.stringify({ error: 'Unexpected error' }) };
