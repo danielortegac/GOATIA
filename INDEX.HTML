@@ -10371,5 +10371,119 @@ document.addEventListener('DOMContentLoaded', () => {
   mo.observe(document.documentElement, { childList: true, subtree: true });
 })();
 </script>
+
+<!-- Goatify popup/auth harden patch V4 -->
+<script>
+(function(){
+  let identityResolved = false;
+  window.identityReady = new Promise(function(resolve){
+    function done(){ identityResolved = true; resolve(); }
+    try {
+      if (window.netlifyIdentity){
+        // If already have a user, set it immediately
+        try {
+          const u = netlifyIdentity.currentUser && netlifyIdentity.currentUser();
+          if (u) { window.currentUser = u; done(); return; }
+        } catch(_e){}
+        netlifyIdentity.on && netlifyIdentity.on('init', function(user){ window.currentUser = user || null; done(); });
+        netlifyIdentity.on && netlifyIdentity.on('login', function(user){ window.currentUser = user || null; done(); });
+        netlifyIdentity.on && netlifyIdentity.on('logout', function(){ window.currentUser = null; });
+      } else {
+        done();
+      }
+    } catch(e){ done(); }
+  });
+
+  window.isLogged = function(){
+    try {
+      if (window.currentUser) return true;
+      if (window.netlifyIdentity && typeof netlifyIdentity.currentUser === 'function') {
+        return !!netlifyIdentity.currentUser();
+      }
+    } catch(_e){}
+    return false;
+  };
+
+  // Keep global remoteCredits
+  if (typeof window.remoteCredits === 'undefined') window.remoteCredits = undefined;
+
+  // OVERRIDE spendCredit with a single, deterministic implementation.
+  window.spendCredit = async function(cost=1){
+    try{
+      await window.identityReady;
+      if (window.isLogged()){
+        const token = (
+          window.currentUser?.token?.access_token ||
+          window.currentUser?.jwt?.token || ''
+        );
+        const res = await fetch('/.netlify/functions/update-usage', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...(token ? {Authorization:`Bearer ${token}`} : {}) },
+          body: JSON.stringify({ delta: -cost })
+        });
+        const json = await res.json();
+        if (typeof json.credits === 'number'){
+          window.remoteCredits = json.credits;
+          window.currentCredits = json.credits;
+          if (typeof window.updateCreditsUI === 'function') window.updateCreditsUI(json.credits);
+          if (typeof window.updateCreditCounter === 'function') window.updateCreditCounter();
+          return true;
+        }
+        console.warn('[spendCredit override] unexpected response', json);
+        return false;
+      } else {
+        const limit = window.GUEST_CREDIT_LIMIT || 5;
+        const usage = JSON.parse(localStorage.getItem('guest_usage') || '{"count":0}');
+        const used = Number(usage.count||0);
+        if ((used + cost) > limit){
+          const lang = localStorage.getItem('goatify-lang') || 'es';
+          if (typeof window.showModal === 'function'){
+            const res = await window.showModal({
+              title: (window.translations?.[lang]?.login_for_credits_title) || '¡Más Poder para Ti!',
+              body: (window.translations?.[lang]?.login_for_credits_body) || 'Inicia sesión para obtener 100 créditos más.',
+              confirmText: (window.translations?.[lang]?.login_now_btn) || 'Iniciar Sesión',
+              cancelText: (window.translations?.[lang]?.view_plans_btn) || 'Ver Planes'
+            });
+            if (res?.confirmed && window.netlifyIdentity) netlifyIdentity.open('login');
+            else if (typeof window.showPricingModal === 'function') window.showPricingModal();
+          }
+          return false;
+        }
+        usage.count = used + cost;
+        localStorage.setItem('guest_usage', JSON.stringify(usage));
+        return true;
+      }
+    }catch(err){
+      console.error('[spendCredit override] error', err);
+      return false;
+    }
+  };
+
+  window.getCreditCount = function(){
+    if (window.isLogged()){
+      const plan = (window.lastKnownPlan || window.currentUser?.app_metadata?.plan || 'free').toLowerCase();
+      let limit = (plan==='pro') ? (window.PRO_PLAN_CREDIT_LIMIT||4000)
+               : (plan==='boost') ? (window.BOOST_PLAN_CREDIT_LIMIT||1000)
+               : (window.LOGGED_IN_FREE_CREDITS||100);
+      if (typeof window.remoteCredits === 'number') return { remaining: window.remoteCredits, limit, plan };
+      const usageKey = `usage_monthly_${window.currentUser?.id||'none'}`;
+      const currentMonth = (window.dayjs ? dayjs().format('YYYY-MM') : 'na');
+      try {
+        const usageData = JSON.parse(localStorage.getItem(usageKey) || '{"count":0,"month":""}');
+        if (usageData.month !== currentMonth) return { remaining: limit, limit, plan };
+        return { remaining: Math.max(0, limit - Number(usageData.count||0)), limit, plan };
+      } catch { return { remaining: limit, limit, plan }; }
+    } else {
+      const limit = window.GUEST_CREDIT_LIMIT || 5;
+      const usage = JSON.parse(localStorage.getItem('guest_usage') || '{"count":0}');
+      return { remaining: Math.max(0, limit - Number(usage.count||0)), limit, plan: 'free (guest)' };
+    }
+  };
+
+  // Also prevent the guest pop-up from older listeners if user is logged in later:
+  window.__shouldShowGuestPopup = function(){ return !window.isLogged(); };
+})();
+</script>
+
 </body>
 </html>
