@@ -10462,5 +10462,96 @@ document.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
+
+<!-- Goatify spendCredit server-first v27n -->
+<script>
+(function(){
+  if (window.__goatifySpendV27n) return; window.__goatifySpendV27n = true;
+
+  async function getIdentityAuth(){
+    const ni = window.netlifyIdentity;
+    const user = (ni && ni.currentUser) ? ni.currentUser() : null;
+    if (!user) return { user:null, token:null };
+    try {
+      const jwt = await user.jwt();
+      return { user, token: jwt };
+    } catch(e){
+      const token = (user.token && user.token.access_token) ? user.token.access_token : null;
+      return { user, token };
+    }
+  }
+
+  async function callUpdateUsage(token, body){
+    const res = await fetch('/.netlify/functions/update-usage', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      },
+      body: JSON.stringify(body)
+    });
+    let json = null;
+    try { json = await res.json(); } catch(_){ json = {}; }
+    return { ok: res.ok, status: res.status, json };
+  }
+
+  function applyCredits(credits){
+    if (typeof credits !== 'number') return;
+    window.currentCredits = credits;
+    window.remoteCredits = credits;
+    try {
+      document.querySelectorAll('[data-credit-counter]').forEach(el => el.textContent = String(credits));
+      const top = document.getElementById('plan-credits-display'); if (top) top.textContent = String(credits);
+      if (typeof window.updateCreditCounter === 'function') window.updateCreditCounter();
+      if (typeof window.updateCreditsUI === 'function') window.updateCreditsUI(credits);
+    } catch(e){ console.warn('[v27n] applyCredits warn', e); }
+  }
+
+  window.spendCredit = async function(cost = 1){
+    try {
+      const { user, token } = await getIdentityAuth();
+
+      if (user){
+        let r = await callUpdateUsage(token, { delta: -Math.abs(cost) });
+        if (typeof r.json?.credits === 'number') { applyCredits(r.json.credits); return true; }
+        r = await callUpdateUsage(token, { used: Math.abs(cost) });
+        if (typeof r.json?.credits === 'number') { applyCredits(r.json.credits); return true; }
+        console.warn('[v27n] update-usage failed', r.status, r.json);
+        if (typeof window.toast === 'function'){
+          window.toast('No pudimos descontar créditos. Intenta de nuevo.', { type:'error' });
+        }
+        return false;
+      }
+
+      const GUEST_FLAG_KEY = 'goatify_hide_guest_popup';
+      const suppress = localStorage.getItem(GUEST_FLAG_KEY) === '1';
+      const LIMIT = (window.GUEST_CREDIT_LIMIT || 5);
+      const usageObj = JSON.parse(localStorage.getItem('guest_usage') || '{"count":0}');
+      const used = usageObj.count || 0;
+      const projected = used + Math.abs(cost);
+      if (projected > LIMIT){
+        if (suppress) return false;
+        const lang = localStorage.getItem('goatify-lang') || 'es';
+        if (typeof window.showModal === 'function'){
+          const res = await window.showModal({
+            title: (window.translations?.[lang]?.login_for_credits_title) || 'Necesitas iniciar sesión',
+            body:  (window.translations?.[lang]?.login_for_credits_body)  || 'Inicia sesión para obtener más créditos.',
+            confirmText: (window.translations?.[lang]?.login_now_btn) || 'Iniciar Sesión',
+            cancelText: (window.translations?.[lang]?.view_plans_btn) || 'Ver Planes'
+          });
+          if (res && res.confirmed && window.netlifyIdentity){ window.netlifyIdentity.open('login'); }
+          else if (typeof window.showPricingModal === 'function'){ window.showPricingModal(); }
+        }
+        return false;
+      }
+      return true;
+    } catch (e){
+      console.error('[v27n] spendCredit fatal', e);
+      return false;
+    }
+  };
+})();
+</script>
+
 </body>
 </html>
