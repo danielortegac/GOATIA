@@ -2241,11 +2241,16 @@ try {
 if (typeof window.__goatifyFixV2__ === 'function') window.__goatifyFixV2__();
 
       } else {
-        updateCreditsUI("ERR");
+        const plan = (result.plan || window.lastKnownPlan || 'free').toLowerCase();
+        const fallback = (PLAN_LIMITS && PLAN_LIMITS[plan]) ? PLAN_LIMITS[plan] : PLAN_LIMITS.free;
+        currentCredits = (typeof result.credits === 'number') ? result.credits : fallback;
+        window.lastKnownPlan = plan;
+        updateCreditsUI(currentCredits);
+        if (typeof window.updateCreditDisplay === 'function') window.updateCreditDisplay(currentCredits, plan);
       }
     } catch (err) {
       console.error('Error fetching credits:', err);
-      updateCreditsUI("ERR");
+      if (typeof window.updateCreditDisplay==='function') window.updateCreditDisplay(currentCredits || 0, (window.lastKnownPlan||'free'));
     }
   }
 
@@ -9756,7 +9761,7 @@ async function fetchCredits() {
     const data = await res.json();
 
     lastKnownPlan = (data.plan || user.app_metadata?.plan || 'free').toLowerCase();
-    remoteCredits = (typeof data.credits === 'number') ? data.credits : 0;
+    remoteCredits = (typeof data.credits === 'number') ? data.credits : (PLAN_LIMITS[(lastKnownPlan||'free')]||PLAN_LIMITS.free);
 
     updateCreditDisplay(remoteCredits, lastKnownPlan);
   } catch (err) {
