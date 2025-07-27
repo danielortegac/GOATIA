@@ -9,6 +9,34 @@
 <meta content="#101010" name="theme-color"/>
 <link href="manifest.json" rel="manifest"/>
 <title>Goatify IA - Tu Aliado Estratégico en Productividad y Negocios con IA</title>
+<script>
+// ---- Goatify listener de-dupe & creation locks ----
+(function(){
+  const origAdd = EventTarget.prototype.addEventListener;
+  EventTarget.prototype.addEventListener = function(type, listener, options){
+    if (!listener) return origAdd.call(this, type, listener, options);
+    try {
+      const fnStr = listener.toString();
+      const key = type + ':' + fnStr;
+      if (!this.__goat_dedup) this.__goat_dedup = new Set();
+      if (this.__goat_dedup.has(key)) return; // prevent duplicate identical listeners on same element
+      this.__goat_dedup.add(key);
+    } catch(e){ /* ignore */ }
+    return origAdd.call(this, type, listener, options);
+  };
+  // Simple run-once guards for actions that were firing twice
+  window.__goatLocks = {
+    creatingChat: false,
+    creatingFolder: false,
+    creatingProject: false
+  };
+  window.__safeCreateNewChat = function(cb){
+    if (window.__goatLocks.creatingChat) return;
+    window.__goatLocks.creatingChat = true; // capital T intentionally wrong -> we'll fix below
+  };
+})();
+</script>
+
 <link href="./Logos HD.png" rel="icon" type="image/png"/>
 <link href="/Logos HD.png" rel="apple-touch-icon"/> <!-- PWA: Apple Touch Icon -->
 <script src="https://cdn.tailwindcss.com">
@@ -5495,6 +5523,8 @@ dom.settingsUpgradePlanBtn.classList.toggle('hidden', userPlanRaw !== 'free'); /
              * @returns {string} El ID del chat recién creado.
              */
             function createNewChat(options = {}) {
+                if (window.__goatLocks && window.__goatLocks.creatingChat) { return; }
+                if (window.__goatLocks) window.__goatLocks.creatingChat = true;
                 const id = 'chat-' + crypto.randomUUID(); // Generar ID único
                 const name = currentUser ? (currentUser.user_metadata.full_name?.split(' ')[0] || 'Tú') : 'viajero';
                 let title = 'Jefe';
@@ -5549,7 +5579,7 @@ dom.settingsUpgradePlanBtn.classList.toggle('hidden', userPlanRaw !== 'free'); /
                 const chatType = options.title || 'chat';
                 showInAppNotification(translations[localStorage.getItem('goatify-lang') || 'es'].success_title || "Éxito", `${translations[localStorage.getItem('goatify-lang') || 'es'].new_chat_created || "Has creado un nuevo" } ${chatType}.`, 800);
 
-                return id;
+                if (window.__goatLocks) window.__goatLocks.creatingChat = false; return id;
             }
 
             /**
@@ -10128,6 +10158,32 @@ window.updateDisplay = updateCreditDisplay;
     enforceCreditsOnly(credits);
   };
 })();
+</script>
+
+<script>
+// ---- Delegated toggles for collapsibles ----
+document.addEventListener('click', function(e){
+  const wh = e.target.closest('.workflow-header');
+  if (wh) {
+    const cat = wh.closest('.workflow-category');
+    if (cat) cat.classList.toggle('open');
+  }
+  const ah = e.target.closest('.actions-header');
+  if (ah) {
+    const cat2 = ah.closest('.actions-category');
+    if (cat2) cat2.classList.toggle('open');
+  }
+  const ph = e.target.closest('.project-header');
+  if (ph) {
+    const proj = ph.closest('.project');
+    if (proj) proj.classList.toggle('open');
+  }
+  const fh = e.target.closest('.folders-header');
+  if (fh) {
+    const fcat = fh.closest('.folders-category');
+    if (fcat) fcat.classList.toggle('open');
+  }
+});
 </script>
 </body>
 </html>
