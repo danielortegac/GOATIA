@@ -10141,5 +10141,158 @@ window.updateDisplay = updateCreditDisplay;
   };
 })();
 </script>
+
+<!-- === GOATIFY Hotfix Block v2025-07-27 === -->
+<script>
+(function(){
+  if (window.__goatifyHotfixApplied) return;
+  window.__goatifyHotfixApplied = true;
+
+  function byId(id){ return document.getElementById(id); }
+
+  // ---------- One-flight guard ----------
+  window.__oneActions = window.__oneActions || {};
+  function onceRun(key, fn){
+    const now = performance.now();
+    const last = window.__oneActions[key] || 0;
+    if (now - last < 450) return; // ignore double clicks within 450ms
+    window.__oneActions[key] = now;
+    try { return fn(); } catch(e){ console.warn('onceRun error', key, e); }
+  }
+
+  // ---------- Rebind helpers (remove previous listeners) ----------
+  function rebindClick(id, handler, stopBubble){
+    const el = byId(id);
+    if (!el) return;
+    const clone = el.cloneNode(true);
+    el.parentNode.replaceChild(clone, el);
+    clone.addEventListener('click', function(ev){
+      if (stopBubble) ev.stopPropagation();
+      onceRun(id, handler);
+    }, true);
+    return clone;
+  }
+
+  // ---------- Create Chat / Folder: avoid duplicates ----------
+  const newChatHandler = function(){
+    if (typeof window.createNewChat === 'function') return window.createNewChat();
+    // fallback: dispatch custom event others may listen to
+    document.dispatchEvent(new CustomEvent('goatify:new-chat'));
+  };
+  const newFolderHandler = function(){
+    if (typeof window.createNewProjectFolder === 'function') return window.createNewProjectFolder();
+    document.dispatchEvent(new CustomEvent('goatify:new-folder'));
+  };
+
+  rebindClick('new-chat-btn', newChatHandler, false);
+  rebindClick('new-chat-icon-btn', newChatHandler, true); // stop bubbling so it doesn't reach the parent
+  rebindClick('new-folder-btn', newFolderHandler, false);
+  rebindClick('add-project-folder-btn', newFolderHandler, true);
+
+  // ---------- Accordions: Acciones Rápidas & Mis Proyectos ----------
+  function bindAccordion(containerId, headerSel, contentSel, arrowSel){
+    const c = byId(containerId);
+    if (!c) return;
+    const header = c.querySelector(headerSel);
+    const content = c.querySelector(contentSel);
+    const arrow = c.querySelector(arrowSel);
+    if (!header || header.dataset.bound) return;
+    header.dataset.bound = "1";
+    function setState(open){
+      c.classList.toggle('open', open);
+      if (content) content.style.display = open ? 'block' : 'none';
+      if (arrow) arrow.style.transform = open ? 'rotate(90deg)' : 'rotate(0deg)';
+    }
+    header.addEventListener('click', function(){
+      setState(!c.classList.contains('open'));
+    });
+    // initial
+    setState(c.classList.contains('open'));
+  }
+  bindAccordion('actions-category', '.actions-header', '.actions-content', '.actions-arrow');
+  bindAccordion('folders-category', '.folders-header', '.folders-content', '.folder-arrow');
+
+  // ---------- Credits & Plan: ensure update right after login ----------
+  async function hardSyncProfile(){
+    try{
+      if (!window.supabase) return;
+      const uid = window.currentUser?.id || window.currentUser?.user?.id || window.currentUser?.sub || window.currentUser?.user?.sub;
+      if (!uid) return;
+      const { data, error } = await window.supabase
+        .from('profiles')
+        .select('plan, usage_base, credits')
+        .eq('id', uid)
+        .single();
+      if (error) { console.warn('[hotfix] profile select error', error); return; }
+      const plan = (data?.plan || 'free').toUpperCase();
+      const credits = (data?.usage_base && typeof data.usage_base.credits === 'number')
+        ? data.usage_base.credits
+        : (typeof data?.credits === 'number' ? data.credits : 0);
+      window.currentCredits = credits;
+
+      // Update counters already in DOM
+      document.querySelectorAll('[data-credit-counter]').forEach(el => { el.textContent = String(credits); });
+      // Top header coin (legacy)
+      const topCounter = document.querySelector('#plan-credits-display');
+      if (topCounter) topCounter.textContent = String(credits);
+
+      // Plan text spots
+      document.querySelectorAll('[data-plan-name]').forEach(el => { el.textContent = plan; });
+      const planActiveEl = document.getElementById('plan-active-text');
+      if (planActiveEl) planActiveEl.textContent = plan;
+      const subscriptionPlanEl = document.getElementById('subscription-plan-text');
+      if (subscriptionPlanEl) subscriptionPlanEl.textContent = plan;
+    }catch(e){ console.warn('[hotfix] hardSyncProfile error', e); }
+  }
+
+  function ensureJwtInCurrentUser(user){
+    if (!user) return user;
+    if (user.token && user.token.access_token) return user;
+    // try to fetch a fresh jwt from netlify-identity user
+    if (typeof user.jwt === 'function'){
+      return user.jwt().then(function(jwt){
+        user.token = { access_token: jwt };
+        return user;
+      }).catch(function(e){ console.warn('[hotfix] jwt fetch fail', e); return user; });
+    }
+    return user;
+  }
+
+  // Netlify Identity hooks
+  if (window.netlifyIdentity && !window.__patchedNetlifyLogin){
+    window.__patchedNetlifyLogin = true;
+    window.netlifyIdentity.on('login', async function(user){
+      window.currentUser = user;
+      await ensureJwtInCurrentUser(user);
+      await hardSyncProfile();
+      if (typeof window.fetchCredits === 'function'){
+        try { await window.fetchCredits(); } catch(e){ console.warn('[hotfix] fetchCredits after login', e); }
+      }
+    });
+    window.netlifyIdentity.on('init', async function(user){
+      if (user){
+        window.currentUser = user;
+        await ensureJwtInCurrentUser(user);
+        hardSyncProfile();
+      }
+    });
+  }
+
+  // Supabase auth hook (if used)
+  if (window.supabase && window.supabase.auth && !window.__patchedSupabaseAuth){
+    window.__patchedSupabaseAuth = true;
+    window.supabase.auth.onAuthStateChange(async function(_e, session){
+      if (session?.user){
+        window.currentUser = { id: session.user.id, email: session.user.email, token: { access_token: session.access_token } };
+        await hardSyncProfile();
+      }
+    });
+  }
+
+  // run once on load after a short delay (DOM ready)
+  setTimeout(hardSyncProfile, 1200);
+})();
+</script>
+<!-- === /GOATIFY Hotfix Block === -->
 </body>
 </html>
