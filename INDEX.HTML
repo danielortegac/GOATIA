@@ -50,51 +50,26 @@ async function loadChats(userId) {
     }
 }
 
-async function spendCredit(cost = 1) {
+async function spendCredit() {
   try {
-    // Invitado: solo validamos y mostramos popup. No descontamos aquí;
-    // el descuento real se hace en spendCredits(cost,...).
-    if (!currentUser) {
-      const usageData = JSON.parse(localStorage.getItem('guest_usage')) || { count: 0 };
-      const used = usageData.count || 0;
-      if ((used + cost) > GUEST_CREDIT_LIMIT) {
-        const lang = localStorage.getItem('goatify-lang') || 'es';
-        await showModal({
-          title: translations[lang].login_for_credits_title,
-          body: translations[lang].login_for_credits_body,
-          confirmText: translations[lang].login_now_btn,
-          cancelText: translations[lang].view_plans_btn,
-        }).then(res => {
-          if (res?.confirmed) netlifyIdentity.open('login');
-          else showPricingModal();
-        });
-        return false;
-      }
-      return true;
-    }
-
-    // Usuario con sesión: descontamos en el backend y actualizamos contador remoto.
     const response = await fetch('/.netlify/functions/update-usage', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${currentUser.token.access_token}`
       },
-      body: JSON.stringify({ delta: -cost })
+      body: JSON.stringify({ delta: -1 }) // 👈 ¡Esta es la forma correcta!
     });
+
     const result = await response.json();
-    if (typeof result.credits === 'number') {
-      // Mantén una copia local para que getCreditCount() lo muestre de inmediato
-      if (typeof remoteCredits === 'number') remoteCredits = result.credits;
+    if (result.credits !== undefined) {
       currentCredits = result.credits;
-      updateCreditCounter();
-      return true;
+      updateCreditsUI(currentCredits);
+    } else {
+      console.warn("Respuesta inesperada al gastar crédito:", result);
     }
-    console.warn('[spendCredit] Respuesta inesperada:', result);
-    return false;
   } catch (error) {
-    console.error('[spendCredit] Error al gastar crédito:', error);
-    return false;
+    console.error("Error al gastar crédito:", error);
   }
 }
 
@@ -2128,20 +2103,7 @@ async function spendCredit() {
             object-fit: contain; /* Keep aspect ratio */
         }
 
-    
-/* --- Mobile tools row: ensure one line and visible icons --- */
-@media (max-width: 767px){
-  #input-area-model-row{
-    flex-wrap: nowrap;
-    gap: 0.25rem;
-  }
-  #input-area-model-row .action-buttons-container button{
-    padding: 0.25rem 0.4rem;
-    font-size: 0.8rem;
-  }
-  #voice-selector-container{ flex-shrink: 0; }
-}
-</style>
+    </style>
 <meta content="Goatify IA es tu copiloto estratégico, una inteligencia artificial avanzada que combina dirección de proyectos, asistente financiero, y herramientas creativas únicas en el mercado para potenciar tu negocio y productividad." name="description"/>
 <meta content="Goatify IA, inteligencia artificial, dirección de proyectos, asistente financiero, productividad, automatización de ventas, estrategias de marketing, creación de contenido, SEO, herramientas de IA, negocio digital" name="keywords"/>
 <meta content="Goatify IA Team" name="author"/>
@@ -2911,27 +2873,6 @@ document.addEventListener('DOMContentLoaded', function() {
 </div>
 <button class="mt-auto w-full p-3 rounded-lg font-semibold border-2 border-primary text-primary hover:bg-primary hover:text-white transition-colors" data-translate-key="plan_free_cta" id="free-plan-button">Tu Plan Actual</button>
 </div>
-<script>
-// --- Guest credit modal buttons (safety) ---
-document.addEventListener('DOMContentLoaded', () => {
-  const loginBtn = document.getElementById('credit-modal-login-btn');
-  const closeBtn = document.getElementById('credit-modal-close-btn');
-  const modal = document.getElementById('credit-limit-modal');
-  if (loginBtn) {
-    loginBtn.addEventListener('click', () => {
-      try { netlifyIdentity.open('login'); } catch (e) { console.error(e); }
-      if (modal) modal.classList.add('hidden');
-    });
-  }
-  if (closeBtn) {
-    closeBtn.addEventListener('click', () => {
-      if (modal) modal.classList.add('hidden');
-      try { showPricingModal(); } catch(e){}
-    });
-  }
-});
-</script>
-
 <!-- Boost Plan Card -->
 <div class="plan-card border-2 rounded-xl p-6 flex flex-col bg-current-bg-dark plan-card-highlight">
 <h3 class="text-2xl font-bold">GOAT <span class="text-primary">BOOST</span></h3>
@@ -6441,23 +6382,10 @@ dom.settingsUpgradePlanBtn.classList.toggle('hidden', userPlanRaw !== 'free'); /
                 const canSpend = await window.spendCredit();
                 if (!canSpend) {
                 console.log("No hay créditos suficientes para enviar el mensaje.");
-                const lang = (localStorage.getItem('goatify-lang') || 'es');
-                const t = translations[lang] || translations['es'];
-                try {
-                  const res = await showModal({
-                    title: t.login_for_credits_title,
-                    body: t.login_for_credits_body,
-                    confirmText: t.login_now_btn,
-                    cancelText: t.view_plans_btn,
-                  });
-                  if (res && res.confirmed && window.netlifyIdentity) {
-                    window.netlifyIdentity.open('login');
-                  } else if (typeof showPricingModal === 'function') {
-                    showPricingModal();
-                  }
-                } catch (e) { console.warn('[popup]', e); }
-                return;
-              }                const currentChat = state.chats[chatIdToUpdate];
+                // Aquí puedes mostrar tu modal de "sin créditos"
+                return; 
+                }
+                const currentChat = state.chats[chatIdToUpdate];
                 if (!currentChat && assistantType !== 'translator') return; // Asegurarse de que el chat exista para tipos que no son traductores
 
                 // Determinar si se necesita una búsqueda web en función de las palabras clave
@@ -7391,10 +7319,6 @@ dom.settingsUpgradePlanBtn.classList.toggle('hidden', userPlanRaw !== 'free'); /
                         <p class="mb-4 text-sm"><strong>${translations[lang].credits_breakdown}</strong> ${remaining}/${limit === Infinity ? '∞' : limit} (${gamCredits} 🪙)</p>
                         <p class="mb-4 text-md font-semibold text-primary text-center">${randomPositiveMessage}</p>
                     `;
-
-                    
-                    // ⛔ No mostrar este modal si hay sesión iniciada
-                    if (window.currentUser || (window.netlifyIdentity && window.netlifyIdentity.currentUser())) return;
 
                     showModal({
                         title: translations[lang].credits_details_title,
@@ -9838,10 +9762,31 @@ async function spendCredit(delta = -1) {
 
   const user = window.netlifyIdentity?.currentUser() || null;
 
-  if (!user) {
-    // Invitado
+    if (!user) {
+    // Invitado: solo 5 créditos. Si excede, mostramos pop-up para iniciar sesión.
     let usage = parseInt(localStorage.getItem('guest_usage_count') || '0', 10);
-    if (usage >= GUEST_CREDIT_LIMIT) { isSpending = false; return false; }
+    if (usage >= GUEST_CREDIT_LIMIT) {
+      try {
+        const lang = (localStorage.getItem('goatify-lang') || 'es');
+        const t = translations?.[lang] || translations.es;
+        const res = await showModal({
+          title: t.login_for_credits_title,
+          body: t.login_for_credits_body,
+          confirmText: t.login_now_btn,
+          cancelText: t.view_plans_btn
+        });
+        if (res && res.confirmed) {
+          if (window.netlifyIdentity) window.netlifyIdentity.open('login');
+        } else {
+          if (typeof showPricingModal === 'function') showPricingModal();
+        }
+      } catch (e) {
+        console.warn('Popup login_for_credits falló, abrir login por defecto.', e);
+        if (window.netlifyIdentity) window.netlifyIdentity.open('login');
+      }
+      isSpending = false;
+      return false;
+    }
     localStorage.setItem('guest_usage_count', usage + 1);
     await fetchCredits();
     isSpending = false;
@@ -10371,119 +10316,5 @@ document.addEventListener('DOMContentLoaded', () => {
   mo.observe(document.documentElement, { childList: true, subtree: true });
 })();
 </script>
-
-<!-- Goatify popup/auth harden patch V4 -->
-<script>
-(function(){
-  let identityResolved = false;
-  window.identityReady = new Promise(function(resolve){
-    function done(){ identityResolved = true; resolve(); }
-    try {
-      if (window.netlifyIdentity){
-        // If already have a user, set it immediately
-        try {
-          const u = netlifyIdentity.currentUser && netlifyIdentity.currentUser();
-          if (u) { window.currentUser = u; done(); return; }
-        } catch(_e){}
-        netlifyIdentity.on && netlifyIdentity.on('init', function(user){ window.currentUser = user || null; done(); });
-        netlifyIdentity.on && netlifyIdentity.on('login', function(user){ window.currentUser = user || null; done(); });
-        netlifyIdentity.on && netlifyIdentity.on('logout', function(){ window.currentUser = null; });
-      } else {
-        done();
-      }
-    } catch(e){ done(); }
-  });
-
-  window.isLogged = function(){
-    try {
-      if (window.currentUser) return true;
-      if (window.netlifyIdentity && typeof netlifyIdentity.currentUser === 'function') {
-        return !!netlifyIdentity.currentUser();
-      }
-    } catch(_e){}
-    return false;
-  };
-
-  // Keep global remoteCredits
-  if (typeof window.remoteCredits === 'undefined') window.remoteCredits = undefined;
-
-  // OVERRIDE spendCredit with a single, deterministic implementation.
-  window.spendCredit = async function(cost=1){
-    try{
-      await window.identityReady;
-      if (window.isLogged()){
-        const token = (
-          window.currentUser?.token?.access_token ||
-          window.currentUser?.jwt?.token || ''
-        );
-        const res = await fetch('/.netlify/functions/update-usage', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...(token ? {Authorization:`Bearer ${token}`} : {}) },
-          body: JSON.stringify({ delta: -cost })
-        });
-        const json = await res.json();
-        if (typeof json.credits === 'number'){
-          window.remoteCredits = json.credits;
-          window.currentCredits = json.credits;
-          if (typeof window.updateCreditsUI === 'function') window.updateCreditsUI(json.credits);
-          if (typeof window.updateCreditCounter === 'function') window.updateCreditCounter();
-          return true;
-        }
-        console.warn('[spendCredit override] unexpected response', json);
-        return false;
-      } else {
-        const limit = window.GUEST_CREDIT_LIMIT || 5;
-        const usage = JSON.parse(localStorage.getItem('guest_usage') || '{"count":0}');
-        const used = Number(usage.count||0);
-        if ((used + cost) > limit){
-          const lang = localStorage.getItem('goatify-lang') || 'es';
-          if (typeof window.showModal === 'function'){
-            const res = await window.showModal({
-              title: (window.translations?.[lang]?.login_for_credits_title) || '¡Más Poder para Ti!',
-              body: (window.translations?.[lang]?.login_for_credits_body) || 'Inicia sesión para obtener 100 créditos más.',
-              confirmText: (window.translations?.[lang]?.login_now_btn) || 'Iniciar Sesión',
-              cancelText: (window.translations?.[lang]?.view_plans_btn) || 'Ver Planes'
-            });
-            if (res?.confirmed && window.netlifyIdentity) netlifyIdentity.open('login');
-            else if (typeof window.showPricingModal === 'function') window.showPricingModal();
-          }
-          return false;
-        }
-        usage.count = used + cost;
-        localStorage.setItem('guest_usage', JSON.stringify(usage));
-        return true;
-      }
-    }catch(err){
-      console.error('[spendCredit override] error', err);
-      return false;
-    }
-  };
-
-  window.getCreditCount = function(){
-    if (window.isLogged()){
-      const plan = (window.lastKnownPlan || window.currentUser?.app_metadata?.plan || 'free').toLowerCase();
-      let limit = (plan==='pro') ? (window.PRO_PLAN_CREDIT_LIMIT||4000)
-               : (plan==='boost') ? (window.BOOST_PLAN_CREDIT_LIMIT||1000)
-               : (window.LOGGED_IN_FREE_CREDITS||100);
-      if (typeof window.remoteCredits === 'number') return { remaining: window.remoteCredits, limit, plan };
-      const usageKey = `usage_monthly_${window.currentUser?.id||'none'}`;
-      const currentMonth = (window.dayjs ? dayjs().format('YYYY-MM') : 'na');
-      try {
-        const usageData = JSON.parse(localStorage.getItem(usageKey) || '{"count":0,"month":""}');
-        if (usageData.month !== currentMonth) return { remaining: limit, limit, plan };
-        return { remaining: Math.max(0, limit - Number(usageData.count||0)), limit, plan };
-      } catch { return { remaining: limit, limit, plan }; }
-    } else {
-      const limit = window.GUEST_CREDIT_LIMIT || 5;
-      const usage = JSON.parse(localStorage.getItem('guest_usage') || '{"count":0}');
-      return { remaining: Math.max(0, limit - Number(usage.count||0)), limit, plan: 'free (guest)' };
-    }
-  };
-
-  // Also prevent the guest pop-up from older listeners if user is logged in later:
-  window.__shouldShowGuestPopup = function(){ return !window.isLogged(); };
-})();
-</script>
-
 </body>
 </html>
