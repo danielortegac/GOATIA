@@ -5123,45 +5123,66 @@ dom.settingsUpgradePlanBtn.classList.toggle('hidden', userPlanRaw !== 'free'); /
              * @returns {object} Un objeto que contiene los créditos restantes, el límite total y el plan.
              */
             function getCreditCount() {
-    // La lógica para invitados no cambia y está bien.
+    // Invitado
     if (!currentUser) {
         const usageData = JSON.parse(localStorage.getItem('guest_usage')) || { count: 0 };
-        return { remaining: Math.max(0, GUEST_CREDIT_LIMIT - usageData.count), limit: GUEST_CREDIT_LIMIT, plan: 'free (guest)' };
+        return { remaining: Math.max(0, GUEST_CREDIT_LIMIT - Number(usageData.count||0)), limit: GUEST_CREDIT_LIMIT, plan: 'free (guest)' };
     }
 
-    // --- LÓGICA CORREGIDA PARA USUARIOS LOGUEADOS ---
+    // Créditos conocidos (server o cache)
+    const remote = (typeof remoteCredits === 'number') ? Number(remoteCredits) : null;
+    const cached = Number(window.lastKnownCredits || localStorage.getItem('goatify_credits') || 0);
+    const knownCredits = (remote != null ? remote : (cached || null));
 
-    // 1. PRIMERO, determina SIEMPRE el límite correcto basado en el plan del usuario.
-    const plan = currentUser.app_metadata?.plan || 'free';
+    // Si ya tenemos un plan confiable guardado, úsalo
+    let plan = (window.lastKnownPlan || '').toLowerCase();
+    if (!plan) {
+        if (knownCredits != null) {
+            plan = (knownCredits >= 1000) ? 'pro' : (knownCredits > 100 ? 'boost' : 'free');
+        } else {
+            // Último recurso: usa plan de Netlify por si existe, pero lo corregimos abajo con los créditos locales
+            plan = (currentUser.app_metadata?.plan || 'free').toLowerCase();
+        }
+    }
+
+    // Determinar límite según el plan calculado
     let limit;
     switch (plan) {
-        case 'boost': 
-            limit = BOOST_PLAN_CREDIT_LIMIT; // 1000
-            break;
-        case 'pro': 
-            limit = PRO_PLAN_CREDIT_LIMIT; // 4000
-            break;
-        default: 
-            limit = LOGGED_IN_FREE_CREDITS; // 100
+        case 'pro':   limit = PRO_PLAN_CREDIT_LIMIT; break;
+        case 'boost': limit = BOOST_PLAN_CREDIT_LIMIT; break;
+        default:      limit = LOGGED_IN_FREE_CREDITS; break;
     }
 
-    // 2. LUEGO, si tenemos el número de créditos del servidor (`remoteCredits`), 
-    //    lo usamos para el valor 'remaining'. El 'limit' ya es el correcto.
-    if (typeof remoteCredits === 'number') {
-        return { remaining: remoteCredits, limit: limit, plan: plan };
+    // Si tenemos créditos del servidor, devolvemos esos como remaining
+    if (remote != null) {
+        // actualiza cache y plan global
+        window.lastKnownCredits = remote;
+        const hardPlan = (remote >= 1000) ? 'pro' : (remote > 100 ? 'boost' : 'free');
+        window.lastKnownPlan = hardPlan;
+        // alinea el límite al plan duro
+        limit = (hardPlan === 'pro') ? PRO_PLAN_CREDIT_LIMIT : (hardPlan === 'boost' ? BOOST_PLAN_CREDIT_LIMIT : LOGGED_IN_FREE_CREDITS);
+        return { remaining: remote, limit, plan: hardPlan };
     }
 
-    // 3. Si aún no tenemos `remoteCredits`, usamos la lógica de localStorage como respaldo (como antes).
+    // Fallback: calcula remaining local
     const usageKey = `usage_monthly_${currentUser.id}`;
     const currentMonth = dayjs().format('YYYY-MM');
-    const usageData = JSON.parse(localStorage.getItem(usageKey)) || { count: 0, month: '' };
-
+    const usageData = JSON.parse(localStorage.getItem(usageKey) || '{"count":0,"month":""}');
     if (usageData.month !== currentMonth) {
         localStorage.setItem(usageKey, JSON.stringify({ count: 0, month: currentMonth }));
-        return { remaining: limit, limit, plan };
+        const hardPlan = (knownCredits != null)
+            ? ((knownCredits >= 1000) ? 'pro' : (knownCredits > 100 ? 'boost' : 'free'))
+            : plan;
+        limit = (hardPlan === 'pro') ? PRO_PLAN_CREDIT_LIMIT : (hardPlan === 'boost' ? BOOST_PLAN_CREDIT_LIMIT : LOGGED_IN_FREE_CREDITS);
+        window.lastKnownPlan = hardPlan;
+        return { remaining: (knownCredits != null ? knownCredits : limit), limit, plan: hardPlan };
     }
 
-    return { remaining: Math.max(0, limit - usageData.count), limit, plan };
+    const remainingLocal = Math.max(0, limit - Number(usageData.count||0));
+    const hardPlan = (remainingLocal >= 1000) ? 'pro' : (remainingLocal > 100 ? 'boost' : 'free');
+    window.lastKnownPlan = hardPlan;
+    limit = (hardPlan === 'pro') ? PRO_PLAN_CREDIT_LIMIT : (hardPlan === 'boost' ? BOOST_PLAN_CREDIT_LIMIT : LOGGED_IN_FREE_CREDITS);
+    return { remaining: remainingLocal, limit, plan: hardPlan };
 }
             /**
              * Deduce créditos según el costo de la operación y el modelo utilizado.
@@ -6292,6 +6313,49 @@ dom.settingsUpgradePlanBtn.classList.toggle('hidden', userPlanRaw !== 'free'); /
                     saveState(); // Guardar el estado actualizado
                     renderSidebar(); // Volver a renderizar la barra lateral
                 }
+
+            /**
+             * Elimina múltiples elementos (chats, notas y/o proyectos) sin pedir confirmación individual.
+             * Recibe IDs completos como 'chat-...', 'note-...', 'project-...'. Los proyectos eliminan también sus hijos.
+             */
+            function bulkDeleteByIds(idsArray) {
+                const toDelete = Array.from(new Set(idsArray));
+                // Primero, expandir hijos de proyectos
+                const expanded = [];
+                toDelete.forEach(id => {
+                    expanded.push(id);
+                    if (id.startsWith('project-')) {
+                        const proj = state.projects[id];
+                        const children = (proj && proj.itemIds) ? [...proj.itemIds] : [];
+                        children.forEach(cid => expanded.push(cid));
+                    }
+                });
+                // Eliminar de estructura y colecciones
+                expanded.forEach(deleteId => {
+                    state.structure = state.structure.filter(i => i !== deleteId);
+                    if (deleteId.startsWith('chat-')) {
+                        delete state.chats[deleteId];
+                    } else if (deleteId.startsWith('note-')) {
+                        state.notes = state.notes.filter(n => n.id !== deleteId);
+                    } else if (deleteId.startsWith('project-')) {
+                        delete state.projects[deleteId];
+                    }
+                    // Quitar de itemIds de cualquier proyecto
+                    Object.values(state.projects).forEach(p => {
+                        if (p.itemIds) p.itemIds = p.itemIds.filter(cid => cid !== deleteId);
+                    });
+                    // Reset de vistas si era el activo
+                    if (typeof currentChatId !== 'undefined' && currentChatId === deleteId) {
+                        resetChatView && resetChatView();
+                    }
+                    if (typeof currentNoteId !== 'undefined' && currentNoteId === deleteId) {
+                        currentNoteId = null;
+                        if (dom && dom.noteEditorPanel) dom.noteEditorPanel.classList.add('hidden');
+                    }
+                });
+                saveState(); // Persistir
+                renderSidebar(); // Refrescar UI
+            }
             }
 
             /**
@@ -7832,7 +7896,7 @@ dom.settingsUpgradePlanBtn.classList.toggle('hidden', userPlanRaw !== 'free'); /
                     const lang = localStorage.getItem('goatify-lang') || 'es';
                     const confirm = await showModal({ title: `Eliminar ${chatsToDelete.size} elemento(s)`, body: 'Esta acción es irreversible. ¿Confirmas la eliminación?', confirmText: 'Eliminar', dangerConfirm: true });
                     if (confirm.confirmed) {
-                        chatsToDelete.forEach(id => deleteItem(id.split('-')[0], id)); // Eliminar cada elemento seleccionado
+                        bulkDeleteByIds(Array.from(chatsToDelete)); // Eliminar cada elemento seleccionado
                         toggleSelectMode(false); // Salir del modo de selección
                     }
                 });
