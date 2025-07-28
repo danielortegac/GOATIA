@@ -2204,13 +2204,14 @@ async function spendCredit() {
         document.getElementById("username").textContent = result.user_metadata?.full_name || "Usuario";
         window.lastKnownPlan = (result.plan || 'free');
 window.lastKnownCredits = result.credits;
-// 🔎 Inferir plan por créditos si el backend no lo trae correcto
+// 🔎 Inferir plan por créditos si el backend no lo trae correcto (robusto, sin depender de variables locales)
 try {
   const c = Number(window.lastKnownCredits || 0);
-  if (c > PLAN_LIMITS.boost) { window.lastKnownPlan = 'pro'; }
-  else if (c > PLAN_LIMITS.free) { window.lastKnownPlan = 'boost'; }
-  else if (!window.lastKnownPlan) { window.lastKnownPlan = 'free'; }
-} catch(_e) { console.warn('infer plan by credits failed', _e); }
+  const LIM = (window.PLAN_LIMITS || { free: 100, boost: 1000, pro: 4000 });
+  if (c >= LIM.pro)      { window.lastKnownPlan = 'pro'; }
+  else if (c >= LIM.boost) { window.lastKnownPlan = 'boost'; }
+  else                    { window.lastKnownPlan = (window.lastKnownPlan || 'free'); }
+} catch(_e) { console.warn('infer plan by credits failed', _e);led', _e); }
 
 // Update legacy element but always uppercase
 document.getElementById("plan-name").textContent = window.lastKnownPlan.toUpperCase();
@@ -9885,6 +9886,11 @@ window.spendCredit   = spendCredit;
 window.updateDisplay = updateCreditDisplay;
 </script>
 <!-- START GOATIFY FIX PATCH v1 -->
+<!-- Ensure global PLAN_LIMITS visible everywhere -->
+<script>
+window.PLAN_LIMITS = window.PLAN_LIMITS || { free: 100, boost: 1000, pro: 4000 };
+</script>
+
 <script>
 (function(){
   // ===== CONFIG =====
