@@ -10386,5 +10386,80 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 })();
 </script>
+
+<script>
+// ===== Goatify Paid Intercept v2 =====
+(function(){
+  function isPaidPlan(plan){ 
+    plan = (plan||'').toString().toLowerCase();
+    return plan === 'pro' || plan === 'boost' || plan === 'web' || plan === 'pro+web';
+  }
+  function isPaidByCredits(c){
+    c = Number(c||0);
+    return c > 100; // cualquier plan de pago
+  }
+  function currentPlanSoft(){
+    const p = (window.lastKnownPlan 
+               || (window.currentUser && window.currentUser.app_metadata && window.currentUser.app_metadata.plan) 
+               || '').toString().toLowerCase();
+    if (p) return p;
+    const c = Number(window.lastKnownCredits || window.remoteCredits || localStorage.getItem('goatify_credits') || 0);
+    if (c >= 1000) return 'pro';
+    if (c > 100)   return 'boost';
+    return 'free';
+  }
+  function isPaid(){
+    const plan = currentPlanSoft();
+    if (isPaidPlan(plan)) return true;
+    const c = Number(window.lastKnownCredits || window.remoteCredits || localStorage.getItem('goatify_credits') || 0);
+    return isPaidByCredits(c);
+  }
+  function handlePaidClick(ev){
+    try{
+      if (!isPaid()) return; // FREE -> deja que el modal se muestre
+      ev.preventDefault();
+      ev.stopImmediatePropagation();
+      ev.stopPropagation();
+      window.open('https://www.goatify.app/pro', '_blank');
+      return false;
+    }catch(e){ console.warn('paid intercept error', e); }
+  }
+  function wire(node){
+    if (!node) return;
+    node.addEventListener('click', handlePaidClick, { capture:true });
+    node.onclick = handlePaidClick;
+  }
+  function scan(){
+    wire(document.getElementById('free-guides-link'));
+    document.querySelectorAll('a[href*="guiasIA"], a#free-guides-link, button#free-guides-link').forEach(wire);
+  }
+  document.addEventListener('DOMContentLoaded', scan);
+  const mo = new MutationObserver((muts)=>{ scan(); });
+  mo.observe(document.documentElement, {childList:true, subtree:true});
+})();
+</script>
+
+
+<script>
+(function(){
+  function applyPlanLabels(){
+    const c = Number(window.lastKnownCredits || window.remoteCredits || localStorage.getItem('goatify_credits') || 0);
+    let plan = (window.lastKnownPlan || '').toLowerCase();
+    if (!plan || plan === 'free'){
+      if (c >= 1000) plan = 'pro';
+      else if (c > 100) plan = 'boost';
+      else plan = 'free';
+      window.lastKnownPlan = plan;
+    }
+    const txt = plan.toUpperCase();
+    document.querySelectorAll('[data-plan-name], #plan-name, #settings-user-plan').forEach(el => { 
+      if (el) el.textContent = txt; 
+    });
+  }
+  applyPlanLabels();
+  setInterval(applyPlanLabels, 1200);
+})();
+</script>
+
 </body>
 </html>
