@@ -4952,47 +4952,44 @@ dom.settingsUpgradePlanBtn.classList.toggle('hidden', userPlanRaw !== 'free'); /
              * @param {HTMLElement} [element=null] - El elemento que activó la voz (opcional).
              */
             function speak(text, element) {
-                if (!text) return;
+    if (!text) return;
+    if (!('speechSynthesis' in window)) return;
 
-                if (speechOn) { // Si la voz global está habilitada
-                    if (!('speechSynthesis' in window)) return; // Comprobar la compatibilidad con la API SpeechSynthesis
-                    speechSynthesis.cancel(); // Detener cualquier voz en curso
-                    micWasOnBeforeSpeaking = isRecognizing; // Almacenar el estado del micrófono
-                    if (isRecognizing) { recognition.stop(); } // Detener el reconocimiento de voz si está activo
-                    // Limpiar etiquetas HTML y formato Markdown del texto
-                    const cleanText = text.replace(/<[^>]*>/g, '').replace(/[*_`#~[\]()🔍]|(-{3,})/g, '');
-                    const utterance = new SpeechSynthesisUtterance(cleanText);
-                    if (selectedVoice) { utterance.voice = selectedVoice; } // Establecer la voz seleccionada
-                    utterance.rate = 1.15; // Velocidad de habla ligeramente más rápida
-                    utterance.onend = () => {
-                        // Reiniciar el reconocimiento de voz si estaba activo antes de hablar
-                        if (micWasOnBeforeSpeaking) {
-                            if (recognition && !isRecognizing) {
-                                try { recognition.start(); } catch(e) { console.error("Error al reiniciar el reconocimiento:", e); }
-                            }
-                            micWasOnBeforeSpeaking = false;
-                        }
-                    };
-                    utterance.onerror = (e) => {
-                        console.error('Error de síntesis de voz:', e);
-                        // Reiniciar el reconocimiento de voz incluso en caso de error
-                        if (micWasOnBeforeSpeaking) {
-                            if (recognition && !isRecognizing) {
-                               try { recognition.start(); } catch(e) { console.error("Error al reiniciar el reconocimiento en caso de error:", e); }
-                            }
-                            micWasOnBeforeSpeaking = false;
-                        }
-                    }
-                    speechSynthesis.speak(utterance);
-                } else if (element) { // Si la voz es activada por un elemento específico (ej. icono de altavoz)
-                    speechSynthesis.cancel();
-                    const cleanText = text.replace(/<[^>]*>/g, '').replace(/[*_`#~[\]()🔍]|(-{3,})/g, '');
-                    const utterance = new SpeechSynthesisUtterance(cleanText);
-                    if (selectedVoice) utterance.voice = selectedVoice;
-                    utterance.rate = 1.15;
-                    speechSynthesis.speak(utterance);
-                }
+    window.__goatifyCurrentUtterance ||= null;
+    window.__goatifySpeakingElement ||= null;
+
+    if (speechSynthesis.speaking || speechSynthesis.pending) {
+        if (window.__goatifySpeakingElement === element) {
+            if (speechSynthesis.paused) {
+                try { speechSynthesis.resume(); } catch(e){}
+            } else {
+                try { speechSynthesis.cancel(); } catch(e){}
             }
+            return;
+        } else {
+            try { speechSynthesis.cancel(); } catch(e){}
+        }
+    }
+
+    const cleanText = (text || '').replace(/<[^>]*>/g, '').replace(/[*_`#~[\]()🔍]|(-{3,})/g, '');
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+    if (typeof selectedVoice !== 'undefined' && selectedVoice) utterance.voice = selectedVoice;
+    utterance.rate = 1.15;
+
+    utterance.onend = () => {
+        window.__goatifyCurrentUtterance = null;
+        window.__goatifySpeakingElement = null;
+    };
+    utterance.onerror = (e) => {
+        console.error('TTS error:', e);
+        window.__goatifyCurrentUtterance = null;
+        window.__goatifySpeakingElement = null;
+    };
+
+    window.__goatifyCurrentUtterance = utterance;
+    window.__goatifySpeakingElement = element || null;
+    try { speechSynthesis.speak(utterance); } catch(e){ console.warn(e); }
+}
 
             /**
              * Rellena el menú desplegable del selector de voz con las voces de síntesis de voz disponibles.
@@ -6326,7 +6323,7 @@ dom.settingsUpgradePlanBtn.classList.toggle('hidden', userPlanRaw !== 'free'); /
                     expanded.push(id);
                     if (id.startsWith('project-')) {
                         const proj = state.projects[id];
-                        const children = (proj && proj.itemIds) ? [...proj.itemIds] : [];
+                        const children = (proj && Array.isArray(proj.itemIds)) ? [...proj.itemIds] : [];
                         children.forEach(cid => expanded.push(cid));
                     }
                 });
@@ -10523,6 +10520,54 @@ document.addEventListener('DOMContentLoaded', () => {
   applyPlanLabels();
   setInterval(applyPlanLabels, 1200);
 })();
+</script>
+
+
+<script>
+(function(){
+  function computePlanFromCredits(c){
+    c = Number(c||0);
+    if (c >= 4000) return 'pro';
+    if (c > 100) return 'boost';
+    return 'free';
+  }
+  function isTruePro(){
+    const c = Number(window.lastKnownCredits || window.remoteCredits || localStorage.getItem('goatify_credits') || 0);
+    const p = (window.lastKnownPlan || (window.currentUser && window.currentUser.app_metadata && window.currentUser.app_metadata.plan) || '').toLowerCase();
+    const planByC = computePlanFromCredits(c);
+    const plan = (p && p !== 'free' && p !== 'boost') ? p : planByC;
+    return plan.startsWith('pro');
+  }
+  document.addEventListener('click', function(e){
+    const btn = e.target.closest('[data-goat-prox], .goat-pro-x-btn');
+    if (!btn) return;
+    if (!isTruePro()){
+      e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
+      // muestra tu modal/flow de upgrade si tienes
+      if (typeof openUpgradeModal === 'function') return openUpgradeModal();
+      return false;
+    } else {
+      // abrir portal PRO
+      const url = btn.dataset.href || 'https://www.goatify.app/pro';
+      window.open(url, '_blank');
+      e.preventDefault(); return false;
+    }
+  }, true);
+})();
+</script>
+
+
+<script>
+document.addEventListener('click', function onSpeakerClick(e){
+  const icon = e.target.closest('.speaker-icon');
+  if (!icon) return;
+  try{
+    const bubble = icon.closest('.chat-bubble-bot, .chat-bubble-user, .chat-message');
+    const textNode = bubble ? bubble.querySelector('.message-content, .content, p, div') : null;
+    const text = (icon.dataset.tts || (textNode ? textNode.innerText : '') || '').trim();
+    speak(text, icon);
+  }catch(err){ console.warn('speaker click error', err); }
+}, true);
 </script>
 
 </body>
