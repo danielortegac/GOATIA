@@ -10532,63 +10532,34 @@ document.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-
-<!-- Goatify Patch 2025-07-29: Mic Auto-Resume & Bulk Delete Fix -->
-<script id="goatify-patch-20250729">
-(function(){
-    console.log('[Goatify Patch] Applying auto-resume mic and bulk delete fixes');
-
-    // === Mic Auto-Resume Patch ===
-    try {
-        const originalSpeak = window.speechSynthesis.speak.bind(window.speechSynthesis);
-        window.speechSynthesis.speak = function(utter){
-            try { if(window.recognition){ window.recognition.stop(); } } catch(e){}
-            utter.addEventListener('end', () => {
-                if(window.autoResumeMic && window._wasMicActive && window.recognition){
-                    try { window.recognition.start(); } catch(err){ console.warn('[Goatify Patch] Mic restart error', err); }
-                }
-            });
-            originalSpeak(utter);
-        };
-    } catch(e){ console.warn('[Goatify Patch] Could not patch speech synthesis', e); }
-
-    // Utility to ensure _wasMicActive flag toggles when user interacts with mic button
-    window.enableMic = function(){
-        if(window.recognition){
-            try{ window.recognition.start(); window._wasMicActive = true; }catch(e){}
-        }
-    };
-    window.disableMic = function(){
-        if(window.recognition){
-            try{ window.recognition.stop(); window._wasMicActive = false; }catch(e){}
-        }
-    };
-
-    // === Bulk Delete Fix ===
-    if (typeof bulkDeleteByIds !== 'undefined') {
-        const originalBulkDelete = bulkDeleteByIds;
-        bulkDeleteByIds = async function(ids){
-            if(!Array.isArray(ids) || ids.length===0) return;
-            const validIds = ids.filter(id => typeof id === 'string' && id.trim() !== '');
-            if(validIds.length===0) return;
-            if(typeof state !== 'undefined' && state.structure){
-                validIds.forEach(id => { delete state.structure[id]; });
-            }
-            if(typeof saveState === 'function') await saveState();
-            if(typeof renderSidebar === 'function') renderSidebar();
-            console.log('[Goatify Patch] Deleted', validIds.length, 'items');
-        };
-    }
-
-    // === DragSelect Header Filter ===
-    document.addEventListener('mousedown', function(e){
-        if(e.target && e.target.classList && e.target.classList.contains('drag-select-header')){
-            e.stopPropagation();
-        }
-    }, true);
-
-})();
+<script>
+document.addEventListener('click', function(e){
+  const item = e.target.closest('.chat-item, .note-item, .project-header');
+  if(!item) return;
+  if(!window.isSelectModeActive && !(e.shiftKey||e.ctrlKey||e.metaKey)) return;
+  e.preventDefault();
+  const id = item.dataset.id;
+  if(!id) return;
+  window.selectedChatIds ||= new Set();
+  if(window.selectedChatIds.has(id)){
+     window.selectedChatIds.delete(id);
+     item.classList.remove('selected-for-delete');
+  } else {
+     window.selectedChatIds.add(id);
+     item.classList.add('selected-for-delete');
+  }
+}, true);
 </script>
-
+<script>
+document.addEventListener('dragstart', function(e){
+  const item=e.target.closest('.chat-item, .note-item, .project-header');
+  if(!item) return;
+  const id=item.dataset.id;
+  if(!id) return;
+  window.selectedChatIds ||= new Set();
+  const ids = window.selectedChatIds.size>0 && window.selectedChatIds.has(id) ? Array.from(window.selectedChatIds) : [id];
+  e.dataTransfer.setData('application/goatify-items', JSON.stringify(ids));
+}, true);
+</script>
 </body>
 </html>
