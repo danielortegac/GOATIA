@@ -6316,43 +6316,77 @@ dom.settingsUpgradePlanBtn.classList.toggle('hidden', userPlanRaw !== 'free'); /
              * Recibe IDs completos como 'chat-...', 'note-...', 'project-...'. Los proyectos eliminan también sus hijos.
              */
             function bulkDeleteByIds(idsArray) {
-                const toDelete = Array.from(new Set(idsArray));
-                // Primero, expandir hijos de proyectos
-                const expanded = [];
-                toDelete.forEach(id => {
-                    expanded.push(id);
-                    if (id.startsWith('project-')) {
-                        const proj = state.projects[id];
-                        const children = (proj && Array.isArray(proj.itemIds)) ? [...proj.itemIds] : [];
-                        children.forEach(cid => expanded.push(cid));
-                    }
-                });
-                // Eliminar de estructura y colecciones
-                expanded.forEach(deleteId => {
-                    state.structure = state.structure.filter(i => i !== deleteId);
-                    if (deleteId.startsWith('chat-')) {
-                        delete state.chats[deleteId];
-                    } else if (deleteId.startsWith('note-')) {
-                        state.notes = state.notes.filter(n => n.id !== deleteId);
-                    } else if (deleteId.startsWith('project-')) {
-                        delete state.projects[deleteId];
-                    }
-                    // Quitar de itemIds de cualquier proyecto
-                    Object.values(state.projects).forEach(p => {
-                        if (p.itemIds) p.itemIds = p.itemIds.filter(cid => cid !== deleteId);
-                    });
-                    // Reset de vistas si era el activo
-                    if (typeof currentChatId !== 'undefined' && currentChatId === deleteId) {
-                        resetChatView && resetChatView();
-                    }
-                    if (typeof currentNoteId !== 'undefined' && currentNoteId === deleteId) {
-                        currentNoteId = null;
-                        if (dom && dom.noteEditorPanel) dom.noteEditorPanel.classList.add('hidden');
-                    }
-                });
-                saveState(); // Persistir
-                renderSidebar(); // Refrescar UI
+    try {
+        console.group('[Goatify] bulkDeleteByIds');
+        const input = Array.from(new Set(idsArray || [])).filter(Boolean);
+        console.log('input ids', input);
+        const expanded = [];
+
+        function pushId(id){
+            if (!id || expanded.includes(id)) return;
+            expanded.push(id);
+        }
+
+        input.forEach(id => {
+            pushId(id);
+            if (id.startsWith('project-')) {
+                const proj = state.projects[id];
+                const children = (proj && Array.isArray(proj.itemIds)) ? [...proj.itemIds] : [];
+                children.forEach(pushId);
             }
+        });
+        console.log('expanded ids', expanded);
+
+        // Deletions
+        expanded.forEach(deleteId => {
+            // Remove from top structure
+            if (Array.isArray(state.structure)) {
+                state.structure = state.structure.filter(i => i !== deleteId);
+            }
+            // Remove from collections
+            if (deleteId.startsWith('chat-')) {
+                if (state.chats && state.chats[deleteId]) delete state.chats[deleteId];
+            } else if (deleteId.startsWith('note-')) {
+                if (Array.isArray(state.notes)) state.notes = state.notes.filter(n => n.id !== deleteId);
+            } else if (deleteId.startsWith('project-')) {
+                if (state.projects && state.projects[deleteId]) delete state.projects[deleteId];
+            }
+            // Remove from any project.itemIds
+            if (state.projects) {
+                Object.values(state.projects).forEach(p => {
+                    if (Array.isArray(p.itemIds)) {
+                        p.itemIds = p.itemIds.filter(cid => cid !== deleteId);
+                    }
+                });
+            }
+            // Reset views if affected
+            if (typeof currentChatId !== 'undefined' && currentChatId === deleteId) {
+                if (typeof resetChatView === 'function') resetChatView();
+                currentChatId = null;
+            }
+            if (typeof currentNoteId !== 'undefined' && currentNoteId === deleteId) {
+                currentNoteId = null;
+                if (dom && dom.noteEditorPanel) dom.noteEditorPanel.classList.add('hidden');
+            }
+        });
+
+        console.log('post-delete state', {
+            structure: state.structure,
+            chats: Object.keys(state.chats || {}),
+            projects: Object.keys(state.projects || {}),
+            notes: (state.notes || []).map(n=>n.id)
+        });
+
+        saveState(); // persist
+        renderSidebar(); // refresh
+        console.groupEnd();
+    } catch (err) {
+        console.error('[Goatify] bulkDeleteByIds error', err);
+        try {
+            alert('Error eliminando elementos: ' + (err && err.message ? err.message : err));
+        } catch(_) {}
+    }
+}
             }
 
             /**
@@ -7893,7 +7927,7 @@ dom.settingsUpgradePlanBtn.classList.toggle('hidden', userPlanRaw !== 'free'); /
                     const lang = localStorage.getItem('goatify-lang') || 'es';
                     const confirm = await showModal({ title: `Eliminar ${chatsToDelete.size} elemento(s)`, body: 'Esta acción es irreversible. ¿Confirmas la eliminación?', confirmText: 'Eliminar', dangerConfirm: true });
                     if (confirm.confirmed) {
-                        bulkDeleteByIds(Array.from(chatsToDelete)); // Eliminar cada elemento seleccionado
+                        bulkDeleteByIds(Array.from(chatsToDelete)); chatsToDelete.clear(); clearSelectionVisuals && clearSelectionVisuals();
                         toggleSelectMode(false); // Salir del modo de selección
                     }
                 });
@@ -10568,6 +10602,42 @@ document.addEventListener('click', function onSpeakerClick(e){
     speak(text, icon);
   }catch(err){ console.warn('speaker click error', err); }
 }, true);
+
+// --- TTS helper: play/pause per message ---
+let currentUtterance = null;
+let lastSpeakingIcon = null;
+function speak(text, icon) {
+  try {
+    if (currentUtterance && speechSynthesis.speaking) {
+      speechSynthesis.cancel();
+      if (lastSpeakingIcon) lastSpeakingIcon.classList.remove('text-primary');
+      if (icon === lastSpeakingIcon) {
+        currentUtterance = null;
+        lastSpeakingIcon = null;
+        return;
+      }
+    }
+    const utter = new SpeechSynthesisUtterance(text);
+    const sel = document.getElementById('voice-selector');
+    if (sel && sel.value) {
+      const voices = speechSynthesis.getVoices();
+      const v = voices.find(v => v.name === sel.value);
+      if (v) utter.voice = v;
+    }
+    utter.rate = 1; utter.pitch = 1;
+    currentUtterance = utter; lastSpeakingIcon = icon;
+    if (icon) icon.classList.add('text-primary');
+    utter.onend = () => {
+      if (icon) icon.classList.remove('text-primary');
+      if (icon === lastSpeakingIcon) { lastSpeakingIcon = null; currentUtterance = null; }
+    };
+    utter.onerror = () => {
+      if (icon) icon.classList.remove('text-primary');
+      lastSpeakingIcon = null; currentUtterance = null;
+    };
+    speechSynthesis.speak(utter);
+  } catch (e) { console.error("TTS speak error:", e); }
+}
 </script>
 
 </body>
