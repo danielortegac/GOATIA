@@ -144,7 +144,8 @@ async function spendCredit() {
 }
 
 </script>
-<script>pdfjsLib.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js';
+<script>
+window.autoResumeMic = true;pdfjsLib.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js';
 async function spendCredit() {
   try {
     const response = await fetch('/.netlify/functions/update-usage', {
@@ -686,18 +687,18 @@ async function spendCredit() {
             gap: 5px;
             text-align: center;
         }
-       .calendar-day {
-    padding: 2px;
-    border-radius: 4px;
-    background-color: var(--current-bg-medium);
-    cursor: pointer;
-    transition: background-color 0.2s ease, border 0.2s ease;
-    position: relative;
-    border: 2px solid transparent;
-    height: 110px; /* Se establece una altura fija para cada día */
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
+        .calendar-day {
+            padding: 2px;
+            border-radius: 4px;
+            background-color: var(--current-bg-medium);
+            cursor: pointer;
+            transition: background-color 0.2s ease, border 0.2s ease;
+            position: relative;
+            border: 2px solid transparent;
+            min-height: 90px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
         }
         .calendar-day-number {
             font-weight: bold;
@@ -705,27 +706,14 @@ async function spendCredit() {
             margin: 4px;
             align-self: flex-start;
         }
-     .calendar-day-tasks {
-    flex-grow: 1;
-    width: 100%;
-    overflow-y: auto; /* Permite el scroll vertical cuando sea necesario */
-    min-height: 0; /* Necesario para que el flexbox funcione correctamente con el scroll */
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    padding: 0 2px 2px 2px;
-}
-        /* Estilos para un scrollbar más delgado y temático */
-        .calendar-day-tasks::-webkit-scrollbar {
-            width: 4px;
-        }
-        .calendar-day-tasks::-webkit-scrollbar-track {
-            background: transparent;
-        }
-        .calendar-day-tasks::-webkit-scrollbar-thumb {
-            background-color: var(--primary);
-            border-radius: 20px;
-            border: 3px solid transparent;
+        .calendar-day-tasks {
+            flex-grow: 1;
+            width: 100%;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            padding: 0 2px 2px 2px;
         }
         .calendar-day-task {
             font-size: 0.65rem;
@@ -844,7 +832,6 @@ async function spendCredit() {
         .calendar-view-toggle button:hover:not(.active), .project-view-controls button:hover:not(.active) {
             background-color: var(--current-bg-medium);
         }
-
         .dark-theme .project-view-controls button:not(.active) {
             color: var(--current-text-light);
         }
@@ -4966,44 +4953,53 @@ dom.settingsUpgradePlanBtn.classList.toggle('hidden', userPlanRaw !== 'free'); /
              * @param {HTMLElement} [element=null] - El elemento que activó la voz (opcional).
              */
             function speak(text, element) {
-    if (!text) return;
-    if (!('speechSynthesis' in window)) return;
+                if (!text) return;
 
-    window.__goatifyCurrentUtterance ||= null;
-    window.__goatifySpeakingElement ||= null;
-
-    if (speechSynthesis.speaking || speechSynthesis.pending) {
-        if (window.__goatifySpeakingElement === element) {
-            if (speechSynthesis.paused) {
-                try { speechSynthesis.resume(); } catch(e){}
-            } else {
-                try { speechSynthesis.cancel(); } catch(e){}
+                if (speechOn) { // Si la voz global está habilitada
+                    if (!('speechSynthesis' in window)) return; // Comprobar la compatibilidad con la API SpeechSynthesis
+                    speechSynthesis.cancel(); // Detener cualquier voz en curso
+                    micWasOnBeforeSpeaking = isRecognizing; // Almacenar el estado del micrófono
+                    if (isRecognizing) { recognition.stop(); } // Detener el reconocimiento de voz si está activo
+                    // Limpiar etiquetas HTML y formato Markdown del texto
+                    const cleanText = text.replace(/<[^>]*>/g, '').replace(/[*_`#~[\]()🔍]|(-{3,})/g, '');
+                    const utterance = new SpeechSynthesisUtterance(cleanText);
+                    if (selectedVoice) { utterance.voice = selectedVoice; } // Establecer la voz seleccionada
+                    utterance.rate = 1.15; // Velocidad de habla ligeramente más rápida
+                    utterance.onend = () => {
+                        // Reiniciar el reconocimiento de voz si estaba activo antes de hablar
+                        if (micWasOnBeforeSpeaking) {
+                            if (recognition && !isRecognizing) {
+                                try { recognition.start(); } catch(e) { console.error("Error al reiniciar el reconocimiento:", e); }
+                            }
+                            micWasOnBeforeSpeaking = false;
+                        }
+                    };
+                    utterance.onerror = (e) => {
+                        console.error('Error de síntesis de voz:', e);
+                        // Reiniciar el reconocimiento de voz incluso en caso de error
+                        if (micWasOnBeforeSpeaking) {
+                            if (recognition && !isRecognizing) {
+                               try { recognition.start(); } catch(e) { console.error("Error al reiniciar el reconocimiento en caso de error:", e); }
+                            }
+                            micWasOnBeforeSpeaking = false;
+                        }
+                    }
+                    speechSynthesis.speak(utterance);
+                } else if (element) { // Si la voz es activada por un elemento específico (ej. icono de altavoz)
+                    
+                    if (speechSynthesis.speaking) {
+                        speechSynthesis.cancel();
+                        return; // Toggle play/pause if already speaking
+                    }
+    
+                    speechSynthesis.cancel();
+                    const cleanText = text.replace(/<[^>]*>/g, '').replace(/[*_`#~[\]()🔍]|(-{3,})/g, '');
+                    const utterance = new SpeechSynthesisUtterance(cleanText);
+                    if (selectedVoice) utterance.voice = selectedVoice;
+                    utterance.rate = 1.15;
+                    speechSynthesis.speak(utterance);
+                }
             }
-            return;
-        } else {
-            try { speechSynthesis.cancel(); } catch(e){}
-        }
-    }
-
-    const cleanText = (text || '').replace(/<[^>]*>/g, '').replace(/[*_`#~[\]()🔍]|(-{3,})/g, '');
-    const utterance = new SpeechSynthesisUtterance(cleanText);
-    if (typeof selectedVoice !== 'undefined' && selectedVoice) utterance.voice = selectedVoice;
-    utterance.rate = 1.15;
-
-    utterance.onend = () => {
-        window.__goatifyCurrentUtterance = null;
-        window.__goatifySpeakingElement = null;
-    };
-    utterance.onerror = (e) => {
-        console.error('TTS error:', e);
-        window.__goatifyCurrentUtterance = null;
-        window.__goatifySpeakingElement = null;
-    };
-
-    window.__goatifyCurrentUtterance = utterance;
-    window.__goatifySpeakingElement = element || null;
-    try { speechSynthesis.speak(utterance); } catch(e){ console.warn(e); }
-}
 
             /**
              * Rellena el menú desplegable del selector de voz con las voces de síntesis de voz disponibles.
@@ -6330,77 +6326,43 @@ dom.settingsUpgradePlanBtn.classList.toggle('hidden', userPlanRaw !== 'free'); /
              * Recibe IDs completos como 'chat-...', 'note-...', 'project-...'. Los proyectos eliminan también sus hijos.
              */
             function bulkDeleteByIds(idsArray) {
-    try {
-        console.group('[Goatify] bulkDeleteByIds');
-        const input = Array.from(new Set(idsArray || [])).filter(Boolean);
-        console.log('input ids', input);
-        const expanded = [];
-
-        function pushId(id){
-            if (!id || expanded.includes(id)) return;
-            expanded.push(id);
-        }
-
-        input.forEach(id => {
-            pushId(id);
-            if (id.startsWith('project-')) {
-                const proj = state.projects[id];
-                const children = (proj && Array.isArray(proj.itemIds)) ? [...proj.itemIds] : [];
-                children.forEach(pushId);
-            }
-        });
-        console.log('expanded ids', expanded);
-
-        // Deletions
-        expanded.forEach(deleteId => {
-            // Remove from top structure
-            if (Array.isArray(state.structure)) {
-                state.structure = state.structure.filter(i => i !== deleteId);
-            }
-            // Remove from collections
-            if (deleteId.startsWith('chat-')) {
-                if (state.chats && state.chats[deleteId]) delete state.chats[deleteId];
-            } else if (deleteId.startsWith('note-')) {
-                if (Array.isArray(state.notes)) state.notes = state.notes.filter(n => n.id !== deleteId);
-            } else if (deleteId.startsWith('project-')) {
-                if (state.projects && state.projects[deleteId]) delete state.projects[deleteId];
-            }
-            // Remove from any project.itemIds
-            if (state.projects) {
-                Object.values(state.projects).forEach(p => {
-                    if (Array.isArray(p.itemIds)) {
-                        p.itemIds = p.itemIds.filter(cid => cid !== deleteId);
+                const toDelete = Array.from(new Set(idsArray));
+                // Primero, expandir hijos de proyectos
+                const expanded = [];
+                toDelete.forEach(id => {
+                    expanded.push(id);
+                    if (id.startsWith('project-')) {
+                        const proj = state.projects[id];
+                        const children = (proj && proj.itemIds) ? [...proj.itemIds] : [];
+                        children.forEach(cid => expanded.push(cid));
                     }
                 });
+                // Eliminar de estructura y colecciones
+                expanded.forEach(deleteId => {
+                    state.structure = state.structure.filter(i => i !== deleteId);
+                    if (deleteId.startsWith('chat-')) {
+                        delete state.chats[deleteId];
+                    } else if (deleteId.startsWith('note-')) {
+                        state.notes = state.notes.filter(n => n.id !== deleteId);
+                    } else if (deleteId.startsWith('project-')) {
+                        delete state.projects[deleteId];
+                    }
+                    // Quitar de itemIds de cualquier proyecto
+                    Object.values(state.projects).forEach(p => {
+                        if (p.itemIds) p.itemIds = p.itemIds.filter(cid => cid !== deleteId);
+                    });
+                    // Reset de vistas si era el activo
+                    if (typeof currentChatId !== 'undefined' && currentChatId === deleteId) {
+                        resetChatView && resetChatView();
+                    }
+                    if (typeof currentNoteId !== 'undefined' && currentNoteId === deleteId) {
+                        currentNoteId = null;
+                        if (dom && dom.noteEditorPanel) dom.noteEditorPanel.classList.add('hidden');
+                    }
+                });
+                saveState(); // Persistir
+                renderSidebar(); // Refrescar UI
             }
-            // Reset views if affected
-            if (typeof currentChatId !== 'undefined' && currentChatId === deleteId) {
-                if (typeof resetChatView === 'function') resetChatView();
-                currentChatId = null;
-            }
-            if (typeof currentNoteId !== 'undefined' && currentNoteId === deleteId) {
-                currentNoteId = null;
-                if (dom && dom.noteEditorPanel) dom.noteEditorPanel.classList.add('hidden');
-            }
-        });
-
-        console.log('post-delete state', {
-            structure: state.structure,
-            chats: Object.keys(state.chats || {}),
-            projects: Object.keys(state.projects || {}),
-            notes: (state.notes || []).map(n=>n.id)
-        });
-
-        saveState(); // persist
-        renderSidebar(); // refresh
-        console.groupEnd();
-    } catch (err) {
-        console.error('[Goatify] bulkDeleteByIds error', err);
-        try {
-            alert('Error eliminando elementos: ' + (err && err.message ? err.message : err));
-        } catch(_) {}
-    }
-}
             }
 
             /**
@@ -7941,7 +7903,7 @@ dom.settingsUpgradePlanBtn.classList.toggle('hidden', userPlanRaw !== 'free'); /
                     const lang = localStorage.getItem('goatify-lang') || 'es';
                     const confirm = await showModal({ title: `Eliminar ${chatsToDelete.size} elemento(s)`, body: 'Esta acción es irreversible. ¿Confirmas la eliminación?', confirmText: 'Eliminar', dangerConfirm: true });
                     if (confirm.confirmed) {
-                        bulkDeleteByIds(Array.from(chatsToDelete)); chatsToDelete.clear(); clearSelectionVisuals && clearSelectionVisuals();
+                        bulkDeleteByIds(Array.from(chatsToDelete)); // Eliminar cada elemento seleccionado
                         toggleSelectMode(false); // Salir del modo de selección
                     }
                 });
@@ -10568,90 +10530,6 @@ document.addEventListener('DOMContentLoaded', () => {
   applyPlanLabels();
   setInterval(applyPlanLabels, 1200);
 })();
-</script>
-
-
-<script>
-(function(){
-  function computePlanFromCredits(c){
-    c = Number(c||0);
-    if (c >= 4000) return 'pro';
-    if (c > 100) return 'boost';
-    return 'free';
-  }
-  function isTruePro(){
-    const c = Number(window.lastKnownCredits || window.remoteCredits || localStorage.getItem('goatify_credits') || 0);
-    const p = (window.lastKnownPlan || (window.currentUser && window.currentUser.app_metadata && window.currentUser.app_metadata.plan) || '').toLowerCase();
-    const planByC = computePlanFromCredits(c);
-    const plan = (p && p !== 'free' && p !== 'boost') ? p : planByC;
-    return plan.startsWith('pro');
-  }
-  document.addEventListener('click', function(e){
-    const btn = e.target.closest('[data-goat-prox], .goat-pro-x-btn');
-    if (!btn) return;
-    if (!isTruePro()){
-      e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
-      // muestra tu modal/flow de upgrade si tienes
-      if (typeof openUpgradeModal === 'function') return openUpgradeModal();
-      return false;
-    } else {
-      // abrir portal PRO
-      const url = btn.dataset.href || 'https://www.goatify.app/pro';
-      window.open(url, '_blank');
-      e.preventDefault(); return false;
-    }
-  }, true);
-})();
-</script>
-
-
-<script>
-document.addEventListener('click', function onSpeakerClick(e){
-  const icon = e.target.closest('.speaker-icon');
-  if (!icon) return;
-  try{
-    const bubble = icon.closest('.chat-bubble-bot, .chat-bubble-user, .chat-message');
-    const textNode = bubble ? bubble.querySelector('.message-content, .content, p, div') : null;
-    const text = (icon.dataset.tts || (textNode ? textNode.innerText : '') || '').trim();
-    speak(text, icon);
-  }catch(err){ console.warn('speaker click error', err); }
-}, true);
-
-// --- TTS helper: play/pause per message ---
-let currentUtterance = null;
-let lastSpeakingIcon = null;
-function speak(text, icon) {
-  try {
-    if (currentUtterance && speechSynthesis.speaking) {
-      speechSynthesis.cancel();
-      if (lastSpeakingIcon) lastSpeakingIcon.classList.remove('text-primary');
-      if (icon === lastSpeakingIcon) {
-        currentUtterance = null;
-        lastSpeakingIcon = null;
-        return;
-      }
-    }
-    const utter = new SpeechSynthesisUtterance(text);
-    const sel = document.getElementById('voice-selector');
-    if (sel && sel.value) {
-      const voices = speechSynthesis.getVoices();
-      const v = voices.find(v => v.name === sel.value);
-      if (v) utter.voice = v;
-    }
-    utter.rate = 1; utter.pitch = 1;
-    currentUtterance = utter; lastSpeakingIcon = icon;
-    if (icon) icon.classList.add('text-primary');
-    utter.onend = () => {
-      if (icon) icon.classList.remove('text-primary');
-      if (icon === lastSpeakingIcon) { lastSpeakingIcon = null; currentUtterance = null; }
-    };
-    utter.onerror = () => {
-      if (icon) icon.classList.remove('text-primary');
-      lastSpeakingIcon = null; currentUtterance = null;
-    };
-    speechSynthesis.speak(utter);
-  } catch (e) { console.error("TTS speak error:", e); }
-}
 </script>
 
 </body>
