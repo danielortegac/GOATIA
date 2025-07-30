@@ -5074,7 +5074,7 @@ dom.settingsUpgradePlanBtn.classList.toggle('hidden', userPlanRaw !== 'free'); /
 
                 const selectedModel = selector.value;
                 // Restringir el acceso a "GOAT X PRO" (gpt-4o) para usuarios gratuitos
-                if (selectedModel === 'gpt-4o' && (!currentUser || (currentUser.app_metadata?.plan || 'free') === 'free')) {
+                if (selectedModel === 'gpt-4o' && ((window.lastKnownPlan || (currentUser?.app_metadata?.plan || 'free')).toLowerCase() === 'free')) {
                      showInAppNotification(translations[localStorage.getItem('goatify-lang') || 'es'].restricted_access_title || "Acceso Restringido", translations[localStorage.getItem('goatify-lang') || 'es'].restricted_access_message || "El modelo GOAT X PRO está disponible solo para usuarios con un plan de pago.", 3000);
                      selector.value = 'gpt-3.5-turbo-1106'; // Revertir al modelo predeterminado
                      return 'gpt-3.5-turbo-1106';
@@ -7651,7 +7651,7 @@ dom.settingsUpgradePlanBtn.classList.toggle('hidden', userPlanRaw !== 'free'); /
                 // Escuchador de cambio de selector de modelo
                 dom.modelSelector?.addEventListener('change', () => {
                     const selectedValue = dom.modelSelector.value;
-                    if (selectedValue === 'gpt-4o' && (!currentUser || (currentUser.app_metadata?.plan || 'free') === 'free')) {
+                    if (selectedValue === 'gpt-4o' && ((window.lastKnownPlan || (currentUser?.app_metadata?.plan || 'free')).toLowerCase() === 'free')) {
                         showInAppNotification(translations[localStorage.getItem('goatify-lang') || 'es'].restricted_access_title || "Acceso Restringido", translations[localStorage.getItem('goatify-lang') || 'es'].restricted_access_message || "El modelo GOAT X PRO está disponible solo para usuarios con un plan de pago.", 3000);
                         dom.modelSelector.value = 'gpt-3.5-turbo-1106';
                     }
@@ -10676,66 +10676,6 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 })();
 </script>
-
-
-<!-- Goatify Patch 2025-07-30: Enable GOAT X PRO for paid users -->
-<script id="goatify-goatxpro-access-patch">
-(function(){
-  if(window.__goatProPatchApplied__) return;
-  window.__goatProPatchApplied__ = true;
-  console.log('[Goatify] GOAT X PRO access patch loaded');
-
-  function isPaid(){
-     try{
-       if(typeof window.isPaid === 'function') return window.isPaid();
-       const user = window.netlifyIdentity && window.netlifyIdentity.currentUser ? window.netlifyIdentity.currentUser() : null;
-       if(user && user.app_metadata && user.app_metadata.plan){
-           return user.app_metadata.plan.toString().toLowerCase() === 'pro';
-       }
-       const credits = Number(window.remoteCredits || window.lastKnownCredits || 0);
-       return credits >= 1000;
-     }catch(e){ return false; }
-  }
-
-  function refreshModelAccess(){
-     const proAllowed = isPaid();
-     document.querySelectorAll('option.goat-x-pro-model').forEach(opt=>{
-        opt.disabled = !proAllowed;
-     });
-  }
-
-  function setupSelectListeners(){
-     document.querySelectorAll('select').forEach(sel=>{
-        if(sel.__goatPatched) return;
-        sel.__goatPatched = true;
-        sel.addEventListener('change', function(e){
-          if(this.value === 'gpt-4o' && !isPaid()){
-              const title = 'Acceso Restringido';
-              const msg = 'El modelo GOAT X PRO está disponible solo para usuarios con un plan de pago.';
-              if(typeof showInAppNotification === 'function'){
-                  showInAppNotification(title, msg, 3000);
-              }else alert(msg);
-              this.value = 'gpt-3.5-turbo-1106';
-          }
-        }, false);
-     });
-  }
-
-  function init(){
-     refreshModelAccess();
-     setupSelectListeners();
-  }
-
-  if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded', init); }
-  else init();
-
-  // Re-run when credits or user change
-  window.addEventListener('goatify-credits-updated', refreshModelAccess);
-  if(window.netlifyIdentity) window.netlifyIdentity.on('login', refreshModelAccess);
-
-})();
-</script>
-<!-- End Goatify Patch -->
 
 </body>
 </html>
