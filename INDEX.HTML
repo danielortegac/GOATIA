@@ -10532,34 +10532,210 @@ document.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
-<script>
-document.addEventListener('click', function(e){
-  const item = e.target.closest('.chat-item, .note-item, .project-header');
-  if(!item) return;
-  if(!window.isSelectModeActive && !(e.shiftKey||e.ctrlKey||e.metaKey)) return;
-  e.preventDefault();
-  const id = item.dataset.id;
-  if(!id) return;
-  window.selectedChatIds ||= new Set();
-  if(window.selectedChatIds.has(id)){
-     window.selectedChatIds.delete(id);
-     item.classList.remove('selected-for-delete');
-  } else {
-     window.selectedChatIds.add(id);
-     item.classList.add('selected-for-delete');
+
+
+
+
+<!-- Goatify Fix 2025-07-29b -->
+<script id="goatify-fix-20250729b">
+(function(){
+    console.log('[Goatify Fix] Applying mic auto-resume improvements');
+
+    window.autoResumeMic = true;
+
+    // Helper: safe start recognition
+    function safeStartRecognition(){
+        if(!window.recognition) return;
+        try{
+            window.recognition.start();
+        }catch(err){
+            console.warn('[Goatify Fix] recognition.start() error', err);
+        }
+    }
+
+    // Track recognition status
+    if(window.recognition){
+        window.recognition.addEventListener('start', ()=>{ window.__recActive = true; });
+        window.recognition.addEventListener('end',   ()=>{ window.__recActive = false; });
+    }
+
+    // Patch speechSynthesis.speak to pause rec and resume when done
+    if(!window.__speakPatched){
+        const originalSpeak = window.speechSynthesis && window.speechSynthesis.speak ? window.speechSynthesis.speak.bind(window.speechSynthesis) : null;
+        if(originalSpeak){
+            window.speechSynthesis.speak = function(utter){
+                try{ if(window.recognition && window.__recActive){ window.recognition.stop(); } }catch(e){}
+                utter.addEventListener('end', ()=> {
+                    if(window.autoResumeMic && window._wasMicActive){
+                        setTimeout(()=> safeStartRecognition(), 300);
+                    }
+                });
+                originalSpeak(utter);
+            };
+            window.__speakPatched = true;
+        }
+    }
+
+    // Ensure mic button toggles set _wasMicActive
+    window.enableMic = function(){
+        window._wasMicActive = true;
+        safeStartRecognition();
+    };
+    window.disableMic = function(){
+        if(window.recognition){
+            try{ window.recognition.stop(); }catch(e){}
+        }
+        window._wasMicActive = false;
+    };
+
+    // Restore original bulkDeleteByIds if previously overridden incorrectly
+    if(window.bulkDeleteByIds && window.bulkDeleteByIds.__simpleOverride){
+        // Retrieve backup if stored
+        if(window.bulkDeleteByIds.__original){
+            window.bulkDeleteByIds = window.bulkDeleteByIds.__original;
+            console.log('[Goatify Fix] Restored original bulkDeleteByIds');
+        }
+    }
+
+})();
+</script>
+
+
+<!-- Goatify MultiDelete Fix 2025-07-29c -->
+<script id="goatify-multidelete-fix-20250729c">
+(function(){
+    if(window.__multiDeleteFixed) return;
+    window.__multiDeleteFixed = true;
+    console.log('[Goatify] Installing robust multi-delete patch');
+
+    /** Recursively collect all descendant item IDs inside a project */
+    function collectProjectChildren(projectId){
+        const collected = [];
+        const proj = state.projects && state.projects[projectId];
+        if(!proj || !Array.isArray(proj.itemIds)) return collected;
+        proj.itemIds.forEach(cid=>{
+            collected.push(cid);
+            if(cid.startsWith('project-')) collected.push(...collectProjectChildren(cid));
+        });
+        return collected;
+    }
+
+    /** New robust bulkDelete */
+    window.bulkDeleteByIds = async function(ids){
+        if(!Array.isArray(ids) || ids.length===0) return;
+        const unique = Array.from(new Set(ids.filter(Boolean)));
+
+        // 1. Expand projects -> include all descendants
+        const expanded = [];
+        unique.forEach(id=>{
+            expanded.push(id);
+            if(id.startsWith('project-')){
+                expanded.push(...collectProjectChildren(id));
+            }
+        });
+
+        const allIds = Array.from(new Set(expanded));
+        if(allIds.length===0) return;
+
+        // 2. Remove items from state
+        allIds.forEach(id=>{
+            // Top-level structure
+            if(Array.isArray(state.structure)){
+                state.structure = state.structure.filter(i=>i!==id);
+            }
+            // Chats
+            if(id.startsWith('chat-') && state.chats){
+                delete state.chats[id];
+            }
+            // Notes
+            if(id.startsWith('note-') && Array.isArray(state.notes)){
+                state.notes = state.notes.filter(n=>n.id!==id);
+            }
+            // Projects
+            if(id.startsWith('project-') && state.projects){
+                delete state.projects[id];
+            }
+            // Remove from any project.itemIds arrays
+            if(state.projects){
+                Object.values(state.projects).forEach(p=>{
+                    if(Array.isArray(p.itemIds)){
+                        p.itemIds = p.itemIds.filter(i=>i!==id);
+                    }
+                });
+            }
+        });
+
+        // 3. Persist and redraw UI
+        try{ if(typeof saveState==='function') await saveState(); }catch(e){console.warn(e);}
+        if(typeof renderSidebar==='function') renderSidebar();
+
+        // 4. Clean selection mode if exists
+        if(typeof toggleSelectMode==='function') toggleSelectMode(false);
+
+        console.log('[Goatify] Deleted', allIds.length, 'items');
+    };
+})();
+</script>
+
+
+<!-- Goatify Patch 2025-07-30: Enable GOAT X PRO for paid users -->
+<script id="goatify-goatxpro-access-patch">
+(function(){
+  if(window.__goatProPatchApplied__) return;
+  window.__goatProPatchApplied__ = true;
+  console.log('[Goatify] GOAT X PRO access patch loaded');
+
+  function isPaid(){
+     try{
+       if(typeof window.isPaid === 'function') return window.isPaid();
+       const user = window.netlifyIdentity && window.netlifyIdentity.currentUser ? window.netlifyIdentity.currentUser() : null;
+       if(user && user.app_metadata && user.app_metadata.plan){
+           return user.app_metadata.plan.toString().toLowerCase() === 'pro';
+       }
+       const credits = Number(window.remoteCredits || window.lastKnownCredits || 0);
+       return credits >= 1000;
+     }catch(e){ return false; }
   }
-}, true);
+
+  function refreshModelAccess(){
+     const proAllowed = isPaid();
+     document.querySelectorAll('option.goat-x-pro-model').forEach(opt=>{
+        opt.disabled = !proAllowed;
+     });
+  }
+
+  function setupSelectListeners(){
+     document.querySelectorAll('select').forEach(sel=>{
+        if(sel.__goatPatched) return;
+        sel.__goatPatched = true;
+        sel.addEventListener('change', function(e){
+          if(this.value === 'gpt-4o' && !isPaid()){
+              const title = 'Acceso Restringido';
+              const msg = 'El modelo GOAT X PRO está disponible solo para usuarios con un plan de pago.';
+              if(typeof showInAppNotification === 'function'){
+                  showInAppNotification(title, msg, 3000);
+              }else alert(msg);
+              this.value = 'gpt-3.5-turbo-1106';
+          }
+        }, false);
+     });
+  }
+
+  function init(){
+     refreshModelAccess();
+     setupSelectListeners();
+  }
+
+  if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded', init); }
+  else init();
+
+  // Re-run when credits or user change
+  window.addEventListener('goatify-credits-updated', refreshModelAccess);
+  if(window.netlifyIdentity) window.netlifyIdentity.on('login', refreshModelAccess);
+
+})();
 </script>
-<script>
-document.addEventListener('dragstart', function(e){
-  const item=e.target.closest('.chat-item, .note-item, .project-header');
-  if(!item) return;
-  const id=item.dataset.id;
-  if(!id) return;
-  window.selectedChatIds ||= new Set();
-  const ids = window.selectedChatIds.size>0 && window.selectedChatIds.has(id) ? Array.from(window.selectedChatIds) : [id];
-  e.dataTransfer.setData('application/goatify-items', JSON.stringify(ids));
-}, true);
-</script>
+<!-- End Goatify Patch -->
+
 </body>
 </html>
