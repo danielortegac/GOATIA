@@ -11072,14 +11072,13 @@ document.addEventListener('DOMContentLoaded', () => {
 <!-- FIN parche GOATIFY -->
 
 
-<!-- Goatify Patch 2025‑07‑31: Plan thresholds + mobile icons -->
-<script id="goatify-plan-mobile-fix">
+<!-- Goatify Patch 2025‑07‑31 v3: Accurate plan label + modal current plan -->
+<script id="goatify-plan-fix-v3">
 (function(){
- if(window.__goatifyPlanMobileFix__) return;
- window.__goatifyPlanMobileFix__ = true;
- console.log('[Goatify] plan threshold + mobile icon fix loaded');
+ if(window.__goatPlanFix_v3__) return;
+ window.__goatPlanFix_v3__ = true;
+ console.log('[Goatify] plan label & modal fix v3');
 
- /* ====== 1. Unified plan tiers ====== */
  const PRO_LIMIT = 4000;
  const BOOST_LIMIT = 100;
 
@@ -11090,63 +11089,53 @@ document.addEventListener('DOMContentLoaded', () => {
     return 'free';
  }
 
- /* Override helper */
- window.computePlanFromCredits = tierByCredits;
+ function updatePlanDisplays(credits){
+    const plan = tierByCredits(credits);
+    // Update small badge text
+    const planActiveEl = document.querySelector('#plan-active-text, [data-plan-name], #plan-name');
+    if(planActiveEl) planActiveEl.textContent = plan.toUpperCase();
 
- /* Patch label refresher */
- if(typeof window.applyPlanLabels==='function'){
-    const origAPL = window.applyPlanLabels;
-    window.applyPlanLabels = function(){
-        try{
-            const c = Number(window.lastKnownCredits || window.remoteCredits || localStorage.getItem('goatify_credits') || 0);
-            let plan = tierByCredits(c);
-            window.lastKnownPlan = plan;
-            const txt = plan.toUpperCase();
-            document.querySelectorAll('[data-plan-name], #plan-name, #settings-user-plan').forEach(el => { 
-              if (el) el.textContent = txt; 
-            });
-        }catch(e){ console.warn('[applyPlanLabels patched]',e);}
-    };
- }
+    // Update modal cards
+    document.querySelectorAll('.plan-card').forEach(card=>{
+        const heading = (card.querySelector('h3,h4,h2')||{}).textContent||'';
+        let cardPlan = '';
+        if(/free/i.test(heading)) cardPlan='free';
+        if(/boost/i.test(heading)) cardPlan='boost';
+        if(/pro/i.test(heading)) cardPlan='pro';
 
- /* Patch fetchCredits */
- function patchFetchCredits(){
-   if(typeof window.fetchCredits !== 'function') return;
-   const orig = window.fetchCredits;
-   window.fetchCredits = async function(){
-        const res = await orig.apply(this, arguments);
-        try{
-            const credits = (window.currentCredits != null) ? window.currentCredits : (window.lastKnownCredits || 0);
-            window.lastKnownCredits = credits;
-            window.lastKnownPlan = tierByCredits(credits);
-            if(typeof window.updateCreditDisplay==='function'){
-               window.updateCreditDisplay(credits, window.lastKnownPlan);
+        const btn = card.querySelector('button');
+        if(!btn) return;
+        if(cardPlan === plan){
+            btn.textContent = 'Tu Plan Actual';
+            btn.disabled = true;
+            btn.classList.add('bg-gray-500','cursor-not-allowed','opacity-60');
+        }else{
+            // reset
+            if(/tu plan actual/i.test(btn.textContent)){
+                btn.textContent = (/boost/i.test(heading)? 'Obtener Boost' : 'Quiero Plan Pro + Web');
             }
-            if(typeof window.refreshPlanButtons==='function'){
-               window.refreshPlanButtons(window.lastKnownPlan);
-            }
-        }catch(e){ console.warn('[patchFetchCredits]', e); }
-        return res;
-   };
- }
- if(document.readyState === 'loading'){
-   document.addEventListener('DOMContentLoaded', patchFetchCredits);
- }else patchFetchCredits();
-
- /* ====== 2. Force mobile icons ====== */
- const ICON_IDS = ['image-gen-btn','pdf-upload-btn','image-upload-btn','pdf-export-btn','pdf-download-btn'];
- function showIcons(){
-    if(window.innerWidth > 767) return;
-    ICON_IDS.forEach(id=>{
-        const el = document.getElementById(id);
-        if(!el) return;
-        el.classList.remove('hidden','sm:hidden','md:hidden');
-        el.style.display='inline-flex';
-        el.style.visibility='visible';
+            btn.disabled = false;
+            btn.classList.remove('bg-gray-500','cursor-not-allowed','opacity-60');
+        }
     });
  }
- window.addEventListener('load', showIcons);
- window.addEventListener('resize', showIcons);
+
+ async function init(){
+    try{
+      let credits = Number(window.remoteCredits||window.lastKnownCredits||localStorage.getItem('goatify_credits')||0);
+      updatePlanDisplays(credits);
+    }catch(e){ console.warn(e); }
+ }
+
+ // run on load
+ if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', init);
+ else init();
+
+ // re-run on credit updates
+ window.addEventListener('goatify-credits-updated', e=>{
+     const cr = e.detail?.credits ?? window.currentCredits ?? window.lastKnownCredits;
+     updatePlanDisplays(cr);
+ });
 
 })();
 </script>
