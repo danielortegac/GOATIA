@@ -11141,5 +11141,109 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 <!-- END GOATIFY · PLAN THRESHOLD FIX v15 -->
 
+
+<!-- GOATIFY · CREDIT SYNC + PLAN BUTTON FIX v16 -->
+<script id="goatify-credit-sync-fix">
+(function(){
+  const BOOST_MIN = 101;
+  const PRO_MIN   = 4000;
+
+  function inferPlan(c){
+      const credits = Number(c)||0;
+      if (credits >= PRO_MIN) return 'pro';
+      if (credits >= BOOST_MIN) return 'boost';
+      return 'free';
+  }
+  window.__inferPlanByCredits = inferPlan; // expose
+
+  async function fetchCreditsHard() {
+      if(!window.supabase || !window.currentUser) return;
+      try{
+          const { data, error } = await supabase
+              .from('user_credits')
+              .select('credits')
+              .eq('user_id', currentUser.id)
+              .single();
+          if(error) throw error;
+          if(data && typeof data.credits === 'number'){
+              applyRemoteCredits(data.credits);
+          }
+      }catch(e){
+          console.warn('[Goatify] Hard fetch credits failed', e);
+      }
+  }
+
+  function applyRemoteCredits(remote){
+      window.remoteCredits = remote;
+      window.lastKnownCredits = remote;
+      window.lastKnownPlan = inferPlan(remote);
+      if(typeof window.updateCreditDisplay === 'function'){
+          window.updateCreditDisplay(remote, window.lastKnownPlan);
+      }
+      if(typeof window.refreshPlanButtons === 'function'){
+          window.refreshPlanButtons(window.lastKnownPlan);
+      }
+      // propagate to other tabs
+      try {
+        const bc = new BroadcastChannel('goatify_credit_sync');
+        bc.postMessage({ credits: remote, plan: window.lastKnownPlan, t: Date.now()});
+      } catch(_e){}
+  }
+
+  // realtime supabase listener
+  function startRealtimeListener(){
+      if(!window.supabase || !window.currentUser) return;
+      try{
+        window.__creditsChannel && window.__creditsChannel.unsubscribe();
+        window.__creditsChannel = supabase
+            .channel('public:user_credits')
+            .on('postgres_changes',{
+                event: '*',
+                schema: 'public',
+                table: 'user_credits',
+                filter: `user_id=eq.${currentUser.id}`
+            }, payload=>{
+                if(payload.new && typeof payload.new.credits === 'number'){
+                    applyRemoteCredits(payload.new.credits);
+                }
+            }).subscribe();
+      }catch(e){ console.warn('[Goatify] realtime listener failed', e);}
+  }
+
+  // ensure refresh buttons idempotent
+  window.refreshPlanButtons = function(currentPlan){
+      currentPlan = (currentPlan||'').toLowerCase();
+      document.querySelectorAll('.select-plan-btn').forEach(btn=>{
+        const plan = (btn.dataset.plan||'').toLowerCase();
+        if(!plan) return;
+        if(plan === currentPlan){
+            btn.textContent = 'Tu Plan Actual';
+            btn.disabled = true;
+            btn.classList.add('btn-disabled');
+        }else{
+            btn.disabled = false;
+            btn.classList.remove('btn-disabled');
+            if(plan === 'boost')      btn.textContent = 'Obtener Boost';
+            else if(plan === 'pro')   btn.textContent = 'Quiero Plan Pro + Web';
+            else                      btn.textContent = 'Ver Detalles';
+        }
+      });
+  };
+
+  document.addEventListener('DOMContentLoaded', ()=>{
+      if(window.currentUser) {
+          fetchCreditsHard();
+          startRealtimeListener();
+      }
+  });
+  window.addEventListener('focus', ()=>{
+      if(window.currentUser){
+          fetchCreditsHard();
+      }
+  });
+})();
+</script>
+<!-- END GOATIFY · CREDIT SYNC + PLAN BUTTON FIX v16 -->
+
 </body>
 </html>
