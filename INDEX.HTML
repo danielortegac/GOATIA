@@ -11245,5 +11245,175 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 <!-- END GOATIFY · CREDIT SYNC + PLAN BUTTON FIX v16 -->
 
+
+<!-- GOATIFY · CREDIT SPEND PERSIST v17 -->
+<script id="goatify-credit-spend-persist">
+(function(){
+  if(!window.supabase) return;
+
+  // RPC name configured in Netlify: 'increment_credits' with delta param (negative to spend)
+  async function rpcSpend(delta){
+      try{
+          const { data, error } = await supabase.rpc('increment_credits', { delta });
+          if(error) throw error;
+          return data?.credits ?? data; // assume returned credits
+      }catch(e){
+          console.warn('[Goatify] RPC spend_credit failed', e);
+          return null;
+      }
+  }
+
+  // Override updateCreditsInSupabase if exists, else create wrapper
+  const _origUpdate = window.updateCreditsInSupabase;
+  window.updateCreditsInSupabase = async function(delta = -1){
+      // ensure number
+      delta = Number(delta)||-1;
+      const newTotal = await rpcSpend(delta);
+      if(newTotal !== null){
+          // update local state atomically
+          if(window.state) state.credits = newTotal;
+          window.lastKnownCredits = newTotal;
+          window.remoteCredits = newTotal;
+          window.lastKnownPlan = (window.__inferPlanByCredits)
+              ? __inferPlanByCredits(newTotal)
+              : (newTotal >= 4000 ? 'pro' : (newTotal >= 101 ? 'boost' : 'free'));
+
+          // UI
+          if(typeof window.updateCreditDisplay === 'function'){
+              window.updateCreditDisplay(newTotal, window.lastKnownPlan);
+          }
+          if(typeof window.refreshPlanButtons === 'function'){
+              window.refreshPlanButtons(window.lastKnownPlan);
+          }
+          // broadcast to other tabs
+          try{
+             new BroadcastChannel('goatify_credit_sync').postMessage({ credits: newTotal});
+          }catch(_e){}
+          // persist state
+          try{
+            localStorage.setItem('state', JSON.stringify(window.state));
+          }catch(_e){}
+      }else if(typeof _origUpdate === 'function'){
+          return _origUpdate(delta);
+      }
+  };
+
+  // intercept sendMessage to ensure spendCredit remote before local deduction
+  if(typeof window.sendMessage === 'function'){
+      const _origSend = window.sendMessage;
+      window.sendMessage = async function(text){
+          // attempt remote spend first
+          const canSpend = (window.state?.credits || 0) > 0;
+          if(!canSpend){
+              console.warn('[Goatify] No credits to spend');
+              return;
+          }
+          const beforeCredits = window.state.credits;
+          await window.updateCreditsInSupabase(-1);
+          // check if actually deducted; if success then proceed
+          if(window.state.credits === beforeCredits - 1){
+              _origSend.apply(this, arguments);
+          }else{
+              console.warn('[Goatify] Credit deduction failed; message not sent');
+          }
+      };
+  }
+
+})();
+</script>
+<!-- END GOATIFY · CREDIT SPEND PERSIST v17 -->
+
+
+<!-- GOATIFY · PLAN PERSIST FIX v18 -->
+<script id="goatify-plan-persist-fix">
+(function () {
+  // --- CONFIG ---
+  const PLAN_FIELD = 'plan';          // columna en Supabase `users.plan`
+  const CREDITS_FIELD = 'credits';    // columna en Supabase `user_credits.credits`
+
+  // --- STATE ---
+  let remotePlan    = null; // FREE | BOOST | PRO (desde DB)
+  let remoteCredits = null; // número de créditos reales
+
+  // --- HELPERS ---
+  function fetchUserInfo() {
+    // requiere que `supabase` esté global y sesión iniciada
+    const user = supabase.auth.getUser ? supabase.auth.getUser() : null;
+    const uid  = user?.data?.user?.id;
+    if (!uid) return;
+
+    // paralelamente users(y) y credits
+    Promise.all([
+      supabase.from('users').select(PLAN_FIELD).eq('id', uid).single(),
+      supabase.from('user_credits').select(CREDITS_FIELD).eq('user_id', uid).single()
+    ]).then(([planRes, creditRes]) => {
+      if (!planRes.error && planRes.data)   remotePlan    = planRes.data[PLAN_FIELD];
+      if (!creditRes.error && creditRes.data) remoteCredits = creditRes.data[CREDITS_FIELD];
+      applyToUI();
+    });
+  }
+
+  function applyToUI() {
+    if (!remotePlan || remoteCredits === null) return;
+    // guarda en variables globales usadas por la SPA
+    window.lastKnownPlan    = remotePlan.toLowerCase();
+    window.lastKnownCredits = remoteCredits;
+
+    // actualiza dashboard y modal
+    if (typeof window.updateCreditDisplay === 'function')
+      window.updateCreditDisplay(remoteCredits, remotePlan);
+
+    if (typeof window.refreshPlanButtons === 'function')
+      window.refreshPlanButtons(remotePlan);
+  }
+
+  // --- SUBSCRIPCIONES EN TIEMPO REAL ---
+  function subscribeRealtime(uid) {
+    try {
+      supabase.channel('user_credits_changes')
+        .on('postgres_changes',
+            { event: 'UPDATE', schema: 'public', table: 'user_credits', filter: `user_id=eq.${uid}` },
+            payload => {
+              remoteCredits = payload.new[CREDITS_FIELD];
+              applyToUI();
+            })
+        .subscribe();
+
+      supabase.channel('user_plan_changes')
+        .on('postgres_changes',
+            { event: 'UPDATE', schema: 'public', table: 'users', filter: `id=eq.${uid}` },
+            payload => {
+              remotePlan = payload.new[PLAN_FIELD];
+              applyToUI();
+            })
+        .subscribe();
+    } catch(e) {
+      console.warn('[Goatify] realtime plan/credit subscription failed', e);
+    }
+  }
+
+  // --- INIT ---
+  document.addEventListener('DOMContentLoaded', () => {
+    supabase.auth.getSession().then(({ data }) => {
+      const uid = data?.session?.user?.id;
+      if (!uid) return;
+      fetchUserInfo();
+      subscribeRealtime(uid);
+    });
+  });
+
+  // foco vuelve
+  window.addEventListener('focus', fetchUserInfo);
+
+  // inter‑pestañas
+  try {
+    const bc = new BroadcastChannel('goatify_plan_credit_sync');
+    bc.onmessage = fetchUserInfo;
+  } catch(_e) {}
+
+})();
+</script>
+<!-- END GOATIFY · PLAN PERSIST FIX v18 -->
+
 </body>
 </html>
