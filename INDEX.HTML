@@ -11415,5 +11415,161 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 <!-- END GOATIFY · PLAN PERSIST FIX v18 -->
 
+
+<!-- GOATIFY · LOGIN SYNC + LOGOUT FIX v19 -->
+<script id="goatify-login-sync-fix">
+(function() {
+  // helpers ------------------
+  function q(sel){ return document.querySelector(sel);}
+  function qa(sel){ return Array.from(document.querySelectorAll(sel));}
+  function enableLogoutBtns(){
+    qa('[data-action="logout"], .logout-btn, #logoutbtn').forEach(el=>{
+      el.classList.remove('disabled');
+      el.removeAttribute('disabled');
+      el.style.pointerEvents='auto';
+    });
+  }
+  function disableLogoutBtns(){
+    qa('[data-action="logout"], .logout-btn, #logoutbtn').forEach(el=>{
+      el.setAttribute('disabled','true');
+      el.classList.add('disabled');
+      el.style.pointerEvents='none';
+    });
+  }
+
+  // fetch credits & plan from Supabase ------------------
+  async function hardRefreshUserInfo(uid){
+    if(!uid){return;}
+    try{
+      const [{data:planData,error:planErr},{data:credData,error:credErr}] = await Promise.all([
+        supabase.from('users').select('plan').eq('id',uid).single(),
+        supabase.from('user_credits').select('credits').eq('user_id',uid).single()
+      ]);
+      if(planErr||credErr){console.warn('[Goatify] fetch user info err',planErr||credErr);return;}
+      const plan    = (planData?.plan||'free').toLowerCase();
+      const credits = Number(credData?.credits||0);
+
+      // global cache
+      window.lastKnownPlan    = plan;
+      window.lastKnownCredits = credits;
+
+      // local state (if defined)
+      if(window.state){
+        state.plan    = plan.toUpperCase();
+        state.credits = credits;
+        if(typeof saveState==='function'){saveState();}
+      }
+
+      // refresh ui
+      if(typeof updateCreditDisplay==='function'){updateCreditDisplay(credits, plan);}
+      if(typeof refreshPlanButtons==='function'){refreshPlanButtons(plan);}
+
+      // broadcast to other tabs
+      try{ new BroadcastChannel('goatify_plan_credit_sync').postMessage({t:'refresh'});}catch(_){}
+
+    }catch(e){console.error('[Goatify] hard refresh failed',e);}
+  }
+
+  // listen auth changes ------------------
+  document.addEventListener('DOMContentLoaded',()=>{
+    supabase.auth.getSession().then(({data})=>{
+      const uid=data?.session?.user?.id;
+      if(uid){
+        hardRefreshUserInfo(uid);
+        enableLogoutBtns();
+      }else{
+        disableLogoutBtns();
+      }
+    });
+
+    supabase.auth.onAuthStateChange(async(event,session)=>{
+      if(event==='SIGNED_IN'){
+        const uid=session?.user?.id;
+        await hardRefreshUserInfo(uid);
+        enableLogoutBtns();
+      }
+      if(event==='SIGNED_OUT'){
+        disableLogoutBtns();
+      }
+    });
+  });
+
+  // on focus ensure sync
+  window.addEventListener('focus',()=>{
+    const uid=supabase.auth?.currentUser?.id;
+    if(uid){hardRefreshUserInfo(uid);}
+  });
+})();
+</script>
+<!-- END GOATIFY · LOGIN SYNC + LOGOUT FIX v19 -->
+
+
+<!-- GOATIFY · PLAN BUTTON DISPLAY FIX v20 -->
+<script id="goatify-plan-button-fix">
+(function(){
+  const BOOST_MIN = 101;
+  const PRO_MIN   = 4000;
+  function inferPlanByCredits(c){
+    c=Number(c)||0;
+    if(c>=PRO_MIN) return 'pro';
+    if(c>=BOOST_MIN) return 'boost';
+    return 'free';
+  }
+  function chooseDisplayPlan(remotePlan, credits){
+    const inferred = inferPlanByCredits(credits);
+    if(!remotePlan) return inferred;
+    const r = remotePlan.toLowerCase();
+    // if inferred higher tier than remote, trust inferred
+    const tier = {'free':0,'boost':1,'pro':2};
+    return tier[inferred]>tier[r]?inferred:r;
+  }
+  function updatePlanButtons(){
+    const plan = chooseDisplayPlan(window.lastKnownPlan, window.lastKnownCredits);
+    if(typeof refreshPlanButtons==='function'){
+      refreshPlanButtons(plan.toLowerCase());
+    } else {
+      // fallback: disable buttons manually
+      const map = {
+        'free': ['.card-free','.btn-free'],
+        'boost':['.card-boost','.btn-boost'],
+        'pro':  ['.card-pro','.btn-pro']
+      };
+      Object.keys(map).forEach(p=>{
+        map[p].forEach(sel=>{
+          document.querySelectorAll(sel).forEach(el=>{
+            if(p===plan){
+              el.classList.add('disabled','current-plan');
+              el.setAttribute('disabled','true');
+              if(el.innerText.trim().length<20) el.innerText='Tu Plan Actual';
+            }else{
+              el.classList.remove('disabled','current-plan');
+              el.removeAttribute('disabled');
+            }
+          });
+        });
+      });
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', ()=>{
+    setTimeout(updatePlanButtons, 300); // after initial render
+  });
+
+  // Each time credits/plan change
+  window.addEventListener('goatify_plan_update', updatePlanButtons);
+
+  // patch existing calls to refreshPlanButtons
+  if(typeof refreshPlanButtons==='function'){
+    const _orig = refreshPlanButtons;
+    window.refreshPlanButtons = function(p){
+      _orig.call(this, p);
+      // ensure correct after original
+      updatePlanButtons();
+    };
+  }
+})();
+</script>
+<!-- END GOATIFY · PLAN BUTTON DISPLAY FIX v20 -->
+
 </body>
 </html>
