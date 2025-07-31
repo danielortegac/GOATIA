@@ -11648,5 +11648,84 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 <!-- END GOATIFY · HARD SYNC & LOGOUT VISIBILITY FIX v22 -->
 
+
+<!-- GOATIFY · RELIABLE CREDIT & PLAN SYNC v23 -->
+<script id="goatify-credit-plan-sync">
+(function(){
+  const CREDITS_FIELD = 'credits';
+  const PLAN_THRESHOLDS = { PRO: 4000, BOOST: 1000 };
+  const REFRESH_MS = 5000;
+
+  let uid = null;
+
+  /** Infer plan purely from credit count */
+  function inferPlanFromCredits(credits){
+     if(credits >= PLAN_THRESHOLDS.PRO)   return 'PRO';
+     if(credits >= PLAN_THRESHOLDS.BOOST) return 'BOOST';
+     return 'FREE';
+  }
+
+  /** Push latest values into global state + UI */
+  function apply(credits){
+    if(credits == null) return;
+    const plan = inferPlanFromCredits(credits);
+
+    window.lastKnownCredits = credits;
+    window.lastKnownPlan    = plan.toLowerCase();
+
+    if(window.state){
+        state.credits = credits;
+        state.plan    = plan;
+    }
+
+    // nav counter, dashboard, etc.
+    if(typeof window.updateCreditDisplay === 'function'){
+        try{ window.updateCreditDisplay(credits, plan); }catch(_e){}
+    }
+    // highlight current card
+    if(typeof window.refreshPlanButtons === 'function'){
+        try{ window.refreshPlanButtons(plan); }catch(_e){}
+    }
+  }
+
+  /** One‑shot fetch from Supabase */
+  async function fetchOnce(){
+    if(!uid) return;
+    try{
+      const { data, error } = await supabase
+          .from('user_credits')
+          .select(CREDITS_FIELD)
+          .eq('user_id', uid)
+          .single();
+      if(error) { console.warn('[Goatify] credit fetch error', error); return; }
+      apply(data[CREDITS_FIELD]);
+    }catch(e){ console.warn('[Goatify] credit fetch exception', e); }
+  }
+
+  /** Init after auth status known */
+  function init(session){
+     uid = session?.user?.id || null;
+     if(uid){
+        fetchOnce();              // first fetch
+        clearInterval(window.__goatifyCreditPoller);
+        window.__goatifyCreditPoller = setInterval(fetchOnce, REFRESH_MS);
+     } else {
+        clearInterval(window.__goatifyCreditPoller);
+     }
+  }
+
+  // Kick‑off by current session
+  supabase.auth.getSession().then(({data})=>init(data?.session||null));
+
+  // React to auth changes
+  supabase.auth.onAuthStateChange((_evt, session)=>init(session||null));
+
+  // Refetch when window regains focus
+  window.addEventListener('focus', fetchOnce);
+
+})();
+</script>
+<!-- END GOATIFY · RELIABLE CREDIT & PLAN SYNC v23 -->
+
 </body>
 </html>
