@@ -11727,5 +11727,65 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 <!-- END GOATIFY · RELIABLE CREDIT & PLAN SYNC v23 -->
 
+
+<!-- GOATIFY · GUEST CREDITS ISOLATION FIX v24 -->
+<script id="goatify-guest-guard">
+(function(){
+  /* Guard spend/update RPC so it only runs when there is a signed‑in user */
+  function isSignedIn(){
+    return !!(supabase.auth?.currentUser);
+  }
+
+  // Patch updateCreditsInSupabase(delta)
+  if(typeof window.updateCreditsInSupabase==='function'){
+    const _origUpdate = window.updateCreditsInSupabase;
+    window.updateCreditsInSupabase = async function(delta){
+      if(!isSignedIn()){
+        // Guest mode – mutate only local credits
+        window.lastKnownCredits = (window.lastKnownCredits||5)+delta;
+        if(window.state) state.credits = window.lastKnownCredits;
+        if(typeof updateCreditDisplay==='function'){
+          updateCreditDisplay(window.lastKnownCredits, 'free');
+        }
+        return { guest:true, credits: window.lastKnownCredits };
+      }
+      // normal flow
+      return _origUpdate.call(this, delta);
+    };
+  }
+
+  // Patch sendMessage flow to skip supabase call in guest
+  if(typeof window.sendMessage==='function'){
+    const _origSend = window.sendMessage;
+    window.sendMessage = function(text){
+      if(!isSignedIn()){
+        // Local decrement only
+        if(state.credits <= 0){ return; }
+        state.credits -= 1;
+        window.lastKnownCredits = state.credits;
+        if(typeof updateCreditDisplay==='function'){
+          updateCreditDisplay(state.credits, 'free');
+        }
+        return _origSend.call(this, text);
+      }
+      // user logged in
+      return _origSend.call(this, text);
+    };
+  }
+
+  // On SIGN_IN clear any guest leftovers
+  supabase.auth.onAuthStateChange((evt, sess)=>{
+    if(evt==='SIGNED_IN'){
+      // reset any guest credit leftovers
+      if(window.state){
+        delete state.credits;
+      }
+      window.lastKnownCredits = undefined;
+    }
+  });
+})();
+</script>
+<!-- END GOATIFY · GUEST CREDITS ISOLATION FIX v24 -->
+
 </body>
 </html>
