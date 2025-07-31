@@ -11071,5 +11071,75 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 <!-- FIN parche GOATIFY -->
 
+
+<!-- GOATIFY · PLAN THRESHOLD FIX v15 -->
+<script id="goatify-plan-threshold-fix">
+(function () {
+  const BOOST_MIN = 101;      // ≥101 créditos ⇒ BOOST
+  const PRO_MIN   = 4000;     // ≥4000 créditos ⇒ PRO
+  const BOOST_LIMIT = 1000;
+  const PRO_LIMIT   = 4000;
+  const FREE_LIMIT  = 100;    // Límite para plan FREE (por coherencia con tu app)
+
+  function inferPlan(credits) {
+    const c = Number(credits) || 0;
+    if (c >= PRO_MIN)   return 'pro';
+    if (c >= BOOST_MIN) return 'boost';
+    return 'free';
+  }
+
+  // Exponer helper global por si lo necesitas en otros módulos
+  window.__inferPlanByCredits = inferPlan;
+
+  // ---------- Override getCreditCount si existe ----------
+  if (typeof window.getCreditCount === 'function') {
+    const _origGetCreditCount = window.getCreditCount;
+    window.getCreditCount = function (...args) {
+      const res = _origGetCreditCount.apply(this, args) || {};
+      const correctPlan = inferPlan(res.remaining ?? res.credits ?? 0);
+      if (correctPlan !== res.plan) {
+        res.plan  = correctPlan;
+        res.limit = (correctPlan === 'pro') ? PRO_LIMIT
+                    : (correctPlan === 'boost') ? BOOST_LIMIT
+                    : FREE_LIMIT;
+      }
+      return res;
+    };
+  }
+
+  // ---------- Refresca UI y botones ----------
+  function applyThresholdFix() {
+    try {
+      const credits = Number(window.remoteCredits ?? window.lastKnownCredits ?? 0);
+      const plan    = inferPlan(credits);
+
+      // Cache global coherente
+      window.lastKnownPlan    = plan;
+      window.lastKnownCredits = credits;
+
+      // Actualiza contadores y textos visibles
+      if (typeof window.updateCreditDisplay === 'function') {
+        window.updateCreditDisplay(credits, plan);
+      }
+      if (typeof window.refreshPlanButtons === 'function') {
+        window.refreshPlanButtons(plan);
+      }
+    } catch (e) {
+      console.warn('[Goatify] Plan threshold fix failed:', e);
+    }
+  }
+
+  // Ejecutar en momentos clave
+  document.addEventListener('DOMContentLoaded', applyThresholdFix);
+  window.addEventListener('focus', applyThresholdFix);
+  try {
+    const bc = new BroadcastChannel('goatify_credit_sync');
+    bc.onmessage = applyThresholdFix;
+  } catch (_e) {}
+
+})();
+</script>
+<!-- END GOATIFY · PLAN THRESHOLD FIX v15 -->
+
 </body>
 </html>
