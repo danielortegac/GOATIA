@@ -11571,5 +11571,82 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 <!-- END GOATIFY · PLAN BUTTON DISPLAY FIX v20 -->
 
+
+<!-- GOATIFY · HARD SYNC & LOGOUT VISIBILITY FIX v22 -->
+<script id="goatify-sync-logout-fix">
+(function(){
+  /* CONFIG */
+  const LS_STATE_KEY = 'goatify_state';
+
+  /* Helpers */
+  const $all=(sel)=>Array.from(document.querySelectorAll(sel));
+  const enableLogoutBtns=()=>{$all('[data-action="logout"], .logout-btn, #logoutbtn').forEach(b=>{b.disabled=false;b.classList.remove('disabled');b.style.pointerEvents='auto';});};
+  const disableLogoutBtns=()=>{$all('[data-action="logout"], .logout-btn, #logoutbtn').forEach(b=>{b.disabled=true;b.classList.add('disabled');b.style.pointerEvents='none';});};
+
+  async function fetchRemoteUserInfo(uid){
+    if(!uid) return null;
+    const [{data:planData},{data:credData}] = await Promise.all([
+      supabase.from('users').select('plan').eq('id',uid).single(),
+      supabase.from('user_credits').select('credits').eq('user_id',uid).single()
+    ]);
+    return { plan:(planData?.plan||'free').toLowerCase(), credits:Number(credData?.credits||0) };
+  }
+
+  async function hardSync(uid){
+    const info = await fetchRemoteUserInfo(uid);
+    if(!info) return;
+    window.lastKnownPlan=info.plan;
+    window.lastKnownCredits=info.credits;
+
+    // Overwrite app state safely
+    if(window.state){
+      state.plan=info.plan.toUpperCase();
+      state.credits=info.credits;
+      if(typeof saveState==='function') saveState();
+    }
+    if(typeof updateCreditDisplay==='function') updateCreditDisplay(info.credits, info.plan);
+    if(typeof refreshPlanButtons==='function') refreshPlanButtons(info.plan);
+
+    // notify others
+    try{ new BroadcastChannel('goatify_plan_credit_sync').postMessage({t:'refresh'});}catch(e){}
+  }
+
+  /* ---- Auth Hooks ---- */
+  supabase.auth.onAuthStateChange(async (event, session)=>{
+    if(event==='SIGNED_IN'){
+      // reset local state
+      localStorage.removeItem(LS_STATE_KEY);
+      enableLogoutBtns();
+      await hardSync(session.user.id);
+    }
+    if(event==='SIGNED_OUT'){
+      disableLogoutBtns();
+      // clear caches
+      localStorage.removeItem(LS_STATE_KEY);
+      window.lastKnownCredits=0;
+      window.lastKnownPlan='free';
+    }
+  });
+
+  document.addEventListener('DOMContentLoaded',()=>{
+    supabase.auth.getSession().then(async ({data})=>{
+      const uid=data?.session?.user?.id;
+      if(uid){
+        enableLogoutBtns();
+        await hardSync(uid);
+      } else {
+        disableLogoutBtns();
+      }
+    });
+  });
+
+  // ensure logout btn visible after every dom update
+  const observer=new MutationObserver(()=>{if(supabase.auth.currentUser) enableLogoutBtns();});
+  observer.observe(document.body,{childList:true,subtree:true});
+
+})();
+</script>
+<!-- END GOATIFY · HARD SYNC & LOGOUT VISIBILITY FIX v22 -->
+
 </body>
 </html>
