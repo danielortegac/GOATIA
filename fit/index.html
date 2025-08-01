@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>goatiFIT - Tu Entrenador Personal IA de Élite</title>
 
-    <!-- Logo and Favicon (Updated) -->
+    <!-- Favicon -->
     <link rel="icon" href="Logos HD.png" type="image/png">
     
     <!-- SEO Meta Tags -->
@@ -20,6 +20,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700;900&display=swap" rel="stylesheet">
+    <!-- Tone.js for audio generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
     <style>
         /* --- Root Variables for Themes --- */
         :root {
@@ -72,9 +74,8 @@
         @keyframes pulse-neon { 0%, 100% { box-shadow: 0 0 5px 1px var(--danger), 0 0 10px 2px var(--danger); } 50% { box-shadow: 0 0 10px 2px var(--danger), 0 0 20px 5px var(--danger); } }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(15px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
         @keyframes toast-in { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-        @keyframes toast-out { from { transform: translateY(0); opacity: 1; } to { transform: translateY(100%); opacity: 0; } }
+        @keyframes toast-out { from { transform: translateY(0); opacity: 0; } to { transform: translateY(100%); opacity: 0; } }
         @keyframes pulse { 0% { transform: scale(0.9); opacity: 1; } 50% { transform: scale(1.1); opacity: 0.5; } 100% { transform: scale(0.9); opacity: 1; } }
-        @keyframes heartbeat { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.02); } } /* Reduced scale for less trembling */
         
         /* Breathing Animations */
         @keyframes calm-breathe-in {
@@ -86,12 +87,12 @@
             to { transform: scale(0.8); opacity: 0.6; stroke: var(--info); }
         }
         @keyframes power-breathe-in {
-            from { transform: scale(0.8); opacity: 0.8; stroke: #ff00ff; } /* Brighter color */
-            to { transform: scale(1.1); opacity: 1; stroke: #ff66ff; } /* Slightly smaller max scale for power */
+            from { transform: scale(0.7); opacity: 0.8; stroke: #ff00ff; } /* Brighter color, smaller start */
+            to { transform: scale(1.3); opacity: 1; stroke: #ff66ff; } /* Larger max scale for power */
         }
         @keyframes power-breathe-out {
-            from { transform: scale(1.1); opacity: 1; stroke: #ff66ff; }
-            to { transform: scale(0.8); opacity: 0.8; stroke: #ff00ff; }
+            from { transform: scale(1.3); opacity: 1; stroke: #ff66ff; }
+            to { transform: scale(0.7); opacity: 0.8; stroke: #ff00ff; }
         }
         @keyframes relax-breathe-in {
             from { transform: scale(0.7); opacity: 0.5; stroke: #6a0dad; } /* Deep purple */
@@ -100,6 +101,19 @@
         @keyframes relax-breathe-out {
             from { transform: scale(1.3); opacity: 1; stroke: #9932cc; }
             to { transform: scale(0.7); opacity: 0.5; stroke: #6a0dad; }
+        }
+
+        /* Anti-Stress Visualizer Animation (More dynamic) */
+        @keyframes stress-visualizer-pulse {
+            0% { transform: scale(0.9); opacity: 0.7; box-shadow: 0 0 15px rgba(138, 79, 255, 0.6); }
+            50% { transform: scale(1.05); opacity: 1; box-shadow: 0 0 30px rgba(138, 79, 255, 1); }
+            100% { transform: scale(0.9); opacity: 0.7; box-shadow: 0 0 15px rgba(138, 79, 255, 0.6); }
+        }
+
+        /* Progress Circle Glow & Animation */
+        @keyframes circle-glow-pulse {
+            0%, 100% { filter: drop-shadow(0 0 8px var(--primary-glow)); }
+            50% { filter: drop-shadow(0 0 15px var(--primary)); }
         }
 
         /* --- CORE LAYOUT FIX --- */
@@ -134,7 +148,7 @@
             display: none; /* Hide screens by default */
             flex-direction: column;
             width: 100%;
-            padding: 1rem;
+            padding: 1rem; /* Default padding for screens */
             animation: fadeIn 0.5s ease-out;
             will-change: transform, opacity;
         }
@@ -153,9 +167,6 @@
         #global-nav-bar {
             flex-shrink: 0; /* Prevent nav from shrinking */
             z-index: 50;
-            position: sticky;
-            bottom: 0;
-            width: 100%;
         }
         .nav-btn {
             color: var(--text-secondary);
@@ -265,11 +276,35 @@
 
         .timer-active-indicator { position: absolute; top: 5px; right: 5px; width: 12px; height: 12px; background-color: var(--success); border-radius: 50%; animation: pulse 1.5s infinite; }
         
-        .circle-progress-container { position: relative; width: 120px; height: 120px; margin: auto; }
+        .circle-progress-container { 
+            position: relative; 
+            width: 100%; /* Make it responsive */
+            max-width: 120px; /* Max size for larger screens */
+            padding-bottom: 100%; /* Aspect ratio 1:1 */
+            margin: auto; 
+        }
+        .circle-progress-svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
         .circle-bg { fill: none; stroke: var(--secondary); stroke-width: 8px; }
-        .circle-progress { fill: none; stroke: var(--primary); stroke-width: 8px; stroke-linecap: round; transform: rotate(-90deg); transform-origin: 50% 50%; transition: stroke-dasharray 0.5s, stroke 0.5s; }
+        .circle-progress { 
+            fill: none; 
+            stroke: var(--primary); 
+            stroke-width: 8px; 
+            stroke-linecap: round; 
+            transform: rotate(-90deg); 
+            transform-origin: 50% 50%; 
+            transition: stroke-dasharray 0.5s, stroke 0.5s, filter 0.5s; 
+            filter: drop-shadow(0 0 5px var(--primary-glow)); /* Subtle glow */
+            animation: circle-glow-pulse 3s infinite ease-in-out; /* Added glow animation */
+        }
         
-        .heartbeat-anim { animation: heartbeat 1.5s ease-in-out infinite; }
+        /* Removed heartbeat-anim from sleep clock */
+        #sleep-clock { animation: none; }
 
         .muscle-group {
             fill: var(--secondary);
@@ -323,11 +358,34 @@
         .toast.error { background: linear-gradient(45deg, var(--danger), #f86c6c); }
         .toast.info { background: linear-gradient(45deg, var(--primary), var(--primary-hover)); }
 
-        /* Media queries for responsiveness */
-        @media (max-width: 768px) {
-            .screen > main {
-                padding-top: 1rem;
-            }
+        /* Anti-Stress Modal specific styling */
+        #anti-stress-modal-content {
+            background: linear-gradient(135deg, var(--bg-gradient-start) 0%, #1a0f2e 50%, var(--bg-gradient-start) 100%);
+            background-size: 200% 200%;
+            animation: background-pan 15s ease infinite;
+            border: none;
+            display: flex; /* Ensure flexbox for centering */
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100%; /* Take full height of modal overlay */
+            width: 100%; /* Take full width */
+            padding: 2rem; /* Add padding for content */
+        }
+        #stress-visualizer-canvas { /* Changed from circle to canvas */
+            width: 100%;
+            max-width: 300px; /* Max size for the visualizer */
+            height: 300px;
+            margin: 2rem auto;
+            border-radius: 50%; /* Keep it circular */
+            background-color: transparent; /* Canvas will draw content */
+            animation: stress-visualizer-pulse 4s infinite ease-in-out; /* New animation */
+            transition: background-color 0.5s ease;
+        }
+        #stress-instruction {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--text-primary);
         }
     </style>
 </head>
@@ -340,9 +398,9 @@
         <!-- ======================= DASHBOARD SCREEN ========================== -->
         <div id="dashboard-screen" class="screen items-center">
             <header class="w-full text-center mb-8 pt-8">
-                <div class="flex flex-col md:flex-row justify-center items-center gap-4">
-                    <!-- Updated logo URL -->
-                    <img src="https://placehold.co/48x48/8a4fff/ffffff?text=GF" onerror="this.onerror=null;this.src='Logos HD.png';" alt="goatiFIT Logo" class="h-12 w-12 mr-2">
+                <div class="flex justify-center items-center gap-4">
+                    <!-- New Logo Element -->
+                    <img src="https://placehold.co/48x48/8a4fff/ffffff?text=LOGO" alt="Logos HD" class="h-12 w-12 mr-2">
                     <i class="fas fa-dumbbell text-6xl text-primary" style="filter: drop-shadow(0 0 10px var(--primary-glow));"></i>
                     <div>
                         <h1 class="text-5xl font-black" data-translate-key="main_title">goati<span class="text-primary">FIT</span></h1>
@@ -351,6 +409,10 @@
                 </div>
                 <div id="points-display" class="mt-4 glassmorphism inline-block px-4 py-2 rounded-full cursor-pointer">
                     <span class="font-bold text-primary"><i class="fas fa-star"></i> <span id="points-value">0</span> PTS</span>
+                </div>
+                <!-- Daily Missions Display -->
+                <div id="daily-missions-display" class="mt-4 glassmorphism inline-block px-4 py-2 rounded-full cursor-pointer bg-red-800/20 border-red-500/30">
+                    <span class="font-bold text-red-400"><i class="fas fa-clipboard-check"></i> <span id="missions-completed">0</span>/<span id="missions-total">0</span> Misiones</span>
                 </div>
             </header>
 
@@ -367,9 +429,9 @@
                         <h2 class="text-2xl font-bold mb-4"><i class="fas fa-comments text-primary mr-3"></i><span data-translate-key="ia_prompt_title">Pide tu Rutina a la IA</span></h2>
                         <textarea id="user-prompt" class="w-full h-24 p-4 rounded-lg focus:ring-2 focus:ring-primary focus:outline-none resize-none" data-translate-key="ia_prompt_placeholder" placeholder="Ej: 'Quiero una rutina de 45 mins en el gimnasio para espalda y bíceps'"></textarea>
                         <div class="flex gap-2 mt-2">
-                            <button class="ai-modifier-btn btn btn-secondary flex-1 text-sm" data-modifier="sin equipo"><i class="fas fa-ban mr-1"></i> <span data-translate-key="ai_modifier_no_equipment">Sin Equipo</span></button>
+                            <button class="ai-modifier-btn btn btn-secondary flex-1 text-sm" data-modifier="sin equipo" data-original-text-key="ai_modifier_no_equipment" data-original-icon-class="fas fa-ban"><i class="fas fa-ban mr-1"></i> <span data-translate-key="ai_modifier_no_equipment">Sin Equipo</span></button>
                         </div>
-                        <button id="generate-btn" class="btn btn-primary btn-glow w-full p-4 rounded-lg font-bold text-lg mt-4">
+                        <button id="generate-btn" class="btn btn-primary btn-glow w-full p-4 rounded-lg font-bold text-lg mt-4" data-original-text-key="ia_prompt_button" data-original-icon-class="fas fa-cogs">
                             <i class="fas fa-cogs mr-2"></i> <span data-translate-key="ia_prompt_button">Crear con IA</span>
                         </button>
                     </div>
@@ -396,28 +458,28 @@
                 <div class="mb-8 fade-in">
                     <h2 class="text-2xl font-bold mb-4" data-translate-key="tools_title">Herramientas de Precisión</h2>
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="timer-type-selection">
-                        <button class="timer-type-btn btn btn-secondary p-4 rounded-lg flex flex-col items-center justify-center aspect-square" data-type="stopwatch"><i class="fas fa-stopwatch text-4xl mb-2"></i><span class="font-semibold" data-translate-key="tool_stopwatch">Cronómetro</span></button>
-                        <button class="timer-type-btn btn btn-secondary p-4 rounded-lg flex flex-col items-center justify-center aspect-square" data-type="timer"><i class="fas fa-hourglass-half text-4xl mb-2"></i><span class="font-semibold" data-translate-key="tool_timer">Temporizador</span></button>
-                        <button class="timer-type-btn btn btn-secondary p-4 rounded-lg flex flex-col items-center justify-center aspect-square" data-type="tabata"><i class="fas fa-bolt text-4xl mb-2"></i><span class="font-semibold" data-translate-key="tool_tabata">Tábata</span></button>
-                        <button class="timer-type-btn btn btn-secondary p-4 rounded-lg flex flex-col items-center justify-center aspect-square" data-type="rounds"><i class="fas fa-sync-alt text-4xl mb-2"></i><span class="font-semibold" data-translate-key="tool_rounds">Rondas</span></button>
+                        <button class="timer-type-btn btn btn-secondary p-4 rounded-lg flex flex-col items-center justify-center aspect-square" data-type="stopwatch" data-original-text-key="tool_stopwatch" data-original-icon-class="fas fa-stopwatch"><i class="fas fa-stopwatch text-4xl mb-2"></i><span class="font-semibold" data-translate-key="tool_stopwatch">Cronómetro</span></button>
+                        <button class="timer-type-btn btn btn-secondary p-4 rounded-lg flex flex-col items-center justify-center aspect-square" data-type="timer" data-original-text-key="tool_timer" data-original-icon-class="fas fa-hourglass-half"><i class="fas fa-hourglass-half text-4xl mb-2"></i><span class="font-semibold" data-translate-key="tool_timer">Temporizador</span></button>
+                        <button class="timer-type-btn btn btn-secondary p-4 rounded-lg flex flex-col items-center justify-center aspect-square" data-type="tabata" data-original-text-key="tool_tabata" data-original-icon-class="fas fa-bolt"><i class="fas fa-bolt text-4xl mb-2"></i><span class="font-semibold" data-translate-key="tool_tabata">Tábata</span></button>
+                        <button class="timer-type-btn btn btn-secondary p-4 rounded-lg flex flex-col items-center justify-center aspect-square" data-type="rounds" data-original-text-key="tool_rounds" data-original-icon-class="fas fa-sync-alt"><i class="fas fa-sync-alt text-4xl mb-2"></i><span class="font-semibold" data-translate-key="tool_rounds">Rondas</span></button>
                     </div>
                 </div>
                 <div class="fade-in" style="animation-delay: 0.2s;">
                     <h2 class="text-2xl font-bold mb-4" data-translate-key="challenges_title">Desafíos Rápidos</h2>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <button class="challenge-btn btn btn-secondary p-6 rounded-lg text-left" data-challenge="abs">
+                        <button class="challenge-btn btn btn-secondary p-6 rounded-lg text-left" data-challenge="abs" data-original-text-key="challenge_abs_title" data-original-icon-class="🔥">
                             <h3 class="text-xl font-bold text-primary" data-translate-key="challenge_abs_title">🔥 Abdomen de Acero</h3>
                             <p class="text-sm text-text-secondary mt-1" data-translate-key="challenge_abs_desc">Un reto rápido y brutal de 10 minutos para fortalecer tu core.</p>
                         </button>
-                        <button class="challenge-btn btn btn-secondary p-6 rounded-lg text-left" data-challenge="plank">
+                        <button class="challenge-btn btn btn-secondary p-6 rounded-lg text-left" data-challenge="plank" data-original-text-key="challenge_plank_title" data-original-icon-class="⏳">
                             <h3 class="text-xl font-bold text-primary" data-translate-key="challenge_plank_title">⏳ Plank Challenge</h3>
                             <p class="text-sm text-text-secondary mt-1" data-translate-key="challenge_plank_desc">¿Cuánto puedes aguantar? Un test de resistencia en plancha.</p>
                         </button>
-                        <button class="challenge-btn btn btn-secondary p-6 rounded-lg text-left" data-challenge="pushups">
+                        <button class="challenge-btn btn btn-secondary p-6 rounded-lg text-left" data-challenge="pushups" data-original-text-key="challenge_pushups_title" data-original-icon-class="💪">
                             <h3 class="text-xl font-bold text-primary" data-translate-key="challenge_pushups_title">💪 Desafío de Flexiones</h3>
                             <p class="text-sm text-text-secondary mt-1" data-translate-key="challenge_pushups_desc">Máximas flexiones en 5 series. ¡Apunta a la fatiga muscular!</p>
                         </button>
-                        <button class="challenge-btn btn btn-secondary p-6 rounded-lg text-left" data-challenge="pullups">
+                        <button class="challenge-btn btn btn-secondary p-6 rounded-lg text-left" data-challenge="pullups" data-original-text-key="challenge_pullups_title" data-original-icon-class="🧗">
                             <h3 class="text-xl font-bold text-primary" data-translate-key="challenge_pullups_title">🧗 Desafío de Barras</h3>
                             <p class="text-sm text-text-secondary mt-1" data-translate-key="challenge_pullups_desc">Un test de fuerza de espalda y bíceps. ¿Cuántas dominadas logras?</p>
                         </button>
@@ -427,7 +489,6 @@
         </div>
         
         <!-- ======================= TIMER TOOL SCREEN ======================= -->
-        <!-- Updated Timer Tool Screen for better centering and responsiveness -->
         <div id="timer-tool-screen" class="screen items-center justify-center">
              <header class="w-full flex items-center justify-between mb-8 pt-4 max-w-4xl mx-auto absolute top-0 left-1/2 -translate-x-1/2">
                 <button class="back-to-lab-btn btn btn-secondary px-4 py-2 rounded-lg"><i class="fas fa-arrow-left mr-2"></i> <span data-translate-key="back_button">Volver</span></button>
@@ -468,15 +529,19 @@
                     <div id="timer-tool-phase" class="text-3xl font-bold uppercase tracking-widest text-primary mb-2"></div>
                     <div id="timer-tool-display" class="text-8xl md:text-9xl font-black">00:00.00</div>
                     <div id="timer-tool-rounds-display" class="text-2xl font-semibold mt-2"></div>
-                    <!-- Laps list for stopwatch -->
-                    <div id="stopwatch-laps" class="hidden mt-4 w-full max-w-sm max-h-40 overflow-y-auto custom-scrollbar p-2 rounded-lg bg-secondary"></div>
+                    <!-- Lap Times Display -->
+                    <div id="lap-times-container" class="mt-4 w-full max-h-40 overflow-y-auto custom-scrollbar hidden">
+                        <h4 class="text-lg font-bold text-primary mb-2">Vueltas:</h4>
+                        <ul id="lap-times-list" class="list-none p-0 m-0 text-sm"></ul>
+                    </div>
                 </div>
                 
                 <!-- Controls -->
                 <div id="timer-tool-controls" class="flex gap-4">
                     <button id="timer-tool-start" class="btn btn-primary w-32 p-4 rounded-lg font-bold text-lg"><i class="fas fa-play mr-2"></i> Iniciar</button>
                     <button id="timer-tool-pause" class="btn btn-secondary w-32 p-4 rounded-lg font-bold text-lg hidden"><i class="fas fa-pause mr-2"></i> Pausar</button>
-                    <button id="timer-tool-lap-reset" class="btn btn-secondary w-32 p-4 rounded-lg font-bold text-lg hidden" data-action="lap"><i class="fas fa-flag mr-2"></i> Lap</button>
+                    <button id="timer-tool-reset" class="btn btn-danger bg-danger w-32 p-4 rounded-lg font-bold text-lg"><i class="fas fa-sync-alt mr-2"></i> Reset</button>
+                    <button id="timer-tool-lap" class="btn btn-info bg-info w-32 p-4 rounded-lg font-bold text-lg hidden"><i class="fas fa-flag mr-2"></i> Vuelta</button>
                 </div>
                 <div id="rounds-counter-control" class="hidden flex flex-col items-center gap-4">
                      <button id="round-counter-btn" class="btn btn-primary rounded-full w-48 h-48 text-6xl font-black">0</button>
@@ -589,24 +654,24 @@
                                 <input id="input-bmi" type="text" class="w-full mt-1 p-3 rounded-lg focus:ring-2 focus:ring-primary focus:outline-none" placeholder="Calculado automáticamente" readonly>
                             </div>
                             <div>
-                                <label for="input-sleep" class="font-bold" data-translate-key="data_sleep_hours">Horas de Sueño</label>
+                                <label for="input-sleep" class="font-bold" data-translate-key="data_sleep_hours">Horas de Sueño (hoy)</label>
                                 <input id="input-sleep" type="number" class="w-full mt-1 p-3 rounded-lg focus:ring-2 focus:ring-primary focus:outline-none" placeholder="e.g., 7.5">
                             </div>
                              <div>
-                                <label class="font-bold" data-translate-key="data_water_liters">Agua (litros)</label>
+                                <label class="font-bold" data-translate-key="data_water_liters">Agua (litros hoy)</label>
                                 <input id="input-water" type="number" class="w-full mt-1 p-3 rounded-lg focus:ring-2 focus:ring-primary focus:outline-none" placeholder="e.g., 2.5">
                             </div>
                         </div>
                     </div>
                      <div class="glassmorphism p-6 rounded-2xl">
-                        <h2 class="text-2xl font-bold mb-4 flex items-center"><i class="fas fa-ruler-combined text-primary mr-3"></i>Medidas Corporales</h2>
+                        <h2 class="text-2xl font-bold mb-4 flex items-center"><i class="fas fa-ruler-combined text-primary mr-3"></i>Medidas Corporales (única vez)</h2>
                         <input id="input-measures" type="text" class="w-full mt-1 p-3 rounded-lg focus:ring-2 focus:ring-primary focus:outline-none" placeholder="cintura:75, bíceps:35">
                     </div>
                 </div>
                 <!-- Columna Derecha -->
                 <div class="space-y-6">
                     <div class="glassmorphism p-6 rounded-2xl">
-                        <h2 class="text-2xl font-bold mb-4 flex items-center"><i class="fas fa-smile text-primary mr-3"></i>Estado de Ánimo</h2>
+                        <h2 class="text-2xl font-bold mb-4 flex items-center"><i class="fas fa-smile text-primary mr-3"></i>Estado de Ánimo (hoy)</h2>
                         <div id="energy-tracker" class="flex justify-around mt-2">
                             <!-- SVG icons will be injected here -->
                         </div>
@@ -628,7 +693,7 @@
             <div id="sleep-main-content">
                 <div class="relative flex items-center justify-center w-64 h-64">
                     <div class="absolute inset-0 flex items-center justify-center">
-                        <div id="sleep-clock" class="text-6xl font-black heartbeat-anim"></div>
+                        <div id="sleep-clock" class="text-6xl font-black"></div>
                     </div>
                     <div class="breathing-circle-anim absolute w-full h-full bg-blue-500/30 rounded-full"></div>
                     <div class="breathing-circle-anim absolute w-3/4 h-3/4 bg-blue-500/40 rounded-full" style="animation-delay: -2s;"></div>
@@ -723,16 +788,15 @@
                 <div class="w-24"></div>
             </header>
             <main class="w-full max-w-4xl flex-grow mx-auto space-y-8">
-                <!-- Weekly Activity Section (updated for mobile) -->
                 <div class="glassmorphism p-6 rounded-2xl">
                     <h2 class="text-2xl font-bold mb-4 flex items-center justify-between">
                         <span data-translate-key="progress_weekly_title">Actividad Semanal</span>
                         <button class="info-btn text-primary text-lg" data-info="weekly"><i class="fas fa-info-circle"></i></button>
                     </h2>
-                    <div id="weekly-chart" class="flex flex-col md:flex-row justify-around items-center p-4 text-center space-y-4 md:space-y-0 md:space-x-4">
-                        <div class="flex-1 w-full">
+                    <div id="weekly-chart" class="flex flex-col sm:flex-row justify-around items-center p-4 text-center space-y-4 sm:space-y-0 sm:space-x-2 md:space-x-4">
+                        <div class="flex-1 w-full sm:w-auto">
                             <div class="circle-progress-container">
-                                <svg viewBox="0 0 120 120">
+                                <svg class="circle-progress-svg" viewBox="0 0 120 120">
                                     <circle cx="60" cy="60" r="54" class="circle-bg"></circle>
                                     <circle id="minutes-circle" cx="60" cy="60" r="54" class="circle-progress" style="stroke-dasharray: 340; stroke-dashoffset: 340;"></circle>
                                 </svg>
@@ -742,9 +806,9 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="flex-1 w-full">
+                        <div class="flex-1 w-full sm:w-auto">
                             <div class="circle-progress-container">
-                                <svg viewBox="0 0 120 120">
+                                <svg class="circle-progress-svg" viewBox="0 0 120 120">
                                     <circle cx="60" cy="60" r="54" class="circle-bg"></circle>
                                     <circle id="routines-circle" cx="60" cy="60" r="54" class="circle-progress" style="stroke-dasharray: 340; stroke-dashoffset: 340;"></circle>
                                 </svg>
@@ -754,9 +818,9 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="flex-1 w-full">
+                        <div class="flex-1 w-full sm:w-auto">
                             <div class="circle-progress-container">
-                                <svg viewBox="0 0 120 120">
+                                <svg class="circle-progress-svg" viewBox="0 0 120 120">
                                     <circle cx="60" cy="60" r="54" class="circle-bg"></circle>
                                     <circle id="calories-circle" cx="60" cy="60" r="54" class="circle-progress" style="stroke-dasharray: 340; stroke-dashoffset: 340;"></circle>
                                 </svg>
@@ -766,31 +830,24 @@
                                 </div>
                             </div>
                         </div>
-                         <!-- New weekly stats -->
-                        <div class="flex-1 w-full">
+                        <!-- New Circle for Total Workouts -->
+                        <div class="flex-1 w-full sm:w-auto">
                             <div class="circle-progress-container">
-                                <svg viewBox="0 0 120 120">
+                                <svg class="circle-progress-svg" viewBox="0 0 120 120">
                                     <circle cx="60" cy="60" r="54" class="circle-bg"></circle>
-                                    <circle id="water-circle" cx="60" cy="60" r="54" class="circle-progress" style="stroke-dasharray: 340; stroke-dashoffset: 340;"></circle>
+                                    <circle id="total-workouts-circle" cx="60" cy="60" r="54" class="circle-progress" style="stroke-dasharray: 340; stroke-dashoffset: 340;"></circle>
                                 </svg>
                                 <div class="absolute inset-0 flex flex-col items-center justify-center">
-                                    <p id="total-water" class="text-3xl font-black">0</p>
-                                    <p class="text-xs md:text-sm text-text-secondary">AGUA (L)</p>
+                                    <p id="total-workouts" class="text-3xl font-black">0</p>
+                                    <p class="text-xs md:text-sm text-text-secondary">ENTRENOS</p>
                                 </div>
                             </div>
                         </div>
-                        <div class="flex-1 w-full">
-                            <div class="circle-progress-container">
-                                <svg viewBox="0 0 120 120">
-                                    <circle cx="60" cy="60" r="54" class="circle-bg"></circle>
-                                    <circle id="sleep-circle" cx="60" cy="60" r="54" class="circle-progress" style="stroke-dasharray: 340; stroke-dashoffset: 340;"></circle>
-                                </svg>
-                                <div class="absolute inset-0 flex flex-col items-center justify-center">
-                                    <p id="total-sleep" class="text-3xl font-black">0</p>
-                                    <p class="text-xs md:text-sm text-text-secondary">SUEÑO (H)</p>
-                                </div>
-                            </div>
-                        </div>
+                    </div>
+                    <div class="glassmorphism p-4 rounded-lg text-center mt-6">
+                        <h3 class="text-xl font-bold text-primary mb-2">Racha de Entrenamientos</h3>
+                        <p id="workout-streak" class="text-4xl font-black">0 <i class="fas fa-fire text-orange-400"></i></p>
+                        <p class="text-sm text-text-secondary">Días consecutivos</p>
                     </div>
                 </div>
                 <!-- GAMIFICATION / REWARDS -->
@@ -1022,6 +1079,16 @@
                     </a>
                     <button id="close-reward-claimed-modal-btn" class="btn btn-secondary px-8 py-2 font-bold" data-translate-key="coach_modal_close">Cerrar</button>
                 </div>
+
+                <!-- Anti-Stress Modal (Updated with Canvas) -->
+                <div id="anti-stress-modal-content" class="hidden text-center text-text-primary">
+                    <h2 class="text-2xl font-bold mb-4 text-primary">Modo Anti-Estrés</h2>
+                    <p id="stress-instruction" class="text-lg mb-4">Concéntrate en el movimiento y el sonido para calmar tu mente.</p>
+                    <canvas id="stress-visualizer-canvas"></canvas> <!-- Changed to canvas -->
+                    <button id="toggle-stress-sound-btn" class="btn btn-primary w-full p-3 rounded-lg font-bold mt-4">
+                        <i class="fas fa-play mr-2"></i><span>Iniciar Sonido Calmante</span>
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -1104,7 +1171,7 @@
                     phase_rest: "DESCANSO",
                     phase_cooldown: "ENFRIAMIENTO",
                     generating_routine: "Generando tu rutina de élite...",
-                    system_prompt_base: `Eres "GoatiFit AI", un entrenador personal de élite. Crea una rutina de ejercicios en JSON. NUNCA respondas con texto conversacional, solo el JSON. Para cada fase de 'work', incluye un array "howTo" con 2-4 instrucciones cortas, paso a paso, en español. Formato JSON requerido:`,
+                    system_prompt_base: `Eres "GoatiFit AI", un entrenador personal de élite. Crea una rutina de ejercicios en JSON. NUNCA respondas con texto conversacional, solo el JSON. Para cada fase de 'work', incluye un array "howTo" con 2-4 instrucciones cortas, paso a paso, en español. Si el usuario pide "sin equipo", asegúrate de que todos los ejercicios sean de peso corporal. Si el usuario especifica equipo, usa ese equipo. Si el usuario no especifica equipo, asume que tiene acceso a un gimnasio básico. Formato JSON requerido:`,
                     data_title: "Mis Datos",
                     data_input_title: "Registro Diario",
                     data_weight: "Peso (kg)",
@@ -1195,24 +1262,23 @@
                     muscle_quads: "Cuádriceps",
                     muscle_hamstrings: "Isquiotibiales",
                     muscle_calves: "Pantorrillas",
-                    muscle_traps: "Trapecios",
+                    muscle_legs: "Piernas", // Generic fallback
                     muscle_full_body: "Cuerpo Completo",
+                    muscle_traps: "Trapecios", // Added Traps
                     reward_claimed_title: "¡Recompensa Reclamada!",
                     reward_claimed_action: "Ir al Beneficio",
-                    mission_take_water_title: "Misión: Toma 2L de Agua",
-                    mission_take_water_desc: "Registra que has bebido 2L de agua para ganar 50 puntos.",
-                    mission_breathing_title: "Misión: Respiración",
-                    mission_breathing_desc: "Realiza una rutina de respiración guiada para ganar 25 puntos.",
-                    mission_train_title: "Misión: Entrena",
-                    mission_train_desc: "Completa una rutina de entrenamiento para ganar 100 puntos.",
-                    mission_meditate_title: "Misión: Medita",
-                    mission_meditate_desc: "Dedica 5 minutos a la meditación para ganar 25 puntos.",
-                    mission_offline_title: "Misión: Rutina Offline",
-                    mission_offline_desc: "Completa una rutina del modo offline para ganar 50 puntos.",
-                    mission_data_title: "Misión: Datos Diarios",
-                    mission_data_desc: "Guarda tus datos de hoy para ganar 25 puntos.",
-                    mission_sleep_title: "Misión: Sueño",
-                    mission_sleep_desc: "Usa el módulo de sueño para ganar 25 puntos.",
+                    reward_near_message: "¡Estás cerca de desbloquear: ",
+                    daily_mission_workout: "Completa un entrenamiento",
+                    daily_mission_water: "Bebe 2 litros de agua",
+                    daily_mission_sleep: "Duerme 7+ horas",
+                    daily_mission_reflection: "Haz una reflexión diaria",
+                    daily_mission_breathing: "Haz una sesión de respiración",
+                    daily_mission_water_reminder: "¡Es hora de beber agua!",
+                    daily_mission_stand_reminder: "¡Levántate y muévete un poco!",
+                    daily_mission_train_reminder: "¡No olvides tu entrenamiento!",
+                    daily_mission_sleep_reminder: "¡Es hora de prepararse para dormir!",
+                    daily_mission_motivation_reminder: "¡Una dosis de motivación para tu día!",
+                    total_workouts: "Entrenamientos", // New translation key
                 }
             };
 
@@ -1231,6 +1297,9 @@
                     openLabBtn: document.getElementById('open-lab-btn'),
                     pointsValue: document.getElementById('points-value'),
                     pointsDisplay: document.getElementById('points-display'),
+                    dailyMissionsDisplay: document.getElementById('daily-missions-display'),
+                    missionsCompleted: document.getElementById('missions-completed'),
+                    missionsTotal: document.getElementById('missions-total'),
                 },
                 lab: {
                     timerTypeSelection: document.getElementById('timer-type-selection'),
@@ -1246,7 +1315,10 @@
                     controls: document.getElementById('timer-tool-controls'),
                     startBtn: document.getElementById('timer-tool-start'),
                     pauseBtn: document.getElementById('timer-tool-pause'),
-                    lapResetBtn: document.getElementById('timer-tool-lap-reset'),
+                    resetBtn: document.getElementById('timer-tool-reset'),
+                    lapBtn: document.getElementById('timer-tool-lap'), // New Lap button
+                    lapTimesContainer: document.getElementById('lap-times-container'), // New Lap times container
+                    lapTimesList: document.getElementById('lap-times-list'), // New Lap times list
                     configContainer: document.getElementById('timer-config-container'),
                     configTimer: document.getElementById('timer-config'),
                     configTabata: document.getElementById('tabata-config'),
@@ -1254,7 +1326,6 @@
                     roundsCounterControl: document.getElementById('rounds-counter-control'),
                     roundCounterBtn: document.getElementById('round-counter-btn'),
                     roundNextBtn: document.getElementById('round-next-btn'),
-                    stopwatchLaps: document.getElementById('stopwatch-laps'),
                 },
                 workout: {
                     title: document.getElementById('workout-title'),
@@ -1305,15 +1376,14 @@
                     minutesCircle: document.getElementById('minutes-circle'),
                     routinesCircle: document.getElementById('routines-circle'),
                     caloriesCircle: document.getElementById('calories-circle'),
-                    totalWater: document.getElementById('total-water'), // New element
-                    totalSleep: document.getElementById('total-sleep'), // New element
-                    waterCircle: document.getElementById('water-circle'), // New element
-                    sleepCircle: document.getElementById('sleep-circle'), // New element
+                    totalWorkoutsValue: document.getElementById('total-workouts'), // New DOM element
+                    totalWorkoutsCircle: document.getElementById('total-workouts-circle'), // New DOM element
                     bodyMapContainer: document.getElementById('body-map-container'),
                     achievementsGrid: document.getElementById('achievements-grid'),
                     historyList: document.getElementById('workout-history-list'),
                     analyzeHistoryBtn: document.getElementById('analyze-history-btn'),
                     rewardsGrid: document.getElementById('rewards-grid'),
+                    workoutStreak: document.getElementById('workout-streak'), // New streak display
                 },
                 settings: {
                     notificationsList: document.getElementById('notifications-list'),
@@ -1364,6 +1434,9 @@
                     rewardClaimedMessage: document.getElementById('reward-claimed-message'),
                     rewardClaimedLink: document.getElementById('reward-claimed-link'),
                     closeRewardClaimedBtn: document.getElementById('close-reward-claimed-modal-btn'),
+                    antiStressContent: document.getElementById('anti-stress-modal-content'), // New anti-stress modal
+                    stressVisualizerCanvas: document.getElementById('stress-visualizer-canvas'), // Changed to canvas
+                    toggleStressSoundBtn: document.getElementById('toggle-stress-sound-btn'),
                 },
                 tooltip: document.getElementById('tooltip'),
                 toastContainer: document.getElementById('toast-container'),
@@ -1376,27 +1449,17 @@
                 audioContext: null,
                 aiWorkout: { routine: null, currentIndex: 0, currentPhase: 'idle', phaseTimeLeft: 0, isPaused: true, timerInterval: null, beastModeActivated: false },
                 sleep: { soundNode: null, gainNode: null, isPlaying: false, selectedSound: 'brown', timerId: null, clockInterval: null },
-                wellness: { breathingInterval: null, isBreathing: false, breathingType: 'calm', iceBathInterval: null },
-                progress: { history: [], achievements: { first_workout: false, seven_day_streak: false, beast_mode: false, perfect_week: false }, points: 0, muscleGroupsWorked: {}, claimedRewards: [] },
-                userData: { weight: null, height: null, bmi: null, measures: null, energy: null, sleep: null, water: null, lastPeriodDate: null, customRoutines: [] },
+                wellness: { breathingInterval: null, isBreathing: false, breathingType: 'calm', iceBathInterval: null, stressSound: null, stressSynth: null, isStressSoundPlaying: false, stressVisualizerAnimationId: null, stressVisualizerParticles: [] }, // Added stressVisualizer related properties
+                progress: { history: [], achievements: { first_workout: false, seven_day_streak: false, beast_mode: false, perfect_week: false }, points: 0, muscleGroupsWorked: {}, claimedRewards: [], workoutStreak: 0, lastWorkoutDate: null }, // Added workoutStreak and lastWorkoutDate
+                userData: { weight: null, height: null, bmi: null, measures: null, energy: null, sleep: null, water: null, lastPeriodDate: null, customRoutines: [], lastWaterReminderHour: null }, // Added lastWaterReminderHour
                 notifications: { stand: { enabled: true }, water: { enabled: true }, sleep: { enabled: false }, train: { enabled: false }, motivation: { enabled: true } },
                 alarms: [],
                 oracleMessage: null,
-                timerTool: { 
-                    type: null, 
-                    interval: null, 
-                    startTime: 0, 
-                    elapsedTime: 0, 
-                    isStarted: false, 
-                    duration: 0, 
-                    laps: [], 
-                    tabata: { work: 20, rest: 10, rounds: 8, currentRound: 0, isWorkPhase: true, timeLeft: 0 }, 
-                    rounds: { count: 0, target: 0, rest: 0, current: 1 } 
-                },
+                timerTool: { type: null, interval: null, startTime: 0, elapsedTime: 0, isRunning: false, duration: 0, tabata: { work: 20, rest: 10, rounds: 8, currentRound: 0, isWorkPhase: true, timeLeft: 0 }, rounds: { count: 0, target: 0, rest: 0, current: 1, restTimerInterval: null }, lapTimes: [] }, // Added lapTimes, restTimerInterval for rounds
                 editingAlarmIndex: null,
                 theme: 'dark', // 'dark' or 'light'
-                dailyMission: null, // New mission state
-                dailyMissionCompleted: false,
+                dailyMissions: [],
+                missionsCompletedToday: 0,
             };
 
             // --- CORE APP LOGIC ---
@@ -1420,6 +1483,8 @@
                     'workout-screen', 'post-workout-screen', 'sleep-screen', 
                     'breathing-screen', 'timer-tool-screen'
                 ];
+                // Anti-stress modal is a modal, not a full screen, so it doesn't hide the nav bar directly.
+                // Its parent modal overlay handles the full screen effect.
                 if (screensWithoutGlobalNav.includes(screenId)) {
                     dom.globalNavBar.classList.add('hidden');
                 } else {
@@ -1432,9 +1497,10 @@
                 });
 
                 // --- Screen-specific setup/cleanup ---
-                stopVisualizer();
+                stopVisualizer(); // Post-workout visualizer
                 stopSleepSound();
-                toggleBreathingExercise(true); 
+                toggleBreathingExercise(true); // Stop breathing exercise
+                stopStressSound(); // Stop stress sound when changing screens
                 if (state.sleep.clockInterval) clearInterval(state.sleep.clockInterval);
                 resetTimerTool();
 
@@ -1443,7 +1509,6 @@
                 if (screenId === 'settings-screen') renderSettingsScreen();
                 if (screenId === 'offline-screen') renderOfflineRoutines();
                 if (screenId === 'sleep-screen') startSleepClock();
-                if (screenId === 'dashboard-screen') renderDailyMission();
             }
 
             function setLanguage(lang) {
@@ -1493,96 +1558,6 @@
                 oscillator.stop(state.audioContext.currentTime + duration / 1000);
             }
 
-            async function textToSpeech(text, voice) {
-                initAudio();
-                try {
-                    const payload = {
-                        contents: [{ parts: [{ text: text }] }],
-                        generationConfig: {
-                            responseModalities: ["AUDIO"],
-                            speechConfig: {
-                                voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } }
-                            }
-                        },
-                        model: "gemini-2.5-flash-preview-tts"
-                    };
-                    const apiKey = "";
-                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`;
-                    
-                    const response = await fetch(apiUrl, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-
-                    if (!response.ok) throw new Error('API call failed');
-                    
-                    const result = await response.json();
-                    const audioData = result?.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-                    const mimeType = result?.candidates?.[0]?.content?.parts?.[0]?.inlineData?.mimeType;
-
-                    if (audioData && mimeType && mimeType.startsWith("audio/")) {
-                        const sampleRate = parseInt(mimeType.match(/rate=(\d+)/)[1], 10);
-                        const pcmData = base64ToArrayBuffer(audioData);
-                        const pcm16 = new Int16Array(pcmData);
-                        const wavBlob = pcmToWav(pcm16, sampleRate);
-                        const audioUrl = URL.createObjectURL(wavBlob);
-                        const audio = new Audio(audioUrl);
-                        audio.play();
-                    }
-                } catch(error) {
-                    console.error("TTS failed:", error);
-                }
-            }
-
-            function base64ToArrayBuffer(base64) {
-                const binaryString = atob(base64);
-                const len = binaryString.length;
-                const bytes = new Uint8Array(len);
-                for (let i = 0; i < len; i++) {
-                    bytes[i] = binaryString.charCodeAt(i);
-                }
-                return bytes.buffer;
-            }
-
-            function pcmToWav(pcm, sampleRate) {
-                const pcmData = pcm.buffer;
-                const dataLength = pcmData.byteLength;
-                const buffer = new ArrayBuffer(44 + dataLength);
-                const view = new DataView(buffer);
-                let offset = 0;
-
-                // Write WAV header
-                const writeString = (str) => {
-                    for (let i = 0; i < str.length; i++) {
-                        view.setUint8(offset + i, str.charCodeAt(i));
-                    }
-                    offset += str.length;
-                };
-
-                writeString('RIFF');
-                view.setUint32(offset, 36 + dataLength, true); offset += 4;
-                writeString('WAVE');
-                writeString('fmt ');
-                view.setUint32(offset, 16, true); offset += 4; // Subchunk1Size
-                view.setUint16(offset, 1, true); offset += 2; // AudioFormat (1=PCM)
-                view.setUint16(offset, 1, true); offset += 2; // NumChannels
-                view.setUint32(offset, sampleRate, true); offset += 4; // SampleRate
-                view.setUint32(offset, sampleRate * 2, true); offset += 4; // ByteRate
-                view.setUint16(offset, 2, true); offset += 2; // BlockAlign
-                view.setUint16(offset, 16, true); offset += 2; // BitsPerSample
-                writeString('data');
-                view.setUint32(offset, dataLength, true); offset += 4;
-
-                // Write PCM data
-                const pcmView = new Int16Array(pcmData);
-                for (let i = 0; i < pcmView.length; i++, offset += 2) {
-                    view.setInt16(offset, pcmView[i], true);
-                }
-
-                return new Blob([view], { type: 'audio/wav' });
-            }
-
             // --- AI Workout Generation ---
             function showLoadingSkeleton(btn) {
                 if (btn) {
@@ -1591,10 +1566,15 @@
                 }
             }
 
-            function resetButton(btn, originalTextKey, iconClass) {
+            function resetButton(btn, originalTextKey, originalIconClass) {
                 if (btn) {
                     btn.disabled = false;
-                    btn.innerHTML = `<i class="${iconClass} mr-2"></i> <span data-translate-key="${originalTextKey}">${translations[state.language][originalTextKey]}</span>`;
+                    const textContent = translations[state.language][originalTextKey];
+                    if (originalIconClass.startsWith('fa-')) { // FontAwesome icon
+                        btn.innerHTML = `<i class="${originalIconClass} mr-2"></i> <span>${textContent}</span>`;
+                    } else { // Emoji or other text-based icon
+                        btn.innerHTML = `${originalIconClass} <span>${textContent}</span>`;
+                    }
                 }
             }
             
@@ -1603,28 +1583,87 @@
                 
                 let routine;
                 const lang = state.language;
-                const jsonFormat = `{"title": "Creative Name", "totalDurationMinutes": 30, "type": "${workoutType}", "phases": [{"phaseName": "Warm-up", "type": "prep", "durationSeconds": 180, "exerciseName": "Dynamic Warm-up", "howTo": ["Instruction 1", "Instruction 2"], "muscleGroups": ["full body"]}, {"phaseName": "Squats", "type": "work", "durationSeconds": 45, "exerciseName": "Dumbbell Squats", "howTo": ["Instruction 1", "Instruction 2"], "muscleGroups": ["legs", "glutes"]}, {"phaseName": "Rest", "type": "rest", "durationSeconds": 15, "exerciseName": "Rest"}]}`;
+                // Updated JSON structure to include varied exercise details and howTo
+                const jsonFormat = `{"title": "Creative Name", "totalDurationMinutes": 30, "type": "${workoutType}", "phases": [{"phaseName": "Warm-up", "type": "prep", "durationSeconds": 180, "exerciseName": "Dynamic Warm-up", "howTo": ["Instruction 1", "Instruction 2"], "muscleGroups": ["full body"]}, {"phaseName": "Squats", "type": "work", "durationSeconds": 45, "exerciseName": "Dumbbell Squats", "sets": "3", "reps": "10-12", "howTo": ["Instruction 1", "Instruction 2"], "muscleGroups": ["legs", "glutes"]}, {"phaseName": "Rest", "type": "rest", "durationSeconds": 15, "exerciseName": "Rest"}]}`;
                 const systemPrompt = `${translations[lang].system_prompt_base} ${jsonFormat}`;
 
                 try {
                     // This is a placeholder for a real API call.
                     await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate network delay
-                    const mockResponse = {
-                        title: workoutType || "Rutina de IA",
-                        totalDurationMinutes: 25,
-                        phases: [
-                            { phaseName: "Calentamiento", type: "prep", durationSeconds: 180, exerciseName: "Saltos de tijera y círculos de brazos", howTo: ["Realiza saltos de tijera suaves.", "Haz círculos amplios con los brazos hacia adelante y atrás."], muscleGroups: ["full_body"] },
-                            { phaseName: "Ejercicio Principal 1", type: "work", durationSeconds: 240, exerciseName: "Sentadillas con peso corporal", howTo: ["Pies al ancho de los hombros.", "Baja la cadera manteniendo la espalda recta.", "Sube de forma controlada."], muscleGroups: ["quads", "glutes"] },
-                            { phaseName: "Descanso", type: "rest", durationSeconds: 60, exerciseName: "Descanso Activo (caminar)" },
-                            { phaseName: "Ejercicio Principal 2", type: "work", durationSeconds: 240, exerciseName: "Flexiones (en rodillas si es necesario)", howTo: ["Manos un poco más anchas que los hombros.", "Baja el pecho hacia el suelo.", "Mantén el abdomen contraído."], muscleGroups: ["chest", "triceps", "core"] },
-                            { phaseName: "Enfriamiento", type: "cooldown", durationSeconds: 180, exerciseName: "Estiramientos suaves", howTo: ["Estira cuádriceps, isquiotibiales y pecho.", "Mantén cada estiramiento por 30 segundos."], muscleGroups: ["full_body"] }
-                        ]
-                    };
+                    let mockResponse;
+                    if (promptText.includes("sin equipo")) {
+                         mockResponse = {
+                            title: "Rutina de Peso Corporal para Principiantes",
+                            totalDurationMinutes: 30,
+                            phases: [
+                                { phaseName: "Calentamiento", type: "prep", durationSeconds: 180, exerciseName: "Movilidad Articular", howTo: ["Rota tobillos, rodillos y caderas.", "Haz círculos con los brazos hacia adelante y atrás."], muscleGroups: ["full_body"] },
+                                { phaseName: "Sentadillas", type: "work", durationSeconds: 180, exerciseName: "Sentadillas con Peso Corporal", sets: "3", reps: "15", howTo: ["Pies al ancho de hombros.", "Baja la cadera como si te sentaras.", "Mantén la espalda recta y el pecho erguido."], muscleGroups: ["quads", "glutes"] },
+                                { phaseName: "Descanso", type: "rest", durationSeconds: 60, exerciseName: "Descanso" },
+                                { phaseName: "Flexiones", type: "work", durationSeconds: 180, exerciseName: "Flexiones de Rodillas", sets: "3", reps: "10-12", howTo: ["Apoya rodillas y manos en el suelo.", "Baja el pecho cerca del suelo.", "Empuja hacia arriba controladamente."], muscleGroups: ["chest", "triceps", "shoulders"] },
+                                { phaseName: "Descanso", type: "rest", durationSeconds: 60, exerciseName: "Descanso" },
+                                { phaseName: "Plancha", type: "work", durationSeconds: 120, exerciseName: "Plancha Abdominal", sets: "3", reps: "30-45s", howTo: ["Apóyate en antebrazos y puntas de pies.", "Mantén el cuerpo recto como una tabla.", "Contrae el abdomen y los glúteos."], muscleGroups: ["core"] },
+                                { phaseName: "Enfriamiento", type: "cooldown", durationSeconds: 180, exerciseName: "Estiramientos Estáticos", howTo: ["Estira cuádriceps, isquiotibiales y pecho.", "Mantén cada estiramiento por 20-30 segundos."], muscleGroups: ["full_body"] }
+                            ]
+                        };
+                    } else if (promptText.includes("espalda y bíceps")) {
+                        mockResponse = {
+                            title: "Rutina de Espalda y Bíceps en Gimnasio",
+                            totalDurationMinutes: 45,
+                            phases: [
+                                { phaseName: "Calentamiento", type: "prep", durationSeconds: 240, exerciseName: "Remo en Polea Baja y Rotaciones de Hombros", howTo: ["5 minutos de remo ligero.", "1 minuto de rotaciones de hombros."], muscleGroups: ["back", "shoulders"] },
+                                { phaseName: "Dominadas Asistidas", type: "work", durationSeconds: 300, exerciseName: "Dominadas Asistidas", sets: "4", reps: "8-12", howTo: ["Usa máquina asistida o banda.", "Agarre prono, manos un poco más anchas que hombros.", "Sube el pecho hacia la barra, baja controladamente."], muscleGroups: ["back", "biceps"] },
+                                { phaseName: "Descanso", type: "rest", durationSeconds: 90, exerciseName: "Descanso" },
+                                { phaseName: "Remo con Barra", type: "work", durationSeconds: 300, exerciseName: "Remo con Barra", sets: "3", reps: "10-12", howTo: ["Inclina el torso a 45 grados.", "Remo la barra hacia el ombligo.", "Aprieta los omóplatos al final."], muscleGroups: ["back", "traps"] },
+                                { phaseName: "Descanso", type: "rest", durationSeconds: 90, exerciseName: "Descanso" },
+                                { phaseName: "Curl de Bíceps", type: "work", durationSeconds: 240, exerciseName: "Curl de Bíceps con Mancuernas", sets: "3", reps: "12-15", howTo: ["De pie o sentado, codos pegados al cuerpo.", "Sube las mancuernas contrayendo el bíceps.", "Baja lentamente controlando el movimiento."], muscleGroups: ["biceps", "forearms"] },
+                                { phaseName: "Enfriamiento", type: "cooldown", durationSeconds: 240, exerciseName: "Estiramientos de Espalda y Bíceps", howTo: ["Estira dorsal ancho y bíceps.", "Mantén cada estiramiento por 30 segundos."], muscleGroups: ["back", "biceps"] }
+                            ]
+                        };
+                    } else {
+                        // Default mock response for other prompts
+                        mockResponse = {
+                            title: workoutType || "Rutina de IA",
+                            totalDurationMinutes: 25,
+                            phases: [
+                                { phaseName: "Calentamiento", type: "prep", durationSeconds: 180, exerciseName: "Saltos de tijera y círculos de brazos", howTo: ["Realiza saltos de tijera suaves.", "Haz círculos amplios con los brazos hacia adelante y atrás."], muscleGroups: ["full_body"] },
+                                { phaseName: "Ejercicio Principal 1", type: "work", durationSeconds: 240, exerciseName: "Sentadillas con peso corporal", sets: "3", reps: "15", howTo: ["Pies al ancho de los hombros.", "Baja la cadera manteniendo la espalda recta.", "Sube de forma controlada."], muscleGroups: ["quads", "glutes"] },
+                                { phaseName: "Descanso", type: "rest", durationSeconds: 60, exerciseName: "Descanso Activo (caminar)" },
+                                { phaseName: "Ejercicio Principal 2", type: "work", durationSeconds: 240, exerciseName: "Flexiones (en rodillas si es necesario)", sets: "3", reps: "10-12", howTo: ["Manos un poco más anchas que los hombros.", "Baja el pecho hacia el suelo.", "Mantén el abdomen contraído."], muscleGroups: ["chest", "triceps", "core"] },
+                                { phaseName: "Enfriamiento", type: "cooldown", durationSeconds: 180, exerciseName: "Estiramientos suaves", howTo: ["Estira cuádriceps, isquiotibiales y pecho.", "Mantén cada estiramiento por 30 segundos."], muscleGroups: ["full_body"] }
+                            ]
+                        };
+                    }
                     routine = mockResponse;
-                    resetButton(btnToLoad, 'ia_prompt_button', 'fas fa-cogs'); // Reset button on success
+                    
+                    // Reset the specific button that was clicked
+                    const originalTextKey = btnToLoad.dataset.originalTextKey;
+                    const originalIconClass = btnToLoad.dataset.originalIconClass;
+                    if (originalTextKey && originalIconClass) {
+                        resetButton(btnToLoad, originalTextKey, originalIconClass);
+                    } else {
+                        // Fallback for buttons without specific data attributes (e.g., challenges)
+                        if (btnToLoad.classList.contains('challenge-btn')) {
+                            btnToLoad.innerHTML = `<h3 class="text-xl font-bold text-primary">${btnToLoad.dataset.originalIconClass} <span data-translate-key="${btnToLoad.dataset.originalTextKey}">${translations[state.language][btnToLoad.dataset.originalTextKey]}</span></h3><p class="text-sm text-text-secondary mt-1" data-translate-key="${btnToLoad.dataset.originalTextKey.replace('_title', '_desc')}">${translations[state.language][btnToLoad.dataset.originalTextKey.replace('_title', '_desc')]}</p>`;
+                            btnToLoad.disabled = false;
+                        } else {
+                             resetButton(btnToLoad, 'ia_prompt_button', 'fas fa-cogs'); // Default fallback
+                        }
+                    }
+
                 } catch (error) {
                     showToast("Error generando rutina: " + error.message, 'error');
-                    resetButton(btnToLoad, 'ia_prompt_button', 'fas fa-cogs'); // Reset button on error
+                    const originalTextKey = btnToLoad.dataset.originalTextKey;
+                    const originalIconClass = btnToLoad.dataset.originalIconClass;
+                    if (originalTextKey && originalIconClass) {
+                        resetButton(btnToLoad, originalTextKey, originalIconClass);
+                    } else {
+                        if (btnToLoad.classList.contains('challenge-btn')) {
+                            btnToLoad.innerHTML = `<h3 class="text-xl font-bold text-primary">${btnToLoad.dataset.originalIconClass} <span data-translate-key="${btnToLoad.dataset.originalTextKey}">${translations[state.language][btnToLoad.dataset.originalTextKey]}</span></h3><p class="text-sm text-text-secondary mt-1" data-translate-key="${btnToLoad.dataset.originalTextKey.replace('_title', '_desc')}">${translations[state.language][btnToLoad.dataset.originalTextKey.replace('_title', '_desc')]}</p>`;
+                            btnToLoad.disabled = false;
+                        } else {
+                            resetButton(btnToLoad, 'ia_prompt_button', 'fas fa-cogs'); // Default fallback
+                        }
+                    }
                     return;
                 }
                 
@@ -1653,8 +1692,8 @@
                         <p>¡Buen trabajo manteniendo el ritmo! Aquí tienes un par de observaciones:</p>
                         <ul class="list-disc list-inside space-y-2 mt-4">
                             <li><strong>Consistencia:</strong> Has entrenado 4 de los últimos 7 días. ¡Eso es genial! Intenta no dejar pasar más de 2 días sin moverte para crear un hábito sólido.</li>
-                            <li><strong>Balance Muscular:</strong> Se nota un buen trabajo en el tren inferior (piernas y glúteos). Sin embargo, parece que podrías darle un poco más de caña a la espalda y los hombros para un físico más equilibrado.</li>
-                            <li><strong>Sugerencia:</strong> Prueba añadir una rutina de "Espalda y Bíceps" o un "HIIT de Hombros" esta semana. ¡Sigue así, campeón!</li>
+                            <li><strong>Balance Muscular:</strong> Se nota un buen trabajo en el tren inferior (piernas y glúteos). Sin embargo, parece que podrías darle un poco más de caña a la espalda, hombros y trapecios para un físico más equilibrado.</li>
+                            <li><strong>Sugerencia:</strong> Prueba añadir una rutina de "Espalda, Bíceps y Trapecios" o un "HIIT de Hombros" esta semana. ¡Sigue así, campeón!</li>
                         </ul>
                     `;
                     dom.modals.infoBody.innerHTML = mockAnalysis;
@@ -1664,35 +1703,47 @@
             }
 
             async function analyzeUserDataWithAI() {
-                const userDataSummary = `
-                    Peso: ${dom.data.inputWeight.value || 'N/A'} kg
-                    Altura: ${dom.data.inputHeight.value || 'N/A'} cm
-                    IMC: ${dom.data.inputBMI.value || 'N/A'}
-                    Horas de Sueño: ${dom.data.inputSleep.value || 'N/A'} horas
-                    Agua: ${dom.data.inputWater.value || 'N/A'} litros
-                    Medidas: ${dom.data.inputMeasures.value || 'N/A'}
-                    Estado de Ánimo: ${state.userData.energy || 'N/A'} (1-5)
-                    Último Periodo: ${state.userData.lastPeriodDate || 'N/A'}
-                `;
+                const userData = state.userData;
+                const lang = state.language;
+                let analysisMessage = `<p>Basado en tus datos, aquí hay algunos consejos:</p><ul class="list-disc list-inside space-y-2 mt-4">`;
 
-                const prompt = `Analiza los siguientes datos de usuario y proporciona consejos de bienestar y fitness personalizados. Enfócate en áreas de mejora y motivación. Sé conciso y práctico. Datos: \n${userDataSummary}`;
+                if (userData.weight && userData.height && userData.bmi) {
+                    analysisMessage += `<li><strong>Datos Físicos:</strong> Tu IMC es ${userData.bmi}. Si tu objetivo es ${userData.weight > 70 ? 'perder peso' : 'ganar masa'}, asegúrate de que tu nutrición esté alineada con eso.</li>`;
+                }
+                if (userData.sleep) {
+                    analysisMessage += `<li><strong>Sueño:</strong> Dormiste ${userData.sleep} horas. ${userData.sleep < 7 ? 'Intenta alcanzar al menos 7-9 horas para una óptima recuperación y energía.' : '¡Excelente descanso! El sueño de calidad es clave para el rendimiento.'}</li>`;
+                }
+                if (userData.water) {
+                    analysisMessage += `<li><strong>Hidratación:</strong> Bebiste ${userData.water} litros de agua. ${userData.water < 2 ? 'Aumenta tu ingesta de agua, es vital para el metabolismo y la función muscular.' : '¡Muy buena hidratación! Sigue así.'}</li>`;
+                }
+                if (userData.energy) {
+                    const moodText = ['muy bajo', 'bajo', 'neutral', 'bueno', 'excelente'][userData.energy - 1];
+                    analysisMessage += `<li><strong>Estado de Ánimo:</strong> Tu energía hoy fue ${moodText}. ${userData.energy < 3 ? 'Si te sientes bajo, considera una sesión de respiración o una caminata ligera para mejorar tu ánimo.' : '¡Qué bien que tu ánimo esté alto! Aprovecha esa energía.'}</li>`;
+                }
+                if (userData.measures) {
+                    analysisMessage += `<li><strong>Medidas:</strong> Tus medidas registradas son: ${userData.measures}. ¡Sigue monitoreándolas para ver tu progreso!</li>`;
+                }
+                if (userData.lastPeriodDate) {
+                    const lastDate = new Date(userData.lastPeriodDate);
+                    const today = new Date();
+                    const diffTime = Math.abs(today - lastDate);
+                    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                    let phase = '';
+                    if (diffDays <= 5) { phase = translations.es.menstrual_phase_menstrual; }
+                    else if (diffDays <= 13) { phase = translations.es.menstrual_phase_follicular; }
+                    else if (diffDays <= 16) { phase = translations.es.menstrual_phase_ovulation; }
+                    else { phase = translations.es.menstrual_phase_luteal; }
+                    analysisMessage += `<li><strong>Ciclo Menstrual:</strong> Estás en el día ${diffDays} de tu ciclo, fase estimada: ${phase}. Ajusta tu entrenamiento y nutrición según tu fase para optimizar resultados.</li>`;
+                }
+
+                analysisMessage += `</ul><p class="mt-4">¡Sigue registrando tus datos para obtener análisis más precisos!</p>`;
 
                 showModal('info', { title: 'Análisis de Datos con IA', body: '<div class="text-center"><i class="fas fa-spinner fa-spin text-3xl"></i><p>Analizando tus datos...</p></div>' });
 
                 try {
                     // MOCK API CALL
                     await new Promise(resolve => setTimeout(resolve, 2000));
-                    const mockAnalysis = `
-                        <p>Basado en tus datos, aquí hay algunos consejos:</p>
-                        <ul class="list-disc list-inside space-y-2 mt-4">
-                            <li><strong>Hidratación:</strong> Asegúrate de alcanzar tu objetivo de agua diariamente. Es crucial para la energía y la recuperación.</li>
-                            <li><strong>Sueño:</strong> Intenta mantener un horario de sueño consistente, incluso los fines de semana. La calidad del sueño impacta directamente tu rendimiento y estado de ánimo.</li>
-                            <li><strong>Balance:</strong> Considera variar tus entrenamientos para trabajar todos los grupos musculares de manera equilibrada.</li>
-                            <li><strong>Bienestar General:</strong> Presta atención a tu estado de ánimo. Si sientes que el estrés te afecta, prueba las rutinas de respiración o reflexión.</li>
-                        </ul>
-                        <p class="mt-4">¡Sigue registrando tus datos para obtener análisis más precisos!</p>
-                    `;
-                    dom.modals.infoBody.innerHTML = mockAnalysis;
+                    dom.modals.infoBody.innerHTML = analysisMessage;
                 } catch (error) {
                     dom.modals.infoBody.innerHTML = `<p class="text-danger">Hubo un error al analizar tus datos.</p>`;
                 }
@@ -1729,6 +1780,11 @@
                 const lang = state.language;
                 dom.workout.phaseLabel.textContent = translations[lang][`phase_${phase.type}`] || phase.phaseName;
                 dom.workout.currentExercise.textContent = phase.exerciseName;
+                // Display sets and reps if available
+                if (phase.sets && phase.reps) {
+                    dom.workout.currentExercise.textContent += ` (${phase.sets}x${phase.reps})`;
+                }
+
                 const nextIndex = state.aiWorkout.currentIndex + 1;
                 const nextPhaseData = state.aiWorkout.routine.phases[nextIndex];
                 dom.workout.nextExercise.textContent = nextPhaseData ? `${translations[lang].next_exercise_prefix}: ${nextPhaseData.exerciseName || nextPhaseData.phaseName}` : translations[lang].last_exercise_text;
@@ -1774,13 +1830,23 @@
                 state.aiWorkout.beastModeActivated = true;
                 dom.workout.beastModeBtn.classList.add('beast-mode-active');
                 const finisher = {
-                    phaseName: "MODO BESTIA", type: "work", durationSeconds: 60, exerciseName: "Burpees",
-                    howTo: ["Desde de pie, baja a una sentadilla.", "Lanza los pies hacia atrás a una plancha.", "Haz una flexión.", "Vuelve a la sentadilla y explota hacia arriba en un salto."],
+                    phaseName: "BEAST MODE FINISHER", type: "work", durationSeconds: 60, exerciseName: "Burpees",
+                    howTo: ["Desde de pie, baja a una sentadilla.", "Lanza los pies hacia atrás a posición de plancha.", "Haz una flexión (opcional).", "Salta con los pies de vuelta a sentadilla y explota hacia arriba."],
                     muscleGroups: ["full_body"]
                 };
-                state.aiWorkout.routine.phases.splice(state.aiWorkout.routine.phases.length, 0, finisher);
+                // Insert finisher before the last phase (cooldown or final rest)
+                const lastPhaseIndex = state.aiWorkout.routine.phases.length - 1;
+                // Ensure there's always a cooldown or final rest to insert before
+                if (state.aiWorkout.routine.phases[lastPhaseIndex].type === 'cooldown' || state.aiWorkout.routine.phases[lastPhaseIndex].type === 'rest') {
+                    state.aiWorkout.routine.phases.splice(lastPhaseIndex, 0, finisher);
+                } else {
+                    state.aiWorkout.routine.phases.push(finisher); // Add at end if no specific cooldown/rest
+                }
+                
                 showToast(translations[state.language].beast_mode_activated_alert, 'info');
-                textToSpeech("¡Modo bestia activado! Prepárate para el finisher de burpees.", "Kore");
+                playBeep(770, 300, 'sawtooth'); // More intense sound for beast mode
+                // Note: Actual voice output is not supported by current tools. This will display a text message.
+                showModal('coach', "¡Modo Bestia activado! ¡Vas a destrozarla! ¡No te detengas!");
                 hideModal();
             }
             
@@ -1794,17 +1860,12 @@
                     beastMode: state.aiWorkout.beastModeActivated,
                     muscleGroups: state.aiWorkout.routine.phases.flatMap(p => p.muscleGroups || []).filter((v, i, a) => a.indexOf(v) === i),
                 });
-                
-                // Check if the daily mission was a workout and mark it as complete
-                if (state.dailyMission && state.dailyMission.type === 'workout') {
-                    completeDailyMission();
-                }
-
                 showScreen('post-workout-screen');
                 const title = state.aiWorkout.routine.type === 'Mobility' ? translations[state.language].post_workout_title_calm : translations[state.language].post_workout_title_hard;
                 document.getElementById('visualizer-title').textContent = title;
                 document.getElementById('visualizer-message').textContent = `¡Ganaste ${state.aiWorkout.routine.totalDurationMinutes * 5} puntos!`;
                 startVisualizer();
+                checkDailyMissions('workout');
             }
 
             function toggleAiPause() {
@@ -1889,6 +1950,9 @@
                     } else {
                         dom.modals.rewardClaimedLink.classList.add('hidden');
                     }
+                } else if (type === 'antiStress') {
+                    startStressVisualizer(); // Start visualizer for anti-stress
+                    startStressSound(); // Start sound for anti-stress
                 }
 
                 setTimeout(() => dom.modals.contentWrapper.classList.remove('scale-95'), 10);
@@ -1897,6 +1961,8 @@
             function hideModal() {
                 dom.modals.contentWrapper.classList.add('scale-95');
                 setTimeout(() => dom.modals.overlay.classList.add('hidden'), 300);
+                stopStressVisualizer(); // Ensure stress visualizer stops when modal is closed
+                stopStressSound(); // Ensure stress sound stops when modal is closed
             }
 
             // --- Data & Wellness Modules ---
@@ -1919,11 +1985,8 @@
                 localStorage.setItem('goatiFitUserData', JSON.stringify(state.userData));
                 showToast("Tus datos han sido guardados.", 'success');
                 renderDataScreen();
-                
-                // Check if saving data completes the daily mission
-                if (state.dailyMission && state.dailyMission.type === 'data') {
-                    completeDailyMission();
-                }
+                checkDailyMissions('water');
+                checkDailyMissions('sleep');
             }
             
             function renderDataScreen() {
@@ -2037,11 +2100,6 @@
                         state.sleep.timerId = setTimeout(stopSleepSound, timerDuration * 60 * 1000);
                         dom.sleep.timerIndicator.classList.remove('hidden');
                     }
-                    
-                    // Check if using sleep module completes the daily mission
-                    if (state.dailyMission && state.dailyMission.type === 'sleep') {
-                        completeDailyMission();
-                    }
                 }
             }
 
@@ -2065,9 +2123,7 @@
                     relaxBtn.disabled = false;
                     if (!stop) {
                         logActivityToHistory({ type: 'breathing', title: `Respiración de ${state.wellness.breathingType}`, duration: 1 });
-                        if (state.dailyMission && state.dailyMission.type === 'breathing') {
-                            completeDailyMission();
-                        }
+                        checkDailyMissions('breathing');
                     }
                 } else {
                     state.wellness.isBreathing = true;
@@ -2120,60 +2176,128 @@
                 }
             }
 
-            // --- Daily Missions ---
-            function setupDailyMission() {
-                const missions = [
-                    { type: 'water', title: translations.es.mission_take_water_title, desc: translations.es.mission_take_water_desc, points: 50, icon: 'fa-droplet' },
-                    { type: 'breathing', title: translations.es.mission_breathing_title, desc: translations.es.mission_breathing_desc, points: 25, icon: 'fa-lungs' },
-                    { type: 'workout', title: translations.es.mission_train_title, desc: translations.es.mission_train_desc, points: 100, icon: 'fa-dumbbell' },
-                    { type: 'offline', title: translations.es.mission_offline_title, desc: translations.es.mission_offline_desc, points: 50, icon: 'fa-wifi' },
-                    { type: 'data', title: translations.es.mission_data_title, desc: translations.es.mission_data_desc, points: 25, icon: 'fa-chart-line' },
-                    { type: 'sleep', title: translations.es.mission_sleep_title, desc: translations.es.mission_sleep_desc, points: 25, icon: 'fa-moon' },
-                ];
-                state.dailyMission = missions[Math.floor(Math.random() * missions.length)];
-                state.dailyMissionCompleted = false;
-                localStorage.setItem('goatiFitDailyMission', JSON.stringify(state.dailyMission));
-                localStorage.setItem('goatiFitDailyMissionDate', new Date().toISOString().split('T')[0]);
-            }
-            
-            function renderDailyMission() {
-                const missionContainer = dom.dashboard.workoutOfTheDay;
-                const lang = state.language;
-                
-                if (!state.dailyMission) {
-                    setupDailyMission();
+            // --- Anti-Stress Module (New) ---
+            let stressVisualizerCtx;
+            function startStressVisualizer() {
+                const canvas = dom.modals.stressVisualizerCanvas;
+                stressVisualizerCtx = canvas.getContext('2d');
+
+                // Set canvas dimensions to match display size for crisp rendering
+                canvas.width = canvas.offsetWidth;
+                canvas.height = canvas.offsetHeight;
+
+                // Particle properties
+                const particles = [];
+                const numParticles = 50;
+
+                for (let i = 0; i < numParticles; i++) {
+                    particles.push({
+                        x: Math.random() * canvas.width,
+                        y: Math.random() * canvas.height,
+                        radius: Math.random() * 5 + 2, // 2 to 7
+                        color: `rgba(138, 79, 255, ${Math.random() * 0.5 + 0.3})`, // Primary color with varying opacity
+                        speedX: (Math.random() - 0.5) * 0.5, // Slow movement
+                        speedY: (Math.random() - 0.5) * 0.5,
+                        alpha: Math.random() * 0.7 + 0.3, // Initial opacity
+                        decay: Math.random() * 0.005 + 0.001 // Slow decay
+                    });
                 }
-                
-                if (state.dailyMissionCompleted) {
-                    missionContainer.innerHTML = `
-                        <div class="flex flex-col items-center gap-2">
-                            <i class="fas fa-check-circle text-success text-3xl"></i>
-                            <h3 class="text-xl font-bold">¡Misión Completada!</h3>
-                            <p class="text-sm text-text-secondary">Vuelve mañana para una nueva misión.</p>
-                        </div>
-                    `;
-                } else {
-                    missionContainer.innerHTML = `
-                        <div class="flex flex-col items-center gap-2">
-                            <h3 class="text-xl font-bold flex items-center gap-2">
-                                <i class="fas ${state.dailyMission.icon} text-primary"></i>
-                                <span>${state.dailyMission.title}</span>
-                            </h3>
-                            <p class="text-sm text-text-secondary">${state.dailyMission.desc}</p>
-                            <p class="text-xs text-primary font-bold">Recompensa: ${state.dailyMission.points} PTS</p>
-                        </div>
-                    `;
+                state.wellness.stressVisualizerParticles = particles;
+
+                function animateStressVisualizer() {
+                    stressVisualizerCtx.clearRect(0, 0, canvas.width, canvas.height); // Clear canvas
+
+                    for (let i = 0; i < particles.length; i++) {
+                        const p = particles[i];
+
+                        // Update position
+                        p.x += p.speedX;
+                        p.y += p.speedY;
+                        p.alpha -= p.decay;
+
+                        // Reset particle if it fades out or goes off screen
+                        if (p.alpha <= 0 || p.x < 0 || p.x > canvas.width || p.y < 0 || p.y > canvas.height) {
+                            particles[i] = {
+                                x: Math.random() * canvas.width,
+                                y: Math.random() * canvas.height,
+                                radius: Math.random() * 5 + 2,
+                                color: `rgba(138, 79, 255, ${Math.random() * 0.5 + 0.3})`,
+                                speedX: (Math.random() - 0.5) * 0.5,
+                                speedY: (Math.random() - 0.5) * 0.5,
+                                alpha: Math.random() * 0.7 + 0.3,
+                                decay: Math.random() * 0.005 + 0.001
+                            };
+                        }
+
+                        // Draw particle
+                        stressVisualizerCtx.beginPath();
+                        stressVisualizerCtx.arc(p.x, p.y, p.radius, 0, Math.PI * 2, false);
+                        stressVisualizerCtx.fillStyle = `rgba(138, 79, 255, ${p.alpha})`; // Use primary color with alpha
+                        stressVisualizerCtx.fill();
+                    }
+
+                    state.wellness.stressVisualizerAnimationId = requestAnimationFrame(animateStressVisualizer);
+                }
+                state.wellness.stressVisualizerAnimationId = requestAnimationFrame(animateStressVisualizer);
+            }
+
+            function stopStressVisualizer() {
+                if (state.wellness.stressVisualizerAnimationId) {
+                    cancelAnimationFrame(state.wellness.stressVisualizerAnimationId);
+                    state.wellness.stressVisualizerAnimationId = null;
+                    state.wellness.stressVisualizerParticles = []; // Clear particles
+                    if (stressVisualizerCtx) {
+                        stressVisualizerCtx.clearRect(0, 0, dom.modals.stressVisualizerCanvas.width, dom.modals.stressVisualizerCanvas.height);
+                    }
                 }
             }
-            
-            function completeDailyMission() {
-                if (!state.dailyMissionCompleted) {
-                    state.dailyMissionCompleted = true;
-                    state.progress.points += state.dailyMission.points;
-                    showToast(`¡Misión completada! Ganaste ${state.dailyMission.points} puntos.`, 'success');
-                    saveAllData();
-                    updatePointsDisplay();
-                    renderDailyMission();
+
+            function startStressSound() {
+                initAudio();
+                if (state.wellness.isStressSoundPlaying) return;
+
+                // Create a soft, evolving pad sound
+                state.wellness.stressSynth = new Tone.PolySynth(Tone.Synth, {
+                    oscillator: { type: "sine" },
+                    envelope: {
+                        attack: 2,
+                        decay: 1,
+                        sustain: 0.5,
+                        release: 3
+                    },
+                    volume: -25 // Start quietly
+                }).toDestination();
+
+                // Play a low, sustained chord that slowly changes
+                const notes = ["C2", "G2", "C3", "E3"];
+                let currentNoteIndex = 0;
+
+                const playNextNote = () => {
+                    if (!state.wellness.isStressSoundPlaying) return; // Stop if sound is off
+                    state.wellness.stressSynth.triggerAttackRelease(notes[currentNoteIndex], "4n", Tone.now());
+                    currentNoteIndex = (currentNoteIndex + 1) % notes.length;
+                };
+
+                // Schedule notes to play every few seconds
+                Tone.Transport.scheduleRepeat(playNextNote, "4s");
+                Tone.Transport.start();
+
+                state.wellness.isStressSoundPlaying = true;
+
+                dom.modals.toggleStressSoundBtn.querySelector('i').className = 'fas fa-stop mr-2';
+                dom.modals.toggleStressSoundBtn.querySelector('span').textContent = 'Detener Sonido Calmante';
+            }
+
+            function stopStressSound() {
+                if (state.wellness.isStressSoundPlaying && state.wellness.stressSynth) {
+                    Tone.Transport.stop(); // Stop the Tone.js transport
+                    Tone.Transport.cancel(); // Clear all scheduled events
+                    state.wellness.stressSynth.releaseAll(); // Release any held notes
+                    state.wellness.stressSynth.dispose(); // Dispose of the synth
+                    state.wellness.stressSynth = null;
+                    state.wellness.isStressSoundPlaying = false;
+                    dom.modals.toggleStressSoundBtn.querySelector('i').className = 'fas fa-play mr-2';
+                    dom.modals.toggleStressSoundBtn.querySelector('span').textContent = 'Iniciar Sonido Calmante';
                 }
             }
 
@@ -2192,20 +2316,27 @@
                     activity.muscleGroups.forEach(group => {
                         state.progress.muscleGroupsWorked[group] = (state.progress.muscleGroupsWorked[group] || 0) + (activity.duration * 60);
                     });
-                    if (state.dailyMission && state.dailyMission.type === 'workout') {
-                        completeDailyMission();
+                }
+                
+                // Update workout streak
+                if (activity.type === 'workout') {
+                    if (state.progress.lastWorkoutDate) {
+                        const lastDate = new Date(state.progress.lastWorkoutDate);
+                        const todayDate = new Date(today);
+                        const diffTime = Math.abs(todayDate - lastDate);
+                        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                        if (diffDays === 1) { // Consecutive day
+                            state.progress.workoutStreak++;
+                        } else if (diffDays > 1) { // Break in streak
+                            state.progress.workoutStreak = 1;
+                        }
+                    } else { // First workout ever
+                        state.progress.workoutStreak = 1;
                     }
-                } else if (activity.type === 'breathing') {
-                    if (state.dailyMission && state.dailyMission.type === 'breathing') {
-                        completeDailyMission();
-                    }
-                } else if (activity.type === 'offline') {
-                    if (state.dailyMission && state.dailyMission.type === 'offline') {
-                        completeDailyMission();
-                    }
+                    state.progress.lastWorkoutDate = today;
+                    checkAchievements(); // Check achievements after workout streak update
                 }
 
-                if (activity.type === 'workout') checkAchievements();
                 checkRewards(); // Check rewards after logging activity
                 saveAllData();
                 updatePointsDisplay();
@@ -2224,19 +2355,39 @@
                     state.progress.achievements.beast_mode = true;
                     showToast("¡Logro desbloqueado: Modo Bestia!", 'success');
                 }
+                if (state.progress.workoutStreak >= 7 && !state.progress.achievements.seven_day_streak) {
+                    state.progress.achievements.seven_day_streak = true;
+                    showToast("¡Logro desbloqueado: Imparable (7 días de racha)!", 'success');
+                }
+                // Perfect week logic (more complex, requires checking all 7 days had a workout)
+                // For simplicity, let's assume a "perfect week" is 5+ workouts in a week for now.
+                const today = new Date();
+                const startOfWeek = new Date(today.setDate(today.getDate() - today.getDay() + (today.getDay() === 0 ? -6 : 1)));
+                startOfWeek.setHours(0,0,0,0);
+                const workoutsThisWeek = state.progress.history.filter(activity => 
+                    activity.type === 'workout' && new Date(activity.date + 'T00:00:00') >= startOfWeek
+                ).length;
+                if (workoutsThisWeek >= 5 && !state.progress.achievements.perfect_week) {
+                    state.progress.achievements.perfect_week = true;
+                    showToast("¡Logro desbloqueado: Semana Perfecta!", 'success');
+                }
             }
 
             function checkRewards() {
                 const rewards = [
                     { id: 'cine', points: 500, title: "Entrada al Cine", desc: "Cine al aire libre con Pa' la Raza Club.", link: "https://www.palaraza.club/servicios/eventos/cine-al-aire-libre", icon: "fa-film" },
                     { id: 'curso', points: 1500, title: "Curso Gratis", desc: "Certificación en el Centro Iberoamericano.", link: "https://www.ibero.education/oferta-acad%C3%A9mica/certificaciones", icon: "fa-graduation-cap" },
-                    { id: 'goatify', points: 3000, title: "Paquete Goatify", desc: "Página web o paquete de app gratis.", link: "https://www.goatify.app/inicio", icon: "fa-rocket" },
+                    { id: 'premium_access', points: 10000, title: "Acceso Premium goatiFIT", desc: "Desbloquea funciones exclusivas por 1 mes.", link: "https://www.goatify.app/goatifit-premium", icon: "fa-crown" },
+                    { id: 'goatify', points: 30000, title: "Paquete Goatify", desc: "Página web o paquete de app gratis.", link: "https://www.goatify.app/inicio", icon: "fa-rocket" },
                 ];
 
                 rewards.forEach(reward => {
                     const isClaimed = state.progress.claimedRewards.includes(reward.id);
                     if (!isClaimed && state.progress.points >= reward.points) {
                         showToast(`¡Has alcanzado ${reward.points} puntos! Puedes reclamar tu ${reward.title}.`, 'info');
+                    } else if (!isClaimed && state.progress.points >= reward.points * 0.8 && state.progress.points < reward.points) {
+                        // Notify when 80% of points are reached
+                        showToast(`${translations[state.language].reward_near_message} ${reward.title}!`, 'info');
                     }
                 });
             }
@@ -2245,12 +2396,13 @@
                 const reward = [
                     { id: 'cine', points: 500, title: "Entrada al Cine", desc: "Cine al aire libre con Pa' la Raza Club.", link: "https://www.palaraza.club/servicios/eventos/cine-al-aire-libre", icon: "fa-film" },
                     { id: 'curso', points: 1500, title: "Curso Gratis", desc: "Certificación en el Centro Iberoamericano.", link: "https://www.ibero.education/oferta-acad%C3%A9mica/certificaciones", icon: "fa-graduation-cap" },
-                    { id: 'goatify', points: 3000, title: "Paquete Goatify", desc: "Página web o paquete de app gratis.", link: "https://www.goatify.app/inicio", icon: "fa-rocket" },
+                    { id: 'premium_access', points: 10000, title: "Acceso Premium goatiFIT", desc: "Desbloquea funciones exclusivas por 1 mes.", link: "https://www.goatify.app/goatifit-premium", icon: "fa-crown" },
+                    { id: 'goatify', points: 30000, title: "Paquete Goatify", desc: "Página web o paquete de app gratis.", link: "https://www.goatify.app/inicio", icon: "fa-rocket" },
                 ].find(r => r.id === rewardId);
 
                 if (reward && state.progress.points >= reward.points && !state.progress.claimedRewards.includes(reward.id)) {
                     state.progress.claimedRewards.push(reward.id);
-                    state.progress.points -= reward.points; // Subtract the points
+                    state.progress.points = 0; // Reset points to zero as per user request
                     saveAllData();
                     updatePointsDisplay();
                     renderRewards(); // Re-render rewards to update state
@@ -2273,6 +2425,7 @@
                 renderWeeklyMetrics();
                 renderBodyMap();
                 renderRewards();
+                dom.progress.workoutStreak.textContent = state.progress.workoutStreak;
             }
 
             function renderHistory() {
@@ -2286,7 +2439,10 @@
                     breathing: 'fa-lungs',
                     meditation: 'fa-brain',
                     pelvic_floor: 'fa-heart-pulse',
-                    ice: 'fa-snowflake'
+                    ice: 'fa-snowflake',
+                    water: 'fa-droplet', // For water intake
+                    sleep: 'fa-bed', // For sleep tracking
+                    reflection: 'fa-lightbulb', // For reflection
                 };
                 state.progress.history.slice(0, 20).forEach(activity => {
                     const el = document.createElement('div');
@@ -2329,7 +2485,7 @@
             }
             
             function renderWeeklyMetrics() {
-                const weeklyStats = { minutes: 0, routines: 0, calories: 0, water: 0, sleep: 0 };
+                const weeklyStats = { minutes: 0, routines: 0, calories: 0, water: 0, sleep: 0, workouts: 0 }; // Added workouts
                 const now = new Date();
                 const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay() + (now.getDay() === 0 ? -6 : 1))); // Monday as start of week
                 startOfWeek.setHours(0, 0, 0, 0);
@@ -2337,48 +2493,40 @@
                 state.progress.history.forEach(activity => {
                     const activityDate = new Date(activity.date + 'T00:00:00');
                     if (activityDate >= startOfWeek) {
-                        weeklyStats.minutes += activity.duration;
                         if (activity.type === 'workout') {
+                            weeklyStats.minutes += activity.duration;
                             weeklyStats.routines++;
                             weeklyStats.calories += activity.duration * 8; // Approx. 8 cal/min
+                            weeklyStats.workouts++; // Increment workouts
+                        } else if (activity.type === 'water') {
+                            weeklyStats.water += activity.amount;
+                        } else if (activity.type === 'sleep') {
+                            weeklyStats.sleep += activity.hours;
                         }
                     }
                 });
-                
-                // Aggregate weekly water and sleep from user data
-                const userDataToday = state.userData;
-                if (userDataToday.water) {
-                    weeklyStats.water += parseFloat(userDataToday.water);
-                }
-                if (userDataToday.sleep) {
-                    weeklyStats.sleep += parseFloat(userDataToday.sleep);
-                }
 
                 dom.progress.minutesValue.textContent = weeklyStats.minutes;
                 dom.progress.routinesValue.textContent = weeklyStats.routines;
                 dom.progress.caloriesValue.textContent = weeklyStats.calories;
-                dom.progress.totalWater.textContent = weeklyStats.water;
-                dom.progress.totalSleep.textContent = weeklyStats.sleep;
+                dom.progress.totalWorkoutsValue.textContent = weeklyStats.workouts; // Update new circle value
 
-                const maxMinutes = 300, maxRoutines = 5, maxCalories = 2400, maxWater = 15, maxSleep = 56; // 8 hours/day * 7 days
+                const maxMinutes = 300, maxRoutines = 5, maxCalories = 2400, maxWorkouts = 7; // Max workouts per week
                 const minutesProgress = Math.min(1, weeklyStats.minutes / maxMinutes);
                 const routinesProgress = Math.min(1, weeklyStats.routines / maxRoutines);
                 const caloriesProgress = Math.min(1, weeklyStats.calories / maxCalories);
-                const waterProgress = Math.min(1, weeklyStats.water / maxWater);
-                const sleepProgress = Math.min(1, weeklyStats.sleep / maxSleep);
-                
+                const workoutsProgress = Math.min(1, weeklyStats.workouts / maxWorkouts); // New progress
+
                 const dashoffset = 340;
                 dom.progress.minutesCircle.style.strokeDashoffset = dashoffset * (1 - minutesProgress);
                 dom.progress.routinesCircle.style.strokeDashoffset = dashoffset * (1 - routinesProgress);
                 dom.progress.caloriesCircle.style.strokeDashoffset = dashoffset * (1 - caloriesProgress);
-                dom.progress.waterCircle.style.strokeDashoffset = dashoffset * (1 - waterProgress);
-                dom.progress.sleepCircle.style.strokeDashoffset = dashoffset * (1 - sleepProgress);
+                dom.progress.totalWorkoutsCircle.style.strokeDashoffset = dashoffset * (1 - workoutsProgress); // Apply new progress
                 
                 dom.progress.minutesCircle.style.stroke = minutesProgress >= 1 ? 'var(--success)' : 'var(--primary)';
                 dom.progress.routinesCircle.style.stroke = routinesProgress >= 1 ? 'var(--success)' : 'var(--primary)';
                 dom.progress.caloriesCircle.style.stroke = caloriesProgress >= 1 ? 'var(--success)' : 'var(--primary)';
-                dom.progress.waterCircle.style.stroke = waterProgress >= 1 ? 'var(--success)' : 'var(--primary)';
-                dom.progress.sleepCircle.style.stroke = sleepProgress >= 1 ? 'var(--success)' : 'var(--primary)';
+                dom.progress.totalWorkoutsCircle.style.stroke = workoutsProgress >= 1 ? 'var(--success)' : 'var(--primary)'; // Apply color for new circle
             }
 
 
@@ -2386,36 +2534,55 @@
                 const bodyMapSVG = `
                     <svg id="body-map-front" viewBox="0 0 200 400">
                         <title>Vista Frontal</title>
-                        <path class="muscle-group" data-muscle="traps" d="M80,85 L120,85 L110,75 L90,75 Z" />
+                        <!-- Head and Neck -->
+                        <circle cx="100" cy="40" r="20" class="muscle-group" data-muscle="neck"></circle>
+                        <!-- Shoulders -->
                         <path class="muscle-group" data-muscle="shoulders" d="M86,74 C86,71 88,69 91,69 L109,69 C112,69 114,71 114,74 L114,80 L86,80 Z" />
                         <circle class="muscle-group" data-muscle="shoulders" cx="100" cy="60" r="18" />
-                        <path class="muscle-group" data-muscle="shoulders" d="M92,80 L108,80 L105,88 L95,88 Z" />
-                        <path class="muscle-group" data-muscle="chest" d="M70,95 C70,90 75,88 80,88 L120,88 C125,88 130,90 130,95 L125,125 L100,145 L75,125 Z" />
                         <path class="muscle-group" data-muscle="shoulders" d="M70,95 L60,105 L65,120 L75,125 Z" />
                         <path class="muscle-group" data-muscle="shoulders" d="M130,95 L140,105 L135,120 L125,125 Z" />
+                        <!-- Chest -->
+                        <path class="muscle-group" data-muscle="chest" d="M70,95 C70,90 75,88 80,88 L120,88 C125,88 130,90 130,95 L125,125 L100,145 L75,125 Z" />
+                        <!-- Core -->
                         <path class="muscle-group" data-muscle="core" d="M80,148 L120,148 L115,190 L85,190 Z" />
                         <path class="muscle-group" data-muscle="core" d="M75,125 L80,148 L85,190 L78,185 Z" />
                         <path class="muscle-group" data-muscle="core" d="M125,125 L120,148 L115,190 L122,185 Z" />
+                        <!-- Biceps -->
                         <path class="muscle-group" data-muscle="biceps" d="M60,105 L50,115 L55,150 L65,120 Z" />
-                        <path class="muscle-group" data-muscle="forearms" d="M55,150 L50,115 L45,170 L55,175 Z" />
                         <path class="muscle-group" data-muscle="biceps" d="M140,105 L150,115 L145,150 L135,120 Z" />
+                        <!-- Forearms -->
+                        <path class="muscle-group" data-muscle="forearms" d="M55,150 L50,115 L45,170 L55,175 Z" />
                         <path class="muscle-group" data-muscle="forearms" d="M145,150 L150,115 L155,170 L145,175 Z" />
+                        <!-- Quads -->
                         <path class="muscle-group" data-muscle="quads" d="M85,190 L115,190 L120,280 L110,320 L90,320 L80,280 Z" />
                         <path class="muscle-group" data-muscle="quads" d="M90,320 L110,320 L105,350 L95,350 Z" />
+                        <!-- Calves -->
                         <path class="muscle-group" data-muscle="calves" d="M85,325 C80,350 85,370 85,370 L95,370 C95,370 90,350 90,325 Z" />
                         <path class="muscle-group" data-muscle="calves" d="M115,325 C120,350 115,370 115,370 L105,370 C105,370 110,350 110,325 Z" />
+                        <!-- Feet -->
+                        <path class="muscle-group" data-muscle="feet" d="M80,370 L80,380 L95,380 L95,370 Z" />
+                        <path class="muscle-group" data-muscle="feet" d="M120,370 L120,380 L105,380 L105,370 Z" />
                     </svg>
                     <svg id="body-map-back" viewBox="0 0 200 400">
                         <title>Vista Trasera</title>
-                        <path class="muscle-group" data-muscle="traps" d="M80,85 L120,85 L110,75 L90,75 Z" />
+                        <!-- Traps -->
+                        <path class="muscle-group" data-muscle="traps" d="M80,70 L120,70 L110,85 L90,85 Z" />
+                        <!-- Back -->
                         <path class="muscle-group" data-muscle="back" d="M90,80 L110,80 L120,95 L80,95 Z" />
                         <path class="muscle-group" data-muscle="back" d="M80,95 L120,95 L125,150 L110,160 L90,160 L75,150 Z" />
                         <path class="muscle-group" data-muscle="back" d="M90,160 L110,160 L105,180 L95,180 Z" />
+                        <!-- Glutes -->
                         <path class="muscle-group" data-muscle="glutes" d="M80,180 L120,180 C125,190 125,200 120,210 L80,210 C75,200 75,190 80,180 Z" />
+                        <!-- Triceps -->
                         <path class="muscle-group" data-muscle="triceps" d="M75,100 L65,110 L70,160 L80,155 Z" />
                         <path class="muscle-group" data-muscle="triceps" d="M125,100 L135,110 L130,160 L120,155 Z" />
+                        <!-- Hamstrings -->
                         <path class="muscle-group" data-muscle="hamstrings" d="M80,210 L120,210 L115,310 L85,310 Z" />
+                        <!-- Calves -->
                         <path class="muscle-group" data-muscle="calves" d="M85,310 L115,310 L110,360 L90,360 Z" />
+                        <!-- Feet -->
+                        <path class="muscle-group" data-muscle="feet" d="M80,370 L80,380 L95,380 L95,370 Z" />
+                        <path class="muscle-group" data-muscle="feet" d="M120,370 L120,380 L105,380 L105,370 Z" />
                     </svg>
                 `;
                 dom.progress.bodyMapContainer.innerHTML = bodyMapSVG;
@@ -2423,7 +2590,10 @@
                 const muscleColors = {
                     'quads': 'var(--primary)', 'hamstrings': 'var(--primary)', 'glutes': 'var(--primary-hover)', 'core': 'var(--success)',
                     'chest': 'var(--warning)', 'back': 'var(--danger)', 'biceps': 'var(--info)', 'triceps': 'var(--info)',
-                    'forearms': 'var(--info)', 'shoulders': '#7c8dff', 'calves': '#a0a0a0', 'full_body': 'var(--text-secondary)', 'traps': '#ff69b4'
+                    'forearms': 'var(--info)', 'shoulders': '#7c8dff', 'calves': '#a0a0a0', 'full_body': 'var(--text-secondary)',
+                    'traps': '#ff8c00', // Orange for Traps
+                    'neck': '#cccccc',
+                    'feet': '#999999',
                 };
                 
                 document.querySelectorAll('.muscle-group').forEach(el => {
@@ -2435,9 +2605,10 @@
                 let maxWork = 1;
                 for (const muscle in muscleData) { if (muscleData[muscle] > maxWork) maxWork = muscleData[muscle]; }
                 for (const muscle in muscleData) {
+                    const genericMuscle = ['quads', 'hamstrings'].includes(muscle) ? 'legs' : muscle;
                     const color = muscleColors[muscle] || muscleColors['full_body'];
                     const intensity = Math.min(1, muscleData[muscle] / maxWork);
-                    const elements = document.querySelectorAll(`[data-muscle="${muscle}"]`);
+                    const elements = document.querySelectorAll(`[data-muscle="${muscle}"], [data-muscle="${genericMuscle}"], [data-muscle="full_body"]`);
                     elements.forEach(el => {
                         const isFullBody = el.dataset.muscle === 'full_body';
                         el.style.fill = color;
@@ -2462,6 +2633,7 @@
                 const rewards = [
                     { id: 'cine', points: 500, title: "Entrada al Cine", desc: "Cine al aire libre con Pa' la Raza Club.", link: "https://www.palaraza.club/servicios/eventos/cine-al-aire-libre", icon: "fa-film" },
                     { id: 'curso', points: 1500, title: "Curso Gratis", desc: "Certificación en el Centro Iberoamericano.", link: "https://www.ibero.education/oferta-acad%C3%A9mica/certificaciones", icon: "fa-graduation-cap" },
+                    { id: 'premium_access', points: 10000, title: "Acceso Premium goatiFIT", desc: "Desbloquea funciones exclusivas por 1 mes.", link: "https://www.goatify.app/goatifit-premium", icon: "fa-crown" },
                     { id: 'goatify', points: 30000, title: "Paquete Goatify", desc: "Página web o paquete de app gratis.", link: "https://www.goatify.app/inicio", icon: "fa-rocket" },
                 ];
                 
@@ -2469,13 +2641,6 @@
                 rewards.forEach(reward => {
                     const unlocked = state.progress.points >= reward.points;
                     const claimed = state.progress.claimedRewards.includes(reward.id);
-                    const progressPercentage = Math.min(100, (state.progress.points / reward.points) * 100);
-                    const isNear = progressPercentage > 80 && progressPercentage < 100;
-                    
-                    if (isNear) {
-                        showToast(`¡Estás cerca de desbloquear ${reward.title}!`, 'info');
-                    }
-
                     const el = document.createElement('div');
                     el.className = `glassmorphism p-4 rounded-lg flex items-center gap-4 transition-all ${unlocked && !claimed ? 'opacity-100' : 'opacity-40'}`;
                     el.innerHTML = `
@@ -2486,7 +2651,7 @@
                             <h3 class="font-bold">${reward.title}</h3>
                             <p class="text-sm text-text-secondary">${reward.desc}</p>
                             <div class="w-full bg-secondary rounded-full h-2.5 mt-2">
-                                <div class="bg-primary h-2.5 rounded-full" style="width: ${progressPercentage}%"></div>
+                                <div class="bg-primary h-2.5 rounded-full" style="width: ${Math.min(100, (state.progress.points / reward.points) * 100)}%"></div>
                             </div>
                             <p class="text-xs text-right mt-1">${state.progress.points} / ${reward.points} PTS</p>
                         </div>
@@ -2593,90 +2758,137 @@
                             // renderAlarms();
                         }
                     });
+
+                    // Water Reminder (4 times a day)
+                    if (state.notifications.water.enabled) {
+                        const waterReminderHours = [9, 13, 17, 21]; // 9 AM, 1 PM, 5 PM, 9 PM
+                        const currentHourInt = now.getHours();
+                        const currentMinuteInt = now.getMinutes();
+
+                        if (waterReminderHours.includes(currentHourInt) && (currentMinuteInt === 0 || currentMinuteInt === 1)) {
+                            // Check if already triggered for this hour today
+                            const lastTriggeredHour = localStorage.getItem('goatiFitWaterReminderTriggeredHour');
+                            const lastTriggeredDate = localStorage.getItem('goatiFitWaterReminderTriggeredDate');
+                            const todayDate = new Date().toISOString().split('T')[0];
+
+                            if (lastTriggeredDate !== todayDate || parseInt(lastTriggeredHour) !== currentHourInt) {
+                                showToast(translations[state.language].daily_mission_water_reminder, 'info');
+                                playBeep(500, 300);
+                                localStorage.setItem('goatiFitWaterReminderTriggeredHour', currentHourInt);
+                                localStorage.setItem('goatiFitWaterReminderTriggeredDate', todayDate);
+                                // Log water activity for daily mission check
+                                logActivityToHistory({ type: 'water', title: 'Recordatorio de Agua', duration: 0, amount: 0.5 }); // Log 0.5L per reminder
+                                checkDailyMissions('water');
+                            }
+                        }
+                    }
+
+                    // Other general notifications (can be simplified to trigger once per day at certain times)
+                    const notificationTimes = {
+                        stand: '10:00', // 10 AM
+                        train: '18:00', // 6 PM
+                        sleep: '22:00', // 10 PM
+                        motivation: '08:00' // 8 AM
+                    };
+
+                    for (const type in notificationTimes) {
+                        if (state.notifications[type].enabled && notificationTimes[type] === currentTime) {
+                            // Prevent multiple triggers within the same minute
+                            const lastNotificationKey = `lastNotification_${type}_${currentHour}_${currentMinute}`;
+                            if (!localStorage.getItem(lastNotificationKey)) {
+                                showToast(translations[state.language][`daily_mission_${type}_reminder`], 'info');
+                                playBeep(500, 300);
+                                localStorage.setItem(lastNotificationKey, 'true');
+                                // Clear this flag after a minute to allow next day's trigger
+                                setTimeout(() => localStorage.removeItem(lastNotificationKey), 60 * 1000);
+                            }
+                        }
+                    }
+
                 }, 60 * 1000); // Check every minute
             }
 
 
             // --- Offline Module & Custom Routines ---
             const offlineWorkouts = [
-                {
-                    title: "Fuerza Total Sin Equipo", icon: "fa-hand-fist", muscleGroups: ["full_body"], totalDurationMinutes: 20,
+                { 
+                    title: "Fuerza Total Sin Equipo", 
+                    icon: "fa-hand-fist", 
+                    muscleGroups: ["full_body"], 
+                    totalDurationMinutes: 20,
                     phases: [
-                        { phaseName: "Calentamiento", type: "prep", durationSeconds: 120, exerciseName: "Movilidad articular", howTo: ["Circunferencia de cuello", "Círculos de brazos", "Movimientos de cadera."], muscleGroups: ["full_body"] },
-                        { phaseName: "Sentadillas", type: "work", durationSeconds: 60, exerciseName: "Sentadillas con peso corporal", howTo: ["Pies ancho de hombros", "Espalda recta, baja la cadera", "Vuelve a subir controlando el movimiento"], muscleGroups: ["quads", "glutes"] },
-                        { phaseName: "Descanso", type: "rest", durationSeconds: 30, exerciseName: "Descanso" },
-                        { phaseName: "Flexiones", type: "work", durationSeconds: 60, exerciseName: "Flexiones (en rodillas si es necesario)", howTo: ["Manos a la altura del pecho", "Mantén el cuerpo recto", "Baja y sube controlando"], muscleGroups: ["chest", "triceps", "shoulders"] },
-                        { phaseName: "Descanso", type: "rest", durationSeconds: 30, exerciseName: "Descanso" },
-                        { phaseName: "Zancadas", type: "work", durationSeconds: 60, exerciseName: "Zancadas alternas", howTo: ["Paso largo hacia adelante", "Baja la cadera hasta 90 grados", "Empuja con la pierna de adelante"], muscleGroups: ["quads", "glutes", "hamstrings"] },
-                        { phaseName: "Descanso", type: "rest", durationSeconds: 30, exerciseName: "Descanso" },
-                        { phaseName: "Plancha", type: "work", durationSeconds: 60, exerciseName: "Plancha abdominal", howTo: ["Apoyado en antebrazos y puntas de pies", "Mantén el cuerpo en línea recta", "Activa el abdomen y glúteos"], muscleGroups: ["core"] },
-                        { phaseName: "Enfriamiento", type: "cooldown", durationSeconds: 180, exerciseName: "Estiramientos estáticos", howTo: ["Estira cuádriceps, pecho y espalda", "Mantén cada estiramiento 30s"], muscleGroups: ["full_body"] },
+                        { phaseName: "Calentamiento", type: "prep", durationSeconds: 120, exerciseName: "Movilidad General", howTo: ["Realiza círculos con brazos y piernas.", "Estira suavemente el cuello y los hombros."], muscleGroups: ["full_body"] },
+                        { phaseName: "Sentadillas", type: "work", durationSeconds: 180, exerciseName: "Sentadillas con Peso Corporal", sets: "3", reps: "15", howTo: ["Pies al ancho de hombros.", "Baja la cadera como si te sentaras.", "Mantén la espalda recta y el pecho erguido."], muscleGroups: ["quads", "glutes"] },
+                        { phaseName: "Descanso", type: "rest", durationSeconds: 30, exerciseName: "Descanso Breve" },
+                        { phaseName: "Flexiones", type: "work", durationSeconds: 180, exerciseName: "Flexiones (en rodillas si es necesario)", sets: "3", reps: "10-12", howTo: ["Manos un poco más anchas que los hombros.", "Baja el pecho cerca del suelo.", "Empuja hacia arriba controladamente."], muscleGroups: ["chest", "triceps", "shoulders"] },
+                        { phaseName: "Descanso", type: "rest", durationSeconds: 30, exerciseName: "Descanso Breve" },
+                        { phaseName: "Plancha", type: "work", durationSeconds: 120, exerciseName: "Plancha Abdominal", sets: "3", reps: "30-45s", howTo: ["Apóyate en antebrazos y puntas de pies.", "Mantén el cuerpo recto como una tabla.", "Contrae el abdomen y los glúteos."], muscleGroups: ["core"] },
+                        { phaseName: "Enfriamiento", type: "cooldown", durationSeconds: 120, exerciseName: "Estiramientos Post-entrenamiento", howTo: ["Estira los músculos principales trabajados.", "Mantén cada estiramiento por 20 segundos."], muscleGroups: ["full_body"] }
                     ]
                 },
-                {
-                    title: "Rutina de Cardio Quema Grasa", icon: "fa-person-running", muscleGroups: ["full_body"], totalDurationMinutes: 15,
+                { 
+                    title: "Cardio Quema Grasa", 
+                    icon: "fa-person-running", 
+                    muscleGroups: ["full_body"], 
+                    totalDurationMinutes: 15,
                     phases: [
-                        { phaseName: "Calentamiento", type: "prep", durationSeconds: 60, exerciseName: "Saltos de tijera", howTo: ["Salto abriendo piernas y brazos", "Cierra piernas y brazos volviendo a posición inicial"], muscleGroups: ["full_body"] },
-                        { phaseName: "HIIT", type: "work", durationSeconds: 30, exerciseName: "Burpees", howTo: ["Salto explosivo", "Baja a plancha y haz una flexión", "Vuelve a saltar"], muscleGroups: ["full_body"] },
-                        { phaseName: "Descanso", type: "rest", durationSeconds: 30, exerciseName: "Descanso activo", howTo: ["Camina o trota suavemente"], muscleGroups: ["full_body"] },
-                        { phaseName: "HIIT", type: "work", durationSeconds: 30, exerciseName: "Mountain Climbers", howTo: ["Posición de plancha alta", "Lleva las rodillas al pecho alternando"], muscleGroups: ["core", "full_body"] },
-                        { phaseName: "Descanso", type: "rest", durationSeconds: 30, exerciseName: "Descanso activo", howTo: ["Respira profundo"], muscleGroups: ["full_body"] },
-                        { phaseName: "HIIT", type: "work", durationSeconds: 30, exerciseName: "Rodillas altas", howTo: ["Corre en el sitio", "Sube las rodillas hasta la cadera"], muscleGroups: ["legs", "core"] },
-                        { phaseName: "Descanso", type: "rest", durationSeconds: 30, exerciseName: "Descanso activo", howTo: ["Recupera el aliento"], muscleGroups: ["full_body"] },
-                        { phaseName: "HIIT", type: "work", durationSeconds: 30, exerciseName: "Saltos a la comba (imaginaria)", howTo: ["Simula saltar a la comba", "Mantén un ritmo constante"], muscleGroups: ["calves", "full_body"] },
-                        { phaseName: "Descanso", type: "rest", durationSeconds: 30, exerciseName: "Descanso activo", howTo: ["Recupera el aliento"], muscleGroups: ["full_body"] },
-                        { phaseName: "Enfriamiento", type: "cooldown", durationSeconds: 180, exerciseName: "Estiramientos estáticos", howTo: ["Estira cuádriceps, gemelos y glúteos"], muscleGroups: ["full_body"] },
+                        { phaseName: "Calentamiento", type: "prep", durationSeconds: 90, exerciseName: "Trote Ligero y Brazos", howTo: ["Trote suave en el sitio.", "Círculos de brazos hacia adelante y atrás."], muscleGroups: ["full_body"] },
+                        { phaseName: "Saltos de Tijera", type: "work", durationSeconds: 120, exerciseName: "Saltos de Tijera", sets: "4", reps: "30s", howTo: ["Salta abriendo piernas y brazos.", "Mantén un ritmo constante."], muscleGroups: ["full_body"] },
+                        { phaseName: "Descanso Activo", type: "rest", durationSeconds: 30, exerciseName: "Caminar en el Sitio" },
+                        { phaseName: "Rodillas al Pecho", type: "work", durationSeconds: 120, exerciseName: "Rodillas al Pecho (High Knees)", sets: "4", reps: "30s", howTo: ["Levanta las rodillas lo más alto posible.", "Mueve los brazos en coordinación."], muscleGroups: ["legs", "core"] },
+                        { phaseName: "Descanso Activo", type: "rest", durationSeconds: 30, exerciseName: "Caminar en el Sitio" },
+                        { phaseName: "Burpees", type: "work", durationSeconds: 120, exerciseName: "Burpees (sin flexión)", sets: "4", reps: "20s", howTo: ["Sentadilla, plancha, de pie, salto.", "Mantén el ritmo alto."], muscleGroups: ["full_body"] },
+                        { phaseName: "Enfriamiento", type: "cooldown", durationSeconds: 90, exerciseName: "Caminata y Estiramientos", howTo: ["Caminata lenta para bajar pulsaciones.", "Estira piernas y torso."], muscleGroups: ["full_body"] }
                     ]
                 },
-                {
-                    title: "Rutina de Espalda y Bíceps", icon: "fa-user-astronaut", muscleGroups: ["back", "biceps", "forearms"], totalDurationMinutes: 30,
-                    phases: [
-                        { phaseName: "Calentamiento", type: "prep", durationSeconds: 120, exerciseName: "Rotaciones y estiramientos dinámicos", howTo: ["Rotaciones de hombros", "Estiramientos de espalda alta"], muscleGroups: ["back", "shoulders"] },
-                        { phaseName: "Dominadas", type: "work", durationSeconds: 90, exerciseName: "Dominadas", howTo: ["Agarre prono, manos más anchas que los hombros", "Sube hasta que la barbilla pase la barra", "Baja lentamente"], muscleGroups: ["back", "biceps", "forearms"] },
-                        { phaseName: "Descanso", type: "rest", durationSeconds: 60, exerciseName: "Descanso" },
-                        { phaseName: "Remo con barra", type: "work", durationSeconds: 90, exerciseName: "Remo con barra", howTo: ["Tronco inclinado a 45 grados", "Remo llevando la barra al ombligo", "Aprieta la espalda al final del movimiento"], muscleGroups: ["back", "biceps"] },
-                        { phaseName: "Descanso", type: "rest", durationSeconds: 60, exerciseName: "Descanso" },
-                        { phaseName: "Curl de bíceps", type: "work", durationSeconds: 90, exerciseName: "Curl de bíceps con mancuernas", howTo: ["De pie con las mancuernas en las manos", "Sube el peso contrayendo los bíceps", "Baja el peso lentamente sin balancearte"], muscleGroups: ["biceps", "forearms"] },
-                        { phaseName: "Descanso", type: "rest", durationSeconds: 60, exerciseName: "Descanso" },
-                        { phaseName: "Jalón al pecho", type: "work", durationSeconds: 90, exerciseName: "Jalón al pecho", howTo: ["Agarre ancho, barra al pecho", "Baja los hombros para activar la espalda", "Regresa lentamente"], muscleGroups: ["back", "biceps"] },
-                        { phaseName: "Enfriamiento", type: "cooldown", durationSeconds: 180, exerciseName: "Estiramientos", howTo: ["Estira dorsales, bíceps y antebrazos"], muscleGroups: ["back", "biceps", "forearms"] },
-                    ]
-                },
-                {
-                    title: "Rutina de Pecho y Tríceps", icon: "fa-user-ninja", muscleGroups: ["chest", "triceps", "shoulders"], totalDurationMinutes: 30,
-                    phases: [
-                        { phaseName: "Calentamiento", type: "prep", durationSeconds: 120, exerciseName: "Estiramientos dinámicos", howTo: ["Rotaciones de hombros", "Estiramientos de muñecas"], muscleGroups: ["shoulders", "triceps"] },
-                        { phaseName: "Press de Banca", type: "work", durationSeconds: 90, exerciseName: "Press de Banca con mancuernas", howTo: ["Acuéstate en el banco", "Empuja las mancuernas hacia arriba", "Baja lentamente hasta la altura del pecho"], muscleGroups: ["chest", "triceps", "shoulders"] },
-                        { phaseName: "Descanso", type: "rest", durationSeconds: 60, exerciseName: "Descanso" },
-                        { phaseName: "Aperturas", type: "work", durationSeconds: 90, exerciseName: "Aperturas con mancuernas", howTo: ["Acuéstate en el banco", "Baja los brazos hacia los lados", "Sube juntando las mancuernas por encima del pecho"], muscleGroups: ["chest", "shoulders"] },
-                        { phaseName: "Descanso", type: "rest", durationSeconds: 60, exerciseName: "Descanso" },
-                        { phaseName: "Extensiones de tríceps", type: "work", durationSeconds: 90, exerciseName: "Extensiones de tríceps con cuerda", howTo: ["De pie, agarra la cuerda", "Estira los codos hacia abajo", "Mantén el tronco estable"], muscleGroups: ["triceps"] },
-                        { phaseName: "Descanso", type: "rest", durationSeconds: 60, exerciseName: "Descanso" },
-                        { phaseName: "Fondos de tríceps", type: "work", durationSeconds: 90, exerciseName: "Fondos de tríceps en banco", howTo: ["Apoya las manos en un banco", "Baja el cuerpo doblando los codos", "Sube empujando con los tríceps"], muscleGroups: ["triceps", "shoulders"] },
-                        { phaseName: "Enfriamiento", type: "cooldown", durationSeconds: 180, exerciseName: "Estiramientos", howTo: ["Estira pecho, hombros y tríceps"], muscleGroups: ["chest", "triceps", "shoulders"] },
-                    ]
-                },
-                {
-                    title: "Rutina de Hombros de Acero", icon: "fa-user-secret", muscleGroups: ["shoulders", "traps", "triceps"], totalDurationMinutes: 20,
-                    phases: [
-                        { phaseName: "Calentamiento", type: "prep", durationSeconds: 120, exerciseName: "Movilidad de hombros", howTo: ["Círculos de hombros hacia adelante y atrás", "Rotaciones de brazos"], muscleGroups: ["shoulders"] },
-                        { phaseName: "Press Militar", type: "work", durationSeconds: 60, exerciseName: "Press Militar con mancuernas", howTo: ["De pie o sentado", "Empuja las mancuernas hacia arriba", "Baja controlando el movimiento"], muscleGroups: ["shoulders", "triceps"] },
-                        { phaseName: "Descanso", type: "rest", durationSeconds: 30, exerciseName: "Descanso" },
-                        { phaseName: "Elevaciones Laterales", type: "work", durationSeconds: 60, exerciseName: "Elevaciones laterales con mancuernas", howTo: ["Brazos ligeramente doblados", "Sube las mancuernas hasta la altura de los hombros", "Baja lentamente"], muscleGroups: ["shoulders"] },
-                        { phaseName: "Descanso", type: "rest", durationSeconds: 30, exerciseName: "Descanso" },
-                        { phaseName: "Remo al mentón", type: "work", durationSeconds: 60, exerciseName: "Remo al mentón", howTo: ["Agarre estrecho en la barra", "Sube la barra hasta el mentón", "Mantén los codos altos"], muscleGroups: ["shoulders", "traps"] },
-                        { phaseName: "Descanso", type: "rest", durationSeconds: 30, exerciseName: "Descanso" },
-                        { phaseName: "Face Pulls", type: "work", durationSeconds: 60, exerciseName: "Face Pulls con banda de resistencia", howTo: ["Agarra la banda con ambas manos", "Jala la banda hacia la cara", "Aprieta los omóplatos"], muscleGroups: ["shoulders", "back"] },
-                        { phaseName: "Enfriamiento", type: "cooldown", durationSeconds: 120, exerciseName: "Estiramientos de hombros y trapecios", howTo: ["Estira el deltoide posterior", "Estiramientos de cuello"], muscleGroups: ["shoulders", "traps"] },
-                    ]
-                },
+                { title: "Estiramiento Cuerpo Completo", icon: "fa-person-stretching", muscleGroups: ["full_body"], totalDurationMinutes: 10 },
+                { title: "HIIT Extremo 10 Min", icon: "fa-bolt", muscleGroups: ["full_body"], totalDurationMinutes: 10 },
+                { title: "Yoga para Despertar", icon: "fa-sun", muscleGroups: ["full_body", "core"], totalDurationMinutes: 15 },
+                { title: "Movilidad de Cadera y Espalda", icon: "fa-person-walking", muscleGroups: ["glutes", "back"], totalDurationMinutes: 10 },
+                { title: "Core de Acero", icon: "fa-fire", muscleGroups: ["core"], totalDurationMinutes: 12 },
+                { title: "Tábata de Poder", icon: "fa-stopwatch", muscleGroups: ["full_body"], totalDurationMinutes: 4 },
+                { title: "Calistenia Básica", icon: "fa-bars-progress", muscleGroups: ["back", "biceps", "chest", "triceps"], totalDurationMinutes: 25 },
+                { title: "Full Body con Mancuernas", icon: "fa-dumbbell", muscleGroups: ["full_body"], totalDurationMinutes: 30 },
+                { title: "Recuperación Activa", icon: "fa-heart-pulse", muscleGroups: ["full_body"], totalDurationMinutes: 20 },
+                { title: "Fuerza de Piernas", icon: "fa-person-booth", muscleGroups: ["quads", "hamstrings", "glutes"], totalDurationMinutes: 25 },
+                { title: "Pecho y Tríceps", icon: "fa-user-ninja", muscleGroups: ["chest", "triceps", "shoulders"], totalDurationMinutes: 30 },
+                { title: "Espalda y Bíceps", icon: "fa-user-astronaut", muscleGroups: ["back", "biceps", "forearms"], totalDurationMinutes: 30 },
+                { title: "Hombros de Acero", icon: "fa-user-secret", muscleGroups: ["shoulders", "triceps"], totalDurationMinutes: 20 },
+                { title: "Meditación Guiada", icon: "fa-brain", muscleGroups: [], totalDurationMinutes: 10 },
+                { title: "Cardio de Bajo Impacto", icon: "fa-person-biking", muscleGroups: ["legs"], totalDurationMinutes: 30 },
+                { title: "Animal Flow Intro", icon: "fa-paw", muscleGroups: ["full_body", "core"], totalDurationMinutes: 15 },
+                { title: "Reto de Flexiones", icon: "fa-award", muscleGroups: ["chest", "triceps", "shoulders"], totalDurationMinutes: 10 },
+                { title: "Reto de Sentadillas", icon: "fa-trophy", muscleGroups: ["quads", "glutes"], totalDurationMinutes: 10 },
+                { title: "Yoga para Dormir", icon: "fa-moon", muscleGroups: ["full_body"], totalDurationMinutes: 15 },
+                { title: "Fuerza de Agarre", icon: "fa-hand-rock", muscleGroups: ["forearms"], totalDurationMinutes: 10 },
+                { title: "Potencia de Salto", icon: "fa-person-running", muscleGroups: ["legs", "glutes", "calves"], totalDurationMinutes: 15 },
+                { title: "Movilidad de Hombro", icon: "fa-person-walking-luggage", muscleGroups: ["shoulders", "back"], totalDurationMinutes: 10 },
+                { title: "Anti-Joroba", icon: "fa-user-tie", muscleGroups: ["back", "shoulders"], totalDurationMinutes: 12 },
+                { title: "Cardio en Silla", icon: "fa-chair", muscleGroups: ["full_body"], totalDurationMinutes: 20 },
+                { title: "Poder Isométrico", icon: "fa-compress", muscleGroups: ["full_body"], totalDurationMinutes: 15 },
+                { title: "Glúteos con Bandas", icon: "fa-circle-nodes", muscleGroups: ["glutes", "legs"], totalDurationMinutes: 20 },
+                { title: "Quema-calorías Express", icon: "fa-fire-flame-curved", muscleGroups: ["full_body"], totalDurationMinutes: 7 },
+                { title: "Abdomen Inferior", icon: "fa-angles-down", muscleGroups: ["core"], totalDurationMinutes: 10 },
             ];
 
             function parseCustomRoutine(name, exerciseText) {
                 const duration = parseInt(name.match(/\d+/g)?.[0] || 15);
-                const phases = exerciseText.split('\n').map(line => ({
-                    phaseName: "Work", type: "work", durationSeconds: 180, exerciseName: line.trim(), howTo: ["Sigue las indicaciones."], muscleGroups: ["full_body"]
-                })).filter(p => p.exerciseName);
+                const phases = exerciseText.split('\n').map(line => {
+                    const parts = line.trim().split(',');
+                    const exerciseName = parts[0] ? parts[0].trim() : "Ejercicio";
+                    const setsReps = parts[1] ? parts[1].trim() : "3x10";
+                    const howTo = parts.slice(2).map(s => s.trim()).filter(Boolean); // Get remaining parts as howTo
+                    return {
+                        phaseName: "Work", 
+                        type: "work", 
+                        durationSeconds: 180, // Default duration, user can adjust in their mind
+                        exerciseName: exerciseName, 
+                        sets: setsReps.split('x')[0],
+                        reps: setsReps.split('x')[1],
+                        howTo: howTo.length > 0 ? howTo : ["Sigue las indicaciones."], 
+                        muscleGroups: ["full_body"] // Default, IA would infer better
+                    };
+                }).filter(p => p.exerciseName);
                 return { title: name, totalDurationMinutes: duration, phases: phases, icon: "fa-user-pen", isCustom: true };
             }
 
@@ -2715,7 +2927,17 @@
                         </div>
                     `;
                     el.addEventListener('click', () => {
-                        state.aiWorkout.routine = routine;
+                        // Use the detailed phases if available, otherwise create a single phase
+                        state.aiWorkout.routine = routine.phases ? routine : { 
+                            ...routine, 
+                            phases: [{ 
+                                type: "work", 
+                                durationSeconds: routine.totalDurationMinutes * 60, 
+                                exerciseName: routine.title, 
+                                howTo: ["Sigue las indicaciones de la pantalla."], 
+                                muscleGroups: routine.muscleGroups || ["full_body"] 
+                            }] 
+                        };
                         startAiWorkout();
                     });
                     dom.offline.routinesList.appendChild(el);
@@ -2729,22 +2951,20 @@
                 showScreen('timer-tool-screen');
                 dom.timerTool.title.textContent = translations.es[`tool_${type}`];
                 
+                // Hide all config and controls initially
                 Object.values(dom.timerTool.configContainer.children).forEach(c => c.classList.add('hidden'));
                 dom.timerTool.controls.classList.add('hidden');
                 dom.timerTool.roundsCounterControl.classList.add('hidden');
-                dom.timerTool.stopwatchLaps.classList.add('hidden');
+                dom.timerTool.lapBtn.classList.add('hidden'); 
+                dom.timerTool.lapTimesContainer.classList.add('hidden');
 
-                if (type === 'stopwatch') {
+                // Show basic controls for stopwatch, timer, tabata
+                if (['stopwatch', 'timer', 'tabata'].includes(type)) {
                     dom.timerTool.controls.classList.remove('hidden');
-                    dom.timerTool.lapResetBtn.dataset.action = 'lap';
-                    dom.timerTool.lapResetBtn.innerHTML = `<i class="fas fa-flag mr-2"></i> Lap`;
-                    dom.timerTool.stopwatchLaps.classList.remove('hidden');
-                } else if (type === 'timer' || type === 'tabata' || type === 'rounds') {
-                    dom.timerTool.controls.classList.remove('hidden');
-                    dom.timerTool.lapResetBtn.dataset.action = 'reset';
-                    dom.timerTool.lapResetBtn.innerHTML = `<i class="fas fa-sync-alt mr-2"></i> Reset`;
+                    dom.timerTool.displayArea.classList.remove('hidden');
                 }
-
+                
+                // Show specific configs
                 if (type === 'timer') dom.timerTool.configTimer.classList.remove('hidden');
                 if (type === 'tabata') dom.timerTool.configTabata.classList.remove('hidden');
                 if (type === 'rounds') {
@@ -2752,23 +2972,10 @@
                     dom.timerTool.roundsCounterControl.classList.remove('hidden');
                     dom.timerTool.controls.classList.add('hidden'); // Hide start/pause for rounds
                 }
-            }
-            
-            // Laps functionality
-            function addLap() {
-                const lapTime = formatTime(state.timerTool.elapsedTime + (Date.now() - state.timerTool.startTime));
-                state.timerTool.laps.unshift(lapTime);
-                renderLaps();
-            }
-
-            function renderLaps() {
-                dom.timerTool.stopwatchLaps.innerHTML = '';
-                state.timerTool.laps.forEach((lap, index) => {
-                    const lapEl = document.createElement('div');
-                    lapEl.className = 'flex justify-between text-sm py-1 border-b border-text-secondary/20 last:border-b-0';
-                    lapEl.innerHTML = `<span>Lap ${state.timerTool.laps.length - index}</span><span>${lap}</span>`;
-                    dom.timerTool.stopwatchLaps.appendChild(lapEl);
-                });
+                if (type === 'stopwatch') { 
+                    dom.timerTool.lapBtn.classList.remove('hidden');
+                    dom.timerTool.lapTimesContainer.classList.remove('hidden');
+                }
             }
 
             function formatTime(ms, includeMs = true) {
@@ -2787,16 +2994,13 @@
                 if (state.timerTool.type === 'stopwatch') {
                     const elapsedTime = state.timerTool.elapsedTime + (now - state.timerTool.startTime);
                     dom.timerTool.display.textContent = formatTime(elapsedTime);
-                } else if (['timer', 'rounds'].includes(state.timerTool.type)) {
+                } else if (state.timerTool.type === 'timer') {
                     const timeLeft = state.timerTool.duration - (state.timerTool.elapsedTime + (now - state.timerTool.startTime));
                     if (timeLeft <= 0) {
                         dom.timerTool.display.textContent = "00:00";
                         resetTimerTool();
                         playBeep(880, 500);
-                        showToast(state.timerTool.type === 'timer' ? "¡Tiempo finalizado!" : "¡Descanso terminado!", 'success');
-                        if (state.timerTool.type === 'rounds') {
-                            dom.timerTool.phase.textContent = `RONDA ${state.timerTool.rounds.current}`;
-                        }
+                        showToast("¡Tiempo finalizado!", 'success');
                         return;
                     }
                     dom.timerTool.display.textContent = formatTime(timeLeft, false);
@@ -2858,12 +3062,10 @@
                     }
                 }
 
-                state.timerTool.isStarted = true;
                 state.timerTool.isRunning = true;
                 state.timerTool.startTime = Date.now();
                 dom.timerTool.startBtn.classList.add('hidden');
                 dom.timerTool.pauseBtn.classList.remove('hidden');
-                dom.timerTool.lapResetBtn.classList.remove('hidden');
                 dom.timerTool.configContainer.classList.add('hidden');
                 timerToolLoop();
             }
@@ -2874,7 +3076,7 @@
                 cancelAnimationFrame(state.timerTool.interval);
                 
                 const elapsedTime = Date.now() - state.timerTool.startTime;
-                if (['stopwatch', 'timer', 'rounds'].includes(state.timerTool.type)) {
+                if (['stopwatch', 'timer'].includes(state.timerTool.type)) {
                     state.timerTool.elapsedTime += elapsedTime;
                 } else if (state.timerTool.type === 'tabata') {
                     state.timerTool.tabata.timeLeft -= elapsedTime;
@@ -2886,26 +3088,25 @@
 
             function resetTimerTool() {
                 state.timerTool.isRunning = false;
-                state.timerTool.isStarted = false;
                 if (state.timerTool.interval) cancelAnimationFrame(state.timerTool.interval);
+                if (state.timerTool.rounds.restTimerInterval) clearInterval(state.timerTool.rounds.restTimerInterval); // Clear rounds rest timer
                 state.timerTool.elapsedTime = 0;
                 state.timerTool.duration = 0;
-                state.timerTool.laps = [];
                 state.timerTool.tabata = { work: 20, rest: 10, rounds: 8, currentRound: 0, isWorkPhase: true, timeLeft: 0 };
-                state.timerTool.rounds = { count: 0, target: 0, rest: 0, current: 1 };
+                state.timerTool.rounds = { count: 0, target: 0, rest: 0, current: 1, restTimerInterval: null };
+                state.timerTool.lapTimes = []; // Reset lap times
+                dom.timerTool.lapTimesList.innerHTML = ''; // Clear lap times display
 
                 dom.timerTool.configContainer.classList.remove('hidden');
                 dom.timerTool.startBtn.classList.remove('hidden');
                 dom.timerTool.pauseBtn.classList.add('hidden');
-                dom.timerTool.lapResetBtn.classList.add('hidden');
                 
                 dom.timerTool.phase.textContent = '';
                 dom.timerTool.roundsDisplay.textContent = '';
-                dom.timerTool.stopwatchLaps.innerHTML = '';
                 
                 if (state.timerTool.type === 'stopwatch') {
                     dom.timerTool.display.textContent = "00:00.00";
-                } else if (['timer', 'tabata', 'rounds'].includes(state.timerTool.type)) {
+                } else if (['timer', 'tabata'].includes(state.timerTool.type)) {
                     dom.timerTool.display.textContent = "00:00";
                 } 
                 
@@ -2914,6 +3115,65 @@
                     dom.timerTool.roundsDisplay.textContent = `Ronda 1`;
                 }
             }
+
+            function recordLap() {
+                if (state.timerTool.type !== 'stopwatch' || !state.timerTool.isRunning) return;
+                const currentLapTime = state.timerTool.elapsedTime + (Date.now() - state.timerTool.startTime);
+                state.timerTool.lapTimes.push(currentLapTime);
+                
+                const li = document.createElement('li');
+                li.textContent = `Vuelta ${state.timerTool.lapTimes.length}: ${formatTime(currentLapTime)}`;
+                dom.timerTool.lapTimesList.appendChild(li);
+                dom.timerTool.lapTimesList.scrollTop = dom.timerTool.lapTimesList.scrollHeight; // Scroll to bottom
+            }
+
+            // --- Daily Missions ---
+            function setupDailyMissions() {
+                const today = new Date().toISOString().split('T')[0];
+                const lastMissionDate = localStorage.getItem('goatiFitLastMissionDate');
+
+                if (today !== lastMissionDate) {
+                    // Reset missions for a new day
+                    state.dailyMissions = [
+                        { id: 'workout', desc: translations.es.daily_mission_workout, completed: false, points: 20 },
+                        { id: 'water', desc: translations.es.daily_mission_water, completed: false, points: 10 },
+                        { id: 'sleep', desc: translations.es.daily_mission_sleep, completed: false, points: 15 },
+                        { id: 'reflection', desc: translations.es.daily_mission_reflection, completed: false, points: 5 },
+                        { id: 'breathing', desc: translations.es.daily_mission_breathing, completed: false, points: 5 },
+                    ];
+                    state.missionsCompletedToday = 0;
+                    localStorage.setItem('goatiFitLastMissionDate', today);
+                    saveAllData(); // Save new missions
+                } else {
+                    // Load existing missions
+                    const savedMissions = JSON.parse(localStorage.getItem('goatiFitDailyMissions'));
+                    if (savedMissions) {
+                        state.dailyMissions = savedMissions;
+                        state.missionsCompletedToday = state.dailyMissions.filter(m => m.completed).length;
+                    }
+                }
+                updateDailyMissionsDisplay();
+            }
+
+            function updateDailyMissionsDisplay() {
+                dom.dashboard.missionsCompleted.textContent = state.missionsCompletedToday;
+                dom.dashboard.missionsTotal.textContent = state.dailyMissions.length;
+                // You could also display the missions themselves in a modal or on the dashboard
+            }
+
+            function checkDailyMissions(missionId) {
+                const mission = state.dailyMissions.find(m => m.id === missionId);
+                if (mission && !mission.completed) {
+                    mission.completed = true;
+                    state.missionsCompletedToday++;
+                    state.progress.points += mission.points;
+                    showToast(`¡Misión completada: ${mission.desc}! +${mission.points} Pts`, 'success');
+                    updatePointsDisplay();
+                    updateDailyMissionsDisplay();
+                    saveAllData(); // Save updated missions
+                }
+            }
+
 
             // --- Local Storage ---
             function saveAllData() {
@@ -2924,9 +3184,8 @@
                     notifications: state.notifications,
                     theme: state.theme,
                     language: state.language,
-                    dailyMission: state.dailyMission,
-                    dailyMissionCompleted: state.dailyMissionCompleted,
-                    dailyMissionDate: new Date().toISOString().split('T')[0],
+                    dailyMissions: state.dailyMissions, // Save daily missions
+                    missionsCompletedToday: state.missionsCompletedToday, // Save completed count
                 };
                 localStorage.setItem('goatiFitDataV8', JSON.stringify(appData));
             }
@@ -2935,20 +3194,14 @@
                 const savedData = localStorage.getItem('goatiFitDataV8');
                 if (savedData) {
                     const appData = JSON.parse(savedData);
-                    const today = new Date().toISOString().split('T')[0];
                     state.progress = { ...state.progress, ...appData.progress };
                     state.userData = { ...state.userData, ...appData.userData };
                     state.alarms = appData.alarms || [];
                     state.notifications = { ...state.notifications, ...appData.notifications };
                     state.theme = appData.theme || 'dark';
                     state.language = appData.language || 'es';
-                    
-                    if (appData.dailyMissionDate === today) {
-                        state.dailyMission = appData.dailyMission;
-                        state.dailyMissionCompleted = appData.dailyMissionCompleted;
-                    } else {
-                        setupDailyMission();
-                    }
+                    state.dailyMissions = appData.dailyMissions || [];
+                    state.missionsCompletedToday = appData.missionsCompletedToday || 0;
                 }
                 // Pre-configure default alarms if none exist
                 if (state.alarms.length === 0) {
@@ -3059,13 +3312,8 @@
                 else if (classList.contains('timer-type-btn')) openTimerTool(btn.dataset.type);
                 else if (id === 'timer-tool-start') startTimerTool();
                 else if (id === 'timer-tool-pause') pauseTimerTool();
-                else if (id === 'timer-tool-lap-reset') {
-                    if (btn.dataset.action === 'lap') {
-                        addLap();
-                    } else {
-                        resetTimerTool();
-                    }
-                }
+                else if (id === 'timer-tool-reset') resetTimerTool();
+                else if (id === 'timer-tool-lap') recordLap(); // New Lap button listener
                 else if (id === 'round-counter-btn') {
                     state.timerTool.rounds.count++;
                     btn.textContent = state.timerTool.rounds.count;
@@ -3077,7 +3325,7 @@
                     
                     if (rounds.target > 0 && rounds.current >= rounds.target) {
                         showToast("¡Objetivo de rondas completado!", 'success');
-                        resetButton(btn, 'round_next_button', 'fas fa-forward-step'); // Reset button
+                        resetTimerTool(); // Reset the timer tool completely
                         return;
                     }
                     
@@ -3087,17 +3335,36 @@
                     dom.timerTool.roundsDisplay.textContent = `Ronda ${rounds.current}${rounds.target > 0 ? ` / ${rounds.target}` : ''}`;
                     
                     if (rounds.rest > 0) {
-                        state.timerTool.duration = rounds.rest * 1000;
-                        state.timerTool.elapsedTime = 0;
                         dom.timerTool.phase.textContent = 'DESCANSO';
-                        startTimerTool();
+                        let restTimeLeft = rounds.rest;
+                        dom.timerTool.display.textContent = formatTime(restTimeLeft * 1000, false);
+                        playBeep(440, 200); // Beep for rest start
+                        
+                        // Clear any existing rest timer interval
+                        if (rounds.restTimerInterval) clearInterval(rounds.restTimerInterval);
+
+                        rounds.restTimerInterval = setInterval(() => {
+                            restTimeLeft--;
+                            dom.timerTool.display.textContent = formatTime(restTimeLeft * 1000, false);
+                            if (restTimeLeft <= 0) {
+                                clearInterval(rounds.restTimerInterval);
+                                rounds.restTimerInterval = null;
+                                playBeep(660, 500); // Beep for rest end
+                                dom.timerTool.phase.textContent = `RONDA`; // Back to round phase
+                                dom.timerTool.display.textContent = `00:00`; // Reset display
+                            } else if (restTimeLeft <= 3 && restTimeLeft > 0) {
+                                playBeep(523, 150, 'square'); // Countdown beeps
+                            }
+                        }, 1000);
+                    } else {
+                        dom.timerTool.phase.textContent = `RONDA`;
+                        dom.timerTool.display.textContent = `00:00`;
                     }
-                    resetButton(btn, 'round_next_button', 'fas fa-forward-step'); // Reset button
                 }
                 else if (classList.contains('challenge-btn')) {
                     const challenge = btn.dataset.challenge;
                     const prompt = translations.es[`challenge_${challenge}_prompt`];
-                    fetchAndStartWorkout(prompt, btn.querySelector('h3').textContent, btn);
+                    fetchAndStartWorkout(prompt, btn.querySelector('h3').textContent.replace(/<[^>]*>/g, '').trim(), btn); // Pass the actual button to reset
                 } 
                 else if (id === 'exit-workout-btn') {
                     clearInterval(state.aiWorkout.timerInterval);
@@ -3142,7 +3409,7 @@
                         case 'breathing': showScreen('breathing-screen'); break;
                         case 'mobility': showModal('mobility'); break;
                         case 'reflection': showModal('reflection'); break;
-                        case 'stress': showScreen('breathing-screen'); setTimeout(() => toggleBreathingExercise(false, 'calm'), 100); break;
+                        case 'stress': showModal('antiStress'); break; // Changed to open new anti-stress modal
                         case 'ice': showModal('iceBath'); break;
                         case 'intimate': showModal('intimateWellness'); break;
                         case 'supplements': showModal('supplements'); break;
@@ -3155,6 +3422,9 @@
                     const parent = btn.parentElement;
                     parent.querySelectorAll('.reflection-btn').forEach(b => b.classList.remove('active'));
                     btn.classList.add('active');
+                    // Log reflection activity
+                    logActivityToHistory({ type: 'reflection', title: `Reflexión: Pregunta ${parseInt(question) + 1}`, duration: 1 });
+                    checkDailyMissions('reflection');
                 }
                  else if (classList.contains('intimate-btn')) {
                     const parent = btn.parentElement;
@@ -3171,7 +3441,7 @@
                 }
                  else if (id === 'analyze-intimate-btn') {
                     hideModal();
-                    setTimeout(() => showModal('info', {title: 'Análisis de Bienestar Íntimo', body: 'Gracias por registrar tus datos. La IA los usará para entender mejor tus patrones de energía y recuperación.'}), 500);
+                    setTimeout(() => analyzeUserDataWithAI(), 500); // Call the main analyze function
                 }
                  else if (id === 'start-ice-bath-timer-btn') {
                     if(state.wellness.iceBathInterval) return;
@@ -3198,6 +3468,13 @@
                 }
                 else if (classList.contains('claim-reward-btn')) {
                     claimReward(btn.dataset.rewardId);
+                }
+                else if (id === 'toggle-stress-sound-btn') {
+                    if (state.wellness.isStressSoundPlaying) {
+                        stopStressSound();
+                    } else {
+                        startStressSound();
+                    }
                 }
             });
             
@@ -3262,6 +3539,7 @@
                 document.body.classList.add(state.theme + '-theme'); // Apply loaded theme
                 dom.settings.themeToggle.checked = state.theme === 'dark'; // Sync toggle
                 updatePointsDisplay();
+                setupDailyMissions(); // Setup daily missions
                 showScreen('dashboard-screen'); // Set initial screen
                 setTimeout(showDailyOracle, 1500); // Show oracle after a small delay
                 setupAlarmChecks(); // Start checking alarms
