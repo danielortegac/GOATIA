@@ -1,4 +1,4 @@
-/* Goatify IA SW – v31  */
+/* Goatify IA SW – v32  */
 const CACHE_VERSION = 26;
 const CACHE_NAME = `goatify-cache-v${CACHE_VERSION}`;
 const CORE_ASSETS = ['/', '/index.html', '/manifest.json', '/logos-hd.png'];
