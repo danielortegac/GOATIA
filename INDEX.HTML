@@ -11045,5 +11045,382 @@ document.addEventListener('DOMContentLoaded', () => {
 })();
 </script>
 
+
+<!-- 🛠 Goatify Patch: Collapsibles + Pricing + Mobile polish (2025-08-18) -->
+<script>
+(function(){
+  // Run after DOM ready
+  const onReady = (fn) => {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', fn, {once:true});
+    } else {
+      fn();
+    }
+  };
+
+  onReady(() => {
+    try {
+      // ---------- 1) FIX COLLAPSIBLES (folders/projects) ----------
+      const toggleByHeader = (containerSelector, headerSelector, contentSelector) => {
+        document.querySelectorAll(containerSelector).forEach(container => {
+          const header = container.querySelector(headerSelector);
+          const content = container.querySelector(contentSelector);
+          if (!header || !content) return;
+
+          // Ensure initial state is collapsed unless explicitly .open
+          if (!container.classList.contains('open')) {
+            content.style.display = 'none';
+          } else {
+            content.style.display = 'block';
+          }
+
+          header.style.cursor = 'pointer';
+          header.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isOpen = container.classList.toggle('open');
+            content.style.display = isOpen ? 'block' : 'none';
+
+            // Rotate any arrow inside header
+            const arrow = header.querySelector('.workflow-arrow, .actions-arrow, .folder-arrow, .project-arrow');
+            if (arrow) {
+              arrow.style.transition = 'transform 200ms ease';
+              arrow.style.transform = isOpen ? 'rotate(90deg)' : 'rotate(0deg)';
+            }
+          });
+        });
+      };
+
+      // Generic categories
+      toggleByHeader('.workflow-category', '.workflow-header', '.workflow-content');
+      toggleByHeader('.actions-category', '.actions-header', '.actions-content');
+      toggleByHeader('.folders-category', '.folders-header, .folders-title, header', '.folders-content');
+      // Individual projects
+      toggleByHeader('.project', '.project-header', '.project-content');
+
+      // Also, allow collapsing when clicking outside items (optional QoL)
+      document.querySelectorAll('.project .project-header').forEach(h => {
+        h.setAttribute('title', 'Click para expandir/plegar');
+      });
+
+      // ---------- 2) PRICING: SOLO FREE + PRO ($7, 4,000 créditos) ----------
+      // Try to locate pricing modal/body; if exists, rewrite markup with two plans
+      const pricingModal = document.getElementById('pricing-modal');
+      if (pricingModal) {
+        const body = pricingModal.querySelector('.modal-content-body, .modal-body, .pricing-body') || pricingModal;
+        if (body) {
+          body.innerHTML = `
+            <div class="p-4 space-y-4">
+              <div class="text-center">
+                <h2 class="text-2xl font-extrabold">Elige tu plan</h2>
+                <p class="opacity-80">Mantuvimos solo dos planes: <strong>Free</strong> y <strong>PRO</strong>. Simple, claro y directo.</p>
+              </div>
+              <div class="grid md:grid-cols-2 gap-4">
+                <!-- FREE -->
+                <div class="plan-card plan-card-highlight rounded-xl border p-5">
+                  <div class="flex items-center justify-between">
+                    <h3 class="text-xl font-bold">Free</h3>
+                    <span class="px-3 py-1 rounded-full text-xs font-semibold" style="background: rgba(138,79,255,0.12);">Empieza ya</span>
+                  </div>
+                  <p class="text-3xl font-extrabold mt-2">$0</p>
+                  <p class="opacity-80 text-sm">Para probar herramientas y workflows básicos.</p>
+                  <ul class="plan-feature-list mt-4 space-y-2 text-sm">
+                    <li><i class="fa-solid fa-check-circle"></i> Acceso a herramientas base</li>
+                    <li><i class="fa-solid fa-check-circle"></i> Tasks y notas ilimitadas</li>
+                    <li><i class="fa-solid fa-check-circle"></i>  <strong>Créditos limitados</strong> para usar IA</li>
+                    <li><i class="fa-solid fa-check-circle"></i>  Comunidad y updates</li>
+                  </ul>
+                  <button id="choose-free-btn" class="btn-primary w-full mt-4 rounded-lg py-2 font-bold">Seguir con Free</button>
+                </div>
+
+                <!-- PRO -->
+                <div class="plan-card rounded-xl border p-5 relative cool-light-effect">
+                  <div class="absolute -top-3 right-4 bg-yellow-500 text-black text-xs font-extrabold px-2 py-1 rounded-md shadow">Más Vendido</div>
+                  <div class="flex items-center justify-between">
+                    <h3 class="text-xl font-bold">PRO</h3>
+                    <span class="px-3 py-1 rounded-full text-xs font-semibold" style="background: rgba(255,215,0,0.18); border: 1px solid rgba(255,215,0,0.5);">Todo incluido</span>
+                  </div>
+                  <p class="text-3xl font-extrabold mt-2">$7 <span class="text-sm font-semibold opacity-75">/mes</span></p>
+                  <p class="opacity-80 text-sm">Desbloquea todo Goatify y <strong>4.000 créditos</strong>.</p>
+                  <ul class="plan-feature-list mt-4 space-y-2 text-sm">
+                    <li><i class="fa-solid fa-star"></i> 4.000 créditos/mes (+ rollover si habilitado)</li>
+                    <li><i class="fa-solid fa-star"></i> Todos los workflows PRO</li>
+                    <li><i class="fa-solid fa-star"></i> Exportaciones, PDFs, plantillas PRO</li>
+                    <li><i class="fa-solid fa-rocket"></i> Soporte prioritario</li>
+                  </ul>
+                  <button id="choose-pro-btn" class="btn-primary w-full mt-4 rounded-lg py-2 font-extrabold">Subir a PRO por $7</button>
+                </div>
+              </div>
+              <p class="text-xs opacity-70 text-center">Los precios se muestran en USD. Impuestos pueden aplicar según país.</p>
+            </div>
+          `;
+
+          // Hook up actions to existing purchase handlers if present
+          const proBtn = body.querySelector('#choose-pro-btn');
+          if (proBtn) {
+            proBtn.addEventListener('click', () => {
+              // Try to call any existing pay/upgrade handlers
+              const upgrade = window.handleUpgradeToPro || window.openPricingCheckout || window.startProCheckout;
+              if (typeof upgrade === 'function') return upgrade(7, 4000);
+              // Fallback: emit custom event
+              document.dispatchEvent(new CustomEvent('goatify:upgrade', {detail:{plan:'pro', price:7, credits:4000}}));
+            });
+          }
+          const freeBtn = body.querySelector('#choose-free-btn');
+          if (freeBtn) {
+            freeBtn.addEventListener('click', () => {
+              const keepFree = window.handleStayFree || window.closePricingModal;
+              if (typeof keepFree === 'function') return keepFree();
+              // Fallback: close by ESC
+              document.dispatchEvent(new KeyboardEvent('keydown', {key:'Escape'}));
+            });
+          }
+        }
+      }
+
+      // ---------- 3) GAMIFICATION POLISH (no features removed) ----------
+      // Smooth XP bar animations if present
+      document.querySelectorAll('.xp-bar-fill').forEach(el => {
+        el.style.transition = 'width 600ms cubic-bezier(0.22, 1, 0.36, 1)';
+      });
+      // Tabs activation safety
+      const tabs = document.querySelectorAll('.gamification-tab');
+      if (tabs.length) {
+        const setActive = (clicked) => {
+          tabs.forEach(t => t.classList.remove('active'));
+          clicked.classList.add('active');
+          // Show matching panels if they have data-panel attributes
+          const target = clicked.getAttribute('data-target');
+          if (target) {
+            document.querySelectorAll('.gamification-panel').forEach(p => {
+              p.style.display = (p.id === target) ? 'block' : 'none';
+            });
+          }
+        };
+        tabs.forEach(t => {
+          t.addEventListener('click', () => setActive(t));
+        });
+        // Ensure first visible as default
+        setActive(tabs[0]);
+      }
+
+      // ---------- 4) MOBILE POLISH ----------
+      // Improve hit areas for mobile collapsibles
+      if (matchMedia('(max-width: 767px)').matches) {
+        document.querySelectorAll('.project-header, .folders-header, .workflow-header, .actions-header').forEach(h => {
+          h.style.padding = '10px 12px';
+        });
+        // Ensure sidebar can scroll independently on mobile
+        const sidebarScrollable = document.getElementById('sidebar-scrollable-content');
+        if (sidebarScrollable) {
+          sidebarScrollable.style.webkitOverflowScrolling = 'touch';
+        }
+      }
+    } catch (err) {
+      console.error('Goatify patch failed:', err);
+    }
+  });
+})();
+</script>
+<style>
+/* 🪄 Mobile visual tweaks for pricing cards */
+@media (max-width: 767px) {
+  #pricing-modal .plan-card { 
+    border: 1px solid var(--current-border-color);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.2);
+  }
+  #pricing-modal .plan-card .text-3xl { font-size: 1.7rem; }
+  #pricing-modal .plan-card h3 { font-size: 1.05rem; }
+  #pricing-modal .plan-card button { padding: 10px 14px; font-weight: 800; }
+}
+/* Better arrow rotation defaults if CSS classes fail */
+.workflow-arrow, .actions-arrow, .folder-arrow, .project-arrow { transition: transform 200ms ease; }
+</style>
+
+<!-- 🛠 Goatify Patch v2: Desktop open state + Modern bubbles + Sticky memory (2025-08-18) -->
+<script>
+(function(){
+  const ready = (fn) => (document.readyState === 'loading')
+    ? document.addEventListener('DOMContentLoaded', fn, {once:true})
+    : fn();
+
+  function slugify(s){
+    return (s||'').toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+      .replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');
+  }
+
+  ready(() => {
+    try {
+      // ---------- A) Make "Asistente del Proyecto" open on desktop ----------
+      const isDesktop = matchMedia('(min-width: 1024px)').matches;
+      if (isDesktop) {
+        // Try a few heuristics: open any section whose header text matches
+        const candidates = Array.from(document.querySelectorAll('.project, .assistant, .accordion, .collapsible, section, .card'))
+          .filter(el => el.textContent && /asistente\s+del\s+proyecto/i.test(el.textContent));
+        candidates.forEach(el => {
+          el.classList.add('open');
+          // find a likely content node to show
+          const content = el.querySelector('.project-content, .accordion-content, .collapsible-content, .section-content, .content, .body, .card-content');
+          if (content) content.style.display = 'block';
+        });
+      }
+
+      // ---------- B) Universal collapsible fallback for unknown markup ----------
+      document.querySelectorAll('[data-collapsible], .collapsible, .accordion, .project, .assistant, .folder, .category').forEach(container => {
+        let header = container.querySelector('[data-collapsible-header], .project-header, .accordion-header, .collapsible-header, .section-header, .category-header, h2, h3');
+        let content = container.querySelector('[data-collapsible-content], .project-content, .accordion-content, .collapsible-content, .section-content, .category-content, .content, .body');
+        if (!header) return;
+        if (!content) {
+          // try: next sibling or all siblings after header
+          const kids = Array.from(container.children);
+          const i = kids.indexOf(header);
+          if (i >= 0 && i < kids.length - 1) {
+            content = document.createElement('div');
+            content.className = 'collapsible-auto-content';
+            kids.slice(i+1).forEach(node => content.appendChild(node));
+            container.appendChild(content);
+          }
+        }
+        if (!content) return;
+        if (!container.classList.contains('open')) content.style.display = 'none';
+        header.style.cursor = 'pointer';
+        header.addEventListener('click', (e) => {
+          if (e.target.closest('button, a, input, textarea, select')) return;
+          const open = container.classList.toggle('open');
+          content.style.display = open ? 'block' : 'none';
+        });
+      });
+
+      // ---------- C) Modern chat bubbles like ChatGPT ----------
+      // Heuristic: any element likely to be a chat log
+      const possibleLogs = Array.from(document.querySelectorAll(
+        '.chat-log, .chat-messages, .messages, .assistant-output, .chat-window, [data-role="chat-log"]'
+      ));
+      // add siblings that contain message content in assistants
+      document.querySelectorAll('.assistant, .project, .card').forEach(card => {
+        const cands = card.querySelectorAll('.output, .result, .response, .ai-output, .content-area');
+        cands.forEach(c => possibleLogs.push(c));
+      });
+
+      const seen = new Set();
+      const logs = possibleLogs.filter(el => {
+        if (!el) return false;
+        if (seen.has(el)) return false;
+        seen.add(el); return true;
+      });
+
+      // inject style once
+      if (!document.getElementById('goatify-bubbles-style')){
+        const style = document.createElement('style');
+        style.id = 'goatify-bubbles-style';
+        style.textContent = `
+        .go-bubble { 
+          border-radius: 16px; padding: 14px 16px; margin: 10px 0; 
+          line-height: 1.6; font-size: 16px; box-shadow: 0 8px 22px rgba(0,0,0,.08);
+          border: 1px solid rgba(0,0,0,.06); 
+          background: #0b1020; color: #e7ebff;
+        }
+        .go-bubble.user { background: #121826; color: #e9ecff; }
+        .go-bubble.assistant { background: #171f34; }
+        .go-bubble .role { font-size: 12px; opacity: .6; display:block; margin-bottom: 6px; }
+        .go-bubble code, .go-bubble pre { background: rgba(255,255,255,.06); border-radius: 10px; padding: 10px; overflow:auto; }
+        .go-bubble p { margin: 0 0 8px; }
+        @media (min-width: 1024px){ .go-bubble{ font-size:17px; padding:16px 18px; } }
+        `;
+        document.head.appendChild(style);
+      }
+
+      function decorateLog(log, idHint){
+        if (!log) return;
+        log.classList.add('go-chat-log');
+
+        // Assign persistent id
+        let id = log.getAttribute('data-goatid');
+        if (!id){
+          // look up to find a title
+          const card = log.closest('.assistant, .project, section, .card') || document.body;
+          const title = card.querySelector('h2, h3, .title, .header, .card-title');
+          const name = title ? title.textContent.trim() : (idHint || 'chat');
+          id = 'chat-' + slugify(name);
+          log.setAttribute('data-goatid', id);
+        }
+
+        // Restore transcript if empty but stored
+        if (!log.dataset.restored){
+          const saved = localStorage.getItem('goatify_chat_store:' + id);
+          if (saved && log.children.length === 0){
+            log.innerHTML = saved;
+          }
+          log.dataset.restored = '1';
+        }
+
+        // MutationObserver to decorate and persist
+        const seenMsg = new WeakSet();
+        const persist = () => {
+          try {
+            localStorage.setItem('goatify_chat_store:' + id, log.innerHTML);
+          } catch(e){ /* quota ignore */ }
+        };
+        const asBubble = (node) => {
+          if (!(node instanceof Element)) return;
+          if (node.classList.contains('go-bubble')) return;
+          // consider simple div/p blocks as messages
+          if (node.matches('div, p, article, section') && node.textContent.trim().length > 0){
+            // infer role
+            const role = (node.getAttribute('data-role') || '').toLowerCase();
+            const isUser = /user|me/.test(role) || node.className.match(/user/i);
+            const wrapper = document.createElement('div');
+            wrapper.className = 'go-bubble ' + (isUser ? 'user' : 'assistant');
+            // optional small role label
+            const r = document.createElement('span');
+            r.className = 'role';
+            r.textContent = isUser ? 'Tú' : 'Goatify IA';
+            wrapper.appendChild(r);
+            // move node inside
+            wrapper.appendChild(node.cloneNode(true));
+            node.replaceWith(wrapper);
+          }
+        };
+
+        // Decorate current children
+        Array.from(log.children).forEach(asBubble);
+        persist();
+
+        const obs = new MutationObserver((mut)=>{
+          mut.forEach(m => {
+            m.addedNodes && m.addedNodes.forEach(n => {
+              if (n.nodeType === 1) {
+                asBubble(n);
+                // also bubble-ize immediate children if a container was inserted
+                Array.from(n.children || []).forEach(asBubble);
+                persist();
+              }
+            });
+          });
+        });
+        obs.observe(log, {childList:true, subtree:false});
+      }
+
+      logs.forEach((log, i) => decorateLog(log, 'log-'+i));
+
+      // Re-apply memory when a collapsible opens (content reflows)
+      document.body.addEventListener('click', (e) => {
+        const opener = e.target.closest('.project-header, .accordion-header, .collapsible-header, .folders-header, .workflow-header');
+        if (!opener) return;
+        setTimeout(() => {
+          document.querySelectorAll('.go-chat-log').forEach(el => {
+            // force re-decoration persistence
+            const id = el.getAttribute('data-goatid') || 'chat';
+            const saved = localStorage.getItem('goatify_chat_store:' + id);
+            if (saved && el.innerHTML.trim() === '') el.innerHTML = saved;
+          });
+        }, 250);
+      });
+    } catch(err){
+      console.error('Goatify Patch v2 error', err);
+    }
+  });
+})();
+</script>
 </body>
 </html>
