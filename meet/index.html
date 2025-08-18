@@ -1,0 +1,2137 @@
+<!DOCTYPE html>
+<html lang="es" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  
+  <!-- SEO Meta Tags -->
+  <title>Meet — La App para Comunidades, Barrios y Economía Solidaria</title>
+  <meta name="description" content="Meet es la única aplicación para el manejo de comunidades y barrios que integra economía solidaria y social circular. Conecta con tus vecinos, crea eventos, comparte viajes y fomenta un ecosistema local sostenible. Diseñada por Goatify IA." />
+  <meta name="keywords" content="manejo comunidad, app para barrios, economía solidaria, economía circular, Goatify IA, Daniel Ortega Corella, Victor Ortega Corella, app de vecinos, seguridad barrial, trueque" />
+  <meta name="author" content="Goatify IA, Daniel y Victor Ortega Corella" />
+
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Meet — Conecta y Fortalece tu Comunidad">
+  <meta property="og:description" content="La plataforma definitiva para la gestión comunitaria, impulsando la economía social circular y la colaboración entre vecinos.">
+  <meta property="og:image" content="/Logos HD.png"> 
+  
+  <meta name="theme-color" content="#6f37e8" />
+  <!-- Favicon & Logo (coloca /Logos HD.png en la raíz del sitio) -->
+  <link rel="icon" type="image/png" href="/Logos HD.png" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: { cosmic: {50:'#faf7ff',100:'#f3edff',200:'#e7d8ff',300:'#d3b7ff',400:'#b786ff',500:'#935bff',600:'#6f37e8',700:'#5a28c7',800:'#4a219f',900:'#34186e',950:'#1f103f'} },
+          fontFamily: { display:["Inter","ui-sans-serif","system-ui"], body:["Inter","ui-sans-serif","system-ui"] },
+          boxShadow: { glow:'0 10px 40px -10px rgba(52,24,110,.25)' }
+        }
+      }
+    }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <!-- Leaflet Routing Machine for directions -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
+  <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    /* Transiciones y Animaciones */
+    .transition-all-fast { transition: all 0.2s ease-in-out; }
+    .modal-content { transition: transform 0.3s ease-out, opacity 0.3s ease-out; }
+    .modal.hidden .modal-content { transform: scale(0.95); opacity: 0; }
+    section { transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out; }
+    section.hidden { opacity: 0; pointer-events: none; position: absolute; transform: translateY(10px); }
+    #map.selection-mode { cursor: crosshair !important; }
+
+    /* Estilos de fondo y efectos de vidrio */
+    .bg-futurist{
+      background:
+        radial-gradient(70% 50% at 100% 0%, rgba(0,0,0,.08), rgba(0,0,0,0) 60%),
+        radial-gradient(60% 40% at 0% 100%, rgba(0,0,0,.06), rgba(0,0,0,0) 60%),
+        linear-gradient(180deg, #faf7ff 0%, #ffffff 40%);
+    }
+    .dark .bg-futurist{background: radial-gradient(60% 40% at 0% 100%, rgba(255,255,255,.04), rgba(255,255,255,0) 60%), #0b1020;}
+    .glass{backdrop-filter: blur(10px)}
+    .segmented>button[aria-current="true"]{box-shadow: inset 0 0 0 2px rgba(147,91,255,.35); background: linear-gradient(180deg,#fff,#f7f4ff);}
+    .dark .segmented>button[aria-current="true"]{background: linear-gradient(180deg,#111827,#0b1020);}
+    .like-btn svg{transition:transform .08s ease}
+    .like-btn.active svg{transform:scale(1.1)}
+    @media (max-width: 768px){ .desktop-only{display:none} }
+
+    /* Estilos del modal de información */
+    .info-modal {
+        position: fixed;
+        z-index: 100;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.5);
+        display: none; /* Se muestra con JS */
+        place-items: center;
+        padding: 1rem;
+    }
+    .info-modal-content {
+        background-color: #fff;
+        border-radius: 1rem;
+        padding: 1.5rem;
+        width: 100%;
+        max-width: 400px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    .dark .info-modal-content {
+        background-color: #111827;
+    }
+    /* Fix para que el mapa se vea correctamente */
+    .leaflet-container {
+        height: 100%;
+        width: 100%;
+    }
+    .info-btn {
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 0.25rem;
+        border-radius: 9999px;
+    }
+    .info-btn:hover {
+        background-color: rgba(0,0,0,0.05);
+    }
+    .dark .info-btn:hover {
+        background-color: rgba(255,255,255,0.1);
+    }
+    /* Ocultar el control de enrutamiento por defecto */
+    .leaflet-routing-container {
+        display: none;
+    }
+    /* Estilos para Conexiones (Tinder-like) */
+    #connections-stack {
+        position: relative;
+        width: 100%;
+        height: 450px; /* Altura fija para las tarjetas */
+        perspective: 1000px;
+    }
+    .connection-card {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        background-size: cover;
+        background-position: center;
+        border-radius: 1.5rem;
+        box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        overflow: hidden;
+        cursor: grab;
+        transition: transform 0.4s ease, opacity 0.4s ease;
+    }
+    .connection-card.swiping-right { transform: translateX(100px) rotate(15deg) !important; opacity: 0; }
+    .connection-card.swiping-left { transform: translateX(-100px) rotate(-15deg) !important; opacity: 0; }
+
+    .connection-card::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 50%;
+        background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+    }
+    .card-info {
+        position: relative;
+        z-index: 2;
+        padding: 1.5rem;
+        color: white;
+    }
+  </style>
+</head>
+<body class="bg-futurist text-slate-900 dark:text-slate-100 font-body min-h-screen">
+  <!-- Fondo con efectos de brillo -->
+  <div class="pointer-events-none fixed inset-0 -z-10">
+    <div class="absolute -top-24 -right-24 w-[38rem] h-[38rem] rounded-full" style="background: radial-gradient(closest-side, rgba(52,24,110,.10), rgba(52,24,110,0));"></div>
+    <div class="absolute -bottom-24 -left-24 w-[32rem] h-[32rem] rounded-full" style="background: radial-gradient(closest-side, rgba(0,0,0,.06), rgba(0,0,0,0));"></div>
+  </div>
+
+  <!-- Barra superior (Topbar) -->
+  <header class="sticky top-0 z-50 border-b border-slate-200/70 dark:border-slate-800 bg-white/80 dark:bg-slate-900/70 glass">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex items-center gap-3">
+      <button id="openNav" class="md:hidden p-2 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all-fast" aria-label="Abrir navegación">
+        <svg viewBox="0 0 24 24" class="w-5 h-5"><path fill="currentColor" d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+      </button>
+      <div class="w-10 h-10 rounded-2xl bg-cosmic-100 dark:bg-slate-800 grid place-items-center ring-1 ring-cosmic-200 dark:ring-slate-700 shadow-glow overflow-hidden">
+        <!-- Logo: intenta cargar PNG, si falla usa ícono infinito -->
+        <img src="/Logos HD.png" alt="Meet" class="w-6 h-6 object-contain" onerror="this.replaceWith(document.getElementById('logoFallback').content.cloneNode(true));"/>
+        <template id="logoFallback"><svg viewBox="0 0 64 64" class="w-6 h-6" aria-hidden="true"><path fill="#6f37e8" d="M46 20c-6 0-10 4-14 8c-4 4-7 8-12 8c-5 0-8-4-8-8s3-8 8-8c6 0 10 4 14 8c4 4 7 8 12 8c5 0 8-4 8-8s-3-8-8-8zM20 24a4 4 0 1 0 0 8c3 0 6-3 9-6c-3-3-6-6-9-6zm24 0c-3 0-6 3-9 6c3 3 6 6 9 6a4 4 0 1 0 0-8z"/></svg></template>
+      </div>
+      <div class="flex-1 min-w-0">
+        <h1 class="font-display font-semibold tracking-tight">Meet</h1>
+        <p class="text-[11px] text-slate-500 dark:text-slate-400">Parte del universo de apps Goatify IA — <a class="underline" href="https://www.goatify.app/portal" target="_blank" rel="noopener">goatify.app/portal</a></p>
+      </div>
+
+      <div class="hidden md:flex items-center gap-3">
+        <div class="relative hidden lg:block">
+          <input id="globalSearch" class="w-72 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cosmic-300 transition-all-fast" placeholder="Buscar en tu Comunidad…"/>
+          <svg viewBox="0 0 24 24" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5"><path fill="currentColor" d="M15.5 14h-.79l-.28-.27A6.5 6.5 0 1 0 14 15.5l.27.28v.79L20 21.49L21.49 20l-5.99-6zM10 15a5 5 0 1 1 0-10 5 5 0 0 1 0 10z"/></svg>
+        </div>
+        <!-- Puntos se convierten en MeetCoins -->
+        <span id="pointsBadge" class="px-2 py-1 rounded-full bg-cosmic-100 dark:bg-slate-800 ring-1 ring-cosmic-200 dark:ring-slate-700 text-cosmic-700 dark:text-cosmic-300 text-sm">0 MeetCoins</span>
+        <button id="upgradeBtn" class="px-3 py-1.5 rounded-xl border border-cosmic-300 text-cosmic-800 dark:text-cosmic-200 dark:border-slate-700 hover:bg-cosmic-50 dark:hover:bg-slate-800 transition-all-fast">Plan Free</button>
+        <button id="notifBtn" class="p-2 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all-fast" aria-label="Notificaciones">
+          <svg viewBox="0 0 24 24" class="w-5 h-5"><path fill="currentColor" d="M12 22a2 2 0 0 0 2-2h-4a2 2 0 0 0 2 2m6-6v-5a6 6 0 0 0-5-5.91V4a1 1 0 0 0-2 0v1.09A6 6 0 0 0 6 11v5l-2 2v1h16v-1z"/></svg>
+        </button>
+        <div class="relative">
+          <button id="userMenuBtn" class="flex items-center gap-2 px-2 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all-fast">
+            <div class="w-6 h-6 rounded-full bg-cosmic-200 dark:bg-slate-800"></div>
+            <span id="userNameDisplay" class="text-sm font-medium">Cuenta</span>
+            <svg viewBox="0 0 24 24" class="w-4 h-4 text-slate-500"><path fill="currentColor" d="m7 10l5 5l5-5H7z"/></svg>
+          </button>
+          <div id="userMenu" class="hidden absolute right-0 mt-2 w-56 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-glow p-2">
+            <div class="px-3 py-2 text-xs text-slate-500">ID: <code id="userIdDisplay"></code></div>
+            <button data-open="perfil" class="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800">Perfil</button>
+            <button data-open="ajustes" class="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800">Ajustes</button>
+            <button data-open="wallet" class="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800">Billetera</button>
+            <button data-open="comunidades" class="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800">Mis Comunidades</button>
+            <div class="my-2 h-px bg-slate-200 dark:bg-slate-700"></div>
+            <button id="loginBtn" class="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800">Iniciar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Barra de ámbitos (scopes) -->
+    <div class="max-w-7xl mx-auto px-4 pb-3">
+      <div class="grid grid-cols-1 md:grid-cols-12 gap-2">
+        <div class="md:col-span-8 flex flex-wrap items-center gap-2">
+          <label class="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-1">Ámbito 
+            <button data-info="ambito" type="button" class="info-btn">
+                <svg class="w-4 h-4 text-slate-500" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" /></svg>
+            </button>
+          </label>
+          <select id="scopeType" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-sm">
+            <option value="zona">Zona</option>
+            <option value="sector">Sector</option>
+            <option value="conjunto">Conjunto (verificado)</option>
+            <option value="edificio">Edificio (verificado)</option>
+          </select>
+          <input id="scopeName" class="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-sm" placeholder="Nombre (p.ej., Conocoto)" />
+          <div class="flex items-center">
+            <input id="scopeCode" class="w-36 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-l-lg px-3 py-1.5 text-sm" placeholder="Código (opc)" />
+            <button data-info="ambito_codigo" type="button" class="info-btn border border-l-0 border-slate-200 dark:border-slate-700 rounded-r-lg px-2 py-1.5">
+                <svg class="w-4 h-4 text-slate-500" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" /></svg>
+            </button>
+          </div>
+          <button id="joinScope" class="px-3 py-1.5 rounded-xl bg-gradient-to-b from-cosmic-600 to-cosmic-700 text-white text-sm hover:from-cosmic-500 transition-all-fast">Unirme</button>
+          <span id="scopeBadge" class="ml-2 text-xs text-slate-600 dark:text-slate-400"></span>
+        </div>
+        <div class="md:col-span-4 hidden md:flex items-center justify-end">
+          <div id="quotaBadge" class="text-xs text-slate-600 dark:text-slate-400"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pestañas principales -->
+    <nav class="max-w-7xl mx-auto px-3 pb-3">
+      <div id="tabs" class="segmented flex gap-2 overflow-x-auto p-1 bg-white/70 dark:bg-slate-900/70 border border-slate-200 dark:border-slate-700 rounded-2xl"></div>
+    </nav>
+  </header>
+
+  <div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6 px-3 md:px-4 py-6">
+    <!-- Columna principal -->
+    <main class="lg:col-span-8 space-y-6 relative">
+      <!-- VISTA FEED -->
+      <section id="view-feed" class="hidden">
+        <form id="postForm" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 shadow-glow space-y-3">
+          <textarea id="postText" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 outline-none focus:ring-2 focus:ring-cosmic-300" rows="3" placeholder="Comparte en tu comunidad (avisos, trueques, eventos)…"></textarea>
+          <div class="flex items-center justify-between">
+            <div class="text-xs text-slate-500 dark:text-slate-400">Respeto primero. Sin datos sensibles.</div>
+            <button class="px-4 py-2 rounded-xl bg-gradient-to-b from-cosmic-600 to-cosmic-700 text-white font-medium hover:from-cosmic-500 transition-all-fast">Publicar</button>
+          </div>
+        </form>
+        <ul id="feedList" class="space-y-3"></ul>
+      </section>
+
+      <!-- VISTA CHAT -->
+      <section id="view-chat" class="hidden">
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 shadow-glow">
+          <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+            <div class="flex items-center gap-3">
+              <h3 class="font-semibold">Chat — <span id="chatScopeLabel" class="text-cosmic-700 dark:text-cosmic-300"></span></h3>
+              <div class="relative">
+                  <button id="chatModeBtn" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-sm flex items-center gap-2">
+                      <span id="chatModeLabel">Salas</span>
+                      <svg viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
+                  </button>
+                  <div id="chatModeDropdown" class="hidden absolute mt-1 w-40 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-lg z-10">
+                      <a href="#" data-mode="rooms" class="block px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700">Salas</a>
+                      <a href="#" data-mode="rides" class="block px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700">Viajes</a>
+                      <a href="#" data-mode="dms" class="block px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700">Directos</a>
+                  </div>
+              </div>
+              <select id="chatRoom" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-sm">
+                <option value="general">#general</option>
+                <option value="seguridad">#seguridad</option>
+                <option value="comercio">#comercio</option>
+                <option value="recreacion">#recreacion</option>
+              </select>
+              <select id="chatRideSelect" class="hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-sm"></select>
+            </div>
+          </div>
+          <div id="chat-rooms-view">
+            <div id="chatBox" class="h-80 overflow-y-auto bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-3 space-y-2"></div>
+            <form id="chatForm" class="mt-3 flex gap-2">
+              <input id="chatInput" class="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 outline-none" placeholder="Escribe un mensaje…"/>
+              <button class="px-4 py-2 rounded-xl bg-gradient-to-b from-cosmic-600 to-cosmic-700 text-white font-medium">Enviar</button>
+            </form>
+          </div>
+          <div id="chat-dms-view" class="hidden">
+            <h4 class="text-sm font-semibold mb-2">Usuarios en línea</h4>
+            <ul id="onlineUsersList" class="h-80 overflow-y-auto space-y-2"></ul>
+          </div>
+        </div>
+        <p class="text-xs text-slate-500 dark:text-slate-400 mt-2"><b>Salas:</b> Canales temáticos para tu comunidad. <b>Viajes:</b> Chats privados para coordinar. <b>Directos:</b> Mensajes uno a uno.</p>
+      </section>
+
+      <!-- VISTA MAPA -->
+      <section id="view-mapa" class="hidden">
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 shadow-glow h-[600px] flex flex-col relative">
+          <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-3">
+            <h3 id="map-title" class="font-semibold">Mapa de tu comunidad</h3>
+            <div id="map-ride-controls" class="hidden items-center gap-2">
+                <span id="map-instructions" class="text-sm text-cosmic-700 dark:text-cosmic-300"></span>
+            </div>
+          </div>
+          <div id="map" class="flex-1 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700"></div>
+          <!-- Panel de control del mapa -->
+          <div id="map-controls" class="absolute top-20 right-6 z-[401] bg-white/80 dark:bg-slate-900/80 glass border border-slate-200 dark:border-slate-700 rounded-xl p-3 space-y-2 text-sm">
+              <h4 class="font-semibold text-xs mb-1">Capas</h4>
+              <label class="flex items-center gap-2"><input type="checkbox" id="toggleEvents" checked> Eventos</label>
+              <label class="flex items-center gap-2"><input type="checkbox" id="toggleRides" checked> Viajes</label>
+          </div>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-2">Usa los filtros para explorar eventos y viajes disponibles en tu zona.</p>
+        </div>
+      </section>
+
+      <!-- VISTA MARKETPLACE -->
+      <section id="view-market" class="hidden">
+        <div class="grid md:grid-cols-3 gap-4 items-start">
+          <form id="itemForm" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 shadow-glow space-y-3 md:col-span-1">
+            <h3 class="font-semibold">Publica un artículo
+              <button data-info="market" type="button" class="ml-1 text-sm text-slate-500 dark:text-slate-400">ⓘ</button>
+            </h3>
+            <input id="itemTitle" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2" placeholder="Título"/>
+            
+            <div class="space-y-3">
+                <div>
+                    <label class="flex items-center gap-2">
+                        <input type="checkbox" id="usePrice" checked> Cobrar en MeetCoins
+                    </label>
+                    <input id="itemPrice" type="number" min="0" step="1" class="mt-1 w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2" placeholder="Precio en MeetCoins"/>
+                </div>
+                <div>
+                    <label class="flex items-center gap-2">
+                        <input type="checkbox" id="useTrueque"> Aceptar Trueque
+                    </label>
+                    <textarea id="itemTruequeDesc" rows="2" class="mt-1 w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 outline-none hidden" placeholder="Describe qué buscas a cambio..."></textarea>
+                </div>
+            </div>
+
+            <textarea id="itemDesc" rows="3" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2" placeholder="Descripción del producto o servicio..."></textarea>
+
+            <div class="space-y-2">
+              <label class="text-sm font-medium">Fotos (máx. 3)</label>
+              <input type="file" id="itemPhoto1" accept="image/*" class="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-cosmic-50 file:text-cosmic-700 hover:file:bg-cosmic-100 dark:file:bg-slate-800 dark:file:text-slate-300 dark:file:hover:bg-slate-700"/>
+              <input type="file" id="itemPhoto2" accept="image/*" class="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-cosmic-50 file:text-cosmic-700 hover:file:bg-cosmic-100 dark:file:bg-slate-800 dark:file:text-slate-300 dark:file:hover:bg-slate-700"/>
+              <input type="file" id="itemPhoto3" accept="image/*" class="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-cosmic-50 file:text-cosmic-700 hover:file:bg-cosmic-100 dark:file:bg-slate-800 dark:file:text-slate-300 dark:file:hover:bg-slate-700"/>
+            </div>
+
+            <button class="w-full px-4 py-2 rounded-xl bg-gradient-to-b from-cosmic-600 to-cosmic-700 text-white font-medium">Publicar</button>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Free: límite mensual. Pro: sin límites.</p>
+          </form>
+          <div class="md:col-span-2 space-y-3">
+            <div class="flex items-center justify-between">
+              <h3 class="font-semibold">Economía Circular
+                <button data-info="economia_circular" type="button" class="ml-1 text-sm text-blue-500 underline">¿Por qué?</button>
+              </h3>
+              <input id="marketSearch" placeholder="Buscar…" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-sm"/>
+            </div>
+            <ul id="marketList" class="space-y-3"></ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- VISTA EVENTOS -->
+      <section id="view-eventos" class="hidden">
+        <div class="grid md:grid-cols-3 gap-4 items-start">
+          <form id="eventForm" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 shadow-glow space-y-3 md:col-span-1">
+            <h3 class="font-semibold">Crear evento</h3>
+            <input id="eventTitle" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2" placeholder="Título"/>
+            <input id="eventDate" type="datetime-local" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2"/>
+            <input id="eventPlace" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2" placeholder="Lugar"/>
+            <input id="eventGeo" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2" placeholder="Lat,Lng (opcional)"/>
+            <textarea id="eventDesc" rows="3" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2" placeholder="Descripción"></textarea>
+            
+            <div class="space-y-3 text-sm border-t border-slate-200 dark:border-slate-700 pt-3">
+                <label class="flex items-center gap-2">
+                    <input type="checkbox" id="eventGratis" checked> Evento Gratuito
+                </label>
+                <div id="eventPriceContainer" class="hidden space-y-2">
+                    <div>
+                        <label class="flex items-center gap-2"><input type="checkbox" id="eventUsePrice"> Cobrar en MeetCoins</label>
+                        <input id="eventPrice" type="number" min="0" step="1" class="hidden mt-1 w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-sm" placeholder="Costo de entrada">
+                    </div>
+                    <div>
+                        <label class="flex items-center gap-2"><input type="checkbox" id="eventUseTrueque"> Aceptar Trueque</label>
+                        <textarea id="eventTruequeDesc" rows="2" class="hidden mt-1 w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 outline-none text-sm" placeholder="Describe qué buscas a cambio..."></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <button class="w-full px-4 py-2 rounded-xl bg-gradient-to-b from-cosmic-600 to-cosmic-700 text-white font-medium">Crear</button>
+          </form>
+          <div class="md:col-span-2 space-y-3">
+            <h3 class="font-semibold">Próximos eventos</h3>
+            <ul id="eventList" class="space-y-3"></ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- VISTA VIAJES -->
+      <section id="view-rides" class="hidden">
+        <div class="grid md:grid-cols-3 gap-4 items-start">
+          <form id="rideForm" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 shadow-glow space-y-4 md:col-span-1">
+            <div class="flex items-center justify-between">
+                <h3 class="font-semibold">Ofrecer un Viaje</h3>
+                <button data-info="rides" type="button" class="info-btn">
+                    <svg class="w-5 h-5 text-slate-500" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path></svg>
+                </button>
+            </div>
+            
+            <div class="space-y-2">
+                <button type="button" id="setOriginBtn" class="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition-all-fast hover:scale-105">
+                    <svg class="w-5 h-5 text-green-500" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"></path></svg>
+                    Ubicar Origen
+                </button>
+                <input id="rideFromPlace" class="w-full bg-slate-100 dark:bg-slate-800 border-0 rounded-md px-3 py-1 text-xs text-center text-slate-600 dark:text-slate-400" placeholder="No seleccionado" readonly>
+                <input id="rideFromGeo" type="hidden">
+            </div>
+            
+            <div class="space-y-2">
+                <button type="button" id="setDestinationBtn" class="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition-all-fast hover:scale-105">
+                    <svg class="w-5 h-5 text-red-500" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"></path></svg>
+                    Ubicar Destino
+                </button>
+                <input id="rideToPlace" class="w-full bg-slate-100 dark:bg-slate-800 border-0 rounded-md px-3 py-1 text-xs text-center text-slate-600 dark:text-slate-400" placeholder="No seleccionado" readonly>
+                <input id="rideToGeo" type="hidden">
+            </div>
+
+            <div id="fare-estimator" class="text-center p-3 rounded-xl bg-cosmic-50 dark:bg-slate-800 border border-cosmic-100 dark:border-slate-700 space-y-1">
+                <h4 class="text-sm font-semibold">Calculadora de Tarifa</h4>
+                <p class="text-xs text-slate-500 dark:text-slate-400">2 MeetCoins/km · Mínimo 10 MC</p>
+                <div class="font-semibold text-lg text-cosmic-700 dark:text-cosmic-300">
+                    <span id="estimator-distancia">0.00 km</span> ≈ <span id="estimator-costo">10 MeetCoins</span>
+                </div>
+            </div>
+
+            <div class="border-t border-slate-200 dark:border-slate-700 pt-4 space-y-4">
+                <input id="rideMeet" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2" placeholder="Punto de encuentro (ej. Gasolinera)">
+                <input id="rideTime" type="datetime-local" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2">
+                <input id="rideSeats" type="number" min="1" max="3" value="2" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2" placeholder="Asientos disponibles (máx 3)">
+                
+                <div class="space-y-2 text-sm">
+                    <label class="flex items-center gap-2">
+                        <input type="checkbox" id="rideAcceptTrueque"> Aceptar Trueque como pago
+                    </label>
+                    <textarea id="rideTruequeDesc" rows="2" class="hidden mt-1 w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 outline-none text-sm" placeholder="Describe qué buscas a cambio..."></textarea>
+                </div>
+
+                <button class="w-full px-4 py-2 rounded-xl bg-gradient-to-b from-cosmic-600 to-cosmic-700 text-white font-medium transition-all-fast hover:from-cosmic-500 hover:scale-105">Publicar Viaje</button>
+            </div>
+          </form>
+          <div class="md:col-span-2 space-y-3">
+            <h3 class="font-semibold">Viajes disponibles</h3>
+            <ul id="rideList" class="space-y-3"></ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- VISTA RECOMPENSAS -->
+      <section id="view-rewards" class="hidden">
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 shadow-glow">
+          <h3 class="font-semibold mb-3">Tus MeetCoins y beneficios</h3>
+          <div class="grid md:grid-cols-3 gap-3">
+            <div class="md:col-span-2">
+              <ul id="rewardsList" class="space-y-3"></ul>
+            </div>
+            <aside class="space-y-3">
+              <div class="p-4 rounded-2xl border border-cosmic-200 dark:border-slate-700 bg-cosmic-50 dark:bg-slate-800">
+                <p class="text-sm">Gana MeetCoins por: publicar (5), eventos (20), vender (10), perfil (15), dar ride (40).</p>
+              </div>
+              <button id="redeemDemo" class="w-full px-4 py-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800">Canjear 50 MeetCoins (demo)</button>
+            </aside>
+          </div>
+        </div>
+      </section>
+
+      <!-- VISTA PERFIL -->
+      <section id="view-perfil" class="hidden">
+        <form id="profileForm" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 shadow-glow space-y-3 max-w-2xl">
+          <h3 class="font-semibold">Tu perfil</h3>
+          <div class="grid md:grid-cols-2 gap-3">
+            <input id="profName" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2" placeholder="Nombre visible"/>
+            <input id="profPhone" type="tel" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2" placeholder="Teléfono"/>
+            <input id="profSocial" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2" placeholder="Redes Sociales"/>
+            <input id="profZona" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2" placeholder="Zona / Sector"/>
+            <input id="profRadio" type="number" min="1" max="20" value="3" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2" placeholder="Radio (km)"/>
+            <input id="profIntereses" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2" placeholder="Intereses (coma)"/>
+          </div>
+          <div class="grid md:grid-cols-3 gap-3 text-sm">
+            <label class="flex items-center gap-2"><input type="checkbox" id="profProveedor"/> Proveedor/negocio</label>
+            <label class="flex items-center gap-2"><input type="checkbox" id="profAdmin"/> Admin de comunidad</label>
+            <label class="flex items-center gap-2"><input type="checkbox" id="profPublic"/> Perfil público</label>
+            <!-- Nuevo campo de verificación -->
+            <label class="flex items-center gap-2"><input type="checkbox" id="profVerified"/> Perfil verificado (demo)</label>
+          </div>
+          <div class="grid md:grid-cols-2 gap-3">
+            <input id="profLat" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2" placeholder="Latitud"/>
+            <input id="profLng" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2" placeholder="Longitud"/>
+          </div>
+          <div class="flex items-center justify-between">
+            <button class="px-4 py-2 rounded-xl bg-gradient-to-b from-cosmic-600 to-cosmic-700 text-white font-medium">Guardar</button>
+            <button id="geoBtn" type="button" class="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700">Detectar ubicación</button>
+          </div>
+        </form>
+      </section>
+
+      <!-- VISTA AJUSTES DE USUARIO -->
+      <section id="view-ajustes" class="hidden">
+        <form id="userSettingsForm" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 shadow-glow space-y-3 max-w-2xl">
+          <h3 class="font-semibold">⚙️ Ajustes del Usuario</h3>
+          <p class="text-sm text-slate-500 dark:text-slate-400">Personaliza la experiencia de la aplicación a tu gusto.</p>
+          <div class="grid md:grid-cols-2 gap-3">
+            <div>
+              <label class="text-sm text-slate-600 dark:text-slate-400">Tema</label>
+              <select id="themeSelect" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2">
+                <option value="light">Claro</option>
+                <option value="dark">Oscuro</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-sm text-slate-600 dark:text-slate-400">Notificaciones</label>
+              <select id="notifSelect" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2">
+                <option value="on">Activas</option>
+                <option value="off">Inactivas</option>
+              </select>
+            </div>
+          </div>
+          <button class="px-4 py-2 rounded-xl bg-gradient-to-b from-cosmic-600 to-cosmic-700 text-white font-medium">Guardar ajustes</button>
+        </form>
+      </section>
+
+      <!-- VISTA BILLETERA (WALLET) -->
+      <section id="view-wallet" class="hidden">
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 shadow-glow space-y-4 max-w-2xl">
+          <h3 class="font-semibold text-lg">💰 Mi Billetera
+            <button data-info="meetcoin" type="button" class="ml-1 text-sm text-slate-500 dark:text-slate-400">ⓘ</button>
+          </h3>
+          <div class="text-center p-6 rounded-xl border border-cosmic-200 dark:border-slate-700 bg-cosmic-50 dark:bg-slate-800">
+            <p class="text-sm text-slate-600 dark:text-slate-400">Balance Actual</p>
+            <p id="walletBalance" class="text-4xl font-bold text-cosmic-800 dark:text-cosmic-200 mt-2">0 MeetCoins</p>
+          </div>
+          <div class="space-y-3">
+            <h4 class="font-semibold">Transferir MeetCoins</h4>
+            <form id="transferForm" class="flex flex-col gap-2">
+              <input type="text" id="transferUser" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2" placeholder="ID de Usuario o Nombre"/>
+              <input type="number" id="transferAmount" min="1" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2" placeholder="Cantidad de MeetCoins"/>
+              <textarea id="transferNote" rows="2" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 outline-none" placeholder="Nota (opcional)"></textarea>
+              <button type="submit" class="w-full px-4 py-2 rounded-xl bg-gradient-to-b from-cosmic-600 to-cosmic-700 text-white font-medium">Transferir</button>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <!-- VISTA CONEXIONES (NUEVA) -->
+      <section id="view-conexiones" class="hidden">
+          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 shadow-glow space-y-4 max-w-md mx-auto">
+              <h3 class="font-semibold text-lg text-center">💑 Conexiones</h3>
+              <p class="text-sm text-slate-500 dark:text-slate-400 text-center">Desliza o usa los botones para conectar.</p>
+              
+              <div id="connections-stack"></div>
+              
+              <div id="connections-controls" class="flex justify-center items-center gap-6 pt-4">
+                  <button data-action="nope" class="p-4 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-md transition-all-fast hover:scale-110">
+                      <svg class="w-8 h-8 text-red-500" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+                  </button>
+                  <button data-action="like" class="p-4 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-md transition-all-fast hover:scale-110">
+                      <svg class="w-8 h-8 text-green-500" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+                  </button>
+              </div>
+          </div>
+      </section>
+
+      <!-- VISTA MIS COMUNIDADES -->
+      <section id="view-comunidades" class="hidden">
+        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 shadow-glow space-y-3 max-w-3xl">
+          <h3 class="font-semibold">Mis Comunidades</h3>
+          <ul id="communitiesList" class="space-y-2"></ul>
+          <div class="mt-3 text-xs text-slate-500 dark:text-slate-400">Para Conjunto/Edificio puedes definir un <strong>código</strong> y marcar como <strong>restringido</strong>. Los admins aprueban solicitudes.</div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Columna lateral -->
+    <aside class="lg:col-span-4 space-y-4 desktop-only">
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 shadow-glow">
+        <h3 class="font-semibold mb-2">Tendencias</h3>
+        <ul id="trends" class="text-sm text-slate-700 dark:text-slate-300 list-disc pl-5 space-y-1"></ul>
+      </div>
+      <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 shadow-glow">
+        <h3 class="font-semibold mb-2">Recompensas activas</h3>
+        <ul id="rewardsSide" class="text-sm text-slate-700 dark:text-slate-300 space-y-1"></ul>
+      </div>
+    </aside>
+  </div>
+  
+  <!-- Botón de pánico (siempre visible y accesible) -->
+  <button id="panicButton" class="fixed bottom-24 right-4 z-50 rounded-full shadow-glow bg-red-600 text-white px-4 py-4 text-sm font-bold transition-all-fast hover:scale-110">
+    BOTÓN DE PÁNICO 911
+  </button>
+
+  <!-- Barra de navegación inferior para móvil -->
+  <nav id="bottomNav" class="md:hidden fixed bottom-0 inset-x-0 z-50 bg-white/85 dark:bg-slate-900/85 glass border-t border-slate-200 dark:border-slate-700">
+    <div class="max-w-7xl mx-auto grid grid-cols-5 gap-1 px-2">
+      <button class="py-2 text-xs" data-to="feed">Inicio</button>
+      <button class="py-2 text-xs" data-to="chat">Chat</button>
+      <button class="py-2 text-xs" data-to="mapa">Mapa</button>
+      <button class="py-2 text-xs" data-to="market">Economía</button>
+      <button class="py-2 text-xs" data-to="eventos">Agenda</button>
+    </div>
+  </nav>
+
+  <!-- Botón de acción flotante (FAB) para publicar en móvil -->
+  <button id="fabPost" class="md:hidden fixed bottom-16 right-4 z-50 rounded-full shadow-glow bg-gradient-to-b from-cosmic-600 to-cosmic-700 text-white px-5 py-3 transition-all-fast hover:scale-110">Publicar</button>
+
+  <!-- Modal para la actualización a Pro -->
+  <div id="upgradeModal" class="modal hidden fixed inset-0 z-50 grid place-items-center bg-black/30 p-4">
+    <div class="modal-content w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-glow">
+      <h3 class="font-semibold mb-2">Desbloquea Meet Pro</h3>
+      <p class="text-sm text-slate-600 dark:text-slate-300 mb-4">El plan Free tiene límites mensuales. Pro te da publicaciones, items, rides y eventos <strong>ilimitados</strong> + canjes extra.</p>
+      <ul class="text-sm text-slate-700 dark:text-slate-300 list-disc pl-5 mb-4">
+        <li>Posts: 50 → ilimitado</li>
+        <li>Economía: 10 → ilimitado</li>
+        <li>Viajes: 8 → ilimitado</li>
+        <li>Eventos: 5 → ilimitado</li>
+        <li>Canjes: 2 → 10/mes</li>
+      </ul>
+      <div class="flex items-center justify-between flex-wrap gap-2 mb-2">
+        <button id="goProMonthly" class="px-4 py-2 rounded-lg bg-gradient-to-b from-cosmic-600 to-cosmic-700 text-white">Activar Pro $4/mes</button>
+        <button id="goProYearly" class="px-4 py-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700">Pro Anual $29/año</button>
+        <button id="closeUpgrade" class="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700">Luego</button>
+      </div>
+      <p class="text-xs text-slate-400">* Demo: activa sin pago. En producción se integra Stripe/PayPal.</p>
+    </div>
+  </div>
+
+  <!-- Modal para Notificaciones (solicitudes de rides y de ingreso) -->
+  <div id="notifModal" class="modal hidden fixed inset-0 z-50 grid place-items-center bg-black/30 p-4">
+    <div class="modal-content w-full max-w-lg bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-glow">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="font-semibold">Notificaciones</h3>
+        <button id="closeNotif" class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700">Cerrar</button>
+      </div>
+      <div class="space-y-4">
+        <div>
+          <h4 class="font-medium mb-2">Solicitudes de Viajes</h4>
+          <ul id="rideReqList" class="space-y-2 text-sm"></ul>
+        </div>
+        <div>
+          <h4 class="font-medium mb-2">Solicitudes de ingreso</h4>
+          <ul id="joinReqList" class="space-y-2 text-sm"></ul>
+        </div>
+        <div>
+          <h4 class="font-medium mb-2">Alertas de seguridad</h4>
+          <ul id="panicAlertsList" class="space-y-2 text-sm"></ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal para la confirmación de trueque -->
+  <div id="truequeModal" class="modal hidden fixed inset-0 z-50 grid place-items-center bg-black/30 p-4">
+    <div class="modal-content w-full max-w-sm bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-glow space-y-4">
+      <h3 class="font-semibold">Proponer Trueque</h3>
+      <p id="truequeText" class="text-sm text-slate-600 dark:text-slate-300"></p>
+      <form id="truequeForm" class="flex flex-col gap-2">
+        <textarea id="truequeOffer" rows="3" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 outline-none" placeholder="Describe lo que ofreces a cambio..."></textarea>
+        <button type="submit" class="px-4 py-2 rounded-xl bg-gradient-to-b from-cosmic-600 to-cosmic-700 text-white font-medium">Enviar Trueque</button>
+        <button type="button" id="closeTruequeModal" class="px-4 py-2 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300">Cancelar</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal para información detallada -->
+  <div id="infoModal" class="info-modal">
+    <div class="info-modal-content">
+      <h4 id="infoModalTitle" class="font-semibold text-lg mb-2"></h4>
+      <p id="infoModalText" class="text-sm text-slate-600 dark:text-slate-400 mb-4 whitespace-pre-line"></p>
+      <button id="closeInfoModal" class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 float-right">Cerrar</button>
+    </div>
+  </div>
+  
+  <footer class="max-w-7xl mx-auto px-4 py-16 md:py-10 text-center text-xs text-slate-500 dark:text-slate-400 space-y-2">
+      <p>
+          <button data-info="flow" type="button" class="underline">¿Qué es el Flow Comunitario?</button>
+      </p>
+      <p>
+          Diseñada por <strong>Goatify IA</strong>.
+          <br>
+          Founders & Developers: Daniel y Victor Ortega Corella.
+      </p>
+      <p>Nuestra visión es fortalecer las comunidades en Ecuador y expandirnos a toda LATAM.</p>
+  </footer>
+
+  <!-- Lógica de la aplicación con JavaScript -->
+  <script>
+    // Variables y funciones de utilidad
+    const $ = (q, d=document)=>d.querySelector(q);
+    const $$ = (q, d=document)=>Array.from(d.querySelectorAll(q));
+    const storeKey = 'meet_v6_solidaria_v10'; // Clave de almacenamiento actualizada
+    const EARTH_RADIUS_KM = 6371;
+    const PRICE_PER_KM = 2; // 2 MeetCoins por kilómetro
+    const MINIMUM_FARE = 10; // Tarifa mínima de 10 MeetCoins
+    const RIDE_COMPLETION_BONUS = 40; // Recompensa por completar viaje
+
+    const PLANS = {
+      free: { posts:50, items:10, rides:8, events:5, redemptions:2 },
+      pro:  { posts:9999, items:9999, rides:9999, events:9999, redemptions:10 }
+    };
+
+    const initial = {
+      theme: 'light',
+      user: { id: 'user_' + id(4), name:'Veci', plan:'free', zona:'Conocoto', radioKm:3, phone: '', social: '', intereses:'arte, deporte, trueque', proveedor:false, admin:false, public:true, lat:null, lng:null, verified: false, connections_pref: [] },
+      scope: { type:'zona', name:'Conocoto' },
+      usage: { period: periodKey(), posts:0, items:0, rides:0, events:0, redemptions:0 },
+      meetcoins: 50, 
+      posts: [],
+      messages: {}, 
+      items: [], events: [], rides: [],
+      rideRequests: [], 
+      joinRequests: [], 
+      notifications: [],
+      panicAlerts: [], 
+      rewards: [
+        { id:'r1', name:'Curso de Marketing', cost:150, cost_type: 'meetcoin', desc:'Curso de Marketing del Centro Iberoamericano. Canjeable online.'},
+        { id:'r2', name:'20% OFF en La Raza', cost:'2 productos o servicios', cost_type: 'trueque', desc:'20% de descuento en el Club La Raza. Pago en MeetCoins o Trueque.'},
+      ],
+      communities: [ {id: 'comm_default', type:'zona', name:'Conocoto', status:'joined'} ],
+      communityAdmins: { 'conjunto:Jardines del Valle': 'user_admin_demo' }, // Admin de ejemplo
+      communityCodes: { 'conjunto:Jardines del Valle': { code:'123456', restricted:true } },
+      conexiones: [
+        {id: 'user_carlos123', name: 'Carlos', intereses: 'senderismo, cocina', edad: 32, pref: ['romantico'], verified: true, imageUrl: 'https://placehold.co/400x600/A0B9FF/white?text=Carlos', isOnline: true},
+        {id: 'user_maria456', name: 'Maria', intereses: 'libros, cafe', edad: 28, pref: ['amistoso'], verified: false, imageUrl: 'https://placehold.co/400x600/FFD6A0/white?text=Maria', isOnline: true},
+        {id: 'user_juan789', name: 'Juan', intereses: 'música, cine', edad: 35, pref: ['amistoso', 'romantico'], verified: true, imageUrl: 'https://placehold.co/400x600/C4A0FF/white?text=Juan', isOnline: false},
+      ],
+      swipes: {}, // { 'swiped_user_id': 'like'/'nope' }
+      users: { 
+        'user_admin_demo': { name: 'Admin Conjunto', meetcoins: 1000, isOnline: false },
+        'user_carlos123': { name: 'Carlos', meetcoins: 100, isOnline: true },
+        'user_maria456': { name: 'Maria', meetcoins: 200, isOnline: true },
+        'user_juan789': { name: 'Juan', meetcoins: 150, isOnline: false }
+      }
+    };
+
+    const INFO_CONTENT = {
+      'flow': {
+        title: '¿Qué es el Flow Comunitario?',
+        text: `El "Flow" es el corazón de Meet. Es el movimiento constante de ayuda, recursos, servicios y conexiones que fortalece a la comunidad desde adentro.
+        
+        • **Flow Económico:** Al usar MeetCoins y el trueque, el valor se queda en el barrio, generando una economía circular que beneficia a todos.
+        • **Flow Social:** Los eventos, viajes compartidos y conexiones crean lazos reales entre vecinos, combatiendo el aislamiento.
+        • **Flow de Seguridad:** Los chats y alertas rápidas crean una red de apoyo que nos hace sentir más seguros.
+        
+        Cada acción que realizas en Meet contribuye a este flujo, haciendo de tu comunidad un lugar más próspero, conectado y resiliente.`
+      },
+      'rides': {
+        title: 'Sobre los Viajes',
+        text: 'Ofrece tu vehículo para llevar a vecinos. La tarifa se calcula automáticamente (2 MeetCoins/km, con una tarifa mínima de 10 MC por viaje). También puedes aceptar trueques. ¡Ganas 40 MeetCoins extra por cada viaje completado!'
+      },
+      'market': {
+        title: 'Sobre la Economía Circular',
+        text: 'Publica artículos para vender por MeetCoins, intercambiar por otros productos/servicios (trueque), o ambas. Fomenta la economía local y sostenible.'
+      },
+      'meetcoin': {
+        title: '¿Qué son los MeetCoins?',
+        text: 'Son la moneda digital de la comunidad. Ganas MeetCoins al participar y puedes usarlos para comprar, pagar viajes o canjear recompensas. Facilitan el intercambio y valoran tu contribución.'
+      },
+      'ambito': {
+        title: '¿Qué es el Ámbito?',
+        text: 'El ámbito define el alcance de lo que ves en la app. Puedes interactuar a nivel de una "Zona" amplia (ej. Conocoto), un "Sector" más pequeño, o comunidades verificadas y privadas como un "Conjunto" o "Edificio".'
+      },
+      'ambito_codigo': {
+        title: 'Código de Comunidad',
+        text: 'Algunas comunidades como Conjuntos o Edificios pueden ser privadas y requerir un código de acceso para unirse. Si tu comunidad tiene uno, ingrésalo aquí. Si no, el administrador deberá aprobar tu solicitud.'
+      },
+      'economia_circular': {
+        title: '¿Por qué una Economía Circular?',
+        text: `Fomentar el intercambio con MeetCoins o trueque dentro de nuestra comunidad tiene grandes ventajas:
+        
+        • **Es más económico:** Evitas intermediarios y costos asociados al dinero tradicional (dólares). Las transacciones son directas entre vecinos.
+        • **Fortalece la comunidad:** Conoces a tus vecinos y sus talentos, creando lazos de confianza y colaboración.
+        • **Es sostenible:** Reutilizar y intercambiar productos reduce el desperdicio y el impacto ambiental.
+        • **Valora tu aporte:** Ganas MeetCoins por participar, lo que te da poder de intercambio por tus buenas acciones.`
+      }
+    };
+
+    function periodKey(){
+      const d = new Date();
+      return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+    }
+
+    function ensurePeriod(){
+      if(state.usage.period !== periodKey()){
+        state.usage = { period: periodKey(), posts: 0, items: 0, rides: 0, events: 0, redemptions: 0 };
+        save(false);
+      }
+    }
+
+    function load(){
+      try {
+        const s = JSON.parse(localStorage.getItem(storeKey)) || seed();
+        applyTheme(s.theme || 'light');
+        if (!s.user.id) {
+            s.user.id = 'user_' + id(4);
+        }
+        if (!s.users[s.user.id]) {
+            s.users[s.user.id] = { name: s.user.name, meetcoins: s.meetcoins };
+        }
+        return s;
+      } catch(e) {
+        console.error("Error loading state from localStorage", e);
+        const s = seed();
+        applyTheme(s.theme || 'light');
+        return s;
+      }
+    }
+
+    function save(reRender = true){
+      if (state.user && state.user.id && state.users[state.user.id]) {
+          state.users[state.user.id].meetcoins = state.meetcoins;
+          state.users[state.user.id].name = state.user.name;
+      }
+      localStorage.setItem(storeKey, JSON.stringify(state));
+      if(reRender) renderAll();
+    }
+
+    function seed(){
+      const s = structuredClone(initial);
+      s.posts = [
+        {id: id(), user:'Ana', scope:{type:'zona',name:'Conocoto'}, content:'Cambio libros por plantas 🪴', likes:3, liked:false, ts:Date.now()-3600000},
+        {id: id(), user:'Luis', scope:{type:'sector',name:'La Armenia'}, content:'Se perdió una llave en el parque. Aviso por DM 🙏', likes:1, liked:false, ts:Date.now()-7200000}
+      ];
+      s.items = [
+        {id:id(), user:'Sofi', scope:{type:'conjunto',name:'Jardines del Valle'}, title:'Bici urbana', price:85, use_price: true, trueque_desc: 'Acepto consola de videojuegos', use_trueque: true, description:'Bien cuidada, talla M.', photos: [], ts:Date.now()-2300000},
+        {id:id(), user:'Carlos', scope:{type:'conjunto',name:'Jardines del Valle'}, title:'Mermelada casera', price: 0, use_price: false, trueque_desc: 'Fruta de temporada', use_trueque: true, description:'Intercambio por fruta de la temporada', photos: [], ts:Date.now()-1800000}
+      ];
+      s.events = [
+        {id:id(), scope:{type:'zona',name:'Conocoto'}, title:'Cine al aire libre', dt:new Date(Date.now()+86400000).toISOString(), place:'Plaza central', description:'Reactivamos el cine 🍿', attendees:12, lat:-0.333, lng:-78.48, is_free: true, price: 0, use_trueque: false, trueque_desc: ''}
+      ];
+      s.rides = [ {id:id(), scope:{type:'zona',name:'Conocoto'}, from_place:'Conocoto', to_place:'Quito centro', dt:new Date(Date.now()+5400000).toISOString(), seats:2, driver:'Marco', meet_point:'Parque de Conocoto 18:00', from_lat: -0.334, from_lng: -78.478, to_lat: -0.21, to_lng: -78.50, cost: 24, use_trueque: true, trueque_desc: 'Herramientas'} ];
+      return s;
+    }
+
+    function id(length = 8){ 
+        return Math.random().toString(36).substring(2, 2 + length);
+    }
+    let state = load();
+
+    function applyTheme(t){
+      document.documentElement.classList.toggle('dark', t === 'dark');
+    }
+
+    const sections = [
+      {id:'feed', label:'Feed'},
+      {id:'chat', label:'Chat'},
+      {id:'mapa', label:'Mapa'},
+      {id:'market', label:'Economía'},
+      {id:'eventos', label:'Agenda'},
+      {id:'rides', label:'Viajes'},
+      {id:'rewards', label:'Recompensas'},
+      {id:'conexiones', label:'Conexiones'}
+    ];
+
+    function mountTabs(){
+      const wrap = $('#tabs');
+      wrap.innerHTML = '';
+      sections.forEach((s, i) => {
+        const b = document.createElement('button');
+        b.className = 'px-3 py-2 rounded-xl text-sm border border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 transition-all-fast';
+        b.textContent = s.label;
+        b.dataset.to = s.id;
+        if(i === 0) b.setAttribute('aria-current', 'true');
+        wrap.appendChild(b);
+      });
+    }
+
+    let mapSelectionMode = null; // 'origin' or 'destination'
+
+    function show(id){
+      const mapEl = $('#map');
+      if (mapSelectionMode === null && mapEl) {
+          mapEl.classList.remove('selection-mode');
+      }
+      
+      $$('main > section').forEach(el => {
+        if(el.id === 'view-' + id) {
+          el.classList.remove('hidden', 'opacity-0', 'pointer-events-none');
+        } else {
+          el.classList.add('hidden', 'opacity-0', 'pointer-events-none');
+        }
+      });
+
+      if(id === 'mapa') setTimeout(() => { if(map) map.invalidateSize() }, 100);
+      if(id === 'chat') refreshChatSelectors();
+      if(id === 'conexiones') renderConnections();
+      if(id === 'wallet') renderWallet();
+    }
+
+    function keyScope(scope){
+      return `${scope.type}:${(scope.name || '').toLowerCase()}`;
+    }
+
+    function currentScopeKey(room){
+      const t = state.scope.type, n = (state.scope.name || '').trim();
+      return `rooms:${t}:${n}:${room || 'general'}`;
+    }
+
+    function applyScopeBadge(){
+      $('#scopeBadge').textContent = `Unido a ${state.scope.type} · ${state.scope.name || '-'}`;
+      $('#chatScopeLabel').textContent = `${state.scope.type} · ${state.scope.name || '-'}`;
+    }
+
+    function isRestricted(type){
+      return (type === 'conjunto' || type === 'edificio');
+    }
+
+    function canUse(type){
+      ensurePeriod();
+      const plan = state.user.plan || 'free';
+      const limit = PLANS[plan][type];
+      return (state.usage[type] || 0) < limit;
+    }
+
+    function useOne(type){
+      ensurePeriod();
+      state.usage[type] = (state.usage[type] || 0) + 1;
+      save();
+    }
+
+    function quotaText(){
+      const plan = state.user.plan || 'free';
+      const u = state.usage;
+      const l = PLANS[plan];
+      return `Plan ${plan.toUpperCase()} · Posts ${u.posts}/${l.posts} · Econ ${u.items}/${l.items} · Viajes ${u.rides}/${l.rides} · Eventos ${u.events}/${l.events} · Canjes ${u.redemptions}/${l.redemptions}`;
+    }
+
+    function updateQuotaBadge(){
+      $('#quotaBadge').textContent = quotaText();
+      $('#upgradeBtn').textContent = `Plan ${ (state.user.plan || 'free').toUpperCase() }`;
+    }
+
+    function heartSvg(active){
+      const fill = active ? '#6f37e8' : '#4a4a4a';
+      return `<svg viewBox="0 0 24 24" width="20" height="20"><path fill="${fill}" d="M12 21s-6.7-4.35-9.33-7.3C.5 11.3 1 8 3.5 6.7C5.4 5.7 7.7 6.2 9 7.7C10.3 6.2 12.6 5.7 14.5 6.7C17 8 17.5 11.3 15.33 13.7C12.7 16.65 12 21 12 21z"/></svg>`;
+    }
+    
+    const verifiedBadge = `<svg class="inline-block w-4 h-4 ml-1 text-blue-500" viewBox="0 0 24 24" fill="currentColor" aria-label="Verificado"><path d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75-4.365-9.75-9.75-9.75zm4.897 6.03l-5.61 5.61-2.39-2.39c-.29-.29-.76-.29-1.05 0-.29.29-.29.76 0 1.05l2.91 2.91c.14.14.33.22.52.22s.38-.08.52-.22l6.13-6.13c.29-.29.29-.76 0-1.05-.29-.29-.76-.29-1.05 0z"/></svg>`;
+
+    function renderFeed(){
+      const ul = $('#feedList');
+      ul.innerHTML = '';
+      const scope = state.scope;
+      state.posts.filter(p => matchScope(p.scope, scope)).sort((a, b) => b.ts - a.ts).forEach(p => {
+        const li = document.createElement('li');
+        li.className = 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 shadow-glow';
+        li.innerHTML = `
+          <div class="flex items-center justify-between text-sm text-slate-500 dark:text-slate-400">
+            <span><button class="underline font-bold" data-user="${esc(p.user)}">${esc(p.user)}${state.user.verified ? verifiedBadge : ''}</button> • ${esc(p.scope.type)} · ${esc(p.scope.name)}</span>
+            <time>${timeAgo(p.ts)}</time>
+          </div>
+          <p class="mt-2 text-slate-900 dark:text-slate-100">${esc(p.content)}</p>
+          <div class="mt-3 flex items-center gap-3">
+            <button class="like-btn inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 ${p.liked ? 'active' : ''}" data-like="${p.id}">
+              ${heartSvg(p.liked)} <span>${p.likes || 0}</span>
+            </button>
+          </div>`;
+        ul.appendChild(li);
+      });
+    }
+
+    function renderTrends(){
+      const el = $('#trends');
+      if (!el) return;
+      const scope = state.scope;
+      const top = state.posts.filter(p => matchScope(p.scope, scope)).slice().sort((a, b) => (b.likes || 0) - (a.likes || 0)).slice(0, 3);
+      el.innerHTML = top.map(p => `<li>${esc(p.content.slice(0, 60))}${p.content.length > 60 ? '…' : ''}</li>`).join('');
+      const rewardsSide = $('#rewardsSide');
+      if (rewardsSide) {
+        rewardsSide.innerHTML = state.rewards.map(r => `<li>${esc(r.name)} · <span class="text-cosmic-700 dark:text-cosmic-300 font-medium">${r.cost}</span></li>`).join('');
+      }
+    }
+
+    function refreshChatSelectors(){
+      const rideSel = $('#chatRideSelect');
+      const myName = state.user.name || 'Veci';
+      const rides = state.rides.filter(r => matchScope(r.scope, state.scope) && (r.driver === myName || (r.accepted || []).includes(myName)));
+      if (rides.length) {
+        rideSel.innerHTML = rides.map(r => `<option value="ride:${r.id}">${esc(r.from_place)} → ${esc(r.to_place)} (${new Date(r.dt).toLocaleDateString()})</option>`).join('');
+      } else {
+        rideSel.innerHTML = '<option value="">(No participas en viajes)</option>';
+      }
+    }
+
+    function chatKey(){
+      const mode = $('#chatModeBtn').dataset.mode || 'rooms';
+      if (mode === 'rooms') return currentScopeKey($('#chatRoom').value);
+      if (mode === 'rides') return $('#chatRideSelect').value || currentScopeKey('general');
+      return currentScopeKey('general');
+    }
+
+    function renderChat(){
+      const box = $('#chatBox');
+      const key = chatKey();
+      const msgs = state.messages[key] || [];
+      box.innerHTML = msgs.map(m => `<div class="text-sm"><span class="text-cosmic-700 dark:text-cosmic-300 font-medium">${esc(m.user)}${state.user.verified ? verifiedBadge : ''}</span>: ${esc(m.text)} <span class="text-slate-400">${timeAgo(m.ts)}</span></div>`).join('');
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function renderOnlineUsers() {
+        const list = $('#onlineUsersList');
+        if (!list) return;
+        const online = Object.entries(state.users)
+            .filter(([id, user]) => user.isOnline && id !== state.user.id);
+
+        if (online.length === 0) {
+            list.innerHTML = `<li class="text-center text-sm text-slate-500 p-4">Nadie más está en línea ahora mismo.</li>`;
+            return;
+        }
+
+        list.innerHTML = online.map(([id, user]) => `
+            <li class="flex items-center justify-between p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">
+                <div class="flex items-center gap-2">
+                    <div class="w-2 h-2 rounded-full bg-green-500"></div>
+                    <span>${esc(user.name)}</span>
+                </div>
+                <button data-dm="${id}" class="px-3 py-1 text-xs rounded-full bg-cosmic-600 text-white">Chatear</button>
+            </li>
+        `).join('');
+    }
+
+
+    // Lógica para la vista de Mapa
+    let map, circle, evLayer, rideLayer, routingControl;
+    let fromMarker = null, toMarker = null;
+
+    function initMap(){
+      const lat = parseFloat(state.user.lat) || -0.334;
+      const lng = parseFloat(state.user.lng) || -78.478;
+      const km = parseInt(state.user.radioKm) || 3;
+      if (!map) {
+        map = L.map('map').setView([lat, lng], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+        map.on('click', onMapClick);
+      } else {
+        map.setView([lat, lng], 13);
+      }
+      if (circle) circle.remove();
+      circle = L.circle([lat, lng], { radius: km * 1000, color: '#6f37e8', fillOpacity: 0.1 }).addTo(map);
+      renderMapLayers();
+    }
+    
+    function onMapClick(e) {
+        if (!mapSelectionMode) return;
+
+        const latlng = e.latlng;
+        const { lat, lng } = latlng;
+
+        if (mapSelectionMode === 'origin') {
+            if (fromMarker) fromMarker.setLatLng(latlng);
+            else fromMarker = L.marker(latlng, {draggable: true}).addTo(map).bindPopup('Origen').openPopup();
+            
+            $('#rideFromGeo').value = `${lat.toFixed(6)},${lng.toFixed(6)}`;
+            $('#rideFromPlace').value = `Ubicación seleccionada`;
+            
+            mapSelectionMode = null;
+            updateRouteOnMap();
+            show('rides');
+        } else if (mapSelectionMode === 'destination') {
+            if (toMarker) toMarker.setLatLng(latlng);
+            else toMarker = L.marker(latlng, {draggable: true}).addTo(map).bindPopup('Destino').openPopup();
+
+            $('#rideToGeo').value = `${lat.toFixed(6)},${lng.toFixed(6)}`;
+            $('#rideToPlace').value = `Ubicación seleccionada`;
+            
+            mapSelectionMode = null;
+            updateRouteOnMap();
+            show('rides');
+        }
+    }
+
+    function updateRouteOnMap() {
+        if (fromMarker && toMarker) {
+            if (routingControl) {
+                map.removeControl(routingControl);
+            }
+            routingControl = L.Routing.control({
+                waypoints: [ fromMarker.getLatLng(), toMarker.getLatLng() ],
+                lineOptions: { styles: [{color: '#6f37e8', opacity: 0.8, weight: 5}] },
+                createMarker: () => null, // No crear marcadores por defecto
+                routeWhileDragging: false,
+                addWaypoints: false
+            }).on('routesfound', function(e) {
+                if (!e.routes.length) return;
+                const route = e.routes[0];
+                const summary = route.summary;
+                const distanceKm = summary.totalDistance / 1000;
+                
+                const cost = Math.max(MINIMUM_FARE, Math.round(distanceKm * PRICE_PER_KM));
+                
+                $('#estimator-distancia').textContent = `${distanceKm.toFixed(2)} km`;
+                $('#estimator-costo').textContent = `${cost} MeetCoins`;
+                
+                // FIX: Check if waypoint name exists before splitting
+                const fromName = route.waypoints[0] && route.waypoints[0].name ? route.waypoints[0].name.split(',')[0] : 'Punto de partida';
+                const toName = route.waypoints[1] && route.waypoints[1].name ? route.waypoints[1].name.split(',')[0] : 'Punto de llegada';
+                $('#rideFromPlace').value = fromName;
+                $('#rideToPlace').value = toName;
+            }).addTo(map);
+        }
+        calculateAndDisplayRideCost();
+    }
+    
+    function renderMapLayers(){
+      if (!map) return;
+      if(evLayer) map.removeLayer(evLayer);
+      if(rideLayer) map.removeLayer(rideLayer);
+      
+      evLayer = L.layerGroup();
+      rideLayer = L.layerGroup();
+      const scope = state.scope;
+      
+      if($('#toggleEvents')?.checked){
+        state.events.filter(e => matchScope(e.scope, scope) && isNum(e.lat) && isNum(e.lng)).forEach(ev => {
+          L.marker([ev.lat, ev.lng]).bindPopup(`<b>${esc(ev.title)}</b><br>${esc(new Date(ev.dt).toLocaleString())}<br>${esc(ev.place)}`).addTo(evLayer);
+        });
+      }
+      if($('#toggleRides')?.checked){
+        state.rides.filter(r => matchScope(r.scope, scope)).forEach(r => {
+          if (isNum(r.from_lat) && isNum(r.from_lng)) {
+            L.marker([r.from_lat, r.from_lng]).bindPopup(`<b>Origen: ${esc(r.from_place)}</b><br>Costo: ${r.cost} MC`).addTo(rideLayer);
+          }
+          if (isNum(r.to_lat) && isNum(r.to_lng)) {
+            L.marker([r.to_lat, r.to_lng]).bindPopup(`<b>Destino: ${esc(r.to_place)}</b>`).addTo(rideLayer);
+          }
+          if (isNum(r.from_lat) && isNum(r.from_lng) && isNum(r.to_lat) && isNum(r.to_lng)) {
+              L.polyline([[r.from_lat, r.from_lng], [r.to_lat, r.to_lng]], {color: '#935bff', weight: 3, opacity: 0.7}).addTo(rideLayer);
+          }
+        });
+      }
+      evLayer.addTo(map);
+      rideLayer.addTo(map);
+    }
+
+    // Lógica para la vista de Marketplace
+    function renderMarket(){
+      const q = ($('#marketSearch')?.value || '').toLowerCase();
+      const list = $('#marketList');
+      if(!list) return;
+      const scope = state.scope;
+      const items = state.items.filter(i => matchScope(i.scope, scope) && `${i.title} ${i.description}`.toLowerCase().includes(q));
+      list.innerHTML = items.map(i => {
+        let costDisplay = '';
+        if (i.use_price && i.price > 0) {
+            costDisplay += `<span class="font-bold text-cosmic-600">${i.price} MeetCoins</span>`;
+        }
+        if (i.use_trueque) {
+            costDisplay += `${costDisplay ? ' o ' : ''}<span class="font-bold text-green-600">Acepta Trueque</span>`;
+        }
+        
+        const contactBtn = `<button data-buy="${i.id}" class="px-3 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800">Contactar</button>`;
+        const truequeBtn = i.use_trueque ? `<button data-trueque="${i.id}" class="px-3 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800">Proponer Trueque</button>` : '';
+
+        return `
+        <li class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 shadow-glow">
+          <div class="flex items-start justify-between">
+            <div>
+              <h4 class="font-medium">${esc(i.title)}</h4>
+              <span class="text-sm text-slate-500 dark:text-slate-400"><strong class="text-slate-900 dark:text-slate-100">${esc(i.user)}${state.user.verified ? verifiedBadge : ''}</strong></span>
+            </div>
+            <div class="text-sm text-right">${costDisplay}</div>
+          </div>
+          <p class="mt-2 text-slate-800 dark:text-slate-200">${esc(i.description)}</p>
+          ${i.use_trueque && i.trueque_desc ? `<p class="mt-1 text-xs text-green-700 dark:text-green-400"><b>Busca a cambio:</b> ${esc(i.trueque_desc)}</p>` : ''}
+          ${(i.photos && i.photos.length > 0) ? `<div class="mt-3 grid grid-cols-3 gap-2">${i.photos.map(p => `<img src="${p}" class="w-full h-24 rounded-lg object-cover" alt="Foto del producto">`).join('')}</div>` : ''}
+          <div class="mt-3 flex gap-2">${contactBtn} ${truequeBtn}</div>
+        </li>`;
+      }).join('');
+    }
+    
+    let currentTruequeId = null;
+
+    // Lógica para Eventos
+    function renderEvents(){
+      const list = $('#eventList');
+      if(!list) return;
+      const fmt = d => new Date(d).toLocaleString();
+      const scope = state.scope;
+      list.innerHTML = state.events.filter(ev => matchScope(ev.scope, scope)).sort((a, b) => new Date(a.dt) - new Date(b.dt)).map(ev => {
+        let costDisplay = '';
+        if (ev.is_free) {
+            costDisplay = '<span class="font-bold text-green-600">Gratis</span>';
+        } else {
+            if (ev.price > 0) {
+                costDisplay += `<span class="font-bold text-cosmic-600">${ev.price} MeetCoins</span>`;
+            }
+            if (ev.use_trueque) {
+                costDisplay += `${costDisplay ? ' o ' : ''}<span class="font-bold text-blue-600">Acepta Trueque</span>`;
+            }
+        }
+        return `
+        <li class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 shadow-glow">
+          <div class="flex items-start justify-between">
+            <div>
+                <h4 class="font-medium">${esc(ev.title)}</h4>
+                <p class="text-xs text-slate-500 dark:text-slate-400">${fmt(ev.dt)}</p>
+            </div>
+            <div class="text-sm text-right">${costDisplay}</div>
+          </div>
+          <p class="text-sm text-slate-700 dark:text-slate-300 mt-1">${esc(ev.place)} — ${esc(ev.description)}</p>
+          <div class="mt-2 flex items-center gap-3 text-sm">
+            <span class="text-slate-500 dark:text-slate-400">Asistentes: ${ev.attendees || 0}</span>
+            <button data-rsvp="${ev.id}" class="px-3 py-1.5 rounded-lg bg-gradient-to-b from-cosmic-600 to-cosmic-700 text-white">Asistir</button>
+          </div>
+        </li>`;
+      }).join('');
+    }
+    
+    // Lógica para Viajes (actualizada)
+    function renderRides(){
+      const list = $('#rideList');
+      if(!list) return;
+      const fmt = d => new Date(d).toLocaleString();
+      const scope = state.scope;
+      const myName = state.user.name || 'Veci';
+      list.innerHTML = state.rides.filter(r => matchScope(r.scope, scope)).sort((a, b) => new Date(a.dt) - new Date(b.dt)).map(r => {
+        const mine = r.driver === myName;
+        const reqPending = (state.rideRequests || []).some(rr => rr.rideId === r.id && rr.from === myName && rr.status === 'pending');
+        const alreadyAccepted = (r.accepted || []).includes(myName) && !mine;
+        
+        let costDisplay = `${r.cost} MeetCoins`;
+        if (r.use_trueque) {
+            costDisplay += ` o <span class="text-green-600">Trueque</span>`;
+        }
+
+        const action = mine ? `<span class="text-xs text-slate-500">Administra en Notificaciones</span>` 
+            : alreadyAccepted ? `<button data-ridechat="${r.id}" class="px-3 py-1.5 rounded-lg bg-gradient-to-b from-cosmic-600 to-cosmic-700 text-white">Abrir chat</button>` 
+            : reqPending ? `<span class="text-xs text-slate-500">Solicitud enviada…</span>` 
+            : `<button data-join="${r.id}" class="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50">Unirme</button>`;
+        
+        return `<li class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 shadow-glow">
+          <div class="flex items-center justify-between">
+            <h4 class="font-medium">${esc(r.from_place)} → ${esc(r.to_place)}</h4>
+            <span class="text-xs text-slate-500">${fmt(r.dt)}</span>
+          </div>
+          <p class="text-sm text-slate-700 dark:text-slate-300">Conductor: ${esc(r.driver)} · Asientos: ${r.seats}</p>
+          <div class="mt-2 flex items-center justify-between">
+            <span class="font-semibold text-cosmic-700 dark:text-cosmic-300">${costDisplay}</span>
+            <div class="flex gap-2">${action}</div>
+          </div>
+        </li>`;
+      }).join('');
+    }
+    
+    // Calcula la distancia en línea recta (fallback)
+    function getDistance(lat1, lon1, lat2, lon2) {
+      const R = 6371; // Radio de la Tierra en km
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c; // Distancia en km
+    }
+
+    function calculateAndDisplayRideCost() {
+        const fromGeo = $('#rideFromGeo').value.trim();
+        const toGeo = $('#rideToGeo').value.trim();
+        if (fromGeo && toGeo) {
+            const [fromLat, fromLng] = fromGeo.split(',').map(s => parseFloat(s.trim()));
+            const [toLat, toLng] = toGeo.split(',').map(s => parseFloat(s.trim()));
+            if (isNum(fromLat) && isNum(fromLng) && isNum(toLat) && isNum(toLng)) {
+                // Leaflet routing ya actualiza esto, pero lo usamos como fallback
+                const distance = getDistance(fromLat, fromLng, toLat, toLng);
+                const cost = Math.max(MINIMUM_FARE, Math.round(distance * PRICE_PER_KM));
+                $('#estimator-distancia').textContent = `${distance.toFixed(2)} km`;
+                $('#estimator-costo').textContent = `${cost} MeetCoins`;
+                return cost;
+            }
+        }
+        // Resetear a mínimo si no hay ruta válida
+        $('#estimator-distancia').textContent = `0.00 km`;
+        $('#estimator-costo').textContent = `${MINIMUM_FARE} MeetCoins`;
+        return MINIMUM_FARE;
+    }
+
+    function renderNotifications(){
+      const rrList = $('#rideReqList');
+      const my = state.user.name || 'Veci';
+      const myRides = state.rides.filter(r => r.driver === my);
+      const pending = (state.rideRequests || []).filter(rr => myRides.some(r => r.id === rr.rideId) && rr.status === 'pending');
+      rrList.innerHTML = pending.length ? pending.map(rr => {
+        const ride = state.rides.find(r => r.id === rr.rideId);
+        return `<li class="border border-slate-200 dark:border-slate-700 rounded-xl p-3">
+          <div><strong>${esc(rr.from)}</strong> quiere unirse a tu viaje <em>${esc(ride.from_place)} → ${esc(ride.to_place)}</em> (${rr.cost} MeetCoins)</div>
+          <div class="mt-2 flex flex-col gap-2 md:flex-row md:items-center md:gap-3">
+            <input data-meetfor="${rr.id}" class="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-sm" placeholder="Punto de encuentro (opcional)"/>
+            <button data-accept="${rr.id}" class="px-3 py-1.5 rounded-lg bg-gradient-to-b from-cosmic-600 to-cosmic-700 text-white text-sm">Aceptar</button>
+            <button data-decline="${rr.id}" class="px-3 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm">Rechazar</button>
+          </div>
+        </li>`;
+      }).join('') : '<li class="text-slate-500 dark:text-slate-400">Sin solicitudes de viajes.</li>';
+
+      const jrList = $('#joinReqList');
+      // Ahora filtramos las solicitudes para comunidades donde el usuario actual es admin
+      const jPending = (state.joinRequests || []).filter(jr => {
+          const communityKey = keyScope(jr.scope);
+          return state.communityAdmins[communityKey] === state.user.id && jr.status === 'pending';
+      });
+
+      jrList.innerHTML = jPending.length ? jPending.map(jr => `
+        <li class="border border-slate-200 dark:border-slate-700 rounded-xl p-3 flex items-center justify-between">
+          <span><strong>${esc(jr.user)}</strong> solicita unirse a ${esc(jr.scope.type)} · ${esc(jr.scope.name)}</span>
+          <span class="flex gap-2"><button data-joinaccept="${jr.id}" class="px-3 py-1.5 rounded-lg bg-gradient-to-b from-cosmic-600 to-cosmic-700 text-white text-sm">Aprobar</button><button data-joindecline="${jr.id}" class="px-3 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm">Rechazar</button></span>
+        </li>`).join('') : '<li class="text-slate-500 dark:text-slate-400">Sin solicitudes de ingreso.</li>';
+
+      const paList = $('#panicAlertsList');
+      paList.innerHTML = (state.panicAlerts || []).map(pa => `
+        <li class="border border-red-400 rounded-xl p-3 bg-red-50 dark:bg-red-950">
+          <strong>Alerta de pánico</strong> de <strong>${esc(pa.user)}</strong> en <strong>${esc(pa.scope.name)}</strong> a las ${new Date(pa.ts).toLocaleString()}.
+        </li>`).join('') || '<li class="text-slate-500 dark:text-slate-400">Sin alertas de pánico.</li>';
+    }
+
+    function renderRewards(){
+      const list = $('#rewardsList');
+      list.innerHTML = state.rewards.map(r => {
+        const isTrueque = r.cost_type === 'trueque';
+        const costDisplay = isTrueque ? `Trueque (${r.cost})` : `${r.cost} MeetCoins`;
+        const buttonText = isTrueque ? 'Proponer Trueque' : `Canjear`;
+        const canRedeem = isTrueque || state.meetcoins >= r.cost;
+        return `
+        <li class="border border-slate-200 dark:border-slate-700 rounded-2xl p-4 flex items-center justify-between bg-white dark:bg-slate-900 shadow-glow">
+          <div>
+            <h4 class="font-medium">${esc(r.name)}</h4>
+            <p class="text-sm text-slate-500 dark:text-slate-400">${esc(r.desc)}</p>
+          </div>
+          <button data-redeem="${r.id}" class="px-3 py-1.5 rounded-lg ${canRedeem ? 'bg-gradient-to-b from-cosmic-600 to-cosmic-700 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-500 cursor-not-allowed'}">${buttonText}</button>
+        </li>`;
+      }).join('');
+      $('#pointsBadge').textContent = state.meetcoins + ' MeetCoins';
+    }
+
+    function renderProfile(){
+      $('#profName').value = state.user.name || '';
+      $('#profPhone').value = state.user.phone || '';
+      $('#profSocial').value = state.user.social || '';
+      $('#profZona').value = state.user.zona || '';
+      $('#profRadio').value = state.user.radioKm || 3;
+      $('#profIntereses').value = state.user.intereses || '';
+      $('#profProveedor').checked = !!state.user.proveedor;
+      $('#profAdmin').checked = !!state.user.admin;
+      $('#profPublic').checked = !!state.user.public;
+      $('#profVerified').checked = !!state.user.verified;
+      $('#profLat').value = state.user.lat || '';
+      $('#profLng').value = state.user.lng || '';
+      $('#userNameDisplay').textContent = state.user.name || 'Cuenta';
+      $('#userIdDisplay').textContent = state.user.id || 'N/A';
+    }
+
+    function renderSettings(){
+      $('#themeSelect').value = state.theme || 'light';
+    }
+
+    function renderWallet() {
+      $('#walletBalance').textContent = `${state.meetcoins} MeetCoins`;
+    }
+
+    function renderCommunities(){
+      const ul = $('#communitiesList');
+      ul.innerHTML = state.communities.map(c => {
+        const key = `${c.type}:${c.name}`;
+        const cfg = state.communityCodes[key] || {code: '', restricted: isRestricted(c.type)};
+        const isAdmin = state.communityAdmins[key] === state.user.id;
+        const adminTools = isAdmin ? `
+          <details class="mt-2 text-xs">
+            <summary class="cursor-pointer">Admin: Código y restricción</summary>
+            <div class="mt-2 flex flex-wrap gap-2 items-center">
+              <input data-commcode="${key}" value="${esc(cfg.code || '')}" class="w-36 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-2 py-1" placeholder="Código (6)"/>
+              <label class="flex items-center gap-2 text-xs"><input type="checkbox" data-commrest="${key}" ${cfg.restricted ? 'checked' : ''}/> Restringido</label>
+              <button data-commsave="${key}" class="px-2 py-1 rounded border border-slate-200 dark:border-slate-700">Guardar</button>
+            </div>
+          </details>` : '';
+        return `<li class="border border-slate-200 dark:border-slate-700 rounded-xl p-3">
+          <div class="flex items-center justify-between">
+            <div><strong>${esc(c.type)}</strong> · ${esc(c.name)} — <span class="text-slate-500 dark:text-slate-400">${c.status}</span></div>
+            <div class="flex gap-2"><button data-switchscope="${key}" class="px-2 py-1 rounded bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700">Cambiar a esta</button></div>
+          </div>
+          ${adminTools}
+        </li>`;
+      }).join('');
+    }
+
+    let currentConnectionIndex = 0;
+    function renderConnections() {
+        const stack = $('#connections-stack');
+        if (!stack) return;
+        
+        const mySwipes = state.swipes[state.user.id] || {};
+        const potentialMatches = state.conexiones.filter(c => c.id !== state.user.id && !mySwipes[c.id]);
+
+        if (potentialMatches.length === 0) {
+            stack.innerHTML = `<div class="text-center p-8 text-slate-500">No hay más perfiles por ahora. ¡Vuelve más tarde!</div>`;
+            $('#connections-controls').classList.add('hidden');
+            return;
+        }
+        
+        $('#connections-controls').classList.remove('hidden');
+        const nextUser = potentialMatches[0];
+        
+        stack.innerHTML = `
+            <div class="connection-card" data-id="${nextUser.id}" style="background-image: url('${nextUser.imageUrl}')">
+                <div class="card-info">
+                    <h4 class="text-2xl font-bold">${esc(nextUser.name)}, ${nextUser.edad} ${nextUser.verified ? verifiedBadge : ''}</h4>
+                    <p class="text-sm">${esc(nextUser.intereses)}</p>
+                </div>
+            </div>
+        `;
+    }
+
+    function handleSwipe(action) {
+        const card = $('.connection-card');
+        if (!card) return;
+
+        const targetId = card.dataset.id;
+        if (!state.swipes[state.user.id]) {
+            state.swipes[state.user.id] = {};
+        }
+        state.swipes[state.user.id][targetId] = action;
+
+        // Animación de swipe
+        card.classList.add(action === 'like' ? 'swiping-right' : 'swiping-left');
+
+        // Comprobar si hay match
+        const theirSwipes = state.swipes[targetId] || {};
+        if (action === 'like' && theirSwipes[state.user.id] === 'like') {
+            setTimeout(() => {
+                const targetUser = state.conexiones.find(u => u.id === targetId);
+                alert(`¡Es un Match con ${targetUser.name}!`);
+            }, 400);
+        }
+        
+        // Cargar la siguiente tarjeta después de la animación
+        setTimeout(() => {
+            renderConnections();
+            save();
+        }, 400);
+    }
+
+    function pointsBadge(){
+      $('#pointsBadge').textContent = state.meetcoins + ' MeetCoins';
+    }
+
+    function esc(str){
+      return (str || '').toString().replace(/[&<>"']/g, m => ({ "&": "&amp;", "<": "&lt;", "\"": "&quot;", "'": "&#39;" }[m]));
+    }
+
+    function timeAgo(ts){
+      const s = Math.floor((Date.now() - ts) / 1000);
+      if (s < 60) return `${s}s`;
+      const m = Math.floor(s / 60);
+      if (m < 60) return `${m}m`;
+      const h = Math.floor(m / 60);
+      if (h < 24) return `${h}h`;
+      const d = Math.floor(h / 24);
+      return `${d}d`;
+    }
+
+    function isNum(x){
+      return typeof x === 'number' && !isNaN(x);
+    }
+
+    function matchScope(a, b){
+      return a && b && a.type === b.type && (a.name || '').toLowerCase() === (b.name || '').toLowerCase();
+    }
+    
+    function openModal(selector) {
+      const modal = $(selector);
+      if (modal) {
+        modal.classList.remove('hidden');
+        // Force reflow for transition
+        modal.offsetWidth;
+        modal.classList.remove('opacity-0');
+      }
+    }
+
+    function closeModal(selector) {
+      const modal = $(selector);
+      if (modal) {
+        modal.classList.add('opacity-0');
+        setTimeout(() => modal.classList.add('hidden'), 300);
+      }
+    }
+
+    function renderAll(){
+      ensurePeriod();
+      renderFeed();
+      renderTrends();
+      renderMarket();
+      renderEvents();
+      renderRides();
+      renderRewards();
+      renderProfile();
+      renderSettings();
+      applyScopeBadge();
+      pointsBadge();
+      renderChat();
+      updateQuotaBadge();
+    }
+
+    function attachEventListeners() {
+        const attach = (selector, event, handler) => {
+            const element = $(selector);
+            if (element) {
+                element.addEventListener(event, handler);
+            } else {
+                console.error(`Element not found for selector: ${selector}`);
+            }
+        };
+
+        const attachAll = (selector, event, handler) => {
+            const elements = $$(selector);
+            if (elements.length > 0) {
+                elements.forEach(el => el.addEventListener(event, handler));
+            }
+        };
+
+        // Top bar & Menus
+        attach('#tabs', 'click', (e) => {
+            const btn = e.target.closest('button[data-to]');
+            if(!btn) return;
+            $$('#tabs button').forEach(x => x.setAttribute('aria-current', 'false'));
+            btn.setAttribute('aria-current', 'true');
+            show(btn.dataset.to);
+        });
+        attach('#bottomNav', 'click', (e) => {
+            const b = e.target.closest('button[data-to]');
+            if(!b) return;
+            show(b.dataset.to);
+        });
+        attach('#fabPost', 'click', () => {
+            show('feed');
+            $('#postText').focus();
+        });
+        attach('#userMenuBtn', 'click', () => $('#userMenu').classList.toggle('hidden'));
+        document.addEventListener('click', (e) => {
+          if (!e.target.closest('#userMenuBtn') && !e.target.closest('#userMenu')) {
+            $('#userMenu').classList.add('hidden');
+          }
+        });
+        attach('#userMenu', 'click', (e) => {
+          const btn = e.target.closest('[data-open]');
+          if (!btn) return;
+          show(btn.dataset.open);
+          $('#userMenu').classList.add('hidden');
+          if (btn.dataset.open === 'comunidades') renderCommunities();
+        });
+        attach('#notifBtn', 'click', () => {
+          openModal('#notifModal');
+          renderNotifications();
+        });
+        attach('#upgradeBtn', 'click', () => openModal('#upgradeModal'));
+
+        // Scope bar
+        attach('#joinScope', 'click', () => {
+            const type = $('#scopeType').value;
+            const name = $('#scopeName').value.trim();
+            const codeInput = $('#scopeCode').value.trim();
+            if (!name) { alert('Pon un nombre de comunidad.'); return; }
+
+            const key = keyScope({type, name});
+            const communityExists = state.communities.some(c => keyScope(c) === key);
+
+            if (isRestricted(type)) {
+                const cfg = state.communityCodes[key];
+                // Si la comunidad no existe y es restringida, el primer usuario se convierte en admin
+                if (!cfg) {
+                    state.communityCodes[key] = { code: codeInput || id(6), restricted: true };
+                    state.communityAdmins[key] = state.user.id;
+                    alert(`Has creado y te has unido a la comunidad restringida "${name}". Tu código para compartir es: ${state.communityCodes[key].code}`);
+                    joinCommunity({type, name}, 'joined');
+                } else { // La comunidad ya existe
+                    if (cfg.code === codeInput) {
+                        joinCommunity({type, name}, 'joined');
+                        alert('Unido correctamente con código.');
+                    } else {
+                        const jr = { id: id(), scope: {type, name}, user: state.user.name || 'Veci', status: 'pending' };
+                        state.joinRequests.push(jr);
+                        alert('Código incorrecto. Se envió una solicitud al administrador de la comunidad.');
+                    }
+                }
+            } else {
+                joinCommunity({type, name}, 'joined');
+                alert(`Te has unido a la comunidad pública "${name}".`);
+            }
+            save();
+        });
+
+        // Feed
+        attach('#postForm', 'submit', e => {
+          e.preventDefault();
+          const t = $('#postText').value.trim();
+          if (!t) return;
+          if (!canUse('posts')) return openModal('#upgradeModal');
+          state.posts.push({id: id(), user: state.user.name || 'Veci', scope: {...state.scope}, content: t, likes: 0, liked: false, ts: Date.now()});
+          $('#postText').value = '';
+          state.meetcoins += 5;
+          useOne('posts');
+          save();
+        });
+        attach('#feedList', 'click', e => {
+          const btn = e.target.closest('button[data-like]');
+          if (btn) {
+            const pid = btn.dataset.like;
+            const p = state.posts.find(x => x.id === pid);
+            if (!p) return;
+            p.liked = !p.liked;
+            p.likes = (p.likes || 0) + (p.liked ? 1 : -1);
+            save();
+            return;
+          }
+          const userBtn = e.target.closest('[data-user]');
+          if (userBtn) {
+            alert(`Perfil de ${userBtn.dataset.user} (demo público)${state.user.verified ? ' - Verificado' : ''}`);
+          }
+        });
+
+        // Chat
+        attach('#chatModeBtn', 'click', () => {
+            $('#chatModeDropdown').classList.toggle('hidden');
+        });
+        attach('#chatModeDropdown', 'click', e => {
+            e.preventDefault();
+            const mode = e.target.dataset.mode;
+            if (!mode) return;
+            $('#chatModeBtn').dataset.mode = mode;
+            $('#chatModeLabel').textContent = e.target.textContent;
+            $('#chatModeDropdown').classList.add('hidden');
+            
+            $('#chat-rooms-view').classList.toggle('hidden', mode !== 'rooms');
+            $('#chat-dms-view').classList.toggle('hidden', mode !== 'dms');
+            $('#chatRideSelect').parentElement.classList.toggle('hidden', mode !== 'rides');
+
+            if (mode === 'dms') {
+                renderOnlineUsers();
+            } else {
+                renderChat();
+            }
+        });
+        attachAll('#chatRoom, #chatRideSelect', 'change', renderChat);
+        attach('#chatForm', 'submit', e => {
+          e.preventDefault();
+          const t = $('#chatInput').value.trim();
+          if (!t) return;
+          const key = chatKey();
+          state.messages[key] = state.messages[key] || [];
+          state.messages[key].push({user: state.user.name || 'Veci', text: t, ts: Date.now()});
+          $('#chatInput').value = '';
+          save();
+        });
+        
+        // Mapa
+        attachAll('#toggleEvents, #toggleRides', 'change', renderMapLayers);
+
+        // Marketplace
+        attach('#usePrice', 'change', (e) => {
+            $('#itemPrice').classList.toggle('hidden', !e.target.checked);
+        });
+        attach('#useTrueque', 'change', (e) => {
+            $('#itemTruequeDesc').classList.toggle('hidden', !e.target.checked);
+        });
+        attach('#itemForm', 'submit', e => {
+          e.preventDefault();
+          if (!canUse('items')) return openModal('#upgradeModal');
+          const title = $('#itemTitle').value.trim();
+          const usePrice = $('#usePrice').checked;
+          const useTrueque = $('#useTrueque').checked;
+          const price = usePrice ? parseFloat($('#itemPrice').value) || 0 : 0;
+          const truequeDesc = useTrueque ? $('#itemTruequeDesc').value.trim() : '';
+          const desc = $('#itemDesc').value.trim();
+          const photos = [$('#itemPhoto1'), $('#itemPhoto2'), $('#itemPhoto3')].map(input => {
+            if (input.files.length > 0) { return URL.createObjectURL(input.files[0]); }
+            return null;
+          }).filter(p => p !== null);
+          if (!title || (!usePrice && !useTrueque)) {
+            alert('Por favor, completa el título y selecciona al menos un método de cobro.');
+            return;
+          }
+          state.items.push({
+            id: id(), user: state.user.name || 'Veci', scope: {...state.scope}, title, price,
+            use_price: usePrice, trueque_desc: truequeDesc, use_trueque: useTrueque,
+            description: desc, photos, ts: Date.now()
+          });
+          e.target.reset();
+          $('#itemPrice').classList.remove('hidden');
+          $('#itemTruequeDesc').classList.add('hidden');
+          state.meetcoins += 10;
+          useOne('items');
+          save();
+        });
+        attach('#marketList', 'click', e => {
+          const btn = e.target.closest('[data-buy]');
+          if (btn) {
+            alert('Ping al vendedor enviado (demo).');
+            return;
+          }
+          const truequeBtn = e.target.closest('[data-trueque]');
+          if(truequeBtn) {
+            currentTruequeId = truequeBtn.dataset.trueque;
+            const item = state.items.find(i => i.id === currentTruequeId);
+            if (item) {
+              $('#truequeText').textContent = `Propones un trueque por "${item.title}". El vendedor busca: "${item.trueque_desc || 'No especificado'}". Describe tu oferta:`;
+              openModal('#truequeModal');
+            }
+          }
+        });
+        attach('#marketSearch', 'input', renderMarket);
+
+        // Eventos
+        attach('#eventGratis', 'change', e => {
+            const isChecked = e.target.checked;
+            $('#eventPriceContainer').classList.toggle('hidden', isChecked);
+            if (isChecked) {
+                $('#eventUsePrice').checked = false;
+                $('#eventUseTrueque').checked = false;
+                $('#eventPrice').classList.add('hidden');
+                $('#eventTruequeDesc').classList.add('hidden');
+            }
+        });
+        attach('#eventUsePrice', 'change', e => {
+            $('#eventPrice').classList.toggle('hidden', !e.target.checked);
+        });
+        attach('#eventUseTrueque', 'change', e => {
+            $('#eventTruequeDesc').classList.toggle('hidden', !e.target.checked);
+        });
+        attach('#eventForm', 'submit', e => {
+          e.preventDefault();
+          if (!canUse('events')) return openModal('#upgradeModal');
+          const title = $('#eventTitle').value.trim();
+          const dt = $('#eventDate').value;
+          const place = $('#eventPlace').value.trim();
+          const desc = $('#eventDesc').value.trim();
+          const geo = $('#eventGeo').value.trim();
+          const isFree = $('#eventGratis').checked;
+          const usePrice = $('#eventUsePrice').checked;
+          const useTrueque = $('#eventUseTrueque').checked;
+          const price = usePrice ? parseFloat($('#eventPrice').value) || 0 : 0;
+          const truequeDesc = useTrueque ? $('#eventTruequeDesc').value.trim() : '';
+          let lat = null, lng = null;
+          if (geo && geo.includes(',')) {
+            const [a, b] = geo.split(',').map(x => parseFloat(x.trim()));
+            if (!isNaN(a) && !isNaN(b)) { lat = a; lng = b; }
+          }
+          if (!title || !dt) return alert('El título y la fecha son obligatorios.');
+          if (!isFree && !usePrice && !useTrueque) return alert('Si el evento no es gratuito, debes seleccionar un método de cobro.');
+          state.events.push({
+            id: id(), scope: {...state.scope}, title, dt, place, description: desc, attendees: 0, lat, lng,
+            is_free: isFree, price, use_price: usePrice, trueque_desc: truequeDesc, use_trueque: useTrueque
+          });
+          e.target.reset();
+          $('#eventPriceContainer').classList.add('hidden');
+          $('#eventGratis').checked = true;
+          state.meetcoins += 20;
+          useOne('events');
+          save();
+          renderMapLayers();
+        });
+        attach('#eventList', 'click', e => {
+          const btn = e.target.closest('[data-rsvp]');
+          if (!btn) return;
+          const ev = state.events.find(x => x.id === btn.dataset.rsvp);
+          if (!ev) return;
+          ev.attendees = (ev.attendees || 0) + 1;
+          save();
+        });
+
+        // Viajes - Lógica nueva
+        attach('#setOriginBtn', 'click', () => {
+            mapSelectionMode = 'origin';
+            show('mapa');
+            $('#map-title').textContent = 'Selecciona el Origen';
+            $('#map-ride-controls').classList.remove('hidden');
+            $('#map-instructions').textContent = 'Haz clic en el mapa para fijar el punto de partida';
+            $('#map').classList.add('selection-mode');
+        });
+        attach('#setDestinationBtn', 'click', () => {
+            if (!$('#rideFromGeo').value) {
+                alert('Por favor, selecciona primero el origen.');
+                return;
+            }
+            mapSelectionMode = 'destination';
+            show('mapa');
+            $('#map-title').textContent = 'Selecciona el Destino';
+            $('#map-ride-controls').classList.remove('hidden');
+            $('#map-instructions').textContent = 'Haz clic en el mapa para fijar el punto de llegada';
+            $('#map').classList.add('selection-mode');
+        });
+        attach('#rideAcceptTrueque', 'change', e => {
+            $('#rideTruequeDesc').classList.toggle('hidden', !e.target.checked);
+        });
+        attach('#rideForm', 'submit', e => {
+          e.preventDefault();
+          if (!canUse('rides')) return openModal('#upgradeModal');
+          const fromPlace = $('#rideFromPlace').value.trim();
+          const toPlace = $('#rideToPlace').value.trim();
+          const fromGeo = $('#rideFromGeo').value.trim();
+          const toGeo = $('#rideToGeo').value.trim();
+          const meet = $('#rideMeet').value.trim();
+          const dt = $('#rideTime').value;
+          const seats = parseInt($('#rideSeats').value || '2');
+          const useTrueque = $('#rideAcceptTrueque').checked;
+          const truequeDesc = useTrueque ? $('#rideTruequeDesc').value.trim() : '';
+          
+          if (!fromGeo || !toGeo || !dt) {
+            alert("Por favor, selecciona origen, destino en el mapa y completa la fecha.");
+            return;
+          }
+          
+          const [fromLat, fromLng] = fromGeo.split(',').map(x => parseFloat(x.trim()));
+          const [toLat, toLng] = toGeo.split(',').map(x => parseFloat(x.trim()));
+          const rideCost = parseInt($('#estimator-costo').textContent) || MINIMUM_FARE;
+
+          state.rides.push({
+            id: id(), scope: {...state.scope}, from_place: fromPlace, to_place: toPlace, dt, seats, 
+            driver: state.user.name || 'Veci', from_lat: fromLat, from_lng: fromLng, to_lat: toLat, 
+            to_lng: toLng, meet_point: meet, accepted: [], cost: rideCost, 
+            use_trueque: useTrueque, trueque_desc: truequeDesc
+          });
+          e.target.reset();
+          // Limpiar marcadores y ruta del mapa para el próximo ride
+          if(fromMarker) map.removeLayer(fromMarker);
+          if(toMarker) map.removeLayer(toMarker);
+          if(routingControl) map.removeControl(routingControl);
+          fromMarker = null; toMarker = null; routingControl = null;
+          calculateAndDisplayRideCost(); // Resetea el estimador
+          $('#rideTruequeDesc').classList.add('hidden');
+          state.meetcoins += RIDE_COMPLETION_BONUS;
+          useOne('rides');
+          save();
+        });
+        attach('#rideList', 'click', e => {
+          const join = e.target.closest('[data-join]');
+          if (join) {
+            const rid = join.dataset.join;
+            const r = state.rides.find(x => x.id === rid);
+            if (!r) return;
+            const rr = {id: id(), rideId: rid, from: state.user.name || 'Veci', to: r.driver, status: 'pending', cost: r.cost};
+            state.rideRequests.push(rr);
+            state.notifications.push({id: id(), type: 'ride_request', payload: rr});
+            alert('Solicitud de viaje enviada. El driver debe aceptar.');
+            save();
+            return;
+          }
+          const open = e.target.closest('[data-ridechat]');
+          if (open) {
+            const rid = open.dataset.ridechat;
+            $('#chatModeBtn').dataset.mode = 'rides';
+            $('#chatModeLabel').textContent = 'Viajes';
+            $('#chatRideSelect').value = 'ride:' + rid;
+            show('chat');
+            renderChat();
+          }
+        });
+
+        // Rewards
+        attach('#rewardsList', 'click', e => {
+          const btn = e.target.closest('[data-redeem]');
+          if (!btn) return;
+          if (!canUse('redemptions')) return openModal('#upgradeModal');
+          const r = state.rewards.find(x => x.id === btn.dataset.redeem);
+          if (!r) return;
+          if (r.cost_type === 'meetcoin') {
+            if (state.meetcoins >= r.cost) {
+              state.meetcoins -= r.cost;
+              useOne('redemptions');
+              save();
+              alert('Canje realizado (demo).');
+            } else {
+              alert('Te faltan MeetCoins.');
+            }
+          } else if (r.cost_type === 'trueque') {
+            currentTruequeId = r.id;
+            $('#truequeText').textContent = `Estás proponiendo un trueque para la recompensa "${r.name}". Describe lo que ofreces a cambio:`;
+            openModal('#truequeModal');
+            useOne('redemptions');
+            save();
+          }
+        });
+        attach('#redeemDemo', 'click', () => {
+          if (!canUse('redemptions')) return openModal('#upgradeModal');
+          if (state.meetcoins >= 50) {
+            state.meetcoins -= 50;
+            useOne('redemptions');
+            save();
+            alert('Canjeaste 50 MeetCoins (demo).');
+          } else {
+            alert('Te faltan MeetCoins.');
+          }
+        });
+
+        // Perfil
+        attach('#profileForm', 'submit', e => {
+          e.preventDefault();
+          state.user.name = $('#profName').value.trim() || 'Veci';
+          state.user.phone = $('#profPhone').value.trim() || '';
+          state.user.social = $('#profSocial').value.trim() || '';
+          state.user.zona = $('#profZona').value.trim() || 'Mi Zona';
+          state.user.radioKm = parseInt($('#profRadio').value || '3');
+          state.user.intereses = $('#profIntereses').value.trim();
+          state.user.proveedor = $('#profProveedor').checked;
+          state.user.admin = $('#profAdmin').checked;
+          state.user.public = $('#profPublic').checked;
+          state.user.verified = $('#profVerified').checked;
+          state.user.lat = $('#profLat').value.trim();
+          state.user.lng = $('#profLng').value.trim();
+          state.meetcoins += 15;
+          save();
+          alert('Perfil guardado.');
+        });
+        attach('#geoBtn', 'click', () => {
+          if (!navigator.geolocation) return alert('Geolocalización no soportada.');
+          navigator.geolocation.getCurrentPosition(pos => {
+            state.user.lat = pos.coords.latitude.toFixed(6);
+            state.user.lng = pos.coords.longitude.toFixed(6);
+            renderProfile();
+            save();
+            initMap();
+          }, () => alert('No se pudo obtener tu ubicación.'));
+        });
+
+        // Ajustes
+        attach('#userSettingsForm', 'submit', e => {
+          e.preventDefault();
+          const theme = $('#themeSelect').value;
+          state.theme = theme;
+          applyTheme(theme);
+          save();
+          alert('Ajustes de usuario guardados.');
+        });
+
+        // Wallet
+        attach('#transferForm', 'submit', e => {
+          e.preventDefault();
+          const userIdOrName = $('#transferUser').value.trim();
+          const amount = parseFloat($('#transferAmount').value);
+          if (!userIdOrName || isNaN(amount) || amount <= 0) {
+            alert('Por favor, ingresa un ID/nombre de usuario y una cantidad válida.');
+            return;
+          }
+          if (state.meetcoins < amount) {
+            alert('No tienes suficientes MeetCoins para esta transferencia.');
+            return;
+          }
+          const targetUserKey = Object.keys(state.users).find(key => 
+            key.toLowerCase() === userIdOrName.toLowerCase() || 
+            state.users[key].name.toLowerCase() === userIdOrName.toLowerCase()
+          );
+          if (!targetUserKey) {
+            alert('Usuario no encontrado. Asegúrate de usar el ID exacto o el nombre de usuario.');
+            return;
+          }
+          if (targetUserKey === state.user.id) {
+            alert('No puedes transferirte MeetCoins a ti mismo.');
+            return;
+          }
+          state.meetcoins -= amount;
+          state.users[targetUserKey].meetcoins = (state.users[targetUserKey].meetcoins || 0) + amount;
+          e.target.reset();
+          save();
+          alert(`Transferencia de ${amount} MeetCoins a ${state.users[targetUserKey].name} realizada con éxito.`);
+        });
+
+        // Conexiones
+        attach('#connections-controls', 'click', e => {
+            const action = e.target.closest('button')?.dataset.action;
+            if (action) {
+                handleSwipe(action);
+            }
+        });
+        
+        // Comunidades
+        attach('#view-comunidades', 'click', e => {
+          const sw = e.target.closest('[data-switchscope]');
+          if (sw) {
+            const [type, name] = sw.dataset.switchscope.split(':');
+            state.scope = {type, name};
+            save();
+            show('feed');
+          }
+          const sv = e.target.closest('[data-commsave]');
+          if (sv) {
+            const key = sv.dataset.commsave;
+            const code = (document.querySelector(`[data-commcode="${key}"]`)?.value || '').trim();
+            const rest = document.querySelector(`[data-commrest="${key}"]`)?.checked;
+            state.communityCodes[key] = {code, restricted: !!rest};
+            save();
+            alert('Configuración de comunidad guardada.');
+          }
+        });
+
+        // Modals
+        attach('#closeNotif', 'click', () => closeModal('#notifModal'));
+        attach('#notifModal', 'click', e => {
+          const a = e.target.closest('[data-accept]');
+          if (a) {
+            const idr = a.dataset.accept;
+            const rr = state.rideRequests.find(x => x.id === idr);
+            if (!rr) return;
+            const ride = state.rides.find(r => r.id === rr.rideId);
+            if (!ride) return;
+            const meetInput = document.querySelector(`[data-meetfor="${idr}"]`);
+            const meet = (meetInput?.value || '').trim();
+            if (meet) ride.meet_point = meet;
+            rr.status = 'accepted';
+            ride.accepted = ride.accepted || [];
+            if (!ride.accepted.includes(rr.from)) ride.accepted.push(rr.from);
+            const cKey = `ride:${ride.id}`;
+            state.messages[cKey] = state.messages[cKey] || [];
+            state.messages[cKey].push({user: 'Sistema', text: `${rr.from} fue aceptad@. Punto de encuentro: ${ride.meet_point || 'a definir'}`, ts: Date.now()});
+            save();
+            renderNotifications();
+            alert('Solicitud aceptada. Se creó chat del viaje.');
+            return;
+          }
+          const d = e.target.closest('[data-decline]');
+          if (d) {
+            const idr = d.dataset.decline;
+            const rr = state.rideRequests.find(x => x.id === idr);
+            if (!rr) return;
+            rr.status = 'declined';
+            save();
+            renderNotifications();
+            return;
+          }
+          const ja = e.target.closest('[data-joinaccept]');
+          if (ja) {
+            const jid = ja.dataset.joinaccept;
+            const jr = state.joinRequests.find(x => x.id === jid);
+            if (!jr) return;
+            jr.status = 'accepted';
+            // Simulación: En una app real, se actualizaría el estado del OTRO usuario.
+            // Aquí, solo lo marcamos como aceptado.
+            alert(`Miembro ${jr.user} aprobado. (En una app real, se le notificaría y se le daría acceso).`);
+            save();
+            renderNotifications();
+            return;
+          }
+          const jd = e.target.closest('[data-joindecline]');
+          if (jd) {
+            const jid = jd.dataset.joindecline;
+            const jr = state.joinRequests.find(x => x.id === jid);
+            if (!jr) return;
+            jr.status = 'declined';
+            save();
+            renderNotifications();
+            return;
+          }
+        });
+        attach('#closeTruequeModal', 'click', () => {
+          closeModal('#truequeModal');
+          $('#truequeOffer').value = '';
+          currentTruequeId = null;
+        });
+        attach('#truequeForm', 'submit', e => {
+          e.preventDefault();
+          const offer = $('#truequeOffer').value.trim();
+          if (!offer) {
+            alert('Por favor, describe tu oferta.');
+            return;
+          }
+          const item = state.items.find(i => i.id === currentTruequeId);
+          if (item) {
+            const notification = {
+              id: id(), type: 'trueque_offer', payload: {
+                itemId: item.id, itemTitle: item.title, fromUser: state.user.name, offer: offer
+              }
+            };
+            state.notifications.push(notification);
+            alert(`Tu oferta de trueque por "${item.title}" ha sido enviada al vendedor.`);
+            save();
+          }
+          $('#closeTruequeModal').click();
+        });
+        attach('#closeUpgrade', 'click', () => closeModal('#upgradeModal'));
+        attach('#goProMonthly', 'click', () => {
+          state.user.plan = 'pro';
+          save();
+          closeModal('#upgradeModal');
+          alert('Plan Pro $4/mes activado (demo).');
+        });
+        attach('#goProYearly', 'click', () => {
+          state.user.plan = 'pro';
+          save();
+          closeModal('#upgradeModal');
+          alert('Plan Pro anual $29 activado (demo).');
+        });
+        attachAll('[data-info]', 'click', (e) => {
+            const key = e.target.closest('[data-info]').dataset.info;
+            const content = INFO_CONTENT[key];
+            if (content) {
+              $('#infoModalTitle').textContent = content.title;
+              $('#infoModalText').textContent = content.text;
+              $('#infoModal').style.display = 'grid';
+            }
+        });
+        attach('#closeInfoModal', 'click', () => {
+          $('#infoModal').style.display = 'none';
+        });
+
+        // Panic Button
+        attach('#panicButton', 'click', ()=>{
+          const user = state.user.name || 'Veci';
+          const scope = state.scope;
+          state.panicAlerts.push({user, scope, ts: Date.now()});
+          save();
+          alert(`Alerta de pánico enviada al 911 y a los moderadores de ${scope.name}.`);
+        });
+    }
+
+    // Inicialización de la App
+    window.onload = () => {
+        initMap();
+        mountTabs();
+        attachEventListeners(); // Adjuntar todos los listeners aquí
+        renderAll();
+        show('feed');
+        $('#scopeType').value = state.scope.type;
+        $('#scopeName').value = state.scope.name;
+        $('#scopeCode').value = '';
+    };
+  </script>
+</body>
+</html>
