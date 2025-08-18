@@ -115,6 +115,9 @@
     .leaflet-routing-container {
         display: none;
     }
+    .leaflet-routing-container.leaflet-routing-container-hide {
+        display: none;
+    }
     /* Estilos para Conexiones (Tinder-like) */
     #connections-stack {
         position: relative;
@@ -221,10 +224,13 @@
           <select id="scopeType" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-sm">
             <option value="zona">Zona</option>
             <option value="sector">Sector</option>
+            <option value="barrio">Barrio</option>
             <option value="conjunto">Conjunto (verificado)</option>
             <option value="edificio">Edificio (verificado)</option>
           </select>
-          <input id="scopeName" class="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-sm" placeholder="Nombre (p.ej., Conocoto)" />
+          <select id="scopeName" class="flex-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-1.5 text-sm"></select>
+          <button id="addCommunityBtn" class="p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-sm" title="Crear nueva comunidad">+</button>
+          
           <div class="flex items-center">
             <input id="scopeCode" class="w-36 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-l-lg px-3 py-1.5 text-sm" placeholder="Código (opc)" />
             <button data-info="ambito_codigo" type="button" class="info-btn border border-l-0 border-slate-200 dark:border-slate-700 rounded-r-lg px-2 py-1.5">
@@ -374,7 +380,8 @@
       <section id="view-eventos" class="hidden">
         <div class="grid md:grid-cols-3 gap-4 items-start">
           <form id="eventForm" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 shadow-glow space-y-3 md:col-span-1">
-            <h3 class="font-semibold">Crear evento</h3>
+            <h3 id="eventFormTitle" class="font-semibold">Crear evento</h3>
+            <input type="hidden" id="eventId" /> <!-- MEJORA: Campo oculto para edición -->
             <input id="eventTitle" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2" placeholder="Título"/>
             <input id="eventDate" type="datetime-local" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2"/>
             <input id="eventPlace" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2" placeholder="Lugar"/>
@@ -397,7 +404,7 @@
                 </div>
             </div>
 
-            <button class="w-full px-4 py-2 rounded-xl bg-gradient-to-b from-cosmic-600 to-cosmic-700 text-white font-medium">Crear</button>
+            <button id="eventFormSubmit" class="w-full px-4 py-2 rounded-xl bg-gradient-to-b from-cosmic-600 to-cosmic-700 text-white font-medium">Crear</button>
           </form>
           <div class="md:col-span-2 space-y-3">
             <h3 class="font-semibold">Próximos eventos</h3>
@@ -719,10 +726,32 @@
       <button id="closeInfoModal" class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 float-right">Cerrar</button>
     </div>
   </div>
+
+  <!-- MEJORA: Modal para crear una nueva comunidad -->
+  <div id="newCommunityModal" class="modal hidden fixed inset-0 z-50 grid place-items-center bg-black/30 p-4">
+    <div class="modal-content w-full max-w-sm bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-glow space-y-4">
+        <h3 class="font-semibold">Crear Nueva Comunidad</h3>
+        <form id="newCommunityForm" class="space-y-3">
+            <select id="newCommunityType" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-sm">
+                <option value="zona">Zona</option>
+                <option value="sector">Sector</option>
+                <option value="barrio">Barrio</option>
+                <option value="conjunto">Conjunto</option>
+                <option value="edificio">Edificio</option>
+            </select>
+            <input id="newCommunityName" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2" placeholder="Nombre de la nueva comunidad" required />
+            <div class="flex justify-end gap-2">
+                <button type="button" id="closeNewCommunityModal" class="px-4 py-2 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300">Cancelar</button>
+                <button type="submit" class="px-4 py-2 rounded-xl bg-gradient-to-b from-cosmic-600 to-cosmic-700 text-white font-medium">Crear</button>
+            </div>
+        </form>
+    </div>
+  </div>
   
   <footer class="max-w-7xl mx-auto px-4 py-16 md:py-10 text-center text-xs text-slate-500 dark:text-slate-400 space-y-2">
       <p>
-          <button data-info="meet_flow" type="button" class="underline">¿Qué es el Meet Flow?</button>
+          <!-- CORRECCIÓN: Texto y data-info del botón actualizados -->
+          <button data-info="meet_info" type="button" class="underline">¿Qué es Meet?</button>
       </p>
       <p>
           Diseñada por <strong>Goatify IA</strong>.
@@ -737,7 +766,7 @@
     // Variables y funciones de utilidad
     const $ = (q, d=document)=>d.querySelector(q);
     const $$ = (q, d=document)=>Array.from(d.querySelectorAll(q));
-    const storeKey = 'meet_v6_solidaria_v13'; // Clave de almacenamiento actualizada
+    const storeKey = 'meet_v6_solidaria_v17_final'; // Clave de almacenamiento NUEVA para evitar conflictos
     const EARTH_RADIUS_KM = 6371;
     const PRICE_PER_KM = 2; // 2 Intis por kilómetro
     const MINIMUM_FARE = 10; // Tarifa mínima de 10 Intis
@@ -747,11 +776,34 @@
       free: { posts:50, items:10, rides:8, events:5, redemptions:2 },
       pro:  { posts:9999, items:9999, rides:9999, events:9999, redemptions:10 }
     };
+    
+    // MEJORA: Lista de zonas predefinidas de Quito
+    const QUITO_ZONAS = [
+        "Administración Zonal Quitumbe",
+        "Administración Zonal Eloy Alfaro",
+        "Administración Zonal Manuela Sáenz (Centro)",
+        "Administración Zonal La Mariscal",
+        "Administración Zonal Eugenio Espejo",
+        "Administración Zonal La Delicia",
+        "Administración Zonal Calderón",
+        "Administración Zonal Tumbaco",
+        "Administración Zonal Los Chillos"
+    ];
+
+    // MEJORA: Lista de sectores predefinidos de Quito
+    const QUITO_SECTORS = [
+        "La Mariscal", "La Floresta", "Guápulo", "González Suárez", "Bellavista", "Iñaquito",
+        "La Carolina", "La Pradera", "El Batán", "Monteserrín", "El Inca", "Kennedy",
+        "Comité del Pueblo", "Carcelén", "Ponceano", "Cotocollao", "El Condado",
+        "Centro Histórico", "San Juan", "Itchimbía", "La Tola", "San Roque", "San Sebastián",
+        "Chimbacalle", "La Magdalena", "Villaflora", "Solanda", "Quitumbe", "Chillogallo",
+        "Conocoto", "Los Chillos", "Tumbaco", "Cumbayá", "Puembo", "Pifo"
+    ];
 
     const initial = {
       theme: 'light',
-      user: { id: 'user_' + id(4), name:'Veci', plan:'free', zona:'Conocoto', radioKm:3, phone: '', social: '', intereses:'arte, deporte, trueque', proveedor:false, admin:false, public:true, lat:null, lng:null, verified: false, connections_pref: [] },
-      scope: { type:'zona', name:'Conocoto' },
+      user: { id: 'user_' + id(4), name:'Veci', plan:'free', zona:'Conocoto', radioKm:3, phone: '', social: '', intereses:'arte, deporte, trueque', proveedor:false, admin:false, public:true, lat:null, lng:null, verified: false, connections_pref: [], communities: [{id: 'comm_default', type:'zona', name:'Administración Zonal Los Chillos', status:'joined'}] },
+      scope: { type:'zona', name:'Administración Zonal Los Chillos' },
       usage: { period: periodKey(), posts:0, items:0, rides:0, events:0, redemptions:0 },
       meetcoins: 50, 
       posts: [],
@@ -768,7 +820,10 @@
         { id:'r4', name:'Suscripción Goatify Pro (1 Mes)', cost:150, cost_type: 'inti', desc:'Acceso a todas las herramientas de IA de Goatify.'},
         { id:'r5', name:'Página Web Básica con Goatify', cost:1000, cost_type: 'inti', desc:'Tu presencia en línea profesional, creada por Goatify Web.'}
       ],
-      communities: [ {id: 'comm_default', type:'zona', name:'Conocoto', status:'joined'} ],
+      communities: [
+          ...QUITO_ZONAS.map(name => ({id: `comm_${name.toLowerCase().replace(/\s/g, '_')}`, type:'zona', name, status:'predefined'})),
+          ...QUITO_SECTORS.map(name => ({id: `comm_${name.toLowerCase().replace(/\s/g, '_')}`, type:'sector', name, status:'predefined'}))
+      ],
       communityAdmins: { 'conjunto:Jardines del Valle': 'user_admin_demo' }, // Admin de ejemplo
       communityCodes: { 'conjunto:Jardines del Valle': { code:'123456', restricted:true } },
       conexiones: [
@@ -787,13 +842,14 @@
     };
 
     const INFO_CONTENT = {
-      'meet_flow': {
-        title: '¿Qué es el Meet Flow?',
-        text: `El "Meet Flow" es el corazón de nuestra app. Es el movimiento constante de ayuda, recursos, servicios y conexiones que fortalece a la comunidad desde adentro.
+      // CORRECCIÓN: Se cambia 'meet_flow' por 'meet_info' y se ajusta el texto.
+      'meet_info': {
+        title: '¿Qué es Meet?',
+        text: `Meet es el ecosistema que conecta tu comunidad. Es el movimiento constante de ayuda, recursos, servicios y conexiones que fortalece a tu barrio desde adentro.
         
-        • **Flow Económico:** Al usar Intis y el trueque, el valor se queda en el barrio, generando una economía circular que beneficia a todos.
-        • **Flow Social:** Los eventos, viajes compartidos y conexiones crean lazos reales entre vecinos, combatiendo el aislamiento.
-        • **Flow de Seguridad:** Los chats y alertas rápidas crean una red de apoyo que nos hace sentir más seguros.
+        • **Economía Local:** Al usar Intis y el trueque, el valor se queda en la comunidad, generando una economía circular que beneficia a todos.
+        • **Vínculos Sociales:** Los eventos, viajes compartidos y conexiones crean lazos reales entre vecinos, combatiendo el aislamiento.
+        • **Seguridad Colaborativa:** Los chats y alertas rápidas crean una red de apoyo que nos hace sentir más seguros.
         
         Cada acción que realizas en Meet contribuye a este flujo, haciendo de tu comunidad un lugar más próspero, conectado y resiliente.`
       },
@@ -801,7 +857,7 @@
         title: 'Sobre las Recompensas',
         text: `Aquí puedes usar tus Intis para canjear productos, servicios y descuentos exclusivos.
         
-        Las empresas locales y aliados estratégicos se suman a nuestra red para ofrecerte beneficios únicos. Al canjear, no solo obtienes algo para ti, sino que también apoyas a los negocios de la comunidad, fortaleciendo el **Meet Flow** económico.`
+        Las empresas locales y aliados estratégicos se suman a nuestra red para ofrecerte beneficios únicos. Al canjear, no solo obtienes algo para ti, sino que también apoyas a los negocios de la comunidad.`
       },
        'rewards_side_info': {
         title: '¿Qué son las Recompensas Activas?',
@@ -817,22 +873,21 @@
       },
       'inti': {
         title: '¿Qué es el Inti?',
-        text: `El Inti es la moneda digital de nuestra comunidad, creada para fortalecer la economía local y valorar tu participación.
+        text: `El Inti es nuestra moneda digital exclusiva, creada para fortalecer nuestra comunidad y ofrecerte beneficios tangibles.
         
-        **¿Por qué usar Intis en vez de dólares?**
-        • **Es más económico:** Al usar Intis, evitas intermediarios y costos ocultos asociados al dinero tradicional. El valor circula directamente entre vecinos.
-        • **Fomenta lo nuestro:** Cada Inti que gastas apoya a un emprendedor o servicio de tu propio barrio, no a grandes corporaciones.
-        • **Ganas por participar:** No solo compras Intis, ¡los ganas! Tu contribución a la comunidad (publicando, creando eventos, etc.) te recompensa con poder de intercambio.
+        💲 **Ahorra Dinero Real:** Usar Intis es más económico que usar dólares para muchos servicios dentro de la comunidad. Cada Inti que gastas es un ahorro en tu bolsillo.
         
-        Usar Intis es una forma inteligente y solidaria de hacer que nuestro esfuerzo se quede y crezca aquí mismo, en nuestra comunidad.`
+        🤝 **Fomenta la Comunidad:** Al usar Intis, apoyas a tus vecinos emprendedores y participas en una economía circular que nos beneficia a todos. El valor se queda aquí.
+        
+        🏆 **Gana Recompensas:** Recibes Intis por ser un buen vecino: pagando a tiempo, publicando en el marketplace, y mucho más. ¡Tu buena convivencia tiene premio!`
       },
       'ambito': {
         title: '¿Qué es el Ámbito?',
-        text: 'El ámbito define el alcance de lo que ves en la app. Puedes interactuar a nivel de una "Zona" amplia (ej. Conocoto), un "Sector" más pequeño, o comunidades verificadas y privadas como un "Conjunto" o "Edificio".'
+        text: 'El ámbito define el alcance de lo que ves en la app. Puedes interactuar a nivel de una "Zona" amplia, un "Sector" o "Barrio" más pequeño, o comunidades verificadas y privadas como un "Conjunto" o "Edificio".'
       },
       'ambito_codigo': {
         title: 'Código de Comunidad',
-        text: 'Algunas comunidades como Conjuntos o Edificios pueden ser privadas y requerir un código de acceso para unirse. Si tu comunidad tiene uno, ingrésalo aquí. Si no, el administrador deberá aprobar tu solicitud.'
+        text: 'Algunas comunidades como Conjuntos, Barrios o Edificios pueden ser privadas y requerir un código de acceso para unirse. Si tu comunidad tiene uno, ingrésalo aquí. Si no, el administrador deberá aprobar tu solicitud.'
       },
       'economia_circular': {
         title: '¿Por qué una Economía Circular?',
@@ -867,6 +922,11 @@
         if (!s.users[s.user.id]) {
             s.users[s.user.id] = { name: s.user.name, meetcoins: s.meetcoins };
         }
+        // Asegurarse de que las comunidades predefinidas estén presentes y no se dupliquen
+        const predefinedIds = new Set(initial.communities.map(c => c.id));
+        const userCreatedCommunities = (s.communities || []).filter(c => !predefinedIds.has(c.id));
+        s.communities = [...initial.communities, ...userCreatedCommunities];
+
         return s;
       } catch(e) {
         console.error("Error loading state from localStorage", e);
@@ -888,17 +948,18 @@
     function seed(){
       const s = structuredClone(initial);
       s.posts = [
-        {id: id(), user:'Ana', scope:{type:'zona',name:'Conocoto'}, content:'Cambio libros por plantas 🪴', likes:3, liked:false, ts:Date.now()-3600000},
-        {id: id(), user:'Luis', scope:{type:'sector',name:'La Armenia'}, content:'Se perdió una llave en el parque. Aviso por DM 🙏', likes:1, liked:false, ts:Date.now()-7200000}
+        {id: id(), user:'Ana', scope:{type:'sector',name:'La Floresta'}, content:'Cambio libros por plantas 🪴', likes:3, liked:false, ts:Date.now()-3600000},
+        {id: id(), user:'Luis', scope:{type:'sector',name:'La Carolina'}, content:'Se perdió una llave en el parque. Aviso por DM 🙏', likes:1, liked:false, ts:Date.now()-7200000}
       ];
       s.items = [
         {id:id(), user:'Sofi', scope:{type:'conjunto',name:'Jardines del Valle'}, title:'Bici urbana', price:85, use_price: true, trueque_desc: 'Acepto consola de videojuegos', use_trueque: true, description:'Bien cuidada, talla M.', photos: [], ts:Date.now()-2300000},
-        {id:id(), user:'Carlos', scope:{type:'conjunto',name:'Jardines del Valle'}, title:'Mermelada casera', price: 0, use_price: false, trueque_desc: 'Fruta de temporada', use_trueque: true, description:'Intercambio por fruta de la temporada', photos: [], ts:Date.now()-1800000}
+        {id:id(), user:'Carlos', scope:{type:'sector',name:'Conocoto'}, title:'Mermelada casera', price: 0, use_price: false, trueque_desc: 'Fruta de temporada', use_trueque: true, description:'Intercambio por fruta de la temporada', photos: [], ts:Date.now()-1800000}
       ];
       s.events = [
-        {id:id(), scope:{type:'zona',name:'Conocoto'}, title:'Cine al aire libre', dt:new Date(Date.now()+86400000).toISOString(), place:'Plaza central', description:'Reactivamos el cine 🍿', attendees:12, lat:-0.333, lng:-78.48, is_free: true, price: 0, use_trueque: false, trueque_desc: ''}
+        {id:id(), user: 'Veci', scope:{type:'sector',name:'La Mariscal'}, title:'Cine al aire libre', dt:new Date(Date.now()+86400000).toISOString(), place:'Plaza Foch', description:'Reactivamos el cine 🍿', attendees:12, lat:-0.204, lng:-78.488, is_free: true, price: 0, use_trueque: false, trueque_desc: ''}
       ];
-      s.rides = [ {id:id(), scope:{type:'zona',name:'Conocoto'}, from_place:'Conocoto', to_place:'Quito centro', dt:new Date(Date.now()+5400000).toISOString(), seats:2, driver:'Marco', meet_point:'Parque de Conocoto 18:00', from_lat: -0.334, from_lng: -78.478, to_lat: -0.21, to_lng: -78.50, cost: 24, use_trueque: true, trueque_desc: 'Herramientas'} ];
+      s.rides = [ {id:id(), scope:{type:'sector',name:'Conocoto'}, from_place:'Conocoto', to_place:'Quito centro', dt:new Date(Date.now()+5400000).toISOString(), seats:2, driver:'Marco', meet_point:'Parque de Conocoto 18:00', from_lat: -0.334, from_lng: -78.478, to_lat: -0.21, to_lng: -78.50, cost: 24, use_trueque: true, trueque_desc: 'Herramientas'} ];
+      s.communities.push({id: 'comm_jardines', type:'conjunto', name:'Jardines del Valle', status:'created'});
       return s;
     }
 
@@ -958,7 +1019,7 @@
     }
 
     function keyScope(scope){
-      return `${scope.type}:${(scope.name || '').toLowerCase()}`;
+      return `${scope.type}:${(scope.name || '').toLowerCase().trim().replace(/\s+/g, ' ')}`;
     }
 
     function currentScopeKey(room){
@@ -972,7 +1033,7 @@
     }
 
     function isRestricted(type){
-      return (type === 'conjunto' || type === 'edificio');
+      return (type === 'conjunto' || type === 'edificio' || type === 'barrio');
     }
 
     function canUse(type){
@@ -1091,8 +1152,8 @@
 
 
     // Lógica para la vista de Mapa
-    let map, circle, evLayer, rideLayer, routingControl;
-    let fromMarker = null, toMarker = null;
+    let map, circle, evLayer, rideLayer;
+    let fromMarker = null, toMarker = null, routingControl = null;
 
     function initMap(){
       const lat = parseFloat(state.user.lat) || -0.334;
@@ -1115,28 +1176,33 @@
 
         const latlng = e.latlng;
         const { lat, lng } = latlng;
+        const targetInput = mapSelectionMode === 'origin' ? $('#rideFromGeo') : $('#rideToGeo');
+        const targetDisplay = mapSelectionMode === 'origin' ? $('#rideFromPlace') : $('#rideToPlace');
+        
+        targetInput.value = `${lat.toFixed(6)},${lng.toFixed(6)}`;
+        targetDisplay.value = `Buscando nombre...`;
 
-        if (mapSelectionMode === 'origin') {
-            if (fromMarker) fromMarker.setLatLng(latlng);
-            else fromMarker = L.marker(latlng, {draggable: true}).addTo(map).bindPopup('Origen').openPopup();
+        // CORRECCIÓN: Usar el geocodificador del Routing Machine para obtener el nombre
+        const geocoder = L.Control.Geocoder.nominatim();
+        geocoder.reverse(latlng, map.options.crs.scale(map.getZoom()), (results) => {
+            let name = `Lat: ${lat.toFixed(2)}, Lng: ${lng.toFixed(2)}`;
+            if (results && results.length > 0 && results[0].name) {
+                name = results[0].name.split(',')[0];
+            }
+            targetDisplay.value = name;
             
-            $('#rideFromGeo').value = `${lat.toFixed(6)},${lng.toFixed(6)}`;
-            $('#rideFromPlace').value = `Ubicación seleccionada`;
+            if (mapSelectionMode === 'origin') {
+                if (fromMarker) fromMarker.setLatLng(latlng);
+                else fromMarker = L.marker(latlng, {draggable: true}).addTo(map).bindPopup('Origen').openPopup();
+            } else {
+                if (toMarker) toMarker.setLatLng(latlng);
+                else toMarker = L.marker(latlng, {draggable: true}).addTo(map).bindPopup('Destino').openPopup();
+            }
             
             mapSelectionMode = null;
             updateRouteOnMap();
             show('rides');
-        } else if (mapSelectionMode === 'destination') {
-            if (toMarker) toMarker.setLatLng(latlng);
-            else toMarker = L.marker(latlng, {draggable: true}).addTo(map).bindPopup('Destino').openPopup();
-
-            $('#rideToGeo').value = `${lat.toFixed(6)},${lng.toFixed(6)}`;
-            $('#rideToPlace').value = `Ubicación seleccionada`;
-            
-            mapSelectionMode = null;
-            updateRouteOnMap();
-            show('rides');
-        }
+        });
     }
 
     function updateRouteOnMap() {
@@ -1148,7 +1214,7 @@
                 waypoints: [ fromMarker.getLatLng(), toMarker.getLatLng() ],
                 lineOptions: { styles: [{color: '#6f37e8', opacity: 0.8, weight: 5}] },
                 createMarker: () => null, // No crear marcadores por defecto
-                routeWhileDragging: false,
+                routeWhileDragging: true,
                 addWaypoints: false
             }).on('routesfound', function(e) {
                 if (!e.routes.length) return;
@@ -1161,11 +1227,6 @@
                 $('#estimator-distancia').textContent = `${distanceKm.toFixed(2)} km`;
                 $('#estimator-costo').textContent = `${cost} Intis`;
                 
-                // FIX: Check if waypoint name exists before splitting
-                const fromName = route.waypoints[0] && route.waypoints[0].name ? route.waypoints[0].name.split(',')[0] : 'Punto de partida';
-                const toName = route.waypoints[1] && route.waypoints[1].name ? route.waypoints[1].name.split(',')[0] : 'Punto de llegada';
-                $('#rideFromPlace').value = fromName;
-                $('#rideToPlace').value = toName;
             }).addTo(map);
         }
         calculateAndDisplayRideCost();
@@ -1173,11 +1234,9 @@
     
     function renderMapLayers(){
       if (!map) return;
-      if(evLayer) map.removeLayer(evLayer);
-      if(rideLayer) map.removeLayer(rideLayer);
+      if(evLayer) evLayer.clearLayers(); else evLayer = L.layerGroup().addTo(map);
+      if(rideLayer) rideLayer.clearLayers(); else rideLayer = L.layerGroup().addTo(map);
       
-      evLayer = L.layerGroup();
-      rideLayer = L.layerGroup();
       const scope = state.scope;
       
       if($('#toggleEvents')?.checked){
@@ -1187,19 +1246,28 @@
       }
       if($('#toggleRides')?.checked){
         state.rides.filter(r => matchScope(r.scope, scope)).forEach(r => {
-          if (isNum(r.from_lat) && isNum(r.from_lng)) {
-            L.marker([r.from_lat, r.from_lng]).bindPopup(`<b>Origen: ${esc(r.from_place)}</b><br>Costo: ${r.cost} Intis`).addTo(rideLayer);
-          }
-          if (isNum(r.to_lat) && isNum(r.to_lng)) {
-            L.marker([r.to_lat, r.to_lng]).bindPopup(`<b>Destino: ${esc(r.to_place)}</b>`).addTo(rideLayer);
-          }
+          // MEJORA: Dibujar la ruta real en vez de una línea recta
           if (isNum(r.from_lat) && isNum(r.from_lng) && isNum(r.to_lat) && isNum(r.to_lng)) {
-              L.polyline([[r.from_lat, r.from_lng], [r.to_lat, r.to_lng]], {color: '#935bff', weight: 3, opacity: 0.7}).addTo(rideLayer);
+              const routing = L.Routing.control({
+                  waypoints: [ L.latLng(r.from_lat, r.from_lng), L.latLng(r.to_lat, r.to_lng) ],
+                  createMarker: (i, wp) => {
+                    const label = i === 0 ? `<b>Origen: ${esc(r.from_place)}</b><br>Costo: ${r.cost} Intis` : `<b>Destino: ${esc(r.to_place)}</b>`;
+                    return L.marker(wp.latLng).bindPopup(label);
+                  },
+                  lineOptions: { styles: [{color: '#935bff', weight: 3, opacity: 0.7}] },
+                  routeWhileDragging: false,
+                  addWaypoints: false,
+                  draggableWaypoints: false,
+                  fitSelectedRoutes: false,
+                  show: false // Oculta el panel de texto
+              }).addTo(rideLayer);
+              // Ocultar el contenedor del panel de texto por completo
+              routing.on('routesfound', function() {
+                  this.getContainer().style.display = 'none';
+              });
           }
         });
       }
-      evLayer.addTo(map);
-      rideLayer.addTo(map);
     }
 
     // Lógica para la vista de Marketplace
@@ -1258,6 +1326,10 @@
                 costDisplay += `${costDisplay ? ' o ' : ''}<span class="font-bold text-blue-600">Acepta Trueque</span>`;
             }
         }
+        // MEJORA: Añadir botón de editar si el evento es del usuario
+        const isMyEvent = ev.user === state.user.name;
+        const editBtn = isMyEvent ? `<button data-edit-event="${ev.id}" class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs">Editar</button>` : '';
+
         return `
         <li class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 shadow-glow">
           <div class="flex items-start justify-between">
@@ -1268,9 +1340,12 @@
             <div class="text-sm text-right">${costDisplay}</div>
           </div>
           <p class="text-sm text-slate-700 dark:text-slate-300 mt-1">${esc(ev.place)} — ${esc(ev.description)}</p>
-          <div class="mt-2 flex items-center gap-3 text-sm">
-            <span class="text-slate-500 dark:text-slate-400">Asistentes: ${ev.attendees || 0}</span>
-            <button data-rsvp="${ev.id}" class="px-3 py-1.5 rounded-lg bg-gradient-to-b from-cosmic-600 to-cosmic-700 text-white">Asistir</button>
+          <div class="mt-2 flex items-center justify-between">
+            <span class="text-sm text-slate-500 dark:text-slate-400">Asistentes: ${ev.attendees || 0}</span>
+            <div class="flex items-center gap-2">
+              ${editBtn}
+              <button data-rsvp="${ev.id}" class="px-3 py-1.5 rounded-lg bg-gradient-to-b from-cosmic-600 to-cosmic-700 text-white">Asistir</button>
+            </div>
           </div>
         </li>`;
       }).join('');
@@ -1428,22 +1503,25 @@
 
     function renderCommunities(){
       const ul = $('#communitiesList');
-      ul.innerHTML = state.communities.map(c => {
-        const key = `${c.type}:${c.name}`;
+      const myCommunities = state.user.communities || [];
+      ul.innerHTML = myCommunities
+        .map(c => {
+        const key = keyScope(c);
         const cfg = state.communityCodes[key] || {code: '', restricted: isRestricted(c.type)};
         const isAdmin = state.communityAdmins[key] === state.user.id;
         const adminTools = isAdmin ? `
           <details class="mt-2 text-xs">
-            <summary class="cursor-pointer">Admin: Código y restricción</summary>
-            <div class="mt-2 flex flex-wrap gap-2 items-center">
-              <input data-commcode="${key}" value="${esc(cfg.code || '')}" class="w-36 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded px-2 py-1" placeholder="Código (6)"/>
-              <label class="flex items-center gap-2 text-xs"><input type="checkbox" data-commrest="${key}" ${cfg.restricted ? 'checked' : ''}/> Restringido</label>
-              <button data-commsave="${key}" class="px-2 py-1 rounded border border-slate-200 dark:border-slate-700">Guardar</button>
+            <summary class="cursor-pointer font-semibold">Panel de Administrador</summary>
+            <div class="mt-2 flex flex-wrap gap-2 items-center p-2 border border-slate-200 dark:border-slate-700 rounded-lg">
+              <input data-commcode="${key}" value="${esc(cfg.code || '')}" class="w-28 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2 py-1" placeholder="Código"/>
+              <button data-gen-code="${key}" class="px-2 py-1 rounded border border-slate-200 dark:border-slate-700 text-xs">Generar</button>
+              <label class="flex items-center gap-2 text-xs"><input type="checkbox" data-commrest="${key}" ${cfg.restricted ? 'checked' : ''}/> Acceso Restringido</label>
+              <button data-commsave="${key}" class="px-2 py-1 rounded border border-cosmic-300 dark:border-cosmic-700 bg-cosmic-50 dark:bg-cosmic-900">Guardar</button>
             </div>
           </details>` : '';
         return `<li class="border border-slate-200 dark:border-slate-700 rounded-xl p-3">
           <div class="flex items-center justify-between">
-            <div><strong>${esc(c.type)}</strong> · ${esc(c.name)} — <span class="text-slate-500 dark:text-slate-400">${c.status}</span></div>
+            <div><strong>${esc(c.type)}</strong> · ${esc(c.name)}</div>
             <div class="flex gap-2"><button data-switchscope="${key}" class="px-2 py-1 rounded bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700">Cambiar a esta</button></div>
           </div>
           ${adminTools}
@@ -1538,7 +1616,7 @@
       const modal = $(selector);
       if (modal) {
         modal.classList.remove('hidden');
-        // Force reflow for transition
+        modal.style.display = 'grid';
         modal.offsetWidth;
         modal.classList.remove('opacity-0');
       }
@@ -1548,12 +1626,34 @@
       const modal = $(selector);
       if (modal) {
         modal.classList.add('opacity-0');
-        setTimeout(() => modal.classList.add('hidden'), 300);
+        setTimeout(() => {
+            modal.classList.add('hidden');
+            modal.style.display = 'none';
+        }, 300);
       }
+    }
+
+    // MEJORA: Función para poblar el selector de comunidades
+    function populateScopeSelector() {
+        const select = $('#scopeName');
+        const type = $('#scopeType').value;
+        select.innerHTML = '';
+        
+        const communitiesForType = state.communities
+            .filter(c => c.type === type)
+            .sort((a, b) => a.name.localeCompare(b.name));
+
+        communitiesForType.forEach(c => {
+            const option = document.createElement('option');
+            option.value = c.name;
+            option.textContent = c.name;
+            select.appendChild(option);
+        });
     }
 
     function renderAll(){
       ensurePeriod();
+      populateScopeSelector();
       renderFeed();
       renderTrends();
       renderMarket();
@@ -1620,36 +1720,39 @@
         attach('#upgradeBtn', 'click', () => openModal('#upgradeModal'));
 
         // Scope bar
+        attach('#scopeType', 'change', populateScopeSelector);
+        attach('#addCommunityBtn', 'click', () => openModal('#newCommunityModal'));
+
         attach('#joinScope', 'click', () => {
             const type = $('#scopeType').value;
-            const name = $('#scopeName').value.trim();
+            const name = $('#scopeName').value; // Ahora es un select
             const codeInput = $('#scopeCode').value.trim();
-            if (!name) { alert('Pon un nombre de comunidad.'); return; }
+            if (!name) { alert('Selecciona una comunidad.'); return; }
 
             const key = keyScope({type, name});
-            const communityExists = state.communities.some(c => keyScope(c) === key);
+            const community = state.communities.find(c => keyScope(c) === key);
+
+            if (!community) {
+                alert('Comunidad no encontrada. Intenta crearla.');
+                return;
+            }
 
             if (isRestricted(type)) {
                 const cfg = state.communityCodes[key];
-                // Si la comunidad no existe y es restringida, el primer usuario se convierte en admin
-                if (!cfg) {
-                    state.communityCodes[key] = { code: codeInput || id(6), restricted: true };
-                    state.communityAdmins[key] = state.user.id;
-                    alert(`Has creado y te has unido a la comunidad restringida "${name}". Tu código para compartir es: ${state.communityCodes[key].code}`);
-                    joinCommunity({type, name}, 'joined');
-                } else { // La comunidad ya existe
-                    if (cfg.code === codeInput) {
-                        joinCommunity({type, name}, 'joined');
+                if (!cfg || !cfg.restricted) {
+                    joinCommunity({type, name, id: community.id}, 'joined');
+                } else {
+                    if (cfg.code && cfg.code === codeInput) {
+                        joinCommunity({type, name, id: community.id}, 'joined');
                         alert('Unido correctamente con código.');
                     } else {
                         const jr = { id: id(), scope: {type, name}, user: state.user.name || 'Veci', status: 'pending' };
                         state.joinRequests.push(jr);
-                        alert('Código incorrecto. Se envió una solicitud al administrador de la comunidad.');
+                        alert('Código incorrecto o no ingresado. Se envió una solicitud al administrador de la comunidad.');
                     }
                 }
             } else {
-                joinCommunity({type, name}, 'joined');
-                alert(`Te has unido a la comunidad pública "${name}".`);
+                joinCommunity({type, name, id: community.id}, 'joined');
             }
             save();
         });
@@ -1793,7 +1896,7 @@
         });
         attach('#eventForm', 'submit', e => {
           e.preventDefault();
-          if (!canUse('events')) return openModal('#upgradeModal');
+          const eventId = $('#eventId').value;
           const title = $('#eventTitle').value.trim();
           const dt = $('#eventDate').value;
           const place = $('#eventPlace').value.trim();
@@ -1811,25 +1914,65 @@
           }
           if (!title || !dt) return alert('El título y la fecha son obligatorios.');
           if (!isFree && !usePrice && !useTrueque) return alert('Si el evento no es gratuito, debes seleccionar un método de cobro.');
-          state.events.push({
-            id: id(), scope: {...state.scope}, title, dt, place, description: desc, attendees: 0, lat, lng,
-            is_free: isFree, price, use_price: usePrice, trueque_desc: truequeDesc, use_trueque: useTrueque
-          });
+          
+          if (eventId) { // Estamos editando
+              const event = state.events.find(ev => ev.id === eventId);
+              if (event) {
+                  Object.assign(event, { title, dt, place, description: desc, lat, lng, is_free: isFree, price, use_price: usePrice, trueque_desc: truequeDesc, use_trueque: useTrueque });
+              }
+          } else { // Estamos creando
+              if (!canUse('events')) return openModal('#upgradeModal');
+              state.events.push({
+                id: id(), user: state.user.name || 'Veci', scope: {...state.scope}, title, dt, place, description: desc, attendees: 0, lat, lng,
+                is_free: isFree, price, use_price: usePrice, trueque_desc: truequeDesc, use_trueque: useTrueque
+              });
+              state.meetcoins += 20;
+              useOne('events');
+          }
+
           e.target.reset();
+          $('#eventId').value = '';
+          $('#eventFormTitle').textContent = 'Crear evento';
+          $('#eventFormSubmit').textContent = 'Crear';
           $('#eventPriceContainer').classList.add('hidden');
           $('#eventGratis').checked = true;
-          state.meetcoins += 20;
-          useOne('events');
           save();
-          renderMapLayers();
         });
         attach('#eventList', 'click', e => {
-          const btn = e.target.closest('[data-rsvp]');
-          if (!btn) return;
-          const ev = state.events.find(x => x.id === btn.dataset.rsvp);
-          if (!ev) return;
-          ev.attendees = (ev.attendees || 0) + 1;
-          save();
+          const rsvpBtn = e.target.closest('[data-rsvp]');
+          if (rsvpBtn) {
+            const ev = state.events.find(x => x.id === rsvpBtn.dataset.rsvp);
+            if (!ev) return;
+            ev.attendees = (ev.attendees || 0) + 1;
+            save();
+            return;
+          }
+
+          const editBtn = e.target.closest('[data-edit-event]');
+          if (editBtn) {
+              const eventId = editBtn.dataset.editEvent;
+              const event = state.events.find(ev => ev.id === eventId);
+              if (!event) return;
+
+              $('#eventId').value = event.id;
+              $('#eventFormTitle').textContent = 'Editar Evento';
+              $('#eventFormSubmit').textContent = 'Guardar Cambios';
+              $('#eventTitle').value = event.title;
+              $('#eventDate').value = event.dt.slice(0, 16); // Formato para datetime-local
+              $('#eventPlace').value = event.place;
+              $('#eventGeo').value = (isNum(event.lat) && isNum(event.lng)) ? `${event.lat},${event.lng}` : '';
+              $('#eventDesc').value = event.description;
+              $('#eventGratis').checked = event.is_free;
+              $('#eventPriceContainer').classList.toggle('hidden', event.is_free);
+              $('#eventUsePrice').checked = event.use_price;
+              $('#eventPrice').classList.toggle('hidden', !event.use_price);
+              $('#eventPrice').value = event.price;
+              $('#eventUseTrueque').checked = event.use_trueque;
+              $('#eventTruequeDesc').classList.toggle('hidden', !event.use_trueque);
+              $('#eventTruequeDesc').value = event.trueque_desc;
+              
+              $('#eventTitle').focus();
+          }
         });
 
         // Viajes - Lógica nueva
@@ -2042,6 +2185,14 @@
             save();
             alert('Configuración de comunidad guardada.');
           }
+          const gen = e.target.closest('[data-gen-code]');
+          if (gen) {
+            const key = gen.dataset.genCode;
+            const input = document.querySelector(`[data-commcode="${key}"]`);
+            if (input) {
+                input.value = id(6);
+            }
+          }
         });
 
         // Modals
@@ -2153,23 +2304,74 @@
           $('#infoModal').style.display = 'none';
         });
 
+        // Modal Nueva Comunidad
+        attach('#newCommunityForm', 'submit', e => {
+            e.preventDefault();
+            const type = $('#newCommunityType').value;
+            const name = $('#newCommunityName').value.trim();
+            if (!name) return;
+
+            const key = keyScope({type, name});
+            const exists = state.communities.some(c => keyScope(c) === key);
+            if (exists) {
+                alert('Esta comunidad ya existe. Por favor, selecciónala de la lista.');
+                return;
+            }
+
+            const newCommunity = { id: `comm_${id(6)}`, type, name, status: 'created' };
+            state.communities.push(newCommunity);
+
+            // Si es restringida, el creador es el admin
+            if (isRestricted(type)) {
+                state.communityAdmins[key] = state.user.id;
+                const newCode = id(6);
+                state.communityCodes[key] = { code: newCode, restricted: true };
+                alert(`Has creado la comunidad "${name}". Como es restringida, eres el admin. El código para compartir es: ${newCode}`);
+            } else {
+                alert(`Comunidad pública "${name}" creada.`);
+            }
+
+            // Unir al usuario a la nueva comunidad
+            joinCommunity({type, name, id: newCommunity.id}, 'joined');
+            $('#scopeType').value = type;
+            populateScopeSelector();
+            $('#scopeName').value = name;
+            
+            closeModal('#newCommunityModal');
+            save();
+        });
+        attach('#closeNewCommunityModal', 'click', () => closeModal('#newCommunityModal'));
+
         // Panic Button
         attach('#panicButton', 'click', (e)=>{
-          e.preventDefault(); // Prevenir la acción por defecto del link
+          e.preventDefault(); 
           const user = state.user.name || 'Veci';
           const scope = state.scope;
           state.panicAlerts.push({user, scope, ts: Date.now()});
           
-          // Enviar alerta al chat de seguridad
           const securityChatKey = `rooms:${scope.type}:${(scope.name || '').trim()}:seguridad`;
           state.messages[securityChatKey] = state.messages[securityChatKey] || [];
           state.messages[securityChatKey].push({user: 'SISTEMA', text: `🚨 ALERTA DE PÁNICO ACTIVADA POR ${user} 🚨`, ts: Date.now()});
 
           save();
           alert(`Alerta de pánico activada. Notificando a los grupos de seguridad de ${scope.name} y contactando al 911 (simulación).`);
-          // En un dispositivo móvil real, esto intentaría abrir el marcador.
           window.location.href = 'tel:911';
         });
+    }
+    
+    function joinCommunity(scope, status) {
+        if (!state.user.communities) {
+            state.user.communities = [];
+        }
+        const existing = state.user.communities.find(c => c.id === scope.id);
+        if (existing) {
+            existing.status = status;
+        } else {
+            state.user.communities.push({ ...scope, status });
+        }
+        state.scope = { type: scope.type, name: scope.name };
+        alert(`Te has unido a ${scope.type} · ${scope.name}`);
+        save();
     }
 
     // Inicialización de la App
@@ -2230,10 +2432,11 @@
 
         initMap();
         mountTabs();
-        attachEventListeners(); // Adjuntar todos los listeners aquí
+        attachEventListeners();
         renderAll();
         show('feed');
         $('#scopeType').value = state.scope.type;
+        populateScopeSelector();
         $('#scopeName').value = state.scope.name;
         $('#scopeCode').value = '';
     };
