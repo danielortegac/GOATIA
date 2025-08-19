@@ -20,9 +20,6 @@
   <!-- Favicon & Logo (coloca /Logos HD.png en la raíz del sitio) -->
   <link rel="icon" type="image/png" href="/Logos HD.png" />
   
-  <!-- PWA Manifest -->
-  <link rel="manifest" href="manifest.json">
-  
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -44,6 +41,11 @@
   <!-- Leaflet Routing Machine for directions -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
   <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+  
+  <!-- CORRECCIÓN: Añadir Leaflet Control Geocoder para obtener nombres de lugares -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+  <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     /* Transiciones y Animaciones */
@@ -139,6 +141,10 @@
         overflow: hidden;
         cursor: grab;
         transition: transform 0.4s ease, opacity 0.4s ease;
+        user-select: none; /* Evitar selección de texto al arrastrar */
+    }
+    .connection-card.dragging {
+        transition: none; /* Transición suave solo al soltar */
     }
     .connection-card.swiping-right { transform: translateX(100px) rotate(15deg) !important; opacity: 0; }
     .connection-card.swiping-left { transform: translateX(-100px) rotate(-15deg) !important; opacity: 0; }
@@ -319,12 +325,18 @@
           </div>
           <div id="map" class="flex-1 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700"></div>
           <!-- Panel de control del mapa -->
-          <div id="map-controls" class="absolute top-20 right-6 z-[401] bg-white/80 dark:bg-slate-900/80 glass border border-slate-200 dark:border-slate-700 rounded-xl p-3 space-y-2 text-sm">
+          <div id="map-controls" class="absolute top-20 right-6 z-[401] bg-white/80 dark:bg-slate-900/80 glass border border-slate-200 dark:border-slate-700 rounded-xl p-3 space-y-2 text-sm w-48">
               <h4 class="font-semibold text-xs mb-1">Capas</h4>
               <label class="flex items-center gap-2"><input type="checkbox" id="toggleEvents" checked> Eventos</label>
               <label class="flex items-center gap-2"><input type="checkbox" id="toggleRides" checked> Viajes</label>
+              <!-- MEJORA: Control de radio -->
+              <h4 class="font-semibold text-xs mt-2 mb-1">Radio de Búsqueda</h4>
+              <div class="flex items-center gap-2">
+                  <input type="range" id="radiusSlider" min="1" max="20" step="1" class="w-full">
+                  <span id="radiusLabel" class="text-xs font-mono w-12 text-right">3 km</span>
+              </div>
           </div>
-          <p class="text-xs text-slate-500 dark:text-slate-400 mt-2">Usa los filtros para explorar eventos y viajes disponibles en tu zona.</p>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mt-2">Usa los filtros y ajusta el radio para explorar tu zona.</p>
         </div>
       </section>
 
@@ -384,8 +396,17 @@
             <input type="hidden" id="eventId" /> <!-- MEJORA: Campo oculto para edición -->
             <input id="eventTitle" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2" placeholder="Título"/>
             <input id="eventDate" type="datetime-local" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2"/>
-            <input id="eventPlace" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2" placeholder="Lugar"/>
-            <input id="eventGeo" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2" placeholder="Lat,Lng (opcional)"/>
+            
+            <!-- MEJORA: Añadir botón para ubicar evento en el mapa -->
+            <div class="space-y-2">
+                <button type="button" id="setEventLocationBtn" class="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition-all-fast">
+                    <svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd" /></svg>
+                    Ubicar en Mapa
+                </button>
+                <input id="eventPlace" class="w-full bg-slate-100 dark:bg-slate-800 border-0 rounded-md px-3 py-1 text-xs text-center text-slate-600 dark:text-slate-400" placeholder="Lugar (opcional)" readonly>
+                <input id="eventGeo" type="hidden">
+            </div>
+
             <textarea id="eventDesc" rows="3" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2" placeholder="Descripción"></textarea>
             
             <div class="space-y-3 text-sm border-t border-slate-200 dark:border-slate-700 pt-3">
@@ -748,6 +769,14 @@
     </div>
   </div>
   
+  <!-- MEJORA: Modal para ver perfil de usuario en Conexiones -->
+  <div id="userProfileModal" class="modal hidden fixed inset-0 z-[101] grid place-items-center bg-black/30 p-4">
+    <div class="modal-content w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-glow">
+        <div id="userProfileContent"></div>
+        <button id="closeUserProfileModal" class="mt-4 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 float-right">Cerrar</button>
+    </div>
+  </div>
+
   <footer class="max-w-7xl mx-auto px-4 py-16 md:py-10 text-center text-xs text-slate-500 dark:text-slate-400 space-y-2">
       <p>
           <!-- CORRECCIÓN: Texto y data-info del botón actualizados -->
@@ -766,7 +795,7 @@
     // Variables y funciones de utilidad
     const $ = (q, d=document)=>d.querySelector(q);
     const $$ = (q, d=document)=>Array.from(d.querySelectorAll(q));
-    const storeKey = 'meet_v6_solidaria_v17_final'; // Clave de almacenamiento NUEVA para evitar conflictos
+    const storeKey = 'meet_v6_solidaria_v18_final'; // Clave de almacenamiento NUEVA para evitar conflictos
     const EARTH_RADIUS_KM = 6371;
     const PRICE_PER_KM = 2; // 2 Intis por kilómetro
     const MINIMUM_FARE = 10; // Tarifa mínima de 10 Intis
@@ -996,7 +1025,7 @@
       });
     }
 
-    let mapSelectionMode = null; // 'origin' or 'destination'
+    let mapSelectionMode = null; // 'origin', 'destination', or 'event'
 
     function show(id){
       const mapEl = $('#map');
@@ -1012,7 +1041,11 @@
         }
       });
 
-      if(id === 'mapa') setTimeout(() => { if(map) map.invalidateSize() }, 100);
+      // CORRECCIÓN: Refrescar las capas del mapa cada vez que se muestra.
+      if(id === 'mapa') {
+        setTimeout(() => { if(map) map.invalidateSize() }, 100);
+        if (map) renderMapLayers();
+      }
       if(id === 'chat') refreshChatSelectors();
       if(id === 'conexiones') renderConnections();
       if(id === 'wallet') renderWallet();
@@ -1153,7 +1186,7 @@
 
     // Lógica para la vista de Mapa
     let map, circle, evLayer, rideLayer;
-    let fromMarker = null, toMarker = null, routingControl = null;
+    let fromMarker = null, toMarker = null, eventMarker = null, routingControl = null;
 
     function initMap(){
       const lat = parseFloat(state.user.lat) || -0.334;
@@ -1168,41 +1201,71 @@
       }
       if (circle) circle.remove();
       circle = L.circle([lat, lng], { radius: km * 1000, color: '#6f37e8', fillOpacity: 0.1 }).addTo(map);
+      
+      // MEJORA: Inicializar el slider del radio
+      const slider = $('#radiusSlider');
+      const label = $('#radiusLabel');
+      if(slider) slider.value = km;
+      if(label) label.textContent = `${km} km`;
+      
       renderMapLayers();
     }
     
+    // REPARACIÓN: Lógica de click en mapa mejorada
     function onMapClick(e) {
         if (!mapSelectionMode) return;
 
         const latlng = e.latlng;
         const { lat, lng } = latlng;
-        const targetInput = mapSelectionMode === 'origin' ? $('#rideFromGeo') : $('#rideToGeo');
-        const targetDisplay = mapSelectionMode === 'origin' ? $('#rideFromPlace') : $('#rideToPlace');
         
-        targetInput.value = `${lat.toFixed(6)},${lng.toFixed(6)}`;
-        targetDisplay.value = `Buscando nombre...`;
+        let targetInput, targetDisplay, viewToShow;
 
-        // CORRECCIÓN: Usar el geocodificador del Routing Machine para obtener el nombre
-        const geocoder = L.Control.Geocoder.nominatim();
-        geocoder.reverse(latlng, map.options.crs.scale(map.getZoom()), (results) => {
-            let name = `Lat: ${lat.toFixed(2)}, Lng: ${lng.toFixed(2)}`;
-            if (results && results.length > 0 && results[0].name) {
-                name = results[0].name.split(',')[0];
-            }
-            targetDisplay.value = name;
-            
-            if (mapSelectionMode === 'origin') {
-                if (fromMarker) fromMarker.setLatLng(latlng);
-                else fromMarker = L.marker(latlng, {draggable: true}).addTo(map).bindPopup('Origen').openPopup();
-            } else {
-                if (toMarker) toMarker.setLatLng(latlng);
-                else toMarker = L.marker(latlng, {draggable: true}).addTo(map).bindPopup('Destino').openPopup();
-            }
-            
+        if (mapSelectionMode === 'origin') {
+            targetInput = $('#rideFromGeo');
+            targetDisplay = $('#rideFromPlace');
+            viewToShow = 'rides';
+        } else if (mapSelectionMode === 'destination') {
+            targetInput = $('#rideToGeo');
+            targetDisplay = $('#rideToPlace');
+            viewToShow = 'rides';
+        } else if (mapSelectionMode === 'event') {
+            targetInput = $('#eventGeo');
+            targetDisplay = $('#eventPlace');
+            viewToShow = 'eventos';
+        } else {
+            return; // Salir si el modo no es válido
+        }
+
+        targetInput.value = `${lat.toFixed(6)},${lng.toFixed(6)}`;
+        
+        // CORRECCIÓN: Se elimina la llamada al geocodificador inverso que causa el error de fetch.
+        // En su lugar, se usan las coordenadas directamente como nombre del lugar.
+        // Esto se debe a las restricciones de seguridad del entorno de ejecución que bloquean las llamadas a APIs externas.
+        let name = `Lat: ${lat.toFixed(3)}, Lng: ${lng.toFixed(3)}`;
+        targetDisplay.value = name;
+        
+        // MEJORA: Añadir feedback visual con marcadores para todos los modos
+        if (mapSelectionMode === 'origin') {
+            if (fromMarker) fromMarker.setLatLng(latlng);
+            else fromMarker = L.marker(latlng, {draggable: true}).addTo(map).bindPopup('Origen').openPopup();
+        } else if (mapSelectionMode === 'destination') {
+            if (toMarker) toMarker.setLatLng(latlng);
+            else toMarker = L.marker(latlng, {draggable: true}).addTo(map).bindPopup('Destino').openPopup();
+        } else if (mapSelectionMode === 'event') {
+            if (eventMarker) eventMarker.setLatLng(latlng);
+            else eventMarker = L.marker(latlng).addTo(map).bindPopup('Ubicación del Evento').openPopup();
+        }
+        
+        // MEJORA: Dar tiempo al usuario para ver el pin antes de volver
+        setTimeout(() => {
             mapSelectionMode = null;
+            $('#map').classList.remove('selection-mode');
+            $('#map-title').textContent = 'Mapa de tu comunidad';
+            $('#map-instructions').textContent = '';
+            $('#map-ride-controls').classList.add('hidden');
             updateRouteOnMap();
-            show('rides');
-        });
+            show(viewToShow);
+        }, 500); // 0.5 segundos de espera
     }
 
     function updateRouteOnMap() {
@@ -1232,6 +1295,7 @@
         calculateAndDisplayRideCost();
     }
     
+    // MEJORA: Filtrar capas por radio
     function renderMapLayers(){
       if (!map) return;
       if(evLayer) evLayer.clearLayers(); else evLayer = L.layerGroup().addTo(map);
@@ -1239,34 +1303,53 @@
       
       const scope = state.scope;
       
+      // Lógica de filtrado por radio
+      const userLat = parseFloat(state.user.lat);
+      const userLng = parseFloat(state.user.lng);
+      if (!isNum(userLat) || !isNum(userLng)) return; // No se puede filtrar sin la ubicación del usuario
+      
+      const userLatLng = L.latLng(userLat, userLng);
+      const radiusMeters = circle ? circle.getRadius() : (state.user.radioKm || 3) * 1000;
+      
       if($('#toggleEvents')?.checked){
-        state.events.filter(e => matchScope(e.scope, scope) && isNum(e.lat) && isNum(e.lng)).forEach(ev => {
-          L.marker([ev.lat, ev.lng]).bindPopup(`<b>${esc(ev.title)}</b><br>${esc(new Date(ev.dt).toLocaleString())}<br>${esc(ev.place)}`).addTo(evLayer);
-        });
+        state.events
+          .filter(e => 
+            matchScope(e.scope, scope) && 
+            isNum(e.lat) && isNum(e.lng) &&
+            userLatLng.distanceTo(L.latLng(e.lat, e.lng)) <= radiusMeters
+          )
+          .forEach(ev => {
+            L.marker([ev.lat, ev.lng]).bindPopup(`<b>${esc(ev.title)}</b><br>${esc(new Date(ev.dt).toLocaleString())}<br>${esc(ev.place)}`).addTo(evLayer);
+          });
       }
+      
       if($('#toggleRides')?.checked){
-        state.rides.filter(r => matchScope(r.scope, scope)).forEach(r => {
-          // MEJORA: Dibujar la ruta real en vez de una línea recta
-          if (isNum(r.from_lat) && isNum(r.from_lng) && isNum(r.to_lat) && isNum(r.to_lng)) {
-              const routing = L.Routing.control({
-                  waypoints: [ L.latLng(r.from_lat, r.from_lng), L.latLng(r.to_lat, r.to_lng) ],
-                  createMarker: (i, wp) => {
-                    const label = i === 0 ? `<b>Origen: ${esc(r.from_place)}</b><br>Costo: ${r.cost} Intis` : `<b>Destino: ${esc(r.to_place)}</b>`;
-                    return L.marker(wp.latLng).bindPopup(label);
-                  },
-                  lineOptions: { styles: [{color: '#935bff', weight: 3, opacity: 0.7}] },
-                  routeWhileDragging: false,
-                  addWaypoints: false,
-                  draggableWaypoints: false,
-                  fitSelectedRoutes: false,
-                  show: false // Oculta el panel de texto
-              }).addTo(rideLayer);
-              // Ocultar el contenedor del panel de texto por completo
-              routing.on('routesfound', function() {
-                  this.getContainer().style.display = 'none';
-              });
-          }
-        });
+        state.rides
+          .filter(r => 
+            matchScope(r.scope, scope) &&
+            isNum(r.from_lat) && isNum(r.from_lng) &&
+            userLatLng.distanceTo(L.latLng(r.from_lat, r.from_lng)) <= radiusMeters
+          )
+          .forEach(r => {
+            if (isNum(r.from_lat) && isNum(r.from_lng) && isNum(r.to_lat) && isNum(r.to_lng)) {
+                const routing = L.Routing.control({
+                    waypoints: [ L.latLng(r.from_lat, r.from_lng), L.latLng(r.to_lat, r.to_lng) ],
+                    createMarker: (i, wp) => {
+                      const label = i === 0 ? `<b>Origen: ${esc(r.from_place)}</b><br>Costo: ${r.cost} Intis` : `<b>Destino: ${esc(r.to_place)}</b>`;
+                      return L.marker(wp.latLng).bindPopup(label);
+                    },
+                    lineOptions: { styles: [{color: '#935bff', weight: 3, opacity: 0.7}] },
+                    routeWhileDragging: false,
+                    addWaypoints: false,
+                    draggableWaypoints: false,
+                    fitSelectedRoutes: false,
+                    show: false
+                }).addTo(rideLayer);
+                routing.on('routesfound', function() {
+                    this.getContainer().style.display = 'none';
+                });
+            }
+          });
       }
     }
 
@@ -1554,6 +1637,57 @@
                 </div>
             </div>
         `;
+        // MEJORA: Añadir listeners de swipe a la nueva tarjeta
+        addSwipeListeners($('.connection-card'));
+    }
+    
+    // MEJORA: Implementación de la vista de Amistad
+    function renderFriendList() {
+        const list = $('#friend-list');
+        const filters = $$('#interest-filters button[aria-current="true"]');
+        const activeInterests = filters.map(btn => btn.dataset.interest);
+
+        const myInterests = new Set((state.user.intereses || '').split(',').map(i => i.trim()));
+        
+        const potentialFriends = state.conexiones.filter(c => {
+            if (c.id === state.user.id) return false;
+            const theirInterests = new Set((c.intereses || '').split(',').map(i => i.trim()));
+            const sharedInterests = [...theirInterests].filter(i => myInterests.has(i));
+            
+            if (activeInterests.length > 0) {
+                return activeInterests.every(ai => theirInterests.has(ai));
+            }
+            return sharedInterests.length > 0; // Mostrar si hay al menos un interés en común
+        });
+
+        if (potentialFriends.length === 0) {
+            list.innerHTML = `<li class="text-center text-sm text-slate-500 p-4">No se encontraron amigos con esos intereses.</li>`;
+            return;
+        }
+
+        list.innerHTML = potentialFriends.map(c => `
+            <li class="flex items-center justify-between p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">
+                <div class="flex items-center gap-3">
+                    <img src="${c.imageUrl}" class="w-10 h-10 rounded-full object-cover" alt="${c.name}">
+                    <div>
+                        <div class="font-semibold">${esc(c.name)} ${c.verified ? verifiedBadge : ''}</div>
+                        <div class="text-xs text-slate-500">${esc(c.intereses)}</div>
+                    </div>
+                </div>
+                <button data-dm="${c.id}" class="px-3 py-1 text-xs rounded-full bg-cosmic-600 text-white">Chatear</button>
+            </li>
+        `).join('');
+    }
+
+    function renderInterestFilters() {
+        const container = $('#interest-filters');
+        const myInterests = new Set((state.user.intereses || '').split(',').map(i => i.trim()).filter(Boolean));
+        
+        container.innerHTML = [...myInterests].map(interest => `
+            <button data-interest="${esc(interest)}" aria-current="false" class="px-3 py-1 text-xs rounded-full bg-slate-200 dark:bg-slate-700 aria-[current=true]:bg-cosmic-600 aria-[current=true]:text-white">
+                ${esc(interest)}
+            </button>
+        `).join('');
     }
 
     function handleSwipe(action) {
@@ -1584,6 +1718,78 @@
             save();
         }, 400);
     }
+    
+    // MEJORA: Lógica de swipe con el dedo/mouse
+    function addSwipeListeners(card) {
+        if (!card) return;
+        let startX = 0;
+        let currentX = 0;
+        let isDragging = false;
+
+        function dragStart(e) {
+            isDragging = true;
+            startX = e.pageX || e.touches[0].pageX;
+            card.classList.add('dragging');
+        }
+
+        function dragMove(e) {
+            if (!isDragging) return;
+            e.preventDefault();
+            currentX = e.pageX || e.touches[0].pageX;
+            const deltaX = currentX - startX;
+            const rotation = deltaX / 20; // Grado de rotación
+            card.style.transform = `translateX(${deltaX}px) rotate(${rotation}deg)`;
+        }
+
+        function dragEnd(e) {
+            if (!isDragging) return;
+            isDragging = false;
+            card.classList.remove('dragging');
+            const deltaX = currentX - startX;
+            
+            if (Math.abs(deltaX) < 5) { // Si el movimiento es mínimo, considerarlo un click
+                showUserProfile(card.dataset.id);
+                card.style.transform = ''; // Resetear la posición
+                return;
+            }
+
+            if (Math.abs(deltaX) > 100) { // Umbral para swipe
+                handleSwipe(deltaX > 0 ? 'like' : 'nope');
+            } else {
+                card.style.transform = ''; // Volver a la posición original si no es un swipe claro
+            }
+        }
+        
+        card.addEventListener('mousedown', dragStart);
+        card.addEventListener('touchstart', dragStart, { passive: true });
+        
+        document.addEventListener('mousemove', dragMove);
+        document.addEventListener('touchmove', dragMove, { passive: false });
+        
+        document.addEventListener('mouseup', dragEnd);
+        document.addEventListener('touchend', dragEnd);
+    }
+    
+    // MEJORA: Función para mostrar el perfil del usuario
+    function showUserProfile(userId) {
+        const user = state.conexiones.find(u => u.id === userId);
+        if (!user) return;
+
+        const content = $('#userProfileContent');
+        content.innerHTML = `
+            <div class="flex flex-col items-center">
+                <img src="${user.imageUrl}" class="w-24 h-24 rounded-full object-cover mb-4" alt="${user.name}">
+                <h3 class="font-semibold text-xl">${esc(user.name)}, ${user.edad} ${user.verified ? verifiedBadge : ''}</h3>
+                <p class="text-sm text-slate-500 dark:text-slate-400">Intereses: ${esc(user.intereses)}</p>
+                <div class="mt-4 w-full border-t border-slate-200 dark:border-slate-700 pt-4">
+                    <h4 class="font-semibold text-sm mb-2">Actividad Reciente</h4>
+                    <p class="text-xs text-slate-500">(Función en desarrollo)</p>
+                </div>
+            </div>
+        `;
+        openModal('#userProfileModal');
+    }
+
 
     function pointsBadge(){
       $('#pointsBadge').textContent = state.meetcoins + ' Intis';
@@ -1666,6 +1872,8 @@
       pointsBadge();
       renderChat();
       updateQuotaBadge();
+      // CORRECCIÓN: Refrescar las capas del mapa cada vez que se guarda el estado.
+      if (map) renderMapLayers();
     }
 
     function attachEventListeners() {
@@ -1822,6 +2030,17 @@
         
         // Mapa
         attachAll('#toggleEvents, #toggleRides', 'change', renderMapLayers);
+        // MEJORA: Listeners para el slider de radio
+        attach('#radiusSlider', 'input', e => {
+            const km = e.target.value;
+            $('#radiusLabel').textContent = `${km} km`;
+            if (circle) circle.setRadius(km * 1000);
+            renderMapLayers(); // Re-filtrar capas en vivo
+        });
+        attach('#radiusSlider', 'change', e => {
+            state.user.radioKm = parseInt(e.target.value);
+            save(false); // Guardar sin re-renderizar todo
+        });
 
         // Marketplace
         attach('#usePrice', 'change', (e) => {
@@ -1878,6 +2097,14 @@
         attach('#marketSearch', 'input', renderMarket);
 
         // Eventos
+        attach('#setEventLocationBtn', 'click', () => {
+            mapSelectionMode = 'event';
+            show('mapa');
+            $('#map-title').textContent = 'Selecciona Ubicación del Evento';
+            $('#map-ride-controls').classList.remove('hidden');
+            $('#map-instructions').textContent = 'Haz clic en el mapa para fijar el lugar';
+            $('#map').classList.add('selection-mode');
+        });
         attach('#eventGratis', 'change', e => {
             const isChecked = e.target.checked;
             $('#eventPriceContainer').classList.toggle('hidden', isChecked);
@@ -1931,12 +2158,14 @@
           }
 
           e.target.reset();
+          if (eventMarker) { map.removeLayer(eventMarker); eventMarker = null; } // Limpiar marcador
           $('#eventId').value = '';
           $('#eventFormTitle').textContent = 'Crear evento';
           $('#eventFormSubmit').textContent = 'Crear';
           $('#eventPriceContainer').classList.add('hidden');
           $('#eventGratis').checked = true;
           save();
+          renderMapLayers();
         });
         attach('#eventList', 'click', e => {
           const rsvpBtn = e.target.closest('[data-rsvp]');
@@ -2160,6 +2389,26 @@
         });
 
         // Conexiones
+        attach('#connections-tabs', 'click', e => {
+            const btn = e.target.closest('button');
+            if (!btn) return;
+            $$('#connections-tabs button').forEach(b => b.setAttribute('aria-current', 'false'));
+            btn.setAttribute('aria-current', 'true');
+            const mode = btn.dataset.mode;
+            $('#connections-romance-view').classList.toggle('hidden', mode !== 'romance');
+            $('#connections-amistad-view').classList.toggle('hidden', mode !== 'amistad');
+            if (mode === 'amistad') {
+                renderInterestFilters();
+                renderFriendList();
+            }
+        });
+        attach('#interest-filters', 'click', e => {
+            const btn = e.target.closest('button');
+            if (!btn) return;
+            const isPressed = btn.getAttribute('aria-current') === 'true';
+            btn.setAttribute('aria-current', isPressed ? 'false' : 'true');
+            renderFriendList();
+        });
         attach('#connections-controls', 'click', e => {
             const action = e.target.closest('button')?.dataset.action;
             if (action) {
@@ -2341,6 +2590,9 @@
             save();
         });
         attach('#closeNewCommunityModal', 'click', () => closeModal('#newCommunityModal'));
+        
+        // Modal Perfil de Usuario
+        attach('#closeUserProfileModal', 'click', () => closeModal('#userProfileModal'));
 
         // Panic Button
         attach('#panicButton', 'click', (e)=>{
@@ -2376,60 +2628,7 @@
 
     // Inicialización de la App
     window.onload = () => {
-        // PWA Manifest and Service Worker
-        const manifest = {
-          "name": "Meet App",
-          "short_name": "Meet",
-          "start_url": ".",
-          "display": "standalone",
-          "background_color": "#faf7ff",
-          "theme_color": "#6f37e8",
-          "description": "La App para Comunidades, Barrios y Economía Solidaria.",
-          "icons": [
-            {
-              "src": "https://placehold.co/192x192/6f37e8/white?text=Meet",
-              "sizes": "192x192",
-              "type": "image/png"
-            },
-            {
-              "src": "https://placehold.co/512x512/6f37e8/white?text=Meet",
-              "sizes": "512x512",
-              "type": "image/png"
-            }
-          ]
-        };
-
-        const swContent = `
-          self.addEventListener('install', (e) => {
-            e.waitUntil(
-              caches.open('meet-store').then((cache) => cache.addAll([
-                '/',
-              ])),
-            );
-          });
-          self.addEventListener('fetch', (e) => {
-            e.respondWith(
-              caches.match(e.request).then((response) => response || fetch(e.request)),
-            );
-          });
-        `;
-
-        const manifestBlob = new Blob([JSON.stringify(manifest)], {type: 'application/json'});
-        const swBlob = new Blob([swContent], {type: 'application/javascript'});
-        const manifestUrl = URL.createObjectURL(manifestBlob);
-        const swUrl = URL.createObjectURL(swBlob);
-
-        const linkEl = document.createElement('link');
-        linkEl.rel = 'manifest';
-        linkEl.href = manifestUrl;
-        document.head.appendChild(linkEl);
-
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register(swUrl).catch(err => {
-                console.error('Service worker registration failed:', err);
-            });
-        }
-
+        // CORRECCIÓN: Se elimina el registro del Service Worker que causaba errores.
         initMap();
         mountTabs();
         attachEventListeners();
