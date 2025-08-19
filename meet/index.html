@@ -42,11 +42,12 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
   <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
   
-  <!-- CORRECCIÓN: Añadir Leaflet Control Geocoder para obtener nombres de lugares -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
   <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+  
+  <!-- Librería para generar QR -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcode-generator/qrcode.js"></script>
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     /* Transiciones y Animaciones */
     .transition-all-fast { transition: all 0.2s ease-in-out; }
@@ -196,6 +197,10 @@
         </div>
         <span id="pointsBadge" class="px-2 py-1 rounded-full bg-cosmic-100 dark:bg-slate-800 ring-1 ring-cosmic-200 dark:ring-slate-700 text-cosmic-700 dark:text-cosmic-300 text-sm">0 Intis</span>
         <button id="upgradeBtn" class="px-3 py-1.5 rounded-xl border border-cosmic-300 text-cosmic-800 dark:text-cosmic-200 dark:border-slate-700 hover:bg-cosmic-50 dark:hover:bg-slate-800 transition-all-fast">Plan Free</button>
+        <!-- MEJORA: Icono de billetera añadido -->
+        <button data-open="wallet" class="p-2 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all-fast" aria-label="Billetera">
+          <svg class="w-5 h-5" viewBox="0 0 20 20" fill="currentColor"><path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z" /><path fill-rule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clip-rule="evenodd" /></svg>
+        </button>
         <button id="notifBtn" class="p-2 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all-fast" aria-label="Notificaciones">
           <svg viewBox="0 0 24 24" class="w-5 h-5"><path fill="currentColor" d="M12 22a2 2 0 0 0 2-2h-4a2 2 0 0 0 2 2m6-6v-5a6 6 0 0 0-5-5.91V4a1 1 0 0 0-2 0v1.09A6 6 0 0 0 6 11v5l-2 2v1h16v-1z"/></svg>
         </button>
@@ -264,10 +269,17 @@
       <!-- VISTA FEED -->
       <section id="view-feed" class="hidden">
         <form id="postForm" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 shadow-glow space-y-3">
+          <input type="hidden" id="postId" />
           <textarea id="postText" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 outline-none focus:ring-2 focus:ring-cosmic-300" rows="3" placeholder="Comparte en tu comunidad (avisos, trueques, eventos)…"></textarea>
           <div class="flex items-center justify-between">
-            <div class="text-xs text-slate-500 dark:text-slate-400">Respeto primero. Sin datos sensibles.</div>
-            <button class="px-4 py-2 rounded-xl bg-gradient-to-b from-cosmic-600 to-cosmic-700 text-white font-medium hover:from-cosmic-500 transition-all-fast">Publicar</button>
+            <div class="flex items-center gap-2">
+              <label for="postPhoto" class="cursor-pointer p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800">
+                <svg class="w-5 h-5 text-slate-500" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd" /></svg>
+              </label>
+              <input type="file" id="postPhoto" accept="image/*" class="hidden"/>
+              <span id="postPhotoName" class="text-xs text-slate-500"></span>
+            </div>
+            <button id="postSubmitBtn" class="px-4 py-2 rounded-xl bg-gradient-to-b from-cosmic-600 to-cosmic-700 text-white font-medium hover:from-cosmic-500 transition-all-fast">Publicar</button>
           </div>
         </form>
         <ul id="feedList" class="space-y-3"></ul>
@@ -297,6 +309,7 @@
                 <option value="recreacion">#recreacion</option>
               </select>
               <select id="chatRideSelect" class="hidden bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1.5 text-sm"></select>
+              <div id="dm-chat-target" class="hidden text-sm"></div>
             </div>
           </div>
           <div id="chat-rooms-view">
@@ -344,9 +357,8 @@
       <section id="view-market" class="hidden">
         <div class="grid md:grid-cols-3 gap-4 items-start">
           <form id="itemForm" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 shadow-glow space-y-3 md:col-span-1">
-            <h3 class="font-semibold">Publica un artículo
-              <button data-info="market" type="button" class="ml-1 text-sm text-slate-500 dark:text-slate-400">ⓘ</button>
-            </h3>
+            <h3 id="itemFormTitle" class="font-semibold">Publica un artículo</h3>
+            <input type="hidden" id="itemId" />
             <input id="itemTitle" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2" placeholder="Título"/>
             
             <div class="space-y-3">
@@ -369,11 +381,9 @@
             <div class="space-y-2">
               <label class="text-sm font-medium">Fotos (máx. 3)</label>
               <input type="file" id="itemPhoto1" accept="image/*" class="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-cosmic-50 file:text-cosmic-700 hover:file:bg-cosmic-100 dark:file:bg-slate-800 dark:file:text-slate-300 dark:file:hover:bg-slate-700"/>
-              <input type="file" id="itemPhoto2" accept="image/*" class="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-cosmic-50 file:text-cosmic-700 hover:file:bg-cosmic-100 dark:file:bg-slate-800 dark:file:text-slate-300 dark:file:hover:bg-slate-700"/>
-              <input type="file" id="itemPhoto3" accept="image/*" class="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-cosmic-50 file:text-cosmic-700 hover:file:bg-cosmic-100 dark:file:bg-slate-800 dark:file:text-slate-300 dark:file:hover:bg-slate-700"/>
             </div>
 
-            <button class="w-full px-4 py-2 rounded-xl bg-gradient-to-b from-cosmic-600 to-cosmic-700 text-white font-medium">Publicar</button>
+            <button id="itemFormSubmitBtn" class="w-full px-4 py-2 rounded-xl bg-gradient-to-b from-cosmic-600 to-cosmic-700 text-white font-medium">Publicar</button>
             <p class="text-xs text-slate-500 dark:text-slate-400">Free: límite mensual. Pro: sin límites.</p>
           </form>
           <div class="md:col-span-2 space-y-3">
@@ -393,11 +403,10 @@
         <div class="grid md:grid-cols-3 gap-4 items-start">
           <form id="eventForm" class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 shadow-glow space-y-3 md:col-span-1">
             <h3 id="eventFormTitle" class="font-semibold">Crear evento</h3>
-            <input type="hidden" id="eventId" /> <!-- MEJORA: Campo oculto para edición -->
+            <input type="hidden" id="eventId" />
             <input id="eventTitle" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2" placeholder="Título"/>
             <input id="eventDate" type="datetime-local" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2"/>
             
-            <!-- MEJORA: Añadir botón para ubicar evento en el mapa -->
             <div class="space-y-2">
                 <button type="button" id="setEventLocationBtn" class="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition-all-fast">
                     <svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd" /></svg>
@@ -578,24 +587,38 @@
 
       <!-- VISTA BILLETERA (WALLET) -->
       <section id="view-wallet" class="hidden">
-        <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 shadow-glow space-y-4 max-w-2xl">
-          <h3 class="font-semibold text-lg">💰 Mi Billetera
-            <button data-info="inti" type="button" class="ml-1 text-sm text-slate-500 dark:text-slate-400">ⓘ</button>
-          </h3>
-          <div class="text-center p-6 rounded-xl border border-cosmic-200 dark:border-slate-700 bg-cosmic-50 dark:bg-slate-800">
-            <p class="text-sm text-slate-600 dark:text-slate-400">Balance Actual</p>
-            <p id="walletBalance" class="text-4xl font-bold text-cosmic-800 dark:text-cosmic-200 mt-2">0 Intis</p>
+          <div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 shadow-glow space-y-6 max-w-3xl">
+              <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                  <div>
+                      <h3 class="font-semibold text-lg">💰 Mi Billetera
+                          <button data-info="inti" type="button" class="ml-1 text-sm text-slate-500 dark:text-slate-400">ⓘ</button>
+                      </h3>
+                  </div>
+                  <div class="text-center p-4 rounded-xl border border-cosmic-200 dark:border-slate-700 bg-cosmic-50 dark:bg-slate-800">
+                      <p class="text-sm text-slate-600 dark:text-slate-400">Balance Actual</p>
+                      <p id="walletBalance" class="text-3xl font-bold text-cosmic-800 dark:text-cosmic-200 mt-1">0 Intis</p>
+                  </div>
+              </div>
+
+              <div class="grid md:grid-cols-2 gap-6">
+                  <div class="space-y-3">
+                      <h4 class="font-semibold">Transferir Intis</h4>
+                      <form id="transferForm" class="flex flex-col gap-2">
+                          <input type="text" id="transferUser" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2" placeholder="ID de Usuario o Nombre"/>
+                          <input type="number" id="transferAmount" min="1" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2" placeholder="Cantidad de Intis"/>
+                          <textarea id="transferNote" rows="2" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 outline-none" placeholder="Nota (opcional)"></textarea>
+                          <div class="flex gap-2">
+                            <button type="submit" class="flex-1 px-4 py-2 rounded-xl bg-gradient-to-b from-cosmic-600 to-cosmic-700 text-white font-medium">Transferir</button>
+                            <button type="button" id="showQrBtn" class="px-4 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700">Cobrar con QR</button>
+                          </div>
+                      </form>
+                  </div>
+                  <div class="space-y-3">
+                      <h4 class="font-semibold">Historial de Transacciones</h4>
+                      <ul id="transactionHistory" class="h-48 overflow-y-auto space-y-2 pr-2"></ul>
+                  </div>
+              </div>
           </div>
-          <div class="space-y-3">
-            <h4 class="font-semibold">Transferir Intis</h4>
-            <form id="transferForm" class="flex flex-col gap-2">
-              <input type="text" id="transferUser" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2" placeholder="ID de Usuario o Nombre"/>
-              <input type="number" id="transferAmount" min="1" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2" placeholder="Cantidad de Intis"/>
-              <textarea id="transferNote" rows="2" class="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-3 outline-none" placeholder="Nota (opcional)"></textarea>
-              <button type="submit" class="w-full px-4 py-2 rounded-xl bg-gradient-to-b from-cosmic-600 to-cosmic-700 text-white font-medium">Transferir</button>
-            </form>
-          </div>
-        </div>
       </section>
 
       <!-- VISTA CONEXIONES (NUEVA) -->
@@ -777,9 +800,39 @@
     </div>
   </div>
 
+  <!-- MEJORA: Modal para confirmar pago -->
+  <div id="paymentModal" class="modal hidden fixed inset-0 z-[101] grid place-items-center bg-black/30 p-4">
+    <div class="modal-content w-full max-w-sm bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-glow space-y-4 text-center">
+        <h3 class="font-semibold text-lg">Confirmar Transacción</h3>
+        <p id="paymentDetails" class="text-sm text-slate-600 dark:text-slate-300"></p>
+        <div class="flex justify-center gap-3">
+            <button id="cancelPaymentBtn" class="px-4 py-2 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300">Cancelar</button>
+            <button id="confirmPaymentBtn" class="px-4 py-2 rounded-xl bg-gradient-to-b from-cosmic-600 to-cosmic-700 text-white font-medium">Confirmar y Pagar</button>
+        </div>
+    </div>
+  </div>
+
+  <!-- MEJORA: Modal para mostrar QR -->
+  <div id="qrModal" class="modal hidden fixed inset-0 z-[101] grid place-items-center bg-black/30 p-4">
+    <div class="modal-content w-full max-w-xs bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-glow space-y-4 text-center">
+        <h3 class="font-semibold text-lg">Escanea para Pagar</h3>
+        <div id="qrCodeContainer" class="p-2 bg-white rounded-lg inline-block"></div>
+        <p class="text-xs text-slate-500">Tu ID de usuario: <code id="qrUserId"></code></p>
+        <button id="closeQrModal" class="w-full mt-2 px-4 py-2 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300">Cerrar</button>
+    </div>
+  </div>
+
+  <!-- MEJORA: Modal para ver perfil de usuario público -->
+  <div id="userPublicProfileModal" class="modal hidden fixed inset-0 z-[101] grid place-items-center bg-black/30 p-4">
+    <div class="modal-content w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-glow">
+        <div id="userPublicProfileContent"></div>
+        <button id="closeUserPublicProfileModal" class="mt-4 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 float-right">Cerrar</button>
+    </div>
+  </div>
+
+
   <footer class="max-w-7xl mx-auto px-4 py-16 md:py-10 text-center text-xs text-slate-500 dark:text-slate-400 space-y-2">
       <p>
-          <!-- CORRECCIÓN: Texto y data-info del botón actualizados -->
           <button data-info="meet_info" type="button" class="underline">¿Qué es Meet?</button>
       </p>
       <p>
@@ -795,7 +848,7 @@
     // Variables y funciones de utilidad
     const $ = (q, d=document)=>d.querySelector(q);
     const $$ = (q, d=document)=>Array.from(d.querySelectorAll(q));
-    const storeKey = 'meet_v6_solidaria_v18_final'; // Clave de almacenamiento NUEVA para evitar conflictos
+    const storeKey = 'meet_v6_solidaria_v20_final'; // Clave de almacenamiento NUEVA para evitar conflictos
     const EARTH_RADIUS_KM = 6371;
     const PRICE_PER_KM = 2; // 2 Intis por kilómetro
     const MINIMUM_FARE = 10; // Tarifa mínima de 10 Intis
@@ -806,27 +859,28 @@
       pro:  { posts:9999, items:9999, rides:9999, events:9999, redemptions:10 }
     };
     
-    // MEJORA: Lista de zonas predefinidas de Quito
     const QUITO_ZONAS = [
-        "Administración Zonal Quitumbe",
-        "Administración Zonal Eloy Alfaro",
-        "Administración Zonal Manuela Sáenz (Centro)",
-        "Administración Zonal La Mariscal",
-        "Administración Zonal Eugenio Espejo",
-        "Administración Zonal La Delicia",
-        "Administración Zonal Calderón",
-        "Administración Zonal Tumbaco",
-        "Administración Zonal Los Chillos"
+        "Administración Zonal Quitumbe", "Administración Zonal Eloy Alfaro", "Administración Zonal Manuela Sáenz (Centro)",
+        "Administración Zonal La Mariscal", "Administración Zonal Eugenio Espejo", "Administración Zonal La Delicia",
+        "Administración Zonal Calderón", "Administración Zonal Tumbaco", "Administración Zonal Los Chillos"
     ];
 
-    // MEJORA: Lista de sectores predefinidos de Quito
     const QUITO_SECTORS = [
-        "La Mariscal", "La Floresta", "Guápulo", "González Suárez", "Bellavista", "Iñaquito",
-        "La Carolina", "La Pradera", "El Batán", "Monteserrín", "El Inca", "Kennedy",
-        "Comité del Pueblo", "Carcelén", "Ponceano", "Cotocollao", "El Condado",
-        "Centro Histórico", "San Juan", "Itchimbía", "La Tola", "San Roque", "San Sebastián",
-        "Chimbacalle", "La Magdalena", "Villaflora", "Solanda", "Quitumbe", "Chillogallo",
-        "Conocoto", "Los Chillos", "Tumbaco", "Cumbayá", "Puembo", "Pifo"
+        "La Mariscal", "La Floresta", "Guápulo", "González Suárez", "Bellavista", "Iñaquito", "La Carolina", "La Pradera",
+        "El Batán", "Monteserrín", "El Inca", "Kennedy", "Comité del Pueblo", "Carcelén", "Ponceano", "Cotocollao", "El Condado",
+        "Centro Histórico", "San Juan", "Itchimbía", "La Tola", "San Roque", "San Sebastián", "Chimbacalle", "La Magdalena",
+        "Villaflora", "Solanda", "Quitumbe", "Chillogallo", "Conocoto", "Los Chillos", "Tumbaco", "Cumbayá", "Puembo", "Pifo"
+    ];
+    
+    // MEJORA: Añadir más barrios
+    const QUITO_BARRIOS = [
+        "La Tola", "San Blas", "San Marcos", "La Loma Grande", "San Sebastián", "La Recoleta", "El Panecillo", "La Vicentina",
+        "La Floresta", "Guápulo", "La Paz", "La Carolina", "Iñaquito", "Rumipamba", "Jipijapa", "El Batán", "La Pradera",
+        "Bellavista", "González Suárez", "Monjas", "Puengasí", "Obrero Independiente", "La Ferroviaria", "Chimbacalle", "Luluncoto",
+        "La Magdalena", "Villaflora", "El Pintado", "Solanda", "Turubamba", "Quitumbe", "Chillogallo", "Guamaní", "La Ecuatoriana",
+        "San Bartolo", "La Argelia", "Conocoto", "Amaguaña", "Píntag", "El Tingo", "Alangasí", "La Merced", "Cumbayá", "Tumbaco",
+        "Puembo", "Pifo", "Tababela", "Yaruquí", "Checa", "El Quinche", "Guayllabamba", "Calderón", "Carapungo", "Llano Chico",
+        "Zámbiza", "Nayón", "Pomasqui", "San Antonio de Pichincha", "Calacalí", "Nono"
     ];
 
     const initial = {
@@ -842,6 +896,7 @@
       joinRequests: [], 
       notifications: [],
       panicAlerts: [], 
+      transactions: [], // MEJORA: Historial de transacciones
       rewards: [
         { id:'r1', name:'Certificación en IA & Marketing Digital', cost:500, cost_type: 'inti', desc:'Otorgado por el Centro Iberoamericano. Potencia tu carrera.'},
         { id:'r2', name:"Entradas a Cine al Aire Libre", cost:80, cost_type: 'inti', desc:"Disfruta de una función en Pa' La Raza Club."},
@@ -851,9 +906,10 @@
       ],
       communities: [
           ...QUITO_ZONAS.map(name => ({id: `comm_${name.toLowerCase().replace(/\s/g, '_')}`, type:'zona', name, status:'predefined'})),
-          ...QUITO_SECTORS.map(name => ({id: `comm_${name.toLowerCase().replace(/\s/g, '_')}`, type:'sector', name, status:'predefined'}))
+          ...QUITO_SECTORS.map(name => ({id: `comm_${name.toLowerCase().replace(/\s/g, '_')}`, type:'sector', name, status:'predefined'})),
+          ...QUITO_BARRIOS.map(name => ({id: `comm_${name.toLowerCase().replace(/\s/g, '_')}`, type:'barrio', name, status:'predefined'}))
       ],
-      communityAdmins: { 'conjunto:Jardines del Valle': 'user_admin_demo' }, // Admin de ejemplo
+      communityAdmins: { 'conjunto:Jardines del Valle': 'user_admin_demo' },
       communityCodes: { 'conjunto:Jardines del Valle': { code:'123456', restricted:true } },
       conexiones: [
         {id: 'user_carlos123', name: 'Carlos', intereses: 'senderismo, cocina, vegano', edad: 32, pref: ['romantico'], verified: true, imageUrl: 'https://placehold.co/400x600/A0B9FF/white?text=Carlos', isOnline: true},
@@ -861,7 +917,7 @@
         {id: 'user_juan789', name: 'Juan', intereses: 'música, cine, deporte', edad: 35, pref: ['amistoso', 'romantico'], verified: true, imageUrl: 'https://placehold.co/400x600/C4A0FF/white?text=Juan', isOnline: false},
       ],
       possibleInterests: ['deporte', 'arte', 'vegano', 'cocina', 'libros', 'música', 'cine', 'senderismo', 'cafe'],
-      swipes: {}, // { 'swiped_user_id': 'like'/'nope' }
+      swipes: {}, 
       users: { 
         'user_admin_demo': { name: 'Admin Conjunto', meetcoins: 1000, isOnline: false },
         'user_carlos123': { name: 'Carlos', meetcoins: 100, isOnline: true },
@@ -871,7 +927,6 @@
     };
 
     const INFO_CONTENT = {
-      // CORRECCIÓN: Se cambia 'meet_flow' por 'meet_info' y se ajusta el texto.
       'meet_info': {
         title: '¿Qué es Meet?',
         text: `Meet es el ecosistema que conecta tu comunidad. Es el movimiento constante de ayuda, recursos, servicios y conexiones que fortalece a tu barrio desde adentro.
@@ -951,10 +1006,10 @@
         if (!s.users[s.user.id]) {
             s.users[s.user.id] = { name: s.user.name, meetcoins: s.meetcoins };
         }
-        // Asegurarse de que las comunidades predefinidas estén presentes y no se dupliquen
         const predefinedIds = new Set(initial.communities.map(c => c.id));
         const userCreatedCommunities = (s.communities || []).filter(c => !predefinedIds.has(c.id));
         s.communities = [...initial.communities, ...userCreatedCommunities];
+        if (!s.transactions) s.transactions = []; // Asegurar que exista el historial
 
         return s;
       } catch(e) {
@@ -977,15 +1032,15 @@
     function seed(){
       const s = structuredClone(initial);
       s.posts = [
-        {id: id(), user:'Ana', scope:{type:'sector',name:'La Floresta'}, content:'Cambio libros por plantas 🪴', likes:3, liked:false, ts:Date.now()-3600000},
-        {id: id(), user:'Luis', scope:{type:'sector',name:'La Carolina'}, content:'Se perdió una llave en el parque. Aviso por DM 🙏', likes:1, liked:false, ts:Date.now()-7200000}
+        {id: id(), user:'Ana', scope:{type:'sector',name:'La Floresta'}, content:'Cambio libros por plantas 🪴', likes:[], dislikes: [], comments: [], photo: null, ts:Date.now()-3600000},
+        {id: id(), user:'Luis', scope:{type:'sector',name:'La Carolina'}, content:'Se perdió una llave en el parque. Aviso por DM 🙏', likes:[], dislikes: [], comments: [], photo: null, ts:Date.now()-7200000}
       ];
       s.items = [
         {id:id(), user:'Sofi', scope:{type:'conjunto',name:'Jardines del Valle'}, title:'Bici urbana', price:85, use_price: true, trueque_desc: 'Acepto consola de videojuegos', use_trueque: true, description:'Bien cuidada, talla M.', photos: [], ts:Date.now()-2300000},
         {id:id(), user:'Carlos', scope:{type:'sector',name:'Conocoto'}, title:'Mermelada casera', price: 0, use_price: false, trueque_desc: 'Fruta de temporada', use_trueque: true, description:'Intercambio por fruta de la temporada', photos: [], ts:Date.now()-1800000}
       ];
       s.events = [
-        {id:id(), user: 'Veci', scope:{type:'sector',name:'La Mariscal'}, title:'Cine al aire libre', dt:new Date(Date.now()+86400000).toISOString(), place:'Plaza Foch', description:'Reactivamos el cine 🍿', attendees:12, lat:-0.204, lng:-78.488, is_free: true, price: 0, use_trueque: false, trueque_desc: ''}
+        {id:id(), user: 'Veci', scope:{type:'sector',name:'La Mariscal'}, title:'Cine al aire libre', dt:new Date(Date.now()+86400000).toISOString(), place:'Plaza Foch', description:'Reactivamos el cine 🍿', attendees:[], lat:-0.204, lng:-78.488, is_free: true, price: 0, use_trueque: false, trueque_desc: ''}
       ];
       s.rides = [ {id:id(), scope:{type:'sector',name:'Conocoto'}, from_place:'Conocoto', to_place:'Quito centro', dt:new Date(Date.now()+5400000).toISOString(), seats:2, driver:'Marco', meet_point:'Parque de Conocoto 18:00', from_lat: -0.334, from_lng: -78.478, to_lat: -0.21, to_lng: -78.50, cost: 24, use_trueque: true, trueque_desc: 'Herramientas'} ];
       s.communities.push({id: 'comm_jardines', type:'conjunto', name:'Jardines del Valle', status:'created'});
@@ -1025,7 +1080,7 @@
       });
     }
 
-    let mapSelectionMode = null; // 'origin', 'destination', or 'event'
+    let mapSelectionMode = null; 
 
     function show(id){
       const mapEl = $('#map');
@@ -1041,7 +1096,6 @@
         }
       });
 
-      // CORRECCIÓN: Refrescar las capas del mapa cada vez que se muestra.
       if(id === 'mapa') {
         setTimeout(() => { if(map) map.invalidateSize() }, 100);
         if (map) renderMapLayers();
@@ -1108,17 +1162,52 @@
       state.posts.filter(p => matchScope(p.scope, scope)).sort((a, b) => b.ts - a.ts).forEach(p => {
         const li = document.createElement('li');
         li.className = 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 shadow-glow';
+        const isMyPost = p.user === state.user.name;
+        const liked = p.likes.includes(state.user.id);
+        const disliked = p.dislikes.includes(state.user.id);
+
         li.innerHTML = `
-          <div class="flex items-center justify-between text-sm text-slate-500 dark:text-slate-400">
-            <span><button class="underline font-bold" data-user="${esc(p.user)}">${esc(p.user)}${state.user.verified ? verifiedBadge : ''}</button> • ${esc(p.scope.type)} · ${esc(p.scope.name)}</span>
-            <time>${timeAgo(p.ts)}</time>
+          <div class="flex items-start justify-between">
+            <div class="flex items-center gap-2">
+              <button data-view-profile="${esc(p.user)}" class="underline font-bold">${esc(p.user)}</button>
+              <span class="text-sm text-slate-500 dark:text-slate-400">• ${timeAgo(p.ts)}</span>
+            </div>
+            ${isMyPost ? `
+              <div class="relative">
+                <button data-post-menu="${p.id}" class="p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800">
+                  <svg class="w-5 h-5" viewBox="0 0 20 20" fill="currentColor"><path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" /></svg>
+                </button>
+                <div id="menu-${p.id}" class="hidden absolute right-0 mt-2 w-32 bg-white dark:bg-slate-900 border rounded-lg shadow-lg z-10">
+                  <button data-edit-post="${p.id}" class="w-full text-left px-4 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-800">Editar</button>
+                  <button data-delete-post="${p.id}" class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-slate-100 dark:hover:bg-slate-800">Eliminar</button>
+                </div>
+              </div>` : ''}
           </div>
           <p class="mt-2 text-slate-900 dark:text-slate-100">${esc(p.content)}</p>
-          <div class="mt-3 flex items-center gap-3">
-            <button class="like-btn inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 ${p.liked ? 'active' : ''}" data-like="${p.id}">
-              ${heartSvg(p.liked)} <span>${p.likes || 0}</span>
+          ${p.photo ? `<img src="${p.photo}" class="mt-3 rounded-lg max-h-80 w-auto" alt="Foto de la publicación">` : ''}
+          <div class="mt-3 flex items-center gap-4 text-sm">
+            <button data-like-post="${p.id}" class="flex items-center gap-1 ${liked ? 'text-cosmic-600' : 'text-slate-500'}">
+              <svg class="w-5 h-5" viewBox="0 0 20 20" fill="currentColor"><path d="M2 10.5a1.5 1.5 0 113 0v6a1.5 1.5 0 01-3 0v-6zM6 10.333V17a1 1 0 001 1h6.364a1 1 0 00.942-.673l2.764-6A1 1 0 0016 10h-4V4.667a1 1 0 00-1-1l-3.364 4.333-1.25.03z" /></svg>
+              <span>${p.likes.length}</span>
             </button>
-          </div>`;
+            <button data-dislike-post="${p.id}" class="flex items-center gap-1 ${disliked ? 'text-red-500' : 'text-slate-500'}">
+              <svg class="w-5 h-5" viewBox="0 0 20 20" fill="currentColor"><path d="M18 9.5a1.5 1.5 0 11-3 0v-6a1.5 1.5 0 013 0v6zM14 9.667V3a1 1 0 00-1-1H6.636a1 1 0 00-.942.673l-2.764 6A1 1 0 004 10h4v5.333a1 1 0 001 1l3.364-4.333L13.636 12H14z" /></svg>
+              <span>${p.dislikes.length}</span>
+            </button>
+          </div>
+          <div class="mt-3 border-t border-slate-200 dark:border-slate-700 pt-3">
+            <ul class="space-y-2 text-sm">
+              ${p.comments.map(c => `
+                <li class="bg-slate-50 dark:bg-slate-800 p-2 rounded-lg">
+                  <button data-view-profile="${esc(c.user)}" class="font-semibold underline">${esc(c.user)}</button>: ${esc(c.text)}
+                </li>`).join('')}
+            </ul>
+            <form data-comment-form="${p.id}" class="mt-2 flex gap-2">
+              <input class="flex-1 bg-slate-100 dark:bg-slate-800 border-0 rounded-lg px-3 py-1.5 text-sm" placeholder="Escribe un comentario...">
+              <button type="submit" class="text-sm font-medium text-cosmic-600">Enviar</button>
+            </form>
+          </div>
+        `;
         ul.appendChild(li);
       });
     }
@@ -1127,7 +1216,7 @@
       const el = $('#trends');
       if (!el) return;
       const scope = state.scope;
-      const top = state.posts.filter(p => matchScope(p.scope, scope)).slice().sort((a, b) => (b.likes || 0) - (a.likes || 0)).slice(0, 3);
+      const top = state.posts.filter(p => matchScope(p.scope, scope)).slice().sort((a, b) => (b.likes.length || 0) - (a.likes.length || 0)).slice(0, 3);
       el.innerHTML = top.map(p => `<li>${esc(p.content.slice(0, 60))}${p.content.length > 60 ? '…' : ''}</li>`).join('');
       const rewardsSide = $('#rewardsSide');
       if (rewardsSide) {
@@ -1150,6 +1239,7 @@
       const mode = $('#chatModeBtn').dataset.mode || 'rooms';
       if (mode === 'rooms') return currentScopeKey($('#chatRoom').value);
       if (mode === 'rides') return $('#chatRideSelect').value || currentScopeKey('general');
+      if (mode === 'dms') return $('#dm-chat-target').dataset.key || currentScopeKey('general');
       return currentScopeKey('general');
     }
 
@@ -1176,7 +1266,7 @@
             <li class="flex items-center justify-between p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">
                 <div class="flex items-center gap-2">
                     <div class="w-2 h-2 rounded-full bg-green-500"></div>
-                    <span>${esc(user.name)}</span>
+                    <button data-view-profile="${esc(user.name)}" class="font-semibold underline">${esc(user.name)}</button>
                 </div>
                 <button data-dm="${id}" class="px-3 py-1 text-xs rounded-full bg-cosmic-600 text-white">Chatear</button>
             </li>
@@ -1202,7 +1292,6 @@
       if (circle) circle.remove();
       circle = L.circle([lat, lng], { radius: km * 1000, color: '#6f37e8', fillOpacity: 0.1 }).addTo(map);
       
-      // MEJORA: Inicializar el slider del radio
       const slider = $('#radiusSlider');
       const label = $('#radiusLabel');
       if(slider) slider.value = km;
@@ -1211,7 +1300,6 @@
       renderMapLayers();
     }
     
-    // REPARACIÓN: Lógica de click en mapa mejorada
     function onMapClick(e) {
         if (!mapSelectionMode) return;
 
@@ -1233,18 +1321,20 @@
             targetDisplay = $('#eventPlace');
             viewToShow = 'eventos';
         } else {
-            return; // Salir si el modo no es válido
+            return;
         }
 
         targetInput.value = `${lat.toFixed(6)},${lng.toFixed(6)}`;
         
-        // CORRECCIÓN: Se elimina la llamada al geocodificador inverso que causa el error de fetch.
-        // En su lugar, se usan las coordenadas directamente como nombre del lugar.
-        // Esto se debe a las restricciones de seguridad del entorno de ejecución que bloquean las llamadas a APIs externas.
-        let name = `Lat: ${lat.toFixed(3)}, Lng: ${lng.toFixed(3)}`;
-        targetDisplay.value = name;
+        const geocoder = L.Control.Geocoder.nominatim();
+        geocoder.reverse(latlng, map.options.crs.scale(map.getZoom()), (results) => {
+            let name = `Lat: ${lat.toFixed(3)}, Lng: ${lng.toFixed(3)}`;
+            if (results && results[0] && results[0].name) {
+                name = results[0].name.split(',').slice(0, 2).join(', ');
+            }
+            targetDisplay.value = name;
+        });
         
-        // MEJORA: Añadir feedback visual con marcadores para todos los modos
         if (mapSelectionMode === 'origin') {
             if (fromMarker) fromMarker.setLatLng(latlng);
             else fromMarker = L.marker(latlng, {draggable: true}).addTo(map).bindPopup('Origen').openPopup();
@@ -1256,7 +1346,6 @@
             else eventMarker = L.marker(latlng).addTo(map).bindPopup('Ubicación del Evento').openPopup();
         }
         
-        // MEJORA: Dar tiempo al usuario para ver el pin antes de volver
         setTimeout(() => {
             mapSelectionMode = null;
             $('#map').classList.remove('selection-mode');
@@ -1265,7 +1354,7 @@
             $('#map-ride-controls').classList.add('hidden');
             updateRouteOnMap();
             show(viewToShow);
-        }, 500); // 0.5 segundos de espera
+        }, 500);
     }
 
     function updateRouteOnMap() {
@@ -1276,7 +1365,7 @@
             routingControl = L.Routing.control({
                 waypoints: [ fromMarker.getLatLng(), toMarker.getLatLng() ],
                 lineOptions: { styles: [{color: '#6f37e8', opacity: 0.8, weight: 5}] },
-                createMarker: () => null, // No crear marcadores por defecto
+                createMarker: () => null, 
                 routeWhileDragging: true,
                 addWaypoints: false
             }).on('routesfound', function(e) {
@@ -1295,7 +1384,6 @@
         calculateAndDisplayRideCost();
     }
     
-    // MEJORA: Filtrar capas por radio
     function renderMapLayers(){
       if (!map) return;
       if(evLayer) evLayer.clearLayers(); else evLayer = L.layerGroup().addTo(map);
@@ -1303,10 +1391,9 @@
       
       const scope = state.scope;
       
-      // Lógica de filtrado por radio
       const userLat = parseFloat(state.user.lat);
       const userLng = parseFloat(state.user.lng);
-      if (!isNum(userLat) || !isNum(userLng)) return; // No se puede filtrar sin la ubicación del usuario
+      if (!isNum(userLat) || !isNum(userLng)) return;
       
       const userLatLng = L.latLng(userLat, userLng);
       const radiusMeters = circle ? circle.getRadius() : (state.user.radioKm || 3) * 1000;
@@ -1316,10 +1403,12 @@
           .filter(e => 
             matchScope(e.scope, scope) && 
             isNum(e.lat) && isNum(e.lng) &&
+            new Date(e.dt) > new Date() &&
             userLatLng.distanceTo(L.latLng(e.lat, e.lng)) <= radiusMeters
           )
           .forEach(ev => {
-            L.marker([ev.lat, ev.lng]).bindPopup(`<b>${esc(ev.title)}</b><br>${esc(new Date(ev.dt).toLocaleString())}<br>${esc(ev.place)}`).addTo(evLayer);
+            const popupContent = `<b>${esc(ev.title)}</b><br>${esc(new Date(ev.dt).toLocaleString())}<br>Organizador: ${esc(ev.user)}`;
+            L.marker([ev.lat, ev.lng]).bindPopup(popupContent).addTo(evLayer);
           });
       }
       
@@ -1328,26 +1417,13 @@
           .filter(r => 
             matchScope(r.scope, scope) &&
             isNum(r.from_lat) && isNum(r.from_lng) &&
+            new Date(r.dt) > new Date() &&
             userLatLng.distanceTo(L.latLng(r.from_lat, r.from_lng)) <= radiusMeters
           )
           .forEach(r => {
             if (isNum(r.from_lat) && isNum(r.from_lng) && isNum(r.to_lat) && isNum(r.to_lng)) {
-                const routing = L.Routing.control({
-                    waypoints: [ L.latLng(r.from_lat, r.from_lng), L.latLng(r.to_lat, r.to_lng) ],
-                    createMarker: (i, wp) => {
-                      const label = i === 0 ? `<b>Origen: ${esc(r.from_place)}</b><br>Costo: ${r.cost} Intis` : `<b>Destino: ${esc(r.to_place)}</b>`;
-                      return L.marker(wp.latLng).bindPopup(label);
-                    },
-                    lineOptions: { styles: [{color: '#935bff', weight: 3, opacity: 0.7}] },
-                    routeWhileDragging: false,
-                    addWaypoints: false,
-                    draggableWaypoints: false,
-                    fitSelectedRoutes: false,
-                    show: false
-                }).addTo(rideLayer);
-                routing.on('routesfound', function() {
-                    this.getContainer().style.display = 'none';
-                });
+                const popupContent = `<b>Viaje a ${esc(r.to_place)}</b><br>Conductor: ${esc(r.driver)}<br>Pasajeros: ${(r.accepted || []).join(', ') || 'Ninguno'}`;
+                const marker = L.marker([r.from_lat, r.from_lng]).bindPopup(popupContent).addTo(rideLayer);
             }
           });
       }
@@ -1369,27 +1445,30 @@
             costDisplay += `${costDisplay ? ' o ' : ''}<span class="font-bold text-green-600">Acepta Trueque</span>`;
         }
         
-        const contactBtn = `<button data-buy="${i.id}" class="px-3 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800">Contactar</button>`;
-        const truequeBtn = i.use_trueque ? `<button data-trueque="${i.id}" class="px-3 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800">Proponer Trueque</button>` : '';
+        const isMyItem = i.user === state.user.name;
+        const buyBtn = (!isMyItem && i.use_price && i.price > 0) ? `<button data-buy-item="${i.id}" class="px-3 py-1.5 rounded-lg bg-gradient-to-b from-cosmic-600 to-cosmic-700 text-white">Comprar</button>` : '';
+        const truequeBtn = (!isMyItem && i.use_trueque) ? `<button data-trueque="${i.id}" class="px-3 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800">Proponer Trueque</button>` : '';
+        const editBtn = isMyItem ? `<button data-edit-item="${i.id}" class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs">Editar</button>` : '';
 
         return `
         <li class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 shadow-glow">
           <div class="flex items-start justify-between">
             <div>
               <h4 class="font-medium">${esc(i.title)}</h4>
-              <span class="text-sm text-slate-500 dark:text-slate-400"><strong class="text-slate-900 dark:text-slate-100">${esc(i.user)}${state.user.verified ? verifiedBadge : ''}</strong></span>
+              <button data-view-profile="${esc(i.user)}" class="text-sm text-slate-500 dark:text-slate-400 underline"><strong class="text-slate-900 dark:text-slate-100">${esc(i.user)}</strong></button>
             </div>
             <div class="text-sm text-right">${costDisplay}</div>
           </div>
           <p class="mt-2 text-slate-800 dark:text-slate-200">${esc(i.description)}</p>
           ${i.use_trueque && i.trueque_desc ? `<p class="mt-1 text-xs text-green-700 dark:text-green-400"><b>Busca a cambio:</b> ${esc(i.trueque_desc)}</p>` : ''}
           ${(i.photos && i.photos.length > 0) ? `<div class="mt-3 grid grid-cols-3 gap-2">${i.photos.map(p => `<img src="${p}" class="w-full h-24 rounded-lg object-cover" alt="Foto del producto">`).join('')}</div>` : ''}
-          <div class="mt-3 flex gap-2">${contactBtn} ${truequeBtn}</div>
+          <div class="mt-3 flex gap-2">${buyBtn} ${truequeBtn} ${editBtn}</div>
         </li>`;
       }).join('');
     }
     
     let currentTruequeId = null;
+    let currentPayment = null;
 
     // Lógica para Eventos
     function renderEvents(){
@@ -1409,9 +1488,9 @@
                 costDisplay += `${costDisplay ? ' o ' : ''}<span class="font-bold text-blue-600">Acepta Trueque</span>`;
             }
         }
-        // MEJORA: Añadir botón de editar si el evento es del usuario
         const isMyEvent = ev.user === state.user.name;
         const editBtn = isMyEvent ? `<button data-edit-event="${ev.id}" class="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs">Editar</button>` : '';
+        const rsvpBtn = !isMyEvent ? `<button data-rsvp="${ev.id}" class="px-3 py-1.5 rounded-lg bg-gradient-to-b from-cosmic-600 to-cosmic-700 text-white">Asistir</button>` : '';
 
         return `
         <li class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 shadow-glow">
@@ -1424,10 +1503,9 @@
           </div>
           <p class="text-sm text-slate-700 dark:text-slate-300 mt-1">${esc(ev.place)} — ${esc(ev.description)}</p>
           <div class="mt-2 flex items-center justify-between">
-            <span class="text-sm text-slate-500 dark:text-slate-400">Asistentes: ${ev.attendees || 0}</span>
+            <span class="text-sm text-slate-500 dark:text-slate-400">Asistentes: ${ev.attendees.length || 0}</span>
             <div class="flex items-center gap-2">
-              ${editBtn}
-              <button data-rsvp="${ev.id}" class="px-3 py-1.5 rounded-lg bg-gradient-to-b from-cosmic-600 to-cosmic-700 text-white">Asistir</button>
+              ${editBtn} ${rsvpBtn}
             </div>
           </div>
         </li>`;
@@ -1454,7 +1532,7 @@
         const action = mine ? `<span class="text-xs text-slate-500">Administra en Notificaciones</span>` 
             : alreadyAccepted ? `<button data-ridechat="${r.id}" class="px-3 py-1.5 rounded-lg bg-gradient-to-b from-cosmic-600 to-cosmic-700 text-white">Abrir chat</button>` 
             : reqPending ? `<span class="text-xs text-slate-500">Solicitud enviada…</span>` 
-            : `<button data-join="${r.id}" class="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50">Unirme</button>`;
+            : `<button data-join-ride="${r.id}" class="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50">Unirme</button>`;
         
         return `<li class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 shadow-glow">
           <div class="flex items-center justify-between">
@@ -1470,7 +1548,6 @@
       }).join('');
     }
     
-    // Calcula la distancia en línea recta (fallback)
     function getDistance(lat1, lon1, lat2, lon2) {
       const R = 6371; // Radio de la Tierra en km
       const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -1489,7 +1566,6 @@
             const [fromLat, fromLng] = fromGeo.split(',').map(s => parseFloat(s.trim()));
             const [toLat, toLng] = toGeo.split(',').map(s => parseFloat(s.trim()));
             if (isNum(fromLat) && isNum(fromLng) && isNum(toLat) && isNum(toLng)) {
-                // Leaflet routing ya actualiza esto, pero lo usamos como fallback
                 const distance = getDistance(fromLat, fromLng, toLat, toLng);
                 const cost = Math.max(MINIMUM_FARE, Math.round(distance * PRICE_PER_KM));
                 $('#estimator-distancia').textContent = `${distance.toFixed(2)} km`;
@@ -1497,7 +1573,6 @@
                 return cost;
             }
         }
-        // Resetear a mínimo si no hay ruta válida
         $('#estimator-distancia').textContent = `0.00 km`;
         $('#estimator-costo').textContent = `${MINIMUM_FARE} Intis`;
         return MINIMUM_FARE;
@@ -1521,7 +1596,6 @@
       }).join('') : '<li class="text-slate-500 dark:text-slate-400">Sin solicitudes de viajes.</li>';
 
       const jrList = $('#joinReqList');
-      // Ahora filtramos las solicitudes para comunidades donde el usuario actual es admin
       const jPending = (state.joinRequests || []).filter(jr => {
           const communityKey = keyScope(jr.scope);
           return state.communityAdmins[communityKey] === state.user.id && jr.status === 'pending';
@@ -1582,33 +1656,40 @@
 
     function renderWallet() {
       $('#walletBalance').textContent = `${state.meetcoins} Intis`;
-    }
+      const historyList = $('#transactionHistory');
+      if (!historyList) return;
+      
+      const myId = state.user.id;
+      const myTransactions = state.transactions
+          .filter(t => t.from === myId || t.to === myId)
+          .sort((a, b) => b.ts - a.ts);
 
-    function renderCommunities(){
-      const ul = $('#communitiesList');
-      const myCommunities = state.user.communities || [];
-      ul.innerHTML = myCommunities
-        .map(c => {
-        const key = keyScope(c);
-        const cfg = state.communityCodes[key] || {code: '', restricted: isRestricted(c.type)};
-        const isAdmin = state.communityAdmins[key] === state.user.id;
-        const adminTools = isAdmin ? `
-          <details class="mt-2 text-xs">
-            <summary class="cursor-pointer font-semibold">Panel de Administrador</summary>
-            <div class="mt-2 flex flex-wrap gap-2 items-center p-2 border border-slate-200 dark:border-slate-700 rounded-lg">
-              <input data-commcode="${key}" value="${esc(cfg.code || '')}" class="w-28 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2 py-1" placeholder="Código"/>
-              <button data-gen-code="${key}" class="px-2 py-1 rounded border border-slate-200 dark:border-slate-700 text-xs">Generar</button>
-              <label class="flex items-center gap-2 text-xs"><input type="checkbox" data-commrest="${key}" ${cfg.restricted ? 'checked' : ''}/> Acceso Restringido</label>
-              <button data-commsave="${key}" class="px-2 py-1 rounded border border-cosmic-300 dark:border-cosmic-700 bg-cosmic-50 dark:bg-cosmic-900">Guardar</button>
-            </div>
-          </details>` : '';
-        return `<li class="border border-slate-200 dark:border-slate-700 rounded-xl p-3">
-          <div class="flex items-center justify-between">
-            <div><strong>${esc(c.type)}</strong> · ${esc(c.name)}</div>
-            <div class="flex gap-2"><button data-switchscope="${key}" class="px-2 py-1 rounded bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700">Cambiar a esta</button></div>
-          </div>
-          ${adminTools}
-        </li>`;
+      if (myTransactions.length === 0) {
+          historyList.innerHTML = `<li class="text-center text-sm text-slate-500 p-4">No hay transacciones todavía.</li>`;
+          return;
+      }
+      
+      historyList.innerHTML = myTransactions.map(t => {
+          const isSent = t.from === myId;
+          const user = isSent ? state.users[t.to] : state.users[t.from];
+          const userName = user ? user.name : 'Usuario desconocido';
+          const color = isSent ? 'text-red-500' : 'text-green-500';
+          const sign = isSent ? '-' : '+';
+          
+          return `
+              <li class="text-sm border-b border-slate-200 dark:border-slate-700 pb-2 mb-2">
+                  <div class="flex justify-between items-center">
+                      <div>
+                          <p class="font-medium">${esc(t.note)}</p>
+                          <p class="text-xs text-slate-500">${isSent ? 'Para' : 'De'}: ${esc(userName)}</p>
+                      </div>
+                      <div class="text-right">
+                          <p class="${color} font-semibold">${sign}${t.amount} Intis</p>
+                          <p class="text-xs text-slate-400">${new Date(t.ts).toLocaleDateString()}</p>
+                      </div>
+                  </div>
+              </li>
+          `;
       }).join('');
     }
 
@@ -1637,11 +1718,9 @@
                 </div>
             </div>
         `;
-        // MEJORA: Añadir listeners de swipe a la nueva tarjeta
         addSwipeListeners($('.connection-card'));
     }
     
-    // MEJORA: Implementación de la vista de Amistad
     function renderFriendList() {
         const list = $('#friend-list');
         const filters = $$('#interest-filters button[aria-current="true"]');
@@ -1657,7 +1736,7 @@
             if (activeInterests.length > 0) {
                 return activeInterests.every(ai => theirInterests.has(ai));
             }
-            return sharedInterests.length > 0; // Mostrar si hay al menos un interés en común
+            return sharedInterests.length > 0;
         });
 
         if (potentialFriends.length === 0) {
@@ -1700,10 +1779,8 @@
         }
         state.swipes[state.user.id][targetId] = action;
 
-        // Animación de swipe
         card.classList.add(action === 'like' ? 'swiping-right' : 'swiping-left');
 
-        // Comprobar si hay match
         const theirSwipes = state.swipes[targetId] || {};
         if (action === 'like' && theirSwipes[state.user.id] === 'like') {
             setTimeout(() => {
@@ -1712,14 +1789,12 @@
             }, 400);
         }
         
-        // Cargar la siguiente tarjeta después de la animación
         setTimeout(() => {
             renderConnections();
             save();
         }, 400);
     }
     
-    // MEJORA: Lógica de swipe con el dedo/mouse
     function addSwipeListeners(card) {
         if (!card) return;
         let startX = 0;
@@ -1737,7 +1812,7 @@
             e.preventDefault();
             currentX = e.pageX || e.touches[0].pageX;
             const deltaX = currentX - startX;
-            const rotation = deltaX / 20; // Grado de rotación
+            const rotation = deltaX / 20;
             card.style.transform = `translateX(${deltaX}px) rotate(${rotation}deg)`;
         }
 
@@ -1747,16 +1822,16 @@
             card.classList.remove('dragging');
             const deltaX = currentX - startX;
             
-            if (Math.abs(deltaX) < 5) { // Si el movimiento es mínimo, considerarlo un click
+            if (Math.abs(deltaX) < 5) {
                 showUserProfile(card.dataset.id);
-                card.style.transform = ''; // Resetear la posición
+                card.style.transform = '';
                 return;
             }
 
-            if (Math.abs(deltaX) > 100) { // Umbral para swipe
+            if (Math.abs(deltaX) > 100) {
                 handleSwipe(deltaX > 0 ? 'like' : 'nope');
             } else {
-                card.style.transform = ''; // Volver a la posición original si no es un swipe claro
+                card.style.transform = '';
             }
         }
         
@@ -1770,7 +1845,6 @@
         document.addEventListener('touchend', dragEnd);
     }
     
-    // MEJORA: Función para mostrar el perfil del usuario
     function showUserProfile(userId) {
         const user = state.conexiones.find(u => u.id === userId);
         if (!user) return;
@@ -1839,7 +1913,6 @@
       }
     }
 
-    // MEJORA: Función para poblar el selector de comunidades
     function populateScopeSelector() {
         const select = $('#scopeName');
         const type = $('#scopeType').value;
@@ -1872,7 +1945,6 @@
       pointsBadge();
       renderChat();
       updateQuotaBadge();
-      // CORRECCIÓN: Refrescar las capas del mapa cada vez que se guarda el estado.
       if (map) renderMapLayers();
     }
 
@@ -1899,6 +1971,7 @@
             btn.setAttribute('aria-current', 'true');
             show(btn.dataset.to);
         });
+        attachAll('[data-open="wallet"]', 'click', () => show('wallet'));
         attach('#bottomNav', 'click', (e) => {
             const b = e.target.closest('button[data-to]');
             if(!b) return;
@@ -1933,7 +2006,7 @@
 
         attach('#joinScope', 'click', () => {
             const type = $('#scopeType').value;
-            const name = $('#scopeName').value; // Ahora es un select
+            const name = $('#scopeName').value; 
             const codeInput = $('#scopeCode').value.trim();
             if (!name) { alert('Selecciona una comunidad.'); return; }
 
@@ -1968,32 +2041,118 @@
         // Feed
         attach('#postForm', 'submit', e => {
           e.preventDefault();
-          const t = $('#postText').value.trim();
-          if (!t) return;
-          if (!canUse('posts')) return openModal('#upgradeModal');
-          state.posts.push({id: id(), user: state.user.name || 'Veci', scope: {...state.scope}, content: t, likes: 0, liked: false, ts: Date.now()});
-          $('#postText').value = '';
-          state.meetcoins += 5;
-          useOne('posts');
-          save();
-        });
-        attach('#feedList', 'click', e => {
-          const btn = e.target.closest('button[data-like]');
-          if (btn) {
-            const pid = btn.dataset.like;
-            const p = state.posts.find(x => x.id === pid);
-            if (!p) return;
-            p.liked = !p.liked;
-            p.likes = (p.likes || 0) + (p.liked ? 1 : -1);
+          const text = $('#postText').value.trim();
+          const postId = $('#postId').value;
+          const photoInput = $('#postPhoto');
+          if (!text) return;
+
+          const handlePost = (photoData) => {
+            if (postId) { // Editing
+              const post = state.posts.find(p => p.id === postId);
+              if (post) {
+                post.content = text;
+                if(photoData) post.photo = photoData;
+              }
+            } else { // Creating
+              if (!canUse('posts')) return openModal('#upgradeModal');
+              state.posts.push({id: id(), user: state.user.name || 'Veci', scope: {...state.scope}, content: text, likes: [], dislikes: [], comments: [], photo: photoData, ts: Date.now()});
+              state.meetcoins += 5;
+              useOne('posts');
+            }
+            $('#postForm').reset();
+            $('#postId').value = '';
+            $('#postSubmitBtn').textContent = 'Publicar';
+            $('#postPhotoName').textContent = '';
             save();
-            return;
-          }
-          const userBtn = e.target.closest('[data-user]');
-          if (userBtn) {
-            alert(`Perfil de ${userBtn.dataset.user} (demo público)${state.user.verified ? ' - Verificado' : ''}`);
+          };
+          
+          if (photoInput.files[0]) {
+            const reader = new FileReader();
+            reader.onload = (e) => handlePost(e.target.result);
+            reader.readAsDataURL(photoInput.files[0]);
+          } else {
+            handlePost(null);
           }
         });
 
+        attach('#postPhoto', 'change', e => {
+          if (e.target.files[0]) {
+            $('#postPhotoName').textContent = e.target.files[0].name;
+          }
+        });
+
+        attach('#feedList', 'click', e => {
+          const menuBtn = e.target.closest('[data-post-menu]');
+          if (menuBtn) {
+            $(`#menu-${menuBtn.dataset.postMenu}`).classList.toggle('hidden');
+            return;
+          }
+          const editBtn = e.target.closest('[data-edit-post]');
+          if(editBtn) {
+            const post = state.posts.find(p => p.id === editBtn.dataset.editPost);
+            if(post) {
+              $('#postId').value = post.id;
+              $('#postText').value = post.content;
+              $('#postSubmitBtn').textContent = 'Guardar Cambios';
+              $('#postText').focus();
+            }
+            return;
+          }
+          const deleteBtn = e.target.closest('[data-delete-post]');
+          if(deleteBtn) {
+            state.posts = state.posts.filter(p => p.id !== deleteBtn.dataset.deletePost);
+            save();
+            return;
+          }
+          const likeBtn = e.target.closest('[data-like-post]');
+          if(likeBtn) {
+            const post = state.posts.find(p => p.id === likeBtn.dataset.likePost);
+            if(post) {
+              post.dislikes = post.dislikes.filter(id => id !== state.user.id);
+              if(post.likes.includes(state.user.id)) {
+                post.likes = post.likes.filter(id => id !== state.user.id);
+              } else {
+                post.likes.push(state.user.id);
+              }
+              save();
+            }
+            return;
+          }
+          const dislikeBtn = e.target.closest('[data-dislike-post]');
+          if(dislikeBtn) {
+            const post = state.posts.find(p => p.id === dislikeBtn.dataset.dislikePost);
+            if(post) {
+              post.likes = post.likes.filter(id => id !== state.user.id);
+              if(post.dislikes.includes(state.user.id)) {
+                post.dislikes = post.dislikes.filter(id => id !== state.user.id);
+              } else {
+                post.dislikes.push(state.user.id);
+              }
+              save();
+            }
+            return;
+          }
+          const commentForm = e.target.closest('[data-comment-form]');
+          if (commentForm) {
+            e.preventDefault();
+            const input = commentForm.querySelector('input');
+            const text = input.value.trim();
+            if (text) {
+              const post = state.posts.find(p => p.id === commentForm.dataset.commentForm);
+              if (post) {
+                post.comments.push({ user: state.user.name, text });
+                input.value = '';
+                save();
+              }
+            }
+            return;
+          }
+          const profileBtn = e.target.closest('[data-view-profile]');
+          if(profileBtn) {
+            showUserPublicProfile(profileBtn.dataset.viewProfile);
+          }
+        });
+        
         // Chat
         attach('#chatModeBtn', 'click', () => {
             $('#chatModeDropdown').classList.toggle('hidden');
@@ -2006,9 +2165,11 @@
             $('#chatModeLabel').textContent = e.target.textContent;
             $('#chatModeDropdown').classList.add('hidden');
             
-            $('#chat-rooms-view').classList.toggle('hidden', mode !== 'rooms');
+            $('#chat-rooms-view').classList.toggle('hidden', mode !== 'rooms' && mode !== 'dms');
             $('#chat-dms-view').classList.toggle('hidden', mode !== 'dms');
-            $('#chatRideSelect').parentElement.classList.toggle('hidden', mode !== 'rides');
+            $('#chatRoom').classList.toggle('hidden', mode !== 'rooms');
+            $('#chatRideSelect').classList.toggle('hidden', mode !== 'rides');
+            $('#dm-chat-target').classList.toggle('hidden', mode !== 'dms');
 
             if (mode === 'dms') {
                 renderOnlineUsers();
@@ -2027,61 +2188,93 @@
           $('#chatInput').value = '';
           save();
         });
+        attach('#onlineUsersList', 'click', e => {
+            const dmBtn = e.target.closest('[data-dm]');
+            if (dmBtn) {
+                const targetId = dmBtn.dataset.dm;
+                const targetUser = state.users[targetId];
+                if (!targetUser) return;
+                
+                const myId = state.user.id;
+                const dmKey = [myId, targetId].sort().join(':');
+                
+                $('#chatModeBtn').dataset.mode = 'dms';
+                $('#chatModeLabel').textContent = 'Directos';
+                $('#dm-chat-target').textContent = `Chat con ${targetUser.name}`;
+                $('#dm-chat-target').dataset.key = `dms:${dmKey}`;
+                
+                $('#chat-rooms-view').classList.remove('hidden');
+                $('#chat-dms-view').classList.add('hidden');
+                $('#chatRoom').classList.add('hidden');
+                $('#chatRideSelect').classList.add('hidden');
+                $('#dm-chat-target').classList.remove('hidden');
+                
+                renderChat();
+            }
+        });
         
         // Mapa
         attachAll('#toggleEvents, #toggleRides', 'change', renderMapLayers);
-        // MEJORA: Listeners para el slider de radio
         attach('#radiusSlider', 'input', e => {
             const km = e.target.value;
             $('#radiusLabel').textContent = `${km} km`;
             if (circle) circle.setRadius(km * 1000);
-            renderMapLayers(); // Re-filtrar capas en vivo
+            renderMapLayers();
         });
         attach('#radiusSlider', 'change', e => {
             state.user.radioKm = parseInt(e.target.value);
-            save(false); // Guardar sin re-renderizar todo
+            save(false);
         });
 
         // Marketplace
-        attach('#usePrice', 'change', (e) => {
-            $('#itemPrice').classList.toggle('hidden', !e.target.checked);
-        });
-        attach('#useTrueque', 'change', (e) => {
-            $('#itemTruequeDesc').classList.toggle('hidden', !e.target.checked);
-        });
         attach('#itemForm', 'submit', e => {
           e.preventDefault();
-          if (!canUse('items')) return openModal('#upgradeModal');
+          const itemId = $('#itemId').value;
           const title = $('#itemTitle').value.trim();
           const usePrice = $('#usePrice').checked;
           const useTrueque = $('#useTrueque').checked;
           const price = usePrice ? parseFloat($('#itemPrice').value) || 0 : 0;
           const truequeDesc = useTrueque ? $('#itemTruequeDesc').value.trim() : '';
           const desc = $('#itemDesc').value.trim();
-          const photos = [$('#itemPhoto1'), $('#itemPhoto2'), $('#itemPhoto3')].map(input => {
-            if (input.files.length > 0) { return URL.createObjectURL(input.files[0]); }
-            return null;
-          }).filter(p => p !== null);
+          
           if (!title || (!usePrice && !useTrueque)) {
             alert('Por favor, completa el título y selecciona al menos un método de cobro.');
             return;
           }
-          state.items.push({
-            id: id(), user: state.user.name || 'Veci', scope: {...state.scope}, title, price,
-            use_price: usePrice, trueque_desc: truequeDesc, use_trueque: useTrueque,
-            description: desc, photos, ts: Date.now()
-          });
+
+          if (itemId) { // Editing
+            const item = state.items.find(i => i.id === itemId);
+            if (item) {
+              Object.assign(item, { title, price, use_price: usePrice, trueque_desc: truequeDesc, use_trueque: useTrueque, description: desc });
+            }
+          } else { // Creating
+            if (!canUse('items')) return openModal('#upgradeModal');
+            state.items.push({
+              id: id(), user: state.user.name || 'Veci', scope: {...state.scope}, title, price,
+              use_price: usePrice, trueque_desc: truequeDesc, use_trueque: useTrueque,
+              description: desc, photos: [], ts: Date.now()
+            });
+            state.meetcoins += 10;
+            useOne('items');
+          }
+          
           e.target.reset();
+          $('#itemId').value = '';
+          $('#itemFormTitle').textContent = 'Publica un artículo';
+          $('#itemFormSubmitBtn').textContent = 'Publicar';
           $('#itemPrice').classList.remove('hidden');
           $('#itemTruequeDesc').classList.add('hidden');
-          state.meetcoins += 10;
-          useOne('items');
           save();
         });
         attach('#marketList', 'click', e => {
-          const btn = e.target.closest('[data-buy]');
-          if (btn) {
-            alert('Ping al vendedor enviado (demo).');
+          const buyBtn = e.target.closest('[data-buy-item]');
+          if (buyBtn) {
+            const item = state.items.find(i => i.id === buyBtn.dataset.buyItem);
+            if(item) {
+              currentPayment = { type: 'item', id: item.id, amount: item.price, to: item.user, note: `Compra de: ${item.title}` };
+              $('#paymentDetails').innerHTML = `Vas a pagar <strong>${item.price} Intis</strong> a <strong>${item.user}</strong> por "${item.title}".`;
+              openModal('#paymentModal');
+            }
             return;
           }
           const truequeBtn = e.target.closest('[data-trueque]');
@@ -2091,6 +2284,22 @@
             if (item) {
               $('#truequeText').textContent = `Propones un trueque por "${item.title}". El vendedor busca: "${item.trueque_desc || 'No especificado'}". Describe tu oferta:`;
               openModal('#truequeModal');
+            }
+          }
+          const editBtn = e.target.closest('[data-edit-item]');
+          if (editBtn) {
+            const item = state.items.find(i => i.id === editBtn.dataset.editItem);
+            if (item) {
+              $('#itemId').value = item.id;
+              $('#itemFormTitle').textContent = 'Editar Artículo';
+              $('#itemFormSubmitBtn').textContent = 'Guardar Cambios';
+              $('#itemTitle').value = item.title;
+              $('#itemPrice').value = item.price;
+              $('#usePrice').checked = item.use_price;
+              $('#itemTruequeDesc').value = item.trueque_desc;
+              $('#useTrueque').checked = item.use_trueque;
+              $('#itemDesc').value = item.description;
+              $('#itemTitle').focus();
             }
           }
         });
@@ -2142,15 +2351,15 @@
           if (!title || !dt) return alert('El título y la fecha son obligatorios.');
           if (!isFree && !usePrice && !useTrueque) return alert('Si el evento no es gratuito, debes seleccionar un método de cobro.');
           
-          if (eventId) { // Estamos editando
+          if (eventId) {
               const event = state.events.find(ev => ev.id === eventId);
               if (event) {
                   Object.assign(event, { title, dt, place, description: desc, lat, lng, is_free: isFree, price, use_price: usePrice, trueque_desc: truequeDesc, use_trueque: useTrueque });
               }
-          } else { // Estamos creando
+          } else {
               if (!canUse('events')) return openModal('#upgradeModal');
               state.events.push({
-                id: id(), user: state.user.name || 'Veci', scope: {...state.scope}, title, dt, place, description: desc, attendees: 0, lat, lng,
+                id: id(), user: state.user.name || 'Veci', scope: {...state.scope}, title, dt, place, description: desc, attendees: [], lat, lng,
                 is_free: isFree, price, use_price: usePrice, trueque_desc: truequeDesc, use_trueque: useTrueque
               });
               state.meetcoins += 20;
@@ -2158,22 +2367,28 @@
           }
 
           e.target.reset();
-          if (eventMarker) { map.removeLayer(eventMarker); eventMarker = null; } // Limpiar marcador
+          if (eventMarker) { map.removeLayer(eventMarker); eventMarker = null; }
           $('#eventId').value = '';
           $('#eventFormTitle').textContent = 'Crear evento';
           $('#eventFormSubmit').textContent = 'Crear';
           $('#eventPriceContainer').classList.add('hidden');
           $('#eventGratis').checked = true;
           save();
-          renderMapLayers();
         });
         attach('#eventList', 'click', e => {
           const rsvpBtn = e.target.closest('[data-rsvp]');
           if (rsvpBtn) {
             const ev = state.events.find(x => x.id === rsvpBtn.dataset.rsvp);
             if (!ev) return;
-            ev.attendees = (ev.attendees || 0) + 1;
-            save();
+            if (ev.price > 0) {
+                currentPayment = { type: 'event', id: ev.id, amount: ev.price, to: ev.user, note: `Entrada para: ${ev.title}` };
+                $('#paymentDetails').innerHTML = `Vas a pagar <strong>${ev.price} Intis</strong> a <strong>${ev.user}</strong> por el evento "${ev.title}".`;
+                openModal('#paymentModal');
+            } else {
+                if (!ev.attendees.includes(state.user.name)) ev.attendees.push(state.user.name);
+                alert('¡Te has unido al evento!');
+                save();
+            }
             return;
           }
 
@@ -2187,7 +2402,7 @@
               $('#eventFormTitle').textContent = 'Editar Evento';
               $('#eventFormSubmit').textContent = 'Guardar Cambios';
               $('#eventTitle').value = event.title;
-              $('#eventDate').value = event.dt.slice(0, 16); // Formato para datetime-local
+              $('#eventDate').value = event.dt.slice(0, 16);
               $('#eventPlace').value = event.place;
               $('#eventGeo').value = (isNum(event.lat) && isNum(event.lng)) ? `${event.lat},${event.lng}` : '';
               $('#eventDesc').value = event.description;
@@ -2204,7 +2419,7 @@
           }
         });
 
-        // Viajes - Lógica nueva
+        // Viajes
         attach('#setOriginBtn', 'click', () => {
             mapSelectionMode = 'origin';
             show('mapa');
@@ -2257,27 +2472,24 @@
             use_trueque: useTrueque, trueque_desc: truequeDesc
           });
           e.target.reset();
-          // Limpiar marcadores y ruta del mapa para el próximo ride
           if(fromMarker) map.removeLayer(fromMarker);
           if(toMarker) map.removeLayer(toMarker);
           if(routingControl) map.removeControl(routingControl);
           fromMarker = null; toMarker = null; routingControl = null;
-          calculateAndDisplayRideCost(); // Resetea el estimador
+          calculateAndDisplayRideCost();
           $('#rideTruequeDesc').classList.add('hidden');
           useOne('rides');
           save();
         });
         attach('#rideList', 'click', e => {
-          const join = e.target.closest('[data-join]');
+          const join = e.target.closest('[data-join-ride]');
           if (join) {
-            const rid = join.dataset.join;
+            const rid = join.dataset.joinRide;
             const r = state.rides.find(x => x.id === rid);
             if (!r) return;
-            const rr = {id: id(), rideId: rid, from: state.user.name || 'Veci', to: r.driver, status: 'pending', cost: r.cost};
-            state.rideRequests.push(rr);
-            state.notifications.push({id: id(), type: 'ride_request', payload: rr});
-            alert('Solicitud de viaje enviada. El driver debe aceptar.');
-            save();
+            currentPayment = { type: 'ride', id: r.id, amount: r.cost, to: r.driver, note: `Viaje a ${r.to_place}` };
+            $('#paymentDetails').innerHTML = `Vas a pagar <strong>${r.cost} Intis</strong> a <strong>${r.driver}</strong> para unirte al viaje.`;
+            openModal('#paymentModal');
             return;
           }
           const open = e.target.closest('[data-ridechat]');
@@ -2361,33 +2573,23 @@
           e.preventDefault();
           const userIdOrName = $('#transferUser').value.trim();
           const amount = parseFloat($('#transferAmount').value);
+          const note = $('#transferNote').value.trim() || 'Transferencia';
           if (!userIdOrName || isNaN(amount) || amount <= 0) {
             alert('Por favor, ingresa un ID/nombre de usuario y una cantidad válida.');
             return;
           }
-          if (state.meetcoins < amount) {
-            alert('No tienes suficientes Intis para esta transferencia.');
+          const targetUser = Object.values(state.users).find(u => u.name.toLowerCase() === userIdOrName.toLowerCase());
+          const targetUserId = Object.keys(state.users).find(id => id.toLowerCase() === userIdOrName.toLowerCase()) || (targetUser ? Object.keys(state.users).find(id => state.users[id] === targetUser) : null);
+          
+          if (!targetUserId) {
+            alert('Usuario no encontrado.');
             return;
           }
-          const targetUserKey = Object.keys(state.users).find(key => 
-            key.toLowerCase() === userIdOrName.toLowerCase() || 
-            state.users[key].name.toLowerCase() === userIdOrName.toLowerCase()
-          );
-          if (!targetUserKey) {
-            alert('Usuario no encontrado. Asegúrate de usar el ID exacto o el nombre de usuario.');
-            return;
-          }
-          if (targetUserKey === state.user.id) {
-            alert('No puedes transferirte Intis a ti mismo.');
-            return;
-          }
-          state.meetcoins -= amount;
-          state.users[targetUserKey].meetcoins = (state.users[targetUserKey].meetcoins || 0) + amount;
-          e.target.reset();
-          save();
-          alert(`Transferencia de ${amount} Intis a ${state.users[targetUserKey].name} realizada con éxito.`);
+          currentPayment = { type: 'transfer', id: null, amount, to: targetUserId, note };
+          $('#paymentDetails').innerHTML = `Vas a transferir <strong>${amount} Intis</strong> a <strong>${state.users[targetUserId].name}</strong>.`;
+          openModal('#paymentModal');
         });
-
+        
         // Conexiones
         attach('#connections-tabs', 'click', e => {
             const btn = e.target.closest('button');
@@ -2484,8 +2686,6 @@
             const jr = state.joinRequests.find(x => x.id === jid);
             if (!jr) return;
             jr.status = 'accepted';
-            // Simulación: En una app real, se actualizaría el estado del OTRO usuario.
-            // Aquí, solo lo marcamos como aceptado.
             alert(`Miembro ${jr.user} aprobado. (En una app real, se le notificaría y se le daría acceso).`);
             save();
             renderNotifications();
@@ -2570,7 +2770,6 @@
             const newCommunity = { id: `comm_${id(6)}`, type, name, status: 'created' };
             state.communities.push(newCommunity);
 
-            // Si es restringida, el creador es el admin
             if (isRestricted(type)) {
                 state.communityAdmins[key] = state.user.id;
                 const newCode = id(6);
@@ -2580,7 +2779,6 @@
                 alert(`Comunidad pública "${name}" creada.`);
             }
 
-            // Unir al usuario a la nueva comunidad
             joinCommunity({type, name, id: newCommunity.id}, 'joined');
             $('#scopeType').value = type;
             populateScopeSelector();
@@ -2593,6 +2791,67 @@
         
         // Modal Perfil de Usuario
         attach('#closeUserProfileModal', 'click', () => closeModal('#userProfileModal'));
+        attach('#closeUserPublicProfileModal', 'click', () => closeModal('#userPublicProfileModal'));
+        
+        // Modal de Pago
+        attach('#cancelPaymentBtn', 'click', () => {
+            closeModal('#paymentModal');
+            currentPayment = null;
+        });
+        attach('#confirmPaymentBtn', 'click', () => {
+            if (!currentPayment) return;
+            const { amount, to, note } = currentPayment;
+            if (state.meetcoins < amount) {
+                alert('No tienes suficientes Intis.');
+                return;
+            }
+            
+            const toUserId = Object.keys(state.users).find(id => state.users[id].name === to);
+            if (!toUserId) {
+                alert('Error: No se encontró al destinatario.');
+                return;
+            }
+
+            state.meetcoins -= amount;
+            state.users[toUserId].meetcoins += amount;
+            state.transactions.push({ id: id(), from: state.user.id, to: toUserId, amount, note, ts: Date.now() });
+            
+            if (currentPayment.type === 'ride') {
+                const ride = state.rides.find(r => r.id === currentPayment.id);
+                if (ride) {
+                    const rr = {id: id(), rideId: ride.id, from: state.user.name || 'Veci', to: ride.driver, status: 'pending', cost: ride.cost};
+                    state.rideRequests.push(rr);
+                    state.notifications.push({id: id(), type: 'ride_request', payload: rr});
+                    alert('Pago realizado. Se ha enviado tu solicitud para unirte al viaje.');
+                }
+            } else if (currentPayment.type === 'event') {
+                const event = state.events.find(ev => ev.id === currentPayment.id);
+                if (event) {
+                    if (!event.attendees.includes(state.user.name)) event.attendees.push(state.user.name);
+                    alert('¡Pago exitoso! Te has unido al evento.');
+                }
+            } else {
+                alert('Transferencia exitosa.');
+                $('#transferForm').reset();
+            }
+
+            closeModal('#paymentModal');
+            currentPayment = null;
+            save();
+        });
+
+        // Modal QR
+        attach('#showQrBtn', 'click', () => {
+            const qrContainer = $('#qrCodeContainer');
+            qrContainer.innerHTML = '';
+            const qr = qrcode(0, 'M');
+            qr.addData(state.user.id);
+            qr.make();
+            qrContainer.innerHTML = qr.createImgTag(6);
+            $('#qrUserId').textContent = state.user.id;
+            openModal('#qrModal');
+        });
+        attach('#closeQrModal', 'click', () => closeModal('#qrModal'));
 
         // Panic Button
         attach('#panicButton', 'click', (e)=>{
@@ -2625,10 +2884,31 @@
         alert(`Te has unido a ${scope.type} · ${scope.name}`);
         save();
     }
+    
+    function showUserPublicProfile(userName) {
+      const user = Object.values(state.users).find(u => u.name === userName);
+      const profileData = Object.values(initial.conexiones).find(p => p.name === userName) || {}; // Fallback a datos de conexiones
+      if (!user) return;
+
+      const content = $('#userPublicProfileContent');
+      content.innerHTML = `
+        <div class="text-center">
+            <h3 class="font-semibold text-xl">${esc(user.name)} ${profileData.verified ? verifiedBadge : ''}</h3>
+            <p class="text-sm text-slate-500">ID: ${Object.keys(state.users).find(id => state.users[id] === user)}</p>
+        </div>
+        <div class="mt-4 border-t pt-4 space-y-2 text-sm">
+            <p><strong>Intereses:</strong> ${esc(profileData.intereses || 'No especificado')}</p>
+        </div>
+        <div class="mt-4 flex gap-2">
+            <button data-dm="${Object.keys(state.users).find(id => state.users[id] === user)}" class="flex-1 px-4 py-2 rounded-xl bg-gradient-to-b from-cosmic-600 to-cosmic-700 text-white font-medium">Chatear</button>
+            ${profileData.phone ? `<a href="https://wa.me/${profileData.phone}" target="_blank" class="flex-1 text-center px-4 py-2 rounded-xl bg-green-500 text-white font-medium">WhatsApp</a>` : ''}
+        </div>
+      `;
+      openModal('#userPublicProfileModal');
+    }
 
     // Inicialización de la App
     window.onload = () => {
-        // CORRECCIÓN: Se elimina el registro del Service Worker que causaba errores.
         initMap();
         mountTabs();
         attachEventListeners();
