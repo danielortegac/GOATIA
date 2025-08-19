@@ -180,6 +180,19 @@
         pointer-events: none;
         box-shadow: 0 4px 6px rgba(0,0,0,0.1);
     }
+
+    /* Notificación Toast */
+    #toast-notification {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 1000;
+        transform: translateX(120%);
+        transition: transform 0.5s ease-in-out;
+    }
+    #toast-notification.show {
+        transform: translateX(0);
+    }
   </style>
 </head>
 <body>
@@ -188,7 +201,7 @@
   <aside id="sidebar" class="sidebar w-64 flex-col p-4 fixed h-full flex">
     <div class="h-16 flex items-center justify-between mb-6 px-2 flex-shrink-0">
       <div class="flex items-center gap-2">
-        <img src="Logos HD.png" alt="Flow Logo HD" class="h-12 w-auto">
+        <img src="https://i.ibb.co/9gX1sBw/LOGOS-HD-FAVICON.png" alt="Flow Logo HD" class="h-12 w-auto">
         <span class="text-2xl font-bold text-main sidebar-text">Flow</span>
       </div>
       <button id="close-sidebar-btn" class="md:hidden text-secondary text-2xl">&times;</button>
@@ -251,13 +264,8 @@
       </div>
   </div>
   
-  <!-- Pop-up de bienvenida / Footer -->
-  <div id="welcome-popup" class="fixed bottom-0 left-0 right-0 bg-flow-panel border-t border-flow-border p-2 text-center z-40 hidden">
-    <p class="text-xs text-secondary">
-        ¡Bienvenido a <strong>Flow</strong>! La súper app para tu condominio.
-        <button id="close-popup-btn" class="ml-4 font-bold text-secondary text-sm">&times;</button>
-    </p>
-  </div>
+  <!-- Notificación Toast para Saludos -->
+  <div id="toast-notification"></div>
 
   <!-- Tooltip para Calendario -->
   <div id="calendar-tooltip"></div>
@@ -265,7 +273,7 @@
 
 <script>
 // =======================================================
-// SCRIPT DE INTERACTIVIDAD PARA FLOW (VERSIÓN PRO v14 - MODELO DE NEGOCIO Y RED SOCIAL)
+// SCRIPT DE INTERACTIVIDAD PARA FLOW (VERSIÓN PRO v15 - MEJORAS SOCIALES)
 // =======================================================
 
 let db = {};
@@ -283,11 +291,16 @@ function initializeDB() {
 
     db = {
         users: [
-            { id: 1, name: 'Carlos Andrade', unit: '1204', role: 'resident', avatar: `https://i.pravatar.cc/150?u=carlos`, phone: '0991234567', email: 'carlos.a@email.com', status: 'Solvente', since: '2022-01-15', isBanned: false, residentsCount: 2, social: { instagram: 'carlos_andrade', whatsapp: '593991234567' }, pets: [{id: 1, name: 'Max', type: 'Perro', breed: 'Golden Retriever', status: 'ok'}], intis: 150, parkingSpots: ['A-101'], storageUnit: 'S-23', notifications: [], transactions: [], dependents: [{id: 101, name: 'Ana de Andrade', relation: 'Cónyuge'}, {id: 102, name: 'Pedro Andrade', relation: 'Hijo'}] },
-            { id: 2, name: 'Ana Martínez', unit: '801', role: 'resident', avatar: `https://i.pravatar.cc/150?u=ana`, phone: '0987654321', email: 'ana.m@email.com', status: 'Solvente', since: '2021-11-20', isBanned: false, residentsCount: 1, social: { whatsapp: '593987654321' }, pets: [], intis: 250, parkingSpots: ['B-205'], storageUnit: null, notifications: [], transactions: [], dependents: [] },
-            { id: 3, name: 'Javier Torres', unit: '502', role: 'resident', avatar: `https://i.pravatar.cc/150?u=javier`, phone: '0976543210', email: 'javier.t@email.com', status: 'Moroso', since: '2023-05-10', isBanned: true, residentsCount: 3, social: { whatsapp: '593976543210' }, pets: [], intis: 10, parkingSpots: ['C-310'], storageUnit: 'S-11', notifications: [], transactions: [], dependents: [] },
-            { id: 4, name: 'Lucía Vera', unit: '1101', role: 'resident', avatar: `https://i.pravatar.cc/150?u=lucia`, phone: '0965432109', email: 'lucia.v@email.com', status: 'Solvente', since: '2020-02-28', isBanned: false, residentsCount: 4, social: { instagram: 'lucia_v', whatsapp: '593965432109' }, pets: [{id: 2, name: 'Mishi', type: 'Gato', breed: 'Mestizo', status: 'ok'}], intis: 500, parkingSpots: ['A-112', 'A-113'], storageUnit: 'S-45', notifications: [], transactions: [], dependents: [] },
-            { id: 100, name: 'Sofía Vargas', unit: 'Admin', role: 'admin', avatar: `https://i.pravatar.cc/150?u=sofia`, phone: '0999999999', email: 'admin@flow.com', status: 'N/A', since: '2020-01-01', isBanned: false, residentsCount: 1, social: {}, pets: [], intis: 0, notifications: [], transactions: [], dependents: [] },
+            { id: 1, name: 'Carlos Andrade', unit: '1204', role: 'resident', avatar: `https://i.pravatar.cc/150?u=carlos`, phone: '0991234567', email: 'carlos.a@email.com', status: 'Solvente', since: '2022-01-15', birthDate: '1985-08-22', isBanned: false, residentsCount: 3, social: { instagram: 'carlos_andrade', whatsapp: '593991234567' }, pets: [{id: 1, name: 'Max', type: 'Perro', breed: 'Golden Retriever', status: 'ok'}], intis: 150, parkingSpots: ['A-101'], storageUnit: 'S-23', notifications: [], transactions: [], friends: [4], dependents: [{id: 101, name: 'Ana de Andrade', relation: 'Cónyuge', birthDate: '1988-05-15'}, {id: 102, name: 'Pedro Andrade', relation: 'Hijo', birthDate: '2015-08-10'}] },
+            { id: 2, name: 'Ana Martínez', unit: '801', role: 'resident', avatar: `https://i.pravatar.cc/150?u=ana`, phone: '0987654321', email: 'ana.m@email.com', status: 'Solvente', since: '2021-11-20', birthDate: '1992-03-12', isBanned: false, residentsCount: 1, social: { whatsapp: '593987654321' }, pets: [], intis: 250, parkingSpots: ['B-205'], storageUnit: null, notifications: [], transactions: [], friends: [], dependents: [] },
+            { id: 3, name: 'Javier Torres', unit: '502', role: 'resident', avatar: `https://i.pravatar.cc/150?u=javier`, phone: '0976543210', email: 'javier.t@email.com', status: 'Moroso', since: '2023-05-10', birthDate: '1980-11-05', isBanned: true, residentsCount: 3, social: { whatsapp: '593976543210' }, pets: [], intis: 10, parkingSpots: ['C-310'], storageUnit: 'S-11', notifications: [], transactions: [], friends: [], dependents: [] },
+            { id: 4, name: 'Lucía Vera', unit: '1101', role: 'resident', avatar: `https://i.pravatar.cc/150?u=lucia`, phone: '0965432109', email: 'lucia.v@email.com', status: 'Solvente', since: '2020-02-28', birthDate: '1990-08-30', isBanned: false, residentsCount: 4, social: { instagram: 'lucia_v', whatsapp: '593965432109' }, pets: [{id: 2, name: 'Mishi', type: 'Gato', breed: 'Mestizo', status: 'ok'}], intis: 500, parkingSpots: ['A-112', 'A-113'], storageUnit: 'S-45', notifications: [], transactions: [], friends: [1], dependents: [] },
+            { id: 100, name: 'Sofía Vargas', unit: 'Admin', role: 'admin', avatar: `https://i.pravatar.cc/150?u=sofia`, phone: '0999999999', email: 'admin@flow.com', status: 'N/A', since: '2020-01-01', birthDate: '1985-01-01', isBanned: false, residentsCount: 1, social: {}, pets: [], intis: 0, notifications: [], transactions: [], friends: [], dependents: [] },
+        ],
+        board: [
+            { role: 'Presidente', userId: 4 },
+            { role: 'Tesorera', userId: 2 },
+            { role: 'Secretario', userId: 1 },
         ],
         announcements: [
             { id: 1, title: 'Mantenimiento Programado de Ascensores', content: 'Se realizará un mantenimiento preventivo en ambos ascensores el día Lunes, de 9:00 a 13:00. Agradecemos su comprensión.', date: formatDate(addDays(today, -2)) },
@@ -316,6 +329,9 @@ function initializeDB() {
             ],
             groups: [
                 { id: 1, name: 'Club de Corredores', icon: 'fa-person-running', description: 'Salimos a correr por el parque La Carolina todos los martes y jueves.', members: [1, 4], requests: [] },
+            ],
+            rides: [
+                { id: 1, driverId: 4, from: 'Condominio', to: 'Aeropuerto', date: formatDate(addDays(today, 2)), time: '06:00', seats: 2, passengers: [1] }
             ]
         },
         finances: {
@@ -385,16 +401,9 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('pricing-btn').addEventListener('click', showPricingModal);
     document.getElementById('about-btn').addEventListener('click', showAboutFlowModal);
     
-    const popup = document.getElementById('welcome-popup');
-    if (!localStorage.getItem('popupDismissed')) {
-        popup.classList.remove('hidden');
-    }
-    document.getElementById('close-popup-btn').addEventListener('click', () => {
-        popup.style.display = 'none';
-        localStorage.setItem('popupDismissed', 'true');
-    });
-
     checkMonthlyBonus();
+    checkBirthdays();
+    showDailyGreeting();
     setupApp();
 });
 
@@ -449,6 +458,7 @@ const navConfig = {
         { id: 'dashboard', name: 'Dashboard Admin', icon: 'fa-chart-pie' },
         { id: 'calendar', name: 'Calendario General', icon: 'fa-calendar-days' },
         { id: 'residents', name: 'Gestionar Residentes', icon: 'fa-users-cog' },
+        { id: 'boardAdmin', name: 'Gestionar Directiva', icon: 'fa-sitemap' },
         { id: 'communityAdmin', name: 'Gestionar Comunidad', icon: 'fa-users-gear' },
         { id: 'amenities', name: 'Configurar Amenidades', icon: 'fa-concierge-bell' },
         { id: 'bookings', name: 'Gestionar Reservas', icon: 'fa-calendar-alt' },
@@ -509,6 +519,7 @@ function showSection(sectionId) {
         myUnit: { text: 'Añadir Dependiente', icon: 'fa-user-plus', handler: () => showDependentModal() },
         parkingAdmin: { text: 'Añadir Parqueo', icon: 'fa-plus-circle', handler: () => addVisitorSpot() },
         communityAdmin: { text: 'Crear Nuevo Grupo', icon: 'fa-plus-circle', handler: () => showCreateGroupModal() },
+        boardAdmin: { text: 'Asignar Cargo', icon: 'fa-plus-circle', handler: () => showBoardManagementModal() },
         finances: db.currentRole === 'admin' ? { text: 'Añadir Gasto', icon: 'fa-plus', handler: () => showExpenseModal() } : { text: 'Nuevo Reporte', icon: 'fa-exclamation-triangle', handler: showNewReportModal },
         default: { text: 'Nuevo Reporte', icon: 'fa-exclamation-triangle', handler: showNewReportModal }
     };
@@ -542,9 +553,10 @@ function addNotification(type, text, link, userId = null) {
     if (userId) {
         const user = db.users.find(u => u.id === userId);
         if (user) { user.notifications.unshift(newNotif); }
-    } else { // Notificación para admin
-        const admin = db.users.find(u => u.role === 'admin');
-        if(admin) admin.notifications.unshift(newNotif);
+    } else { // Notificación para todos los admins
+        db.users.filter(u => u.role === 'admin').forEach(admin => {
+            admin.notifications.unshift(newNotif);
+        });
     }
     updateNotificationsBadge();
 }
@@ -566,8 +578,8 @@ function updateNotificationsBadge() {
 function showNotificationsModal() {
     const user = db.currentUser;
     const notifications = user.notifications || [];
-    const icons = { report: 'fa-exclamation-triangle', booking: 'fa-calendar-check', payment: 'fa-file-invoice-dollar', group_join: 'fa-users', panic: 'fa-bell', reward: 'fa-star', event_creation: 'fa-calendar-plus', message: 'fa-comment-dots' };
-    const colors = { report: 'text-flow-danger', booking: 'text-flow-blue', payment: 'text-flow-success', group_join: 'text-flow-purple', panic: 'text-flow-danger', reward: 'text-inti-coin', event_creation: 'text-flow-purple', message: 'text-flow-cyan' };
+    const icons = { report: 'fa-exclamation-triangle', booking: 'fa-calendar-check', payment: 'fa-file-invoice-dollar', group_join: 'fa-users', panic: 'fa-bell', reward: 'fa-star', event_creation: 'fa-calendar-plus', message: 'fa-comment-dots', ride: 'fa-car', birthday: 'fa-cake-candles' };
+    const colors = { report: 'text-flow-danger', booking: 'text-flow-blue', payment: 'text-flow-success', group_join: 'text-flow-purple', panic: 'text-flow-danger', reward: 'text-inti-coin', event_creation: 'text-flow-purple', message: 'text-flow-cyan', ride: 'text-flow-cyan', birthday: 'text-flow-purple' };
     
     const notificationsHTML = notifications.length > 0 ? notifications.map((n, index) => `
         <div onclick="handleNotificationClick(${index})" class="flex items-start gap-3 p-3 border-b border-flow-border-light dark:border-flow-border cursor-pointer ${!n.read ? 'bg-flow-blue/10' : ''}">
@@ -596,6 +608,34 @@ function markAllAsRead() {
     hideModal(); 
 }
 
+function showDailyGreeting() {
+    const hour = new Date().getHours();
+    let greeting = '';
+    let icon = '';
+    if (hour < 12) {
+        greeting = '¡Buenos días! Que tengas un día increíble.';
+        icon = 'fa-sun';
+    } else if (hour < 18) {
+        greeting = '¡Buenas tardes! Esperamos que tu día vaya excelente.';
+        icon = 'fa-cloud-sun';
+    } else {
+        greeting = '¡Buenas noches! Que descanses.';
+        icon = 'fa-moon';
+    }
+    
+    const toastContainer = document.getElementById('toast-notification');
+    toastContainer.innerHTML = `
+        <div class="panel p-4 rounded-lg shadow-lg flex items-center gap-4">
+            <i class="fas ${icon} text-2xl text-flow-cyan"></i>
+            <p class="text-sm font-semibold text-main">${greeting}</p>
+        </div>
+    `;
+    toastContainer.classList.add('show');
+    setTimeout(() => {
+        toastContainer.classList.remove('show');
+    }, 5000);
+}
+
 // --- SISTEMA DE RECOMPENSAS Y TRANSACCIONES INTI ---
 function addTransaction(userId, type, description, amount, from, to) {
     const user = db.users.find(u => u.id === userId);
@@ -622,12 +662,35 @@ function checkMonthlyBonus() {
     }
 }
 
+function checkBirthdays() {
+    const today = new Date();
+    const todayMonth = today.getMonth() + 1;
+    const todayDay = today.getDate();
+
+    db.users.forEach(user => {
+        if (user.role === 'resident') {
+            const birthDate = new Date(user.birthDate + 'T00:00:00');
+            if (birthDate.getMonth() + 1 === todayMonth && birthDate.getDate() === todayDay) {
+                user.intis += 100; // Regalo de cumpleaños
+                addTransaction(user.id, 'reward', '¡Feliz Cumpleaños de parte de Flow!', 100, 'Sistema', user.name);
+                addNotification('birthday', '¡Feliz cumpleaños! Hemos añadido 100 Intis a tu billetera como regalo.', () => showSection('wallet'), user.id);
+            }
+            user.dependents.forEach(dep => {
+                 const depBirthDate = new Date(dep.birthDate + 'T00:00:00');
+                 if (depBirthDate.getMonth() + 1 === todayMonth && depBirthDate.getDate() === todayDay) {
+                    addNotification('birthday', `¡Hoy es el cumpleaños de ${dep.name}! No olvides felicitarle.`, () => showSection('community'), user.id);
+                 }
+            });
+        }
+    });
+}
+
 // --- RENDERIZADO DE MÓDULOS ---
-function renderDashboard() { if (db.currentRole === 'admin') return renderAdminDashboard(); return `<div class="grid grid-cols-1 lg:grid-cols-3 gap-6"><div class="lg:col-span-2 space-y-6"><div class="panel p-6 rounded-lg"><h3 class="font-bold text-lg text-main mb-2">Último Comunicado</h3><h4 class="font-semibold text-flow-cyan mb-2">${db.announcements[0].title}</h4><p class="text-sm text-secondary">${db.announcements[0].content}</p></div><div class="panel p-6 rounded-lg"><h3 class="font-bold text-lg mb-4 text-main">Mi Billetera Inti</h3><div class="flex items-center justify-between"><div class="flex items-center gap-3"><i class="fas fa-coins text-4xl text-inti-coin"></i><div><p class="text-2xl font-bold text-main">${db.currentUser.intis}</p><p class="text-sm text-secondary">Intis</p></div></div><button onclick="showSection('wallet')" class="btn-primary px-4 py-2 rounded-lg text-sm">Ver Billetera</button></div></div></div><div class="space-y-6"><div class="panel p-6 rounded-lg"><h3 class="font-bold text-lg mb-4 text-main">Mis Próximas Reservas</h3>${db.bookings.filter(b => b.userId === db.currentUser.id && new Date(b.date) >= new Date()).slice(0, 3).map(b => { const a = db.amenities.find(am => am.id === b.amenityId); return `<div class="flex items-center gap-4 mb-3"><div class="bg-flow-light dark:bg-flow-dark w-12 h-12 rounded-lg flex items-center justify-center"><i class="fas ${a.icon} text-xl text-flow-blue"></i></div><div><p class="font-semibold text-main">${a.name}</p><p class="text-xs text-secondary">${b.date}</p></div></div>` }).join('') || '<p class="text-sm text-secondary">No tienes reservas próximas.</p>'} <button onclick="showSection(\'calendar\')" class="text-sm text-flow-blue font-semibold mt-4 w-full text-center">Ver Calendario Completo &rarr;</button></div></div></div>`; }
-function renderCommunity() { return `<div class="space-y-8"><div><h2 class="text-3xl font-extrabold text-main mb-1">Conecta con tu Comunidad</h2><p class="text-secondary mb-6">Participa, colabora y haz de este un mejor lugar para vivir.</p></div><div class="grid grid-cols-1 lg:grid-cols-3 gap-8"><div class="lg:col-span-2 space-y-8"><div><h3 class="text-2xl font-bold text-main mb-4">Grupos de Interés</h3><div id="groups-list" class="grid grid-cols-1 md:grid-cols-2 gap-4">${db.community.groups.map(renderGroupCard).join('')}</div></div><div><div class="flex justify-between items-center mb-4"><h3 class="text-2xl font-bold text-main">Eventos de la Comunidad</h3><button onclick="showCreateEventModal()" class="btn-primary px-4 py-2 rounded-lg text-sm">Crear Evento</button></div><div id="events-list" class="space-y-4">${db.community.events.map(renderEventCard).join('')}</div></div></div><div class="space-y-6"><div class="panel p-6 rounded-lg"><div class="flex justify-between items-center mb-4"><h3 class="font-bold text-xl">Bolsa de Empleo</h3><button onclick="showJobPostModal()" class="btn-primary px-4 py-2 rounded-lg text-sm">Publicar Oferta</button></div><div id="jobs-list" class="space-y-4">${db.community.jobs.map(renderJobCard).join('') || '<p class="text-sm text-secondary">No hay ofertas de empleo.</p>'}</div></div></div></div></div>`; }
+function renderDashboard() { if (db.currentRole === 'admin') return renderAdminDashboard(); return `<div class="grid grid-cols-1 lg:grid-cols-3 gap-6"><div class="lg:col-span-2 space-y-6"><div class="panel p-6 rounded-lg"><h3 class="font-bold text-lg text-main mb-2">Último Comunicado</h3><h4 class="font-semibold text-flow-cyan mb-2">${db.announcements[0].title}</h4><p class="text-sm text-secondary">${db.announcements[0].content}</p></div><div class="panel p-6 rounded-lg"><h3 class="font-bold text-lg mb-4 text-main">Mi Billetera Inti</h3><div class="flex items-center justify-between"><div class="flex items-center gap-3"><i class="fas fa-coins text-4xl text-inti-coin"></i><div><p class="text-2xl font-bold text-main">${db.currentUser.intis}</p><p class="text-sm text-secondary">Intis</p></div></div><button onclick="showSection('wallet')" class="btn-primary px-4 py-2 rounded-lg text-sm">Ver Billetera</button></div></div></div><div class="space-y-6"><div class="panel p-6 rounded-lg"><h3 class="font-bold text-lg mb-4 text-main">Mis Próximas Reservas</h3>${db.bookings.filter(b => b.userId === db.currentUser.id && new Date(b.date) >= new Date()).slice(0, 3).map(b => { const a = db.amenities.find(am => am.id === b.amenityId); return `<div class="flex items-center gap-4 mb-3"><div class="bg-flow-light dark:bg-flow-dark w-12 h-12 rounded-lg flex items-center justify-center"><i class="fas ${a.icon} text-xl text-flow-blue"></i></div><div><p class="font-semibold text-main">${a.name}</p><p class="text-xs text-secondary">${b.date}</p></div></div>` }).join('') || '<p class="text-sm text-secondary">No tienes reservas próximas.</p>'} <button onclick="showSection(\'calendar\')" class="text-sm text-flow-blue font-semibold mt-4 w-full text-center">Ver Calendario Completo &rarr;</button></div><div class="panel p-6 rounded-lg">${renderBirthdaysOfMonth()}</div></div></div>`; }
+function renderCommunity() { return `<div class="space-y-8"><div><h2 class="text-3xl font-extrabold text-main mb-1">Conecta con tu Comunidad</h2><p class="text-secondary mb-6">Participa, colabora y haz de este un mejor lugar para vivir.</p></div><div class="grid grid-cols-1 lg:grid-cols-3 gap-8"><div class="lg:col-span-2 space-y-8"><div><h3 class="text-2xl font-bold text-main mb-4">Grupos de Interés</h3><div id="groups-list" class="grid grid-cols-1 md:grid-cols-2 gap-4">${db.community.groups.map(renderGroupCard).join('')}</div></div><div><div class="flex justify-between items-center mb-4"><h3 class="text-2xl font-bold text-main">Eventos de la Comunidad</h3><button onclick="showCreateEventModal()" class="btn-primary px-4 py-2 rounded-lg text-sm">Crear Evento (+10 Intis)</button></div><div id="events-list" class="space-y-4">${db.community.events.map(renderEventCard).join('')}</div></div></div><div class="space-y-6"><div class="panel p-6 rounded-lg"><div class="flex justify-between items-center mb-4"><h3 class="font-bold text-xl">Aventones (Rides)</h3><button onclick="showRideModal()" class="btn-primary px-4 py-2 rounded-lg text-sm">Ofrecer Ride</button></div><div id="rides-list" class="space-y-4">${db.community.rides.map(renderRideCard).join('') || '<p class="text-sm text-secondary">Nadie ha ofrecido un aventón todavía.</p>'}</div></div><div class="panel p-6 rounded-lg"><div class="flex justify-between items-center mb-4"><h3 class="font-bold text-xl">Bolsa de Empleo</h3><button onclick="showJobPostModal()" class="btn-primary px-4 py-2 rounded-lg text-sm">Publicar Oferta</button></div><div id="jobs-list" class="space-y-4">${db.community.jobs.map(renderJobCard).join('') || '<p class="text-sm text-secondary">No hay ofertas de empleo.</p>'}</div></div></div></div></div>`; }
 function renderMarketplace() { return `<div><div class="flex justify-between items-center mb-6"><h2 class="text-3xl font-extrabold text-main">Marketplace Vecinal</h2><button onclick="showCreateMarketplacePostModal()" class="btn-primary px-4 py-2 rounded-lg text-sm">Publicar (+5 Intis)</button></div><div id="marketplace-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">${db.community.marketplace.map(renderMarketplaceCard).join('')}</div></div>`; }
 function renderBenefits() { const b = [ { name: 'Goatify IA - Suscripción Pro', icon: 'fa-robot', description: 'Accede a herramientas de IA de vanguardia.', link: 'https://www.goatify.app/IA', color: 'text-flow-purple', cost: 500 }, { name: 'Goatify Web - Página Web', icon: 'fa-desktop', description: 'Descuentos en diseño y desarrollo web.', link: 'https://www.goatify.app/web', color: 'text-flow-cyan', cost: 1200 }, { name: 'Centro Iberoamericano', icon: 'fa-graduation-cap', description: 'Certifícate en IA & Marketing Digital.', link: 'https://www.ibero.education/oferta-acad%C3%A9mica/certificaciones/ia-marketing-digital', color: 'text-flow-blue', cost: 2500 }, { name: 'Club Pa\' la Raza', icon: 'fa-film', description: 'Funciones exclusivas de cine al aire libre.', link: 'https://www.palaraza.club/servicios/eventos/cine-al-aire-libre', color: 'text-flow-warning', cost: 300 }, { name: 'Villa Permacultural', icon: 'fa-leaf', description: 'Tarifas especiales en hospedajes Glamping.', link: 'https://www.villa-permacultural.com', color: 'text-flow-success', cost: 800 } ]; return `<div class="max-w-5xl mx-auto text-center"><i class="fas fa-star text-5xl text-inti-coin mb-4"></i><h2 class="text-4xl font-extrabold mb-4 text-main">Tus Beneficios Exclusivos</h2><p class="text-secondary mb-10">¡Usa tus <strong>Intis</strong> para canjear productos, servicios y obtener descuentos únicos con nuestras marcas aliadas!</p><div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">${b.map(ben => `<div class="panel p-6 rounded-lg text-left flex flex-col justify-between hover:shadow-glow hover:-translate-y-1 transition-all"><div class="flex-grow"><i class="fas ${ben.icon} text-3xl ${ben.color} mb-4"></i><h3 class="font-bold text-xl mb-2 text-main">${ben.name}</h3><p class="text-sm text-secondary mb-4">${ben.description}</p></div><div><div class="flex justify-between items-center border-t pt-3 mt-3"><p class="font-bold text-sm text-inti-coin flex items-center gap-1"><i class="fas fa-coins"></i> ${ben.cost}</p><a href="${ben.link}" target="_blank" class="font-bold text-sm text-flow-blue">Saber Más</a></div><button onclick="showPurchaseConfirmationModal('benefit', '${ben.name}')" class="btn-primary w-full mt-3 py-2 text-sm">Canjear</button></div></div>`).join('')}</div></div>`; }
-function renderWallet() { return `<div class="space-y-8"><div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start"><div class="panel p-6 rounded-lg text-center"><h3 class="font-bold text-xl mb-4">Mi Billetera</h3><i class="fas fa-coins text-6xl text-inti-coin"></i><p class="text-5xl font-bold my-4">${db.currentUser.intis} <span class="text-2xl text-secondary">Intis</span></p><p class="text-sm text-secondary mb-6">Usa tus Intis para obtener descuentos o transfiérelos a otros residentes.</p><button onclick="showTransferModal()" class="btn-primary w-full py-3 rounded-lg">Transferir Intis</button></div><div class="panel p-6 rounded-lg"><h3 class="font-bold text-xl mb-4">¿Qué es el Inti?</h3><p class="text-sm text-secondary mb-3">El Inti es nuestra moneda digital exclusiva, creada para fortalecer nuestra comunidad y ofrecerte beneficios tangibles.</p><ul class="space-y-3 text-sm"><li class="flex items-start gap-3"><i class="fas fa-dollar-sign text-flow-danger mt-1"></i><div><strong class="text-main">Ahorra Dinero Real:</strong> Usar Intis es más económico que usar dólares para muchos servicios dentro de la comunidad.</div></li><li class="flex items-start gap-3"><i class="fas fa-rocket text-flow-purple mt-1"></i><div><strong class="text-main">Fomenta la Comunidad:</strong> Al usar Intis, apoyas a tus vecinos emprendedores y participas en una economía circular.</div></li><li class="flex items-start gap-3"><i class="fas fa-gift text-flow-success mt-1"></i><div><strong class="text-main">Gana Recompensas:</strong> Recibes Intis por ser un buen vecino: pagando a tiempo, publicando en el marketplace, y mucho más.</div></li></ul></div></div><div class="panel p-6 rounded-lg"><h3 class="font-bold text-xl mb-4">Historial de Transacciones</h3><div id="transaction-history" class="space-y-3 max-h-96 overflow-y-auto">${renderTransactionHistory()}</div></div></div>`; }
+function renderWallet() { return `<div class="space-y-8"><div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start"><div class="panel p-6 rounded-lg text-center"><h3 class="font-bold text-xl mb-4">Mi Billetera</h3><i class="fas fa-coins text-6xl text-inti-coin"></i><p class="text-5xl font-bold my-4">${db.currentUser.intis} <span class="text-2xl text-secondary">Intis</span></p><p class="text-sm text-secondary mb-6">Usa tus Intis para obtener descuentos o transfiérelos a otros residentes.</p><button onclick="showTransferModal()" class="btn-primary w-full py-3 rounded-lg">Transferir Intis</button></div><div class="panel p-6 rounded-lg"><h3 class="font-bold text-xl mb-4">¿Cómo ganar más Intis?</h3><p class="text-sm text-secondary mb-3">¡Ser un buen vecino tiene sus recompensas!</p><ul class="space-y-3 text-sm"><li class="flex items-start gap-3"><i class="fas fa-calendar-check text-flow-success mt-1"></i><div><strong class="text-main">Paga a tiempo:</strong> Recibe 50 Intis mensuales por estar al día en tus alícuotas.</div></li><li class="flex items-start gap-3"><i class="fas fa-store text-flow-cyan mt-1"></i><div><strong class="text-main">Publica en el Marketplace:</strong> Gana 5 Intis por cada anuncio que publiques.</div></li><li class="flex items-start gap-3"><i class="fas fa-users text-flow-purple mt-1"></i><div><strong class="text-main">Crea eventos y grupos:</strong> Gana 10 Intis por iniciar eventos o grupos que unan a la comunidad.</div></li><li class="flex items-start gap-3"><i class="fas fa-birthday-cake text-flow-purple mt-1"></i><div><strong class="text-main">¡Feliz Cumpleaños!:</strong> Recibe 100 Intis como regalo en tu día.</div></li></ul></div></div><div class="panel p-6 rounded-lg"><h3 class="font-bold text-xl mb-4">Historial de Transacciones</h3><div id="transaction-history" class="space-y-3 max-h-96 overflow-y-auto">${renderTransactionHistory()}</div></div></div>`; }
 function renderPets() { const userPets = db.currentUser.pets; return `<div class="grid grid-cols-1 lg:grid-cols-3 gap-6"><div class="lg:col-span-2 space-y-6"><div><h3 class="font-bold text-xl mb-4">Mis Mascotas</h3><div class="grid grid-cols-1 md:grid-cols-2 gap-4">${userPets.length > 0 ? userPets.map(renderMyPetCard).join('') : '<p class="text-secondary text-sm">No has registrado ninguna mascota.</p>'}</div></div><div><h3 class="font-bold text-xl mb-4">Reglamento de Mascotas</h3><div class="panel p-6 rounded-lg"><ul class="list-disc list-inside space-y-2 text-sm text-secondary">${db.rules.pets.map(rule => `<li>${rule}</li>`).join('')}</ul></div></div></div><div class="panel p-6 rounded-lg"><h3 class="font-bold text-xl mb-2">Finalidad del Módulo</h3><p class="text-sm text-secondary mb-4">El registro de mascotas nos ayuda a:</p><ul class="space-y-3 text-sm"><li class="flex items-start gap-3"><i class="fas fa-bolt text-flow-warning mt-1"></i><div><strong class="text-main">Actuar rápido:</strong> En caso de pérdida, tener su foto y datos a la mano es crucial.</div></li><li class="flex items-start gap-3"><i class="fas fa-handshake-angle text-flow-success mt-1"></i><div><strong class="text-main">Mejorar la convivencia:</strong> Conocer a las mascotas del edificio fomenta una comunidad más responsable.</div></li><li class="flex items-start gap-3"><i class="fas fa-shield-halved text-flow-blue mt-1"></i><div><strong class="text-main">Seguridad:</strong> Permite al personal identificar qué mascotas pertenecen al conjunto.</div></li></ul><button onclick="showLostPetModal()" class="btn-primary w-full py-2 rounded-lg text-sm mt-6">Reportar Mascota Perdida</button></div></div>`; }
 function renderFinances() { if (db.currentRole === 'admin') return renderAdminFinances(); const f = db.finances.summary; const d = db.finances.expense_details; const balance = f.income - f.expenses; return `<div class="panel p-6 rounded-lg max-w-5xl mx-auto"><div class="border-b pb-4 mb-6"><h3 class="font-bold text-2xl">Finanzas del Conjunto</h3><p class="text-secondary text-sm">Transparencia para el periodo de ${f.period}</p></div><div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6"><div class="panel p-4 rounded-lg bg-flow-success/10"><p class="text-sm font-semibold">Ingresos Totales</p><p class="text-3xl font-bold text-main">$${f.income.toLocaleString()}</p></div><div class="panel p-4 rounded-lg bg-flow-danger/10"><p class="text-sm font-semibold">Egresos Totales</p><p class="text-3xl font-bold text-main">$${f.expenses.toLocaleString()}</p></div><div class="panel p-4 rounded-lg ${balance >= 0 ? 'bg-flow-blue/10' : 'bg-flow-warning/10'}"><p class="text-sm font-semibold">Balance del Periodo</p><p class="text-3xl font-bold text-main">$${balance.toLocaleString()}</p></div></div><div><h4 class="font-bold text-xl mb-4">Desglose Detallado de Gastos</h4><div class="space-y-3">${d.map(e => `<div class="p-4 bg-flow-light dark:bg-flow-dark rounded-lg"><div class="flex justify-between items-center"><p class="font-bold text-main">${e.category}</p><p class="font-bold text-lg text-flow-danger">$${e.amount.toLocaleString()}</p></div><p class="text-xs text-secondary mt-1">${e.details}</p></div>`).join('')}</div></div></div>`; }
 function renderMyUnit() { const u = db.currentUser; return `<div class="grid grid-cols-1 lg:grid-cols-3 gap-6"><div class="lg:col-span-2 space-y-6"><div class="panel p-6 rounded-lg"><h3 class="font-bold text-xl mb-4">Información de mi Propiedad</h3><div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm"><div class="bg-flow-light dark:bg-flow-dark p-4 rounded-lg"><p class="text-xs text-secondary font-semibold">UNIDAD</p><p class="text-lg font-bold">${u.unit}</p></div><div class="bg-flow-light dark:bg-flow-dark p-4 rounded-lg"><p class="text-xs text-secondary font-semibold">BODEGA</p><p class="text-lg font-bold">${u.storageUnit || 'No asignada'}</p></div><div class="md:col-span-2 bg-flow-light dark:bg-flow-dark p-4 rounded-lg"><p class="text-xs text-secondary font-semibold">ESTACIONAMIENTOS</p><div class="flex gap-2 mt-1">${u.parkingSpots.map(p => `<span class="font-bold text-lg bg-flow-panel-light dark:bg-flow-panel border px-3 py-1 rounded">${p}</span>`).join('')}</div></div></div></div><div class="panel p-6 rounded-lg"><div class="flex justify-between items-center mb-4"><h3 class="font-bold text-xl">Dependientes</h3><button onclick="showDependentModal()" class="btn-primary px-3 py-1 text-xs rounded-lg">Añadir</button></div><div id="dependents-list" class="space-y-2">${u.dependents.length > 0 ? u.dependents.map(d => `<div class="flex justify-between items-center p-2 bg-flow-light dark:bg-flow-dark rounded-md"><p class="text-sm font-semibold">${d.name} <span class="text-xs text-secondary">(${d.relation})</span></p><div><button onclick="showDependentModal(${d.id})" class="text-flow-blue text-xs mr-2"><i class="fas fa-edit"></i></button><button onclick="deleteDependent(${d.id})" class="text-flow-danger text-xs"><i class="fas fa-trash"></i></button></div></div>`).join('') : '<p class="text-xs text-secondary">No hay dependientes registrados.</p>'}</div></div></div><div class="panel p-6 rounded-lg lg:col-span-3"><h3 class="font-bold text-xl mb-4">Parqueo de Visitas</h3><p class="text-sm text-secondary mb-4">Reserva un espacio para tus invitados (máx. 2 horas).</p><div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">${db.parking.visitorSpots.map(p => `<div class="p-3 rounded-lg flex flex-col justify-center items-center ${p.isAvailable ? 'bg-flow-success/10' : 'bg-flow-danger/10'}"><span class="font-bold text-sm">Espacio ${p.id}</span><span class="text-xs font-semibold px-2 py-1 mt-1 rounded-full ${p.isAvailable ? 'bg-flow-success text-white' : 'bg-flow-danger text-white'}">${p.isAvailable ? 'Disponible' : 'Ocupado'}</span></div>`).join('')}</div><button onclick="showVisitorParkingModal()" class="btn-primary w-full max-w-xs mx-auto mt-6 py-2 rounded-lg text-sm block">Reservar Espacio</button></div></div>`; }
@@ -636,15 +699,16 @@ function renderChat() { const isAdmin = db.currentRole === 'admin'; return `<div
 function renderFlowNetwork() { return `<div class="panel p-8 rounded-lg max-w-4xl mx-auto text-center"><i class="fas fa-network-wired text-5xl text-flow-cyan mb-4"></i><h2 class="text-4xl font-extrabold mb-4 text-main">Bienvenido a la Red Flow</h2><p class="text-secondary mb-6">Estamos construyendo la primera red social de condominios.</p><div class="text-left space-y-4 text-secondary"><p>Imagina poder conectar con otras comunidades que también usan Flow. Nuestra visión es crear un ecosistema interconectado donde los condominios puedan:</p><ul class="list-disc list-inside space-y-2 pl-4 mt-4"><li><strong>Organizar eventos más grandes:</strong> Ferias, campeonatos deportivos o celebraciones conjuntas entre varios condominios.</li><li><strong>Ampliar el Marketplace:</strong> ¿No encuentras lo que buscas en tu comunidad? Accede a los productos y servicios de condominios vecinos.</li><li><strong>Crear alianzas:</strong> Gestionar compras al por mayor de servicios (como seguridad o internet) para obtener mejores precios para todos.</li><li><strong>Compartir experiencias:</strong> Las directivas y administradores podrán compartir conocimientos y mejores prácticas para una mejor gestión.</li></ul><p class="mt-4 font-semibold text-main">Esta funcionalidad está en desarrollo y será una de las grandes ventajas de pertenecer a la comunidad Flow. ¡Prepárate para llevar la vida en comunidad al siguiente nivel!</p></div></div>`; }
 
 // --- MÓDULOS DE ADMINISTRADOR Y RESIDENTES ---
-function renderAdminDashboard() { const pB = db.bookings.filter(b => b.status === 'Pendiente').length; const uR = db.reports.filter(r => r.status === 'Sin leer').length; const tF = db.rules.fines.reduce((a, f) => a + f.amount, 0); return `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6"><a href="#" onclick="showSection('bookings')" class="panel p-4 rounded-lg block hover:bg-flow-light dark:hover:bg-flow-dark"><p class="text-sm text-secondary">Reservas Pendientes</p><p class="text-2xl font-bold text-main">${pB}</p></a><a href="#" onclick="showSection('reports')" class="panel p-4 rounded-lg block hover:bg-flow-light dark:hover:bg-flow-dark"><p class="text-sm text-secondary">Reportes sin Leer</p><p class="text-2xl font-bold text-main">${uR}</p></a><div class="panel p-4 rounded-lg"><p class="text-sm text-secondary">Total en Multas</p><p class="text-2xl font-bold text-flow-danger">$${tF.toLocaleString()}</p></div><div class="panel p-4 rounded-lg"><p class="text-sm text-secondary">Morosidad</p><p class="text-2xl font-bold text-main">12%</p></div></div><div class="grid grid-cols-1 lg:grid-cols-3 gap-6"><div class="lg:col-span-2 panel p-6 rounded-lg"><h3 class="font-bold text-xl mb-4 text-main">Feed de Actividad Reciente</h3><div class="space-y-3">${db.notifications.slice(0, 5).map(n => `<div class="flex items-center gap-3"><i class="fas ${ {report: 'fa-exclamation-triangle', booking: 'fa-calendar-check', group_join: 'fa-users'}[n.type] } text-secondary"></i><p class="text-sm text-main flex-1">${n.text}</p><span class="text-xs text-secondary">${n.date}</span></div>`).join('')}</div></div><div class="panel p-6 rounded-lg"><h3 class="font-bold text-xl mb-4 text-main">Desglose de Egresos</h3><canvas id="expensesChart"></canvas></div></div>`; }
+function renderAdminDashboard() { const pB = db.bookings.filter(b => b.status === 'Pendiente').length; const uR = db.reports.filter(r => r.status === 'Sin leer').length; const tF = db.rules.fines.reduce((a, f) => a + f.amount, 0); return `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6"><a href="#" onclick="showSection('bookings')" class="panel p-4 rounded-lg block hover:bg-flow-light dark:hover:bg-flow-dark"><p class="text-sm text-secondary">Reservas Pendientes</p><p class="text-2xl font-bold text-main">${pB}</p></a><a href="#" onclick="showSection('reports')" class="panel p-4 rounded-lg block hover:bg-flow-light dark:hover:bg-flow-dark"><p class="text-sm text-secondary">Reportes sin Leer</p><p class="text-2xl font-bold text-main">${uR}</p></a><div class="panel p-4 rounded-lg"><p class="text-sm text-secondary">Total en Multas</p><p class="text-2xl font-bold text-flow-danger">$${tF.toLocaleString()}</p></div><div class="panel p-4 rounded-lg"><p class="text-sm text-secondary">Morosidad</p><p class="text-2xl font-bold text-main">12%</p></div></div><div class="grid grid-cols-1 lg:grid-cols-3 gap-6"><div class="lg:col-span-2 panel p-6 rounded-lg"><h3 class="font-bold text-xl mb-4 text-main">Feed de Actividad Reciente</h3><div class="space-y-3">${db.users.find(u => u.role === 'admin').notifications.slice(0, 5).map(n => `<div class="flex items-center gap-3"><i class="fas ${ {report: 'fa-exclamation-triangle', booking: 'fa-calendar-check', group_join: 'fa-users'}[n.type] } text-secondary"></i><p class="text-sm text-main flex-1">${n.text}</p><span class="text-xs text-secondary">${n.date}</span></div>`).join('')}</div></div><div class="panel p-6 rounded-lg"><h3 class="font-bold text-xl mb-4 text-main">Desglose de Egresos</h3><canvas id="expensesChart"></canvas></div></div>`; }
 function renderCalendar() { return `<div class="panel p-6 rounded-lg"><div id="calendar-container"></div></div>`; }
 function renderCommunityAdmin() { return `<div class="panel p-6 rounded-lg"><div class="flex justify-between items-center mb-6"><h3 class="font-bold text-xl">Gestionar Grupos de Interés</h3><button onclick="showCreateGroupModal()" class="btn-primary px-4 py-2 rounded-lg text-sm">Crear Nuevo Grupo</button></div><div class="grid grid-cols-1 md:grid-cols-2 gap-6">${db.community.groups.map(renderAdminGroupCard).join('')}</div></div>`; }
 function renderAdminFinances() { const f = db.finances.summary; const d = db.finances.expense_details; const balance = f.income - f.expenses; return `<div class="panel p-6 rounded-lg max-w-5xl mx-auto"><div class="border-b pb-4 mb-6"><h3 class="font-bold text-2xl">Gestión Financiera</h3><p class="text-secondary text-sm">Periodo: ${f.period}</p></div><div class="p-4 rounded-lg bg-flow-blue/10 mb-6"><h4 class="font-semibold text-main">Compromiso con la Transparencia</h4><p class="text-sm text-secondary mt-1">Los egresos son gestionados manualmente para asegurar la correcta asignación de fondos. Cada gasto es visible para todos los residentes, promoviendo una comunidad informada y confiable.</p></div><div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6"><div class="panel p-4 rounded-lg"><p class="text-sm font-semibold">Ingresos (Automático)</p><p class="text-3xl font-bold text-flow-success">$${f.income.toLocaleString()}</p></div><div class="panel p-4 rounded-lg"><p class="text-sm font-semibold">Egresos (Editable)</p><p class="text-3xl font-bold text-flow-danger">$${f.expenses.toLocaleString()}</p></div><div class="panel p-4 rounded-lg"><p class="text-sm font-semibold">Balance Actual</p><p class="text-3xl font-bold ${balance >= 0 ? 'text-main' : 'text-flow-danger'}">$${balance.toLocaleString()}</p></div></div><div><div class="flex justify-between items-center mb-4"><h4 class="font-bold text-xl">Registro de Egresos</h4><button onclick="showExpenseModal()" class="btn-primary text-sm px-4 py-2 rounded-lg flex items-center gap-2"><i class="fas fa-plus"></i>Añadir Gasto</button></div><div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead><tr class="border-b"><th class="p-2">Fecha</th><th class="p-2">Categoría</th><th class="p-2">Monto</th><th class="p-2 hidden md:table-cell">Detalle</th><th class="p-2">Acciones</th></tr></thead><tbody>${d.map(e => `<tr><td class="p-2">${e.date}</td><td class="p-2 font-semibold">${e.category}</td><td class="p-2 text-flow-danger font-bold">$${e.amount.toLocaleString()}</td><td class="p-2 text-xs text-secondary hidden md:table-cell">${e.details}</td><td class="p-2 flex gap-3"><button onclick="showExpenseModal(${e.id})" class="text-flow-blue"><i class="fas fa-edit"></i></button><button onclick="deleteExpense(${e.id})" class="text-flow-danger"><i class="fas fa-trash"></i></button></td></tr>`).join('')}</tbody></table></div></div></div>`; }
 function renderAmenities() { return `<div class="panel p-6 rounded-lg"><div class="flex justify-between items-start mb-6"><div class="flex-1"><h3 class="font-bold text-xl">Configurar Amenidades</h3><p class="text-sm text-secondary mt-1 max-w-xl">Define qué amenidades existen en el edificio para que los residentes puedan reservarlas.</p></div><button onclick="showAmenityModal()" class="btn-primary flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-lg text-sm"><i class="fas fa-plus"></i><span>Añadir Amenidad</span></button></div><div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">${db.amenities.map(a => `<div class="border rounded-lg overflow-hidden flex flex-col"><div class="p-4 flex-1"><div class="flex items-center gap-3 mb-2"><i class="fas ${a.icon} text-xl text-flow-cyan"></i><h4 class="font-bold text-lg">${a.name}</h4></div><p class="text-xs text-secondary">${a.rules}</p></div><div class="flex border-t"><button onclick="showAmenityModal('${a.id}')" class="flex-1 p-3 text-sm font-semibold text-flow-blue hover:bg-flow-blue/10">Editar</button><button onclick="deleteAmenity('${a.id}')" class="flex-1 p-3 text-sm font-semibold text-flow-danger hover:bg-flow-danger/10 border-l">Eliminar</button></div></div>`).join('') || `<p class="text-center text-secondary col-span-full py-8">No hay amenidades registradas.</p>`}</div><p class="text-xs text-center text-secondary mt-6"><strong>Nota:</strong> Para gestionar las <strong>reservas</strong>, dirígete al módulo 'Gestionar Reservas'.</p></div>`; }
 function renderParkingAdmin() { return `<div class="panel p-6 rounded-lg"><h3 class="font-bold text-xl mb-4">Gestión de Parqueaderos de Visitas</h3><div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-6">${db.parking.visitorSpots.map(p => `<div class="p-3 rounded-lg text-center ${p.isAvailable ? 'bg-flow-success/10 border' : 'bg-flow-danger/10 border'}"><p class="font-bold text-lg">${p.id}</p><p class="text-xs font-semibold">${p.isAvailable ? 'Libre' : 'Ocupado'}</p>${!p.isAvailable ? `<p class="text-[10px] text-secondary">Por U. ${db.users.find(u => u.id === p.owner)?.unit}</p>` : `<button onclick="removeVisitorSpot('${p.id}')" class="text-flow-danger text-xs mt-1"><i class="fas fa-times-circle"></i></button>`}</div>`).join('')}</div><h4 class="font-bold text-lg mb-4">Reservas Activas</h4><div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead><tr><th>Residente</th><th>Invitado</th><th>Horario</th><th>Parqueo</th><th>Acciones</th></tr></thead><tbody>${db.parking.reservations.map(r => { const u = db.users.find(user => user.id === r.userId); return `<tr><td class="p-2">${u.name} (U. ${u.unit})</td><td class="p-2">${r.guestName}</td><td class="p-2">${r.startTime} - ${r.endTime}</td><td class="p-2 font-bold">${r.spotId}</td><td class="p-2"><button onclick="showAdminMessageModal(${u.id})" class="text-flow-blue text-lg" title="Enviar Mensaje"><i class="fas fa-comment-dots"></i></button></td></tr>` }).join('')}</tbody></table></div></div>`; }
 function renderReports() { const s = { 'Sin leer': 'bg-flow-danger/20 text-flow-danger', 'En proceso': 'bg-flow-warning/20 text-flow-warning', 'Resuelto': 'bg-flow-success/20 text-flow-success' }; return `<div class="panel p-6 rounded-lg"><h3 class="font-bold text-xl mb-4">Gestión de Reportes</h3><div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead><tr><th>Fecha</th><th>Residente</th><th>Categoría</th><th>Descripción</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>${db.reports.map(r => { const u = db.users.find(user => user.id === r.userId); return `<tr><td class="p-2">${r.date}</td><td class="p-2">${u.name}</td><td class="p-2">${r.category}</td><td class="p-2 text-xs">${r.description}</td><td><span class="px-2 py-1 rounded-full text-xs font-semibold ${s[r.status]}">${r.status}</span></td><td class="p-2"><select onchange="updateReportStatus(${r.id}, this.value)" class="input-field text-xs"><option ${r.status === 'Sin leer' ? 'selected' : ''}>Sin leer</option><option ${r.status === 'En proceso' ? 'selected' : ''}>En proceso</option><option ${r.status === 'Resuelto' ? 'selected' : ''}>Resuelto</option></select></td></tr>` }).join('')}</tbody></table></div></div>`; }
-function renderAdminResidents() { const r = db.users.filter(u => u.role === 'resident'); return `<div class="panel p-6 rounded-lg"><div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead><tr><th class="p-3">Residente</th><th class="p-3">Contacto</th><th class="p-3">Estado</th><th class="p-3">Acciones</th></tr></thead><tbody>${r.map(res => `<tr><td class="p-3"><div class="flex items-center gap-3"><img src="${res.avatar}" class="w-10 h-10 rounded-full"><div class="flex-1"><p class="font-bold">${res.name}</p><p class="text-xs text-secondary">U. ${res.unit} / ${res.dependents.length + 1} pers.</p></div></div></td><td class="p-3"><p>${res.email}</p><p class="text-xs">${res.phone}</p></td><td class="p-3"><span class="px-2 py-1 rounded-full text-xs font-semibold ${res.isBanned ? 'bg-flow-danger/20 text-flow-danger' : 'bg-flow-success/20 text-flow-success'}">${res.isBanned ? 'Sancionado' : res.status}</span></td><td class="p-3 flex gap-2 items-center"><button onclick="showResidentContactModal(${res.id})" class="text-flow-cyan" title="Contactar"><i class="fas fa-address-book"></i></button><button onclick="showAddResidentModal(${res.id})" class="text-flow-blue" title="Editar"><i class="fas fa-edit"></i></button><button onclick="toggleUserBan(${res.id})" class="text-secondary" title="${res.isBanned ? 'Desbanear' : 'Banear'}"><i class="fas ${res.isBanned ? 'fa-unlock' : 'fa-ban'}"></i></button></td></tr>`).join('')}</tbody></table></div></div>`; }
-function renderResidents() { const r = db.users.filter(u => u.role === 'resident'); return `<div class="panel p-6 rounded-lg"><div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead><tr><th class="p-3">Residente</th><th class="p-3">Unidad</th><th class="p-3">Acciones</th></tr></thead><tbody>${r.map(res => `<tr><td class="p-3"><div class="flex items-center gap-3"><img src="${res.avatar}" class="w-10 h-10 rounded-full"><p class="font-bold">${res.name}</p></div></td><td class="p-3"><p class="text-secondary">U. ${res.unit}</p></td><td class="p-3"><button onclick="showResidentContactModal(${res.id})" class="btn-primary px-4 py-2 text-xs rounded-lg">Contactar</button></td></tr>`).join('')}</tbody></table></div></div>`; }
+function renderAdminResidents() { const r = db.users.filter(u => u.role === 'resident'); return `<div class="panel p-6 rounded-lg"><div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead><tr><th class="p-3">Residente</th><th class="p-3">Contacto</th><th class="p-3">Estado</th><th class="p-3">Acciones</th></tr></thead><tbody>${r.map(res => `<tr><td class="p-3"><div class="flex items-center gap-3"><img src="${res.avatar}" class="w-10 h-10 rounded-full"><div class="flex-1"><p class="font-bold">${res.name}</p><p class="text-xs text-secondary">U. ${res.unit} / ${res.dependents.length + 1} pers.</p></div></div></td><td class="p-3"><p>${res.email}</p><p class="text-xs">${res.phone}</p></td><td class="p-3"><span class="px-2 py-1 rounded-full text-xs font-semibold ${res.isBanned ? 'bg-flow-danger/20 text-flow-danger' : 'bg-flow-success/20 text-flow-success'}">${res.isBanned ? 'Sancionado' : res.status}</span></td><td class="p-3 flex gap-2 items-center"><button onclick="showResidentContactModal(${res.id})" class="text-flow-cyan" title="Contactar"><i class="fas fa-address-book"></i></button><button onclick="showAddResidentModal(${res.id})" class="text-flow-blue" title="Editar"><i class="fas fa-edit"></i></button><button onclick="rewardGoodNeighbor(${res.id})" class="text-inti-coin" title="Premiar Buen Vecino"><i class="fas fa-star"></i></button><button onclick="toggleUserBan(${res.id})" class="text-secondary" title="${res.isBanned ? 'Desbanear' : 'Banear'}"><i class="fas ${res.isBanned ? 'fa-unlock' : 'fa-ban'}"></i></button></td></tr>`).join('')}</tbody></table></div></div>`; }
+function renderResidents() { const r = db.users.filter(u => u.role === 'resident'); return `<div class="space-y-8"><div class="panel p-6 rounded-lg"><h3 class="font-bold text-2xl mb-4">Directiva del Condominio</h3><div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">${db.board.map(member => { const user = db.users.find(u => u.id === member.userId); return `<div class="flex items-center gap-3 p-3 bg-flow-light dark:bg-flow-dark rounded-lg"><img src="${user.avatar}" class="w-12 h-12 rounded-full"><div><p class="font-bold text-main">${user.name}</p><p class="text-sm font-semibold text-flow-cyan">${member.role}</p></div></div>`; }).join('')}</div></div><div class="panel p-6 rounded-lg"><h3 class="font-bold text-2xl mb-4">Residentes</h3><div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead><tr><th class="p-3">Residente y Familia</th><th class="p-3">Unidad</th><th class="p-3">Acciones</th></tr></thead><tbody>${r.map(res => `<tr><td class="p-3"><div class="flex items-center gap-3"><img src="${res.avatar}" class="w-10 h-10 rounded-full"><div><p class="font-bold">${res.name}</p><p class="text-xs text-secondary">${res.dependents.map(d => d.name).join(', ')}</p></div></div></td><td class="p-3"><p class="text-secondary">U. ${res.unit}</p></td><td class="p-3 flex items-center gap-2"><button onclick="showResidentContactModal(${res.id})" class="btn-primary px-3 py-1 text-xs rounded-lg">Contactar</button>${renderFriendButton(res.id)}</td></tr>`).join('')}</tbody></table></div></div></div>`; }
+function renderBoardAdmin() { return `<div class="panel p-6 rounded-lg"><h3 class="font-bold text-xl mb-4">Gestionar Directiva</h3><div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead><tr><th>Cargo</th><th>Residente</th><th>Acciones</th></tr></thead><tbody>${db.board.map(m => { const u = db.users.find(user => user.id === m.userId); return `<tr><td class="p-2 font-bold">${m.role}</td><td class="p-2">${u.name}</td><td class="p-2"><button onclick="removeBoardMember('${m.role}')" class="text-flow-danger"><i class="fas fa-trash"></i></button></td></tr>` }).join('')}</tbody></table></div><button onclick="showBoardManagementModal()" class="btn-primary mt-6 py-2 px-4 text-sm">Asignar Nuevo Cargo</button></div>`; }
 
 // --- CALENDARIO ---
 function renderCalendarView(containerId, date = new Date()) {
@@ -673,7 +737,7 @@ function renderCalendarView(containerId, date = new Date()) {
         const fullDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
         const events = db.community.events.filter(e => e.date === fullDate);
         const bookings = db.bookings.filter(b => b.date === fullDate);
-        const parkings = db.parking.reservations.filter(p => p.date === fullDate);
+        const rides = db.community.rides.filter(r => r.date === fullDate);
         
         let dayEventsHtml = events.map(e => `<div class="calendar-event bg-flow-purple/20 text-flow-purple" onmouseenter="showTooltip(event, '<strong>Evento:</strong> ${e.name}<br><strong>Lugar:</strong> ${e.location}')" onmouseleave="hideTooltip()">${e.name}</div>`).join('');
         dayEventsHtml += bookings.map(b => {
@@ -681,9 +745,8 @@ function renderCalendarView(containerId, date = new Date()) {
             const amenity = db.amenities.find(a => a.id === b.amenityId);
             return `<div class="calendar-event bg-flow-blue/20 text-flow-blue" onmouseenter="showTooltip(event, '<strong>Reserva:</strong> ${amenity.name}<br><strong>Por:</strong> ${user.name}<br><strong>Hora:</strong> ${b.time}')" onmouseleave="hideTooltip()">${amenity.name}</div>`;
         }).join('');
-        dayEventsHtml += parkings.map(p => {
-            const user = db.users.find(u => u.id === p.userId);
-            return `<div class="calendar-event bg-flow-cyan/20 text-flow-cyan" onmouseenter="showTooltip(event, '<strong>Parqueo:</strong> ${p.spotId}<br><strong>Invitado de:</strong> ${user.name}<br><strong>Hora:</strong> ${p.startTime} - ${p.endTime}')" onmouseleave="hideTooltip()">Parqueo ${p.spotId}</div>`;
+        dayEventsHtml += rides.map(r => {
+            return `<div class="calendar-event bg-flow-cyan/20 text-flow-cyan" onmouseenter="showTooltip(event, '<strong>Aventón a:</strong> ${r.to}<br><strong>Hora:</strong> ${r.time}')" onmouseleave="hideTooltip()">Aventón a ${r.to}</div>`;
         }).join('');
         
         html += `<div class="calendar-day p-2 border rounded-md ${new Date().toISOString().split('T')[0] === fullDate ? 'bg-flow-blue/10' : ''}">
@@ -718,7 +781,7 @@ function renderRules() { return `<div class="panel p-6 rounded-lg max-w-4xl mx-a
 function renderAdminAnnouncements() { return `<div class="grid grid-cols-1 lg:grid-cols-2 gap-6"><div class="panel p-6 rounded-lg"><h3 class="font-bold text-xl mb-4">Publicar Comunicado</h3><form id="announcement-form" class="space-y-4"><div><label class="text-sm">Título</label><input type="text" id="title" name="title" class="input-field w-full p-2 mt-1" required></div><div><label class="text-sm">Contenido</label><textarea name="content" rows="4" class="input-field w-full p-2 mt-1" required></textarea></div><button type="submit" class="btn-primary w-full py-3">Publicar</button></form></div><div class="panel p-6 rounded-lg"><h3 class="font-bold text-xl mb-4">Gestionar Publicados</h3><div class="space-y-2">${db.announcements.map(a => `<div class="flex justify-between items-center p-2 rounded hover:bg-flow-light dark:hover:bg-flow-dark"><p class="text-sm font-semibold">${a.title}</p><div class="flex gap-3"><button onclick="editAnnouncement(${a.id})" class="text-flow-blue"><i class="fas fa-edit"></i></button><button onclick="deleteAnnouncement(${a.id})" class="text-flow-danger"><i class="fas fa-trash"></i></button></div></div>`).join('')}</div></div></div>`; }
 function renderAdminBookings() { const s = { 'Aprobado': 'bg-flow-success/20 text-flow-success', 'Pendiente': 'bg-flow-warning/20 text-flow-warning', 'Rechazado': 'bg-flow-danger/20 text-flow-danger' }; return `<div class="panel p-6 rounded-lg"><div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead><tr><th class="p-3">Residente</th><th class="p-3">Amenidad</th><th class="p-3">Fecha</th><th class="p-3">Estado</th><th class="p-3">Acciones</th></tr></thead><tbody>${db.bookings.map(b => { const u = db.users.find(user => user.id === b.userId); const a = db.amenities.find(am => am.id === b.amenityId); return `<tr><td class="p-3 font-bold">${u.name}</td><td class="p-3">${a.name}</td><td class="p-3">${b.date}</td><td class="p-3"><span class="px-2 py-1 rounded-full text-xs font-semibold ${s[b.status]}">${b.status}</span></td><td class="p-3 flex gap-2">${b.status === 'Pendiente' ? `<button onclick="updateBookingStatus(${b.id}, 'Aprobado')" class="text-flow-success"><i class="fas fa-check"></i></button><button onclick="updateBookingStatus(${b.id}, 'Rechazado')" class="text-flow-danger"><i class="fas fa-times"></i></button>` : `<button onclick="deleteBooking(${b.id})" class="text-flow-danger"><i class="fas fa-trash"></i></button>`}</td></tr>`}).join('')}</tbody></table></div></div>`; }
 function renderAdminRules() { return `<div class="panel p-6 rounded-lg"><div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead><tr><th class="p-3">Residente</th><th class="p-3">Motivo</th><th class="p-3">Monto</th><th class="p-3">Acciones</th></tr></thead><tbody>${db.rules.fines.map(f => { const u = db.users.find(user => user.id === f.userId); return `<tr><td class="p-3 font-bold">${u.name}</td><td class="p-3">${f.reason}</td><td class="p-3 text-flow-danger">$${f.amount.toFixed(2)}</td><td class="p-3"><button onclick="removeFine(${f.id})" class="text-flow-danger"><i class="fas fa-trash"></i></button></td></tr>`}).join('')}</tbody></table></div></div>`; }
-function renderMarketplaceCard(i) { const seller = db.users.find(u => u.id === i.userId); const priceTag = i.price.currency === 'USD' ? `<div class="font-bold text-main">$${i.price.amount} <span class="text-xs text-secondary">USD</span></div>` : `<div class="flex items-center gap-1 font-bold text-inti-coin"><i class="fas fa-coins"></i>${i.price.amount}</div>`; const actionButton = i.price.currency === 'INTIS' ? `<button onclick="showPurchaseConfirmationModal('marketplace', ${i.id})" class="w-full mt-3 btn-primary text-sm py-2 rounded-lg">Comprar con Intis</button>` : `<button onclick="showContactModal(${i.userId})" class="w-full mt-3 bg-flow-light dark:bg-flow-dark border text-main font-semibold text-sm py-2 rounded-lg hover:bg-flow-border/10">Contactar a ${seller.name.split(' ')[0]}</button>`; return `<div class="panel p-5 rounded-lg flex flex-col"><div class="flex-1"><div><span class="text-xs font-semibold px-2 py-1 rounded-full ${i.type === 'Servicio' ? 'bg-flow-blue/20 text-flow-blue' : 'bg-flow-cyan/20 text-flow-cyan'}">${i.type}</span><h4 class="font-bold text-lg mt-2">${i.title}</h4></div><p class="text-sm text-secondary mt-2">${i.description}</p></div><div class="mt-4 pt-3 border-t"><div class="flex justify-between items-center">${priceTag}</div>${actionButton}</div></div>`; }
+function renderMarketplaceCard(i) { const seller = db.users.find(u => u.id === i.userId); const priceTag = i.price.currency === 'USD' ? `<div class="font-bold text-main">$${i.price.amount} <span class="text-xs text-secondary">USD</span></div>` : `<div class="flex items-center gap-1 font-bold text-inti-coin"><i class="fas fa-coins"></i>${i.price.amount}</div>`; const actionButton = i.price.currency === 'INTIS' ? `<button onclick="showPurchaseConfirmationModal('marketplace', ${i.id})" class="w-full mt-3 btn-primary text-sm py-2 rounded-lg">Comprar con Intis</button>` : `<button onclick="showResidentContactModal(${i.userId})" class="w-full mt-3 bg-flow-light dark:bg-flow-dark border text-main font-semibold text-sm py-2 rounded-lg hover:bg-flow-border/10">Contactar a ${seller.name.split(' ')[0]}</button>`; return `<div class="panel p-5 rounded-lg flex flex-col"><div class="flex-1"><div><span class="text-xs font-semibold px-2 py-1 rounded-full ${i.type === 'Servicio' ? 'bg-flow-blue/20 text-flow-blue' : 'bg-flow-cyan/20 text-flow-cyan'}">${i.type}</span><h4 class="font-bold text-lg mt-2">${i.title}</h4></div><p class="text-sm text-secondary mt-2">${i.description}</p></div><div class="mt-4 pt-3 border-t"><div class="flex justify-between items-center">${priceTag}</div>${actionButton}</div></div>`; }
 function renderMyPetCard(pet) { return `<div class="panel p-4 rounded-lg"><div class="flex items-center gap-4"><i class="fas fa-paw text-3xl ${pet.status === 'lost' ? 'text-flow-danger' : 'text-flow-purple'}"></i><div><p class="font-bold text-main">${pet.name}</p><p class="text-sm text-secondary">${pet.breed}</p></div><div class="ml-auto flex gap-2"><button onclick="showPetModal(${pet.id})" class="text-flow-blue"><i class="fas fa-edit"></i></button><button onclick="deletePet(${pet.id})" class="text-flow-danger"><i class="fas fa-trash"></i></button></div></div><button onclick="togglePetStatus(${pet.id})" class="w-full text-center mt-3 text-sm font-semibold ${pet.status === 'lost' ? 'text-flow-success' : 'text-flow-danger'}">${pet.status === 'lost' ? 'Marcar como Encontrado' : 'Reportar como Perdido'}</button></div>`; }
 function renderGroupCard(group) { const isMember = group.members.includes(db.currentUser.id); let buttonHTML = isMember ? `<button onclick="joinGroup(${group.id})" class="w-full mt-3 bg-flow-danger/20 text-flow-danger font-semibold text-sm py-2 rounded-lg">Abandonar Grupo</button>` : `<button onclick="joinGroup(${group.id})" class="w-full mt-3 bg-flow-light dark:bg-flow-dark border text-main font-semibold text-sm py-2 rounded-lg hover:bg-flow-blue hover:text-white">Unirse al Grupo</button>`; return `<div class="panel p-5 rounded-lg flex flex-col"><div class="flex-1"><div class="flex items-center gap-3 mb-2"><i class="fas ${group.icon} text-xl text-flow-purple"></i><h4 class="font-bold text-lg">${group.name}</h4></div><p class="text-sm text-secondary">${group.description}</p></div><div class="mt-4 pt-3 border-t"><p class="text-sm text-secondary">${group.members.length} miembro(s)</p>${buttonHTML}</div></div>`; }
 function renderAdminGroupCard(group) { return `<div class="panel p-5 rounded-lg flex flex-col"><div class="flex-1"><div class="flex items-center gap-3 mb-2"><i class="fas ${group.icon} text-xl text-flow-purple"></i><h4 class="font-bold text-lg">${group.name}</h4></div><p class="text-sm text-secondary">${group.description}</p></div><div class="mt-4 pt-3 border-t"><p class="text-sm text-secondary">${group.members.length} miembro(s)</p></div></div>`; }
@@ -727,7 +790,7 @@ function renderEventCard(event) { const organizer = db.users.find(u => u.id === 
 function showCreateMarketplacePostModal() { const m = `<button onclick="hideModal()" class="absolute top-4 right-4 text-secondary hover:text-main text-2xl">&times;</button><h2 class="text-2xl font-bold mb-4">Publicar Anuncio</h2><form id="post-form" class="space-y-4"><input type="text" name="title" placeholder="Título del anuncio" class="input-field w-full p-2" required><select name="type" class="input-field w-full p-2"><option>Producto</option><option>Servicio</option></select><div><label class="text-sm font-semibold">Moneda</label><div class="flex gap-2 mt-2" id="currency-selector"><button type="button" data-currency="USD" class="currency-btn flex-1 p-2 rounded-lg border-2">USD</button><button type="button" data-currency="INTIS" class="currency-btn flex-1 p-2 rounded-lg border-2 border-inti-coin bg-inti-coin/10">INTIS</button></div></div><div id="price-inputs"><div id="usd-input-container" class="hidden"><label class="text-xs text-secondary">Valor en USD</label><input type="number" name="priceUSD" placeholder="$" class="input-field w-full p-2 mt-1"></div><div id="intis-input-container"><label class="text-xs text-secondary">Valor en Intis</label><input type="number" name="priceIntis" placeholder="INTIS" class="input-field w-full p-2 mt-1"></div></div><textarea name="description" placeholder="Descripción detallada" class="input-field w-full p-2" rows="3" required></textarea><button type="submit" class="btn-primary w-full py-3">Publicar y ganar 5 Intis</button></form>`; showModal(m, () => { let selectedCurrency = 'INTIS'; document.querySelectorAll('.currency-btn').forEach(btn => { btn.addEventListener('click', () => { selectedCurrency = btn.dataset.currency; document.querySelectorAll('.currency-btn').forEach(b => b.classList.remove('border-inti-coin', 'bg-inti-coin/10')); btn.classList.add('border-inti-coin', 'bg-inti-coin/10'); document.getElementById('usd-input-container').classList.toggle('hidden', selectedCurrency !== 'USD'); document.getElementById('intis-input-container').classList.toggle('hidden', selectedCurrency !== 'INTIS'); }); }); document.getElementById('post-form').addEventListener('submit', e => { e.preventDefault(); const f = new FormData(e.target); const price = { currency: selectedCurrency, amount: selectedCurrency === 'USD' ? parseFloat(f.get('priceUSD')) : parseInt(f.get('priceIntis')) }; db.community.marketplace.unshift({ id: Date.now(), userId: db.currentUser.id, type: f.get('type'), title: f.get('title'), description: f.get('description'), price }); db.currentUser.intis += 5; addTransaction(db.currentUser.id, 'reward', 'Publicación en Marketplace', 5, 'Sistema', db.currentUser.name); addNotification('reward', '¡Ganaste 5 Intis por publicar en el Marketplace!', () => showSection('wallet'), db.currentUser.id); hideModal(); showSection('marketplace'); }); }); }
 function showBookingModal(id) { const a = db.amenities.find(am => am.id === id); const m = `<h2 class="text-2xl font-bold mb-4">Reservar: ${a.name}</h2><form id="booking-form" class="space-y-4"><input type="date" name="date" class="input-field w-full p-2" required><input type="text" name="time" placeholder="18:00 - 22:00" class="input-field w-full p-2" required><button type="submit" class="btn-primary w-full py-3">Solicitar</button></form>`; showModal(m, () => { document.getElementById('booking-form').addEventListener('submit', e => { e.preventDefault(); const f = new FormData(e.target); addNotification('booking', `Solicitud de reserva para ${a.name} de ${db.currentUser.name}.`, () => showSection('bookings')); db.bookings.unshift({ id: Date.now(), amenityId: id, userId: db.currentUser.id, date: f.get('date'), time: f.get('time'), status: 'Pendiente' }); hideModal(); }); }); }
 function showNewReportModal() { const m = `<h2 class="text-2xl font-bold mb-4">Nuevo Reporte</h2><form id="report-form" class="space-y-4"><select name="category" class="input-field w-full p-2"><option>Mantenimiento</option><option>Seguridad</option><option>Convivencia</option></select><textarea name="description" placeholder="Describe el problema detalladamente..." class="input-field w-full p-2" rows="4" required></textarea><button type="submit" class="btn-primary w-full py-3">Enviar</button></form>`; showModal(m, () => { document.getElementById('report-form').addEventListener('submit', e => { e.preventDefault(); const f = new FormData(e.target); const category = f.get('category'); const description = f.get('description'); db.reports.push({ id: Date.now(), userId: db.currentUser.id, category, description, status: 'Sin leer', date: new Date().toISOString().split('T')[0] }); addNotification('report', `Nuevo reporte de ${category} de ${db.currentUser.name}.`, () => showSection('reports')); hideModal(); }); }); }
-function showAddResidentModal(id) { const isEdit = id !== undefined; const res = isEdit ? db.users.find(u => u.id === id) : {}; const m = `<h2 class="text-2xl font-bold mb-4">${isEdit ? 'Editar' : 'Agregar'} Residente</h2><form id="add-resident-form" class="space-y-4"><input type="text" name="name" placeholder="Nombre" class="input-field w-full p-2" value="${res.name || ''}" required><input type="text" name="unit" placeholder="Unidad" class="input-field w-full p-2" value="${res.unit || ''}" required><input type="email" name="email" placeholder="Correo" class="input-field w-full p-2" value="${res.email || ''}" required><input type="tel" name="phone" placeholder="Teléfono" class="input-field w-full p-2" value="${res.phone || ''}" required><input type="number" name="residentsCount" placeholder="N° de residentes" class="input-field w-full p-2" value="${res.residentsCount || ''}" required><button type="submit" class="btn-primary w-full py-3">Guardar</button></form>`; showModal(m, () => { document.getElementById('add-resident-form').addEventListener('submit', e => { e.preventDefault(); const f = new FormData(e.target); if (isEdit) { Object.assign(res, { name: f.get('name'), unit: f.get('unit'), email: f.get('email'), phone: f.get('phone'), residentsCount: parseInt(f.get('residentsCount')) }); } else { db.users.push({ id: Date.now(), name: f.get('name'), unit: f.get('unit'), email: f.get('email'), phone: f.get('phone'), role: 'resident', avatar: `https://i.pravatar.cc/150?u=${Date.now()}`, status: 'Solvente', since: new Date().toISOString().split('T')[0], isBanned: false, residentsCount: parseInt(f.get('residentsCount')), pets: [], intis: 0, social:{}, transactions: [], dependents: [] }); } hideModal(); showSection('residents'); }); }); }
+function showAddResidentModal(id) { const isEdit = id !== undefined; const res = isEdit ? db.users.find(u => u.id === id) : {}; const m = `<h2 class="text-2xl font-bold mb-4">${isEdit ? 'Editar' : 'Agregar'} Residente</h2><form id="add-resident-form" class="space-y-4"><input type="text" name="name" placeholder="Nombre" class="input-field w-full p-2" value="${res.name || ''}" required><input type="text" name="unit" placeholder="Unidad" class="input-field w-full p-2" value="${res.unit || ''}" required><input type="email" name="email" placeholder="Correo" class="input-field w-full p-2" value="${res.email || ''}" required><input type="tel" name="phone" placeholder="Teléfono" class="input-field w-full p-2" value="${res.phone || ''}" required><input type="number" name="residentsCount" placeholder="N° de residentes" class="input-field w-full p-2" value="${res.residentsCount || ''}" required><label class="text-sm">Fecha de Nacimiento</label><input type="date" name="birthDate" class="input-field w-full p-2" value="${res.birthDate || ''}" required><button type="submit" class="btn-primary w-full py-3">Guardar</button></form>`; showModal(m, () => { document.getElementById('add-resident-form').addEventListener('submit', e => { e.preventDefault(); const f = new FormData(e.target); if (isEdit) { Object.assign(res, { name: f.get('name'), unit: f.get('unit'), email: f.get('email'), phone: f.get('phone'), residentsCount: parseInt(f.get('residentsCount')), birthDate: f.get('birthDate') }); } else { db.users.push({ id: Date.now(), name: f.get('name'), unit: f.get('unit'), email: f.get('email'), phone: f.get('phone'), role: 'resident', avatar: `https://i.pravatar.cc/150?u=${Date.now()}`, status: 'Solvente', since: new Date().toISOString().split('T')[0], isBanned: false, residentsCount: parseInt(f.get('residentsCount')), birthDate: f.get('birthDate'), pets: [], intis: 0, social:{}, transactions: [], dependents: [] }); } hideModal(); showSection('residents'); }); }); }
 function showAmenityModal(id) { const isEdit = id !== undefined; const a = isEdit ? db.amenities.find(am => am.id === id) : {}; const m = `<h2 class="text-2xl font-bold mb-4">${isEdit ? 'Editar' : 'Añadir'} Amenidad</h2><form id="amenity-form" class="space-y-4"><input type="text" name="name" placeholder="Nombre" class="input-field w-full p-2" value="${a.name || ''}" required><input type="text" name="icon" placeholder="Ícono FontAwesome (e.g., fa-futbol)" class="input-field w-full p-2" value="${a.icon || ''}" required><input type="text" name="image" placeholder="URL de imagen" class="input-field w-full p-2" value="${a.image || ''}" required><textarea name="rules" placeholder="Reglas" class="input-field w-full p-2" required>${a.rules || ''}</textarea><button type="submit" class="btn-primary w-full py-3">Guardar</button></form>`; showModal(m, () => { document.getElementById('amenity-form').addEventListener('submit', e => { e.preventDefault(); const f = new FormData(e.target); if (isEdit) { Object.assign(a, { name: f.get('name'), icon: f.get('icon'), image: f.get('image'), rules: f.get('rules') }); } else { db.amenities.push({ id: f.get('name').toLowerCase().replace(/\s+/g, '_'), name: f.get('name'), icon: f.get('icon'), image: f.get('image'), rules: f.get('rules') }); } hideModal(); showSection('amenities'); }); }); }
 function showTransferModal() { const r = db.users.filter(u => u.role === 'resident' && u.id !== db.currentUser.id); const m = `<h2 class="text-2xl font-bold mb-4">Transferir Intis</h2><form id="transfer-form" class="space-y-4"><select name="recipientId" class="input-field w-full p-2">${r.map(res => `<option value="${res.id}">${res.name}</option>`).join('')}</select><input type="number" name="amount" placeholder="Monto" class="input-field w-full p-2" max="${db.currentUser.intis}" required><textarea name="description" placeholder="Descripción (ej: pago de cena)" class="input-field w-full p-2" rows="2" required></textarea><button type="submit" class="btn-primary w-full py-3">Transferir</button></form>`; showModal(m, () => { document.getElementById('transfer-form').addEventListener('submit', e => { e.preventDefault(); const f = new FormData(e.target); const amount = parseInt(f.get('amount')); const description = f.get('description'); const recipientId = parseInt(f.get('recipientId')); const recipient = db.users.find(u => u.id === recipientId); if (amount > 0 && db.currentUser.intis >= amount && recipient) { db.currentUser.intis -= amount; recipient.intis += amount; addTransaction(db.currentUser.id, 'transfer_out', description, amount, db.currentUser.name, recipient.name); addTransaction(recipient.id, 'transfer_in', description, amount, db.currentUser.name, recipient.name); addNotification('payment', `Recibiste ${amount} Intis de ${db.currentUser.name}. Motivo: ${description}`, () => showSection('wallet'), recipient.id); showSuccessModal('¡Transferencia Exitosa!', `Has enviado ${amount} Intis a ${recipient.name}.`); showSection('wallet'); } else { showModal('Fondos insuficientes o destinatario inválido.'); } }); }); }
 function showPetModal(id) { const isEdit = id !== undefined; const p = isEdit ? db.currentUser.pets.find(pet => pet.id === id) : {}; const m = `<h2 class="text-2xl font-bold mb-4">${isEdit ? 'Editar' : 'Añadir'} Mascota</h2><form id="pet-form" class="space-y-4"><input type="text" name="name" placeholder="Nombre" class="input-field w-full p-2" value="${p.name || ''}" required><input type="text" name="type" placeholder="Tipo (Perro, Gato)" class="input-field w-full p-2" value="${p.type || ''}" required><input type="text" name="breed" placeholder="Raza" class="input-field w-full p-2" value="${p.breed || ''}" required><button type="submit" class="btn-primary w-full py-3">Guardar</button></form>`; showModal(m, () => { document.getElementById('pet-form').addEventListener('submit', e => { e.preventDefault(); const f = new FormData(e.target); if (isEdit) { Object.assign(p, { name: f.get('name'), type: f.get('type'), breed: f.get('breed') }); } else { db.currentUser.pets.push({ id: Date.now(), name: f.get('name'), type: f.get('type'), breed: f.get('breed'), status: 'ok' }); } hideModal(); showSection('pets'); }); }); }
@@ -744,7 +807,6 @@ function showAddFineModal() { const r = db.users.filter(u => u.role === 'residen
 function renderAdminChart() { const ctx = document.getElementById('expensesChart')?.getContext('2d'); if (!ctx) return; if (chartInstance) chartInstance.destroy(); const data = db.finances.expense_details; chartInstance = new Chart(ctx, { type: 'doughnut', data: { labels: data.map(d => d.category), datasets: [{ data: data.map(d => d.amount), backgroundColor: ['#58A6FF', '#3FB950', '#F7B731', '#F85149', '#BC8EFF'], borderColor: document.documentElement.classList.contains('dark') ? '#161B22' : '#FFFFFF' }] }, options: { responsive: true, plugins: { legend: { position: 'right', labels: { color: document.documentElement.classList.contains('dark') ? '#E6EDF3' : '#1F2328' } } } } }); }
 function showPricingModal() { const content = `<div class="text-center max-w-2xl mx-auto"><button onclick="hideModal()" class="absolute top-4 right-4 text-secondary hover:text-main text-2xl">&times;</button><i class="fas fa-rocket text-4xl text-flow-purple mb-3"></i><h2 class="text-2xl font-extrabold mb-2 text-main">Un Plan Simple para Transformar tu Comunidad</h2><p class="text-secondary mb-6">Un solo pago por unidad de vivienda, integrado en la alícuota, para un acceso total.</p><div class="panel p-6 rounded-xl shadow-glow text-left"><h3 class="text-xl font-bold text-center">Plan Comunitario Flow</h3><div class="text-center my-4"><p class="text-4xl font-black">$4<span class="text-lg text-secondary">/mes</span></p><p class="text-sm text-secondary">(Total $48 anuales por unidad de vivienda)</p></div><p class="text-xs text-center text-secondary mb-4">Este valor se suma a la alícuota mensual para simplificar la gestión.</p><h4 class="font-bold text-main mb-2">¿Por qué vale la pena?</h4><ul class="space-y-2 text-sm text-secondary"> <li class="flex items-start gap-3"><i class="fas fa-check-circle text-flow-success mt-1"></i><div><strong>Acceso Familiar Ilimitado:</strong> Todos los miembros de tu hogar pueden usar la app y sus beneficios.</div></li><li class="flex items-start gap-3"><i class="fas fa-check-circle text-flow-success mt-1"></i><div><strong>Economía y Comunidad:</strong> Ahorra dinero real usando Intis en el marketplace y apoya a tus vecinos.</div></li><li class="flex items-start gap-3"><i class="fas fa-check-circle text-flow-success mt-1"></i><div><strong>Transparencia Total:</strong> Accede a las finanzas y decisiones administrativas en tiempo real.</div></li><li class="flex items-start gap-3"><i class="fas fa-check-circle text-flow-success mt-1"></i><div><strong>Visión a Futuro - Red Flow:</strong> Conéctate con otros condominios para crear una mega-comunidad con más oportunidades.</div></li></ul></div><div class="panel p-4 rounded-xl mt-4 border-2 border-flow-cyan/50 text-left"><h3 class="text-lg font-bold text-flow-cyan">Servicio Opcional: Co-Administración Asistida</h3><p class="text-secondary mt-1 text-sm">Potenciamos a tu directiva con nuestro apoyo estratégico para una gestión más eficiente y sin estrés.</p><p class="text-xs text-main font-semibold mt-2">Servicio con costo adicional. ¡Contáctanos!</p></div></div>`; showModal(content); }
 function showVisitorParkingModal() { const availableSpots = db.parking.visitorSpots.filter(s => s.isAvailable); if (availableSpots.length === 0) { showModal(`<h3 class="font-bold text-xl mb-4">Sin Espacios Disponibles</h3><p class="text-sm text-secondary">No hay parqueaderos de visita disponibles.</p>`); return; } const m = `<h2 class="text-2xl font-bold mb-4">Reservar Parqueo de Visita</h2><form id="visitor-parking-form" class="space-y-4"><select name="spotId" class="input-field w-full p-2">${availableSpots.map(s => `<option value="${s.id}">Espacio ${s.id}</option>`).join('')}</select><input type="text" name="guestName" placeholder="Nombre del invitado" class="input-field w-full p-2" required><input type="text" name="licensePlate" placeholder="Placa del vehículo" class="input-field w-full p-2" required><input type="date" name="date" class="input-field w-full p-2" value="${new Date().toISOString().split('T')[0]}" required><div><label class="text-sm">Hora de Inicio (Reserva por 2h)</label><input type="time" name="startTime" class="input-field w-full p-2 mt-1" required></div><button type="submit" class="btn-primary w-full py-3">Confirmar Reserva</button></form>`; showModal(m, () => { document.getElementById('visitor-parking-form').addEventListener('submit', e => { e.preventDefault(); const f = new FormData(e.target); const spotId = f.get('spotId'); const spot = db.parking.visitorSpots.find(s => s.id === spotId); const startTime = f.get('startTime'); const [hours, minutes] = startTime.split(':').map(Number); const endTime = new Date(); endTime.setHours(hours + 2, minutes); const endTimeString = `${String(endTime.getHours()).padStart(2, '0')}:${String(endTime.getMinutes()).padStart(2, '0')}`; if (spot) { spot.isAvailable = false; spot.owner = db.currentUser.id; db.parking.reservations.push({ id: Date.now(), spotId: spotId, userId: db.currentUser.id, guestName: f.get('guestName'), date: f.get('date'), startTime: startTime, endTime: endTimeString, licensePlate: f.get('licensePlate') }); } hideModal(); showSection('myUnit'); }); }); }
-function showContactModal(userId) { const user = db.users.find(u => u.id === userId); if (!user) return; const modalHTML = `<button onclick="hideModal()" class="absolute top-4 right-4 text-secondary hover:text-main text-2xl">&times;</button><h2 class="text-2xl font-bold mb-4 text-main">Contactar Vendedor</h2><div class="flex items-center gap-4"><img src="${user.avatar}" class="w-16 h-16 rounded-full"><div><p class="font-bold text-lg">${user.name}</p><p class="text-sm text-secondary">Unidad ${user.unit}</p></div></div><div class="mt-6 border-t pt-4 space-y-3"><p class="text-sm"><strong class="w-20 inline-block text-secondary">Email:</strong> <a href="mailto:${user.email}" class="text-flow-blue">${user.email}</a></p><p class="text-sm"><strong class="w-20 inline-block text-secondary">Teléfono:</strong> <a href="tel:${user.phone}" class="text-flow-blue">${user.phone}</a></p></div>`; showModal(modalHTML); }
 function showExpenseModal(id) { const isEdit = id !== undefined; const expense = isEdit ? db.finances.expense_details.find(e => e.id === id) : {}; const m = `<h2 class="text-2xl font-bold mb-4">${isEdit ? 'Editar' : 'Añadir'} Gasto</h2><form id="expense-form" class="space-y-4"><input type="date" name="date" class="input-field w-full p-2" value="${expense.date || new Date().toISOString().split('T')[0]}" required><input type="text" name="category" placeholder="Categoría" class="input-field w-full p-2" value="${expense.category || ''}" required><input type="number" name="amount" placeholder="Monto" class="input-field w-full p-2" value="${expense.amount || ''}" required><textarea name="details" placeholder="Detalles" class="input-field w-full p-2" required>${expense.details || ''}</textarea><button type="submit" class="btn-primary w-full py-3">Guardar</button></form>`; showModal(m, () => { document.getElementById('expense-form').addEventListener('submit', e => { e.preventDefault(); const f = new FormData(e.target); if (isEdit) { Object.assign(expense, { date: f.get('date'), category: f.get('category'), amount: parseFloat(f.get('amount')), details: f.get('details') }); } else { db.finances.expense_details.push({ id: Date.now(), date: f.get('date'), category: f.get('category'), amount: parseFloat(f.get('amount')), details: f.get('details') }); } recalculateFinancialSummary(); hideModal(); showSection('finances'); }); }); }
 function deleteExpense(id) { db.finances.expense_details = db.finances.expense_details.filter(e => e.id !== id); recalculateFinancialSummary(); showSection('finances'); }
 function joinGroup(groupId) { const group = db.community.groups.find(g => g.id === groupId); if (group) { const userIndex = group.members.indexOf(db.currentUser.id); if (userIndex > -1) { group.members.splice(userIndex, 1); } else { group.members.push(db.currentUser.id); } showSection('community'); } }
@@ -762,8 +824,8 @@ function renderChatMessages() { const messagesContainer = document.getElementByI
 function deleteChatMessage(index) { db.chats[activeChatChannel].messages.splice(index, 1); renderChatMessages(); }
 function showCreateChannelModal() { const m = `<h2 class="text-2xl font-bold mb-4">Crear Nuevo Canal</h2><form id="create-channel-form" class="space-y-4"><input type="text" name="name" placeholder="Nombre del Canal" class="input-field w-full p-2" required><input type="text" name="icon" placeholder="Ícono FontAwesome (e.g., fa-comments)" class="input-field w-full p-2" value="fa-comments" required><button type="submit" class="btn-primary w-full py-3">Crear Canal</button></form>`; showModal(m, () => { document.getElementById('create-channel-form').addEventListener('submit', e => { e.preventDefault(); const f = new FormData(e.target); const name = f.get('name'); const key = name.toLowerCase().replace(/\s+/g, '_'); db.chats[key] = { name: name, icon: f.get('icon'), messages: [] }; hideModal(); showSection('chat'); }); }); }
 function deleteChannel(key) { if (key !== 'seguridad' && confirm(`¿Estás seguro de que quieres eliminar el canal "${db.chats[key].name}"?`)) { delete db.chats[key]; if (activeChatChannel === key) { activeChatChannel = 'seguridad'; } showSection('chat'); } }
-function showCreateGroupModal() { const m = `<h2 class="text-2xl font-bold mb-4">Crear Nuevo Grupo</h2><form id="create-group-form" class="space-y-4"><input type="text" name="name" placeholder="Nombre del Grupo" class="input-field w-full p-2" required><input type="text" name="icon" placeholder="Ícono FontAwesome (e.g., fa-futbol)" class="input-field w-full p-2" value="fa-users" required><textarea name="description" placeholder="Descripción breve del grupo" class="input-field w-full p-2" rows="3" required></textarea><button type="submit" class="btn-primary w-full py-3">Crear Grupo</button></form>`; showModal(m, () => { document.getElementById('create-group-form').addEventListener('submit', e => { e.preventDefault(); const f = new FormData(e.target); db.community.groups.push({ id: Date.now(), name: f.get('name'), icon: f.get('icon'), description: f.get('description'), members: [], requests: [] }); hideModal(); showSection('communityAdmin'); }); }); }
-function showCreateEventModal(id) { const isEdit = id !== undefined; const event = isEdit ? db.community.events.find(e => e.id === id) : {}; const m = `<h2 class="text-2xl font-bold mb-4">${isEdit ? 'Editar' : 'Crear'} Evento Comunitario</h2><form id="event-form" class="space-y-4"><input type="text" name="name" placeholder="Nombre del Evento" class="input-field w-full p-2" value="${event.name || ''}" required><input type="text" name="location" placeholder="Ubicación (e.g., Salón Comunal)" class="input-field w-full p-2" value="${event.location || ''}" required><input type="date" name="date" class="input-field w-full p-2" value="${event.date || ''}" required><input type="time" name="time" class="input-field w-full p-2" value="${event.time || ''}" required><textarea name="description" placeholder="Descripción del evento" class="input-field w-full p-2" rows="3" required>${event.description || ''}</textarea><div><label class="text-sm font-semibold">Costo del Evento</label><div class="flex gap-2 mt-2" id="currency-selector"></div></div><div id="price-inputs"></div><button type="submit" class="btn-primary w-full py-3">${isEdit ? 'Guardar Cambios' : 'Publicar Evento'}</button></form>`; showModal(m, () => { const currencySelector = document.getElementById('currency-selector'); const priceInputs = document.getElementById('price-inputs'); const currencies = ['USD', 'INTIS']; let selectedCurrency = isEdit ? event.cost.currency : 'INTIS'; currencies.forEach(c => { currencySelector.innerHTML += `<button type="button" data-currency="${c}" class="currency-btn flex-1 p-2 rounded-lg border-2">${c}</button>`; priceInputs.innerHTML += `<div id="${c.toLowerCase()}-input-container" class="hidden"><label class="text-xs text-secondary">Valor en ${c}</label><input type="number" name="price${c}" value="${event.cost?.currency === c ? event.cost.amount : ''}" placeholder="${c}" class="input-field w-full p-2 mt-1"></div>`; }); const updateCurrencyUI = () => { document.querySelectorAll('.currency-btn').forEach(b => { b.classList.remove('border-inti-coin', 'bg-inti-coin/10'); if (b.dataset.currency === selectedCurrency) b.classList.add('border-inti-coin', 'bg-inti-coin/10'); }); document.querySelectorAll('[id$="-input-container"]').forEach(c => c.classList.add('hidden')); document.getElementById(`${selectedCurrency.toLowerCase()}-input-container`).classList.remove('hidden'); }; document.querySelectorAll('.currency-btn').forEach(btn => btn.addEventListener('click', () => { selectedCurrency = btn.dataset.currency; updateCurrencyUI(); })); updateCurrencyUI(); document.getElementById('event-form').addEventListener('submit', e => { e.preventDefault(); const f = new FormData(e.target); const cost = { currency: selectedCurrency, amount: parseFloat(f.get(`price${selectedCurrency}`)) || 0 }; if (isEdit) { Object.assign(event, { name: f.get('name'), location: f.get('location'), date: f.get('date'), time: f.get('time'), description: f.get('description'), cost }); } else { db.community.events.unshift({ id: Date.now(), organizerId: db.currentUser.id, name: f.get('name'), location: f.get('location'), date: f.get('date'), time: f.get('time'), description: f.get('description'), cost, participants: [], comments: [] }); addNotification('event_creation', `${db.currentUser.name} ha creado el evento: ${f.get('name')}`, () => showSection('communityAdmin')); } hideModal(); showSection('community'); }); }); }
+function showCreateGroupModal() { const m = `<h2 class="text-2xl font-bold mb-4">Crear Nuevo Grupo</h2><form id="create-group-form" class="space-y-4"><input type="text" name="name" placeholder="Nombre del Grupo" class="input-field w-full p-2" required><input type="text" name="icon" placeholder="Ícono FontAwesome (e.g., fa-futbol)" class="input-field w-full p-2" value="fa-users" required><textarea name="description" placeholder="Descripción breve del grupo" class="input-field w-full p-2" rows="3" required></textarea><button type="submit" class="btn-primary w-full py-3">Crear y ganar 10 Intis</button></form>`; showModal(m, () => { document.getElementById('create-group-form').addEventListener('submit', e => { e.preventDefault(); const f = new FormData(e.target); db.community.groups.push({ id: Date.now(), name: f.get('name'), icon: f.get('icon'), description: f.get('description'), members: [], requests: [] }); db.currentUser.intis += 10; addTransaction(db.currentUser.id, 'reward', 'Creación de grupo', 10, 'Sistema', db.currentUser.name); addNotification('reward', '¡Ganaste 10 Intis por crear un nuevo grupo!', () => showSection('wallet'), db.currentUser.id); hideModal(); showSection('communityAdmin'); }); }); }
+function showCreateEventModal(id) { const isEdit = id !== undefined; const event = isEdit ? db.community.events.find(e => e.id === id) : {}; const m = `<h2 class="text-2xl font-bold mb-4">${isEdit ? 'Editar' : 'Crear'} Evento Comunitario</h2><form id="event-form" class="space-y-4"><input type="text" name="name" placeholder="Nombre del Evento" class="input-field w-full p-2" value="${event.name || ''}" required><input type="text" name="location" placeholder="Ubicación (e.g., Salón Comunal)" class="input-field w-full p-2" value="${event.location || ''}" required><input type="date" name="date" class="input-field w-full p-2" value="${event.date || ''}" required><input type="time" name="time" class="input-field w-full p-2" value="${event.time || ''}" required><textarea name="description" placeholder="Descripción del evento" class="input-field w-full p-2" rows="3" required>${event.description || ''}</textarea><div><label class="text-sm font-semibold">Costo del Evento</label><div class="flex gap-2 mt-2" id="currency-selector"></div></div><div id="price-inputs"></div><button type="submit" class="btn-primary w-full py-3">${isEdit ? 'Guardar Cambios' : 'Publicar y ganar 10 Intis'}</button></form>`; showModal(m, () => { const currencySelector = document.getElementById('currency-selector'); const priceInputs = document.getElementById('price-inputs'); const currencies = ['USD', 'INTIS']; let selectedCurrency = isEdit ? event.cost.currency : 'INTIS'; currencies.forEach(c => { currencySelector.innerHTML += `<button type="button" data-currency="${c}" class="currency-btn flex-1 p-2 rounded-lg border-2">${c}</button>`; priceInputs.innerHTML += `<div id="${c.toLowerCase()}-input-container" class="hidden"><label class="text-xs text-secondary">Valor en ${c}</label><input type="number" name="price${c}" value="${event.cost?.currency === c ? event.cost.amount : ''}" placeholder="${c}" class="input-field w-full p-2 mt-1"></div>`; }); const updateCurrencyUI = () => { document.querySelectorAll('.currency-btn').forEach(b => { b.classList.remove('border-inti-coin', 'bg-inti-coin/10'); if (b.dataset.currency === selectedCurrency) b.classList.add('border-inti-coin', 'bg-inti-coin/10'); }); document.querySelectorAll('[id$="-input-container"]').forEach(c => c.classList.add('hidden')); document.getElementById(`${selectedCurrency.toLowerCase()}-input-container`).classList.remove('hidden'); }; document.querySelectorAll('.currency-btn').forEach(btn => btn.addEventListener('click', () => { selectedCurrency = btn.dataset.currency; updateCurrencyUI(); })); updateCurrencyUI(); document.getElementById('event-form').addEventListener('submit', e => { e.preventDefault(); const f = new FormData(e.target); const cost = { currency: selectedCurrency, amount: parseFloat(f.get(`price${selectedCurrency}`)) || 0 }; if (isEdit) { Object.assign(event, { name: f.get('name'), location: f.get('location'), date: f.get('date'), time: f.get('time'), description: f.get('description'), cost }); } else { db.community.events.unshift({ id: Date.now(), organizerId: db.currentUser.id, name: f.get('name'), location: f.get('location'), date: f.get('date'), time: f.get('time'), description: f.get('description'), cost, participants: [], comments: [] }); db.currentUser.intis += 10; addTransaction(db.currentUser.id, 'reward', 'Creación de evento', 10, 'Sistema', db.currentUser.name); addNotification('reward', `¡Ganaste 10 Intis por crear el evento: ${f.get('name')}!`, () => showSection('wallet'), db.currentUser.id); } hideModal(); showSection('community'); }); }); }
 function deleteEvent(id) { db.community.events = db.community.events.filter(e => e.id !== id); showSection('community'); }
 function triggerPanicButton() { const m = `<div class="text-center"><i class="fas fa-exclamation-triangle text-5xl text-flow-danger mb-4"></i><h2 class="text-2xl font-bold mb-2">Confirmar Alerta de Pánico</h2><p class="text-secondary mb-6">Esto notificará inmediatamente a seguridad y simulará una llamada al 911. Úsalo solo en una emergencia real.</p><div class="flex justify-center gap-4"><button onclick="hideModal()" class="bg-gray-200 dark:bg-gray-600 font-bold py-2 px-6 rounded-lg">Cancelar</button><button onclick="confirmPanicAlert()" class="bg-flow-danger text-white font-bold py-2 px-6 rounded-lg">Sí, Activar Alerta</button></div></div>`; showModal(m); }
 function confirmPanicAlert() { const user = db.currentUser; const alertMessage = `¡ALERTA DE PÁNICO! ${user.name} desde la unidad ${user.unit} ha activado el botón de pánico.`; db.chats.seguridad.messages.push({ userId: 100, text: alertMessage, time: new Date().toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit' }) }); addNotification('panic', alertMessage, () => showSection('chat')); const modalContent = `<div class="text-center"><i class="fas fa-check-circle text-5xl text-flow-success mb-4"></i><h2 class="text-2xl font-bold mb-2">Alerta Enviada</h2><p class="text-secondary">Se ha notificado a seguridad. Simulación de llamada al 911 iniciada.</p></div>`; showModal(modalContent); }
@@ -872,30 +934,11 @@ function showSuccessModal(title, message) {
     showModal(modalHTML);
 }
 
-function showInternalMessageModal(recipientId) {
-    const recipient = db.users.find(u => u.id === recipientId);
-    const modalHTML = `<button onclick="hideModal()" class="absolute top-4 right-4 text-secondary hover:text-main text-2xl">&times;</button>
-    <h2 class="text-2xl font-bold mb-4">Enviar Mensaje a ${recipient.name}</h2>
-    <form id="internal-message-form" class="space-y-4">
-        <textarea name="message" placeholder="Escribe tu mensaje aquí..." class="input-field w-full p-2" rows="4" required></textarea>
-        <button type="submit" class="btn-primary w-full py-3">Enviar Mensaje</button>
-    </form>`;
-    showModal(modalHTML, () => {
-        document.getElementById('internal-message-form').addEventListener('submit', e => {
-            e.preventDefault();
-            const f = new FormData(e.target);
-            const message = f.get('message');
-            addNotification('message', `Mensaje de ${db.currentUser.name}: ${message}`, () => {}, recipientId);
-            showSuccessModal('¡Mensaje Enviado!', `Tu mensaje ha sido enviado a ${recipient.name}.`);
-        });
-    });
-}
-
 function showAboutFlowModal() {
     const content = `<div class="text-left">
         <button onclick="hideModal()" class="absolute top-4 right-4 text-secondary hover:text-main text-2xl">&times;</button>
         <div class="flex items-center gap-3 mb-4">
-            <img src="Logos HD.png" alt="Flow Logo" class="h-12 w-auto">
+            <img src="https://i.ibb.co/9gX1sBw/LOGOS-HD-FAVICON.png" alt="Flow Logo" class="h-12 w-auto">
             <h2 class="text-3xl font-extrabold text-main">¿Qué es Flow?</h2>
         </div>
         <div class="space-y-4 text-secondary text-sm max-h-[60vh] overflow-y-auto pr-2">
@@ -932,6 +975,8 @@ function showDependentModal(id) {
     <form id="dependent-form" class="space-y-4">
         <input type="text" name="name" placeholder="Nombre Completo" class="input-field w-full p-2" value="${dependent.name || ''}" required>
         <input type="text" name="relation" placeholder="Parentesco (Ej: Cónyuge, Hijo/a)" class="input-field w-full p-2" value="${dependent.relation || ''}" required>
+        <label class="text-sm">Fecha de Nacimiento</label>
+        <input type="date" name="birthDate" class="input-field w-full p-2" value="${dependent.birthDate || ''}" required>
         <button type="submit" class="btn-primary w-full py-3">Guardar</button>
     </form>`;
     showModal(modalHTML, () => {
@@ -940,7 +985,8 @@ function showDependentModal(id) {
             const f = new FormData(e.target);
             const dependentData = {
                 name: f.get('name'),
-                relation: f.get('relation')
+                relation: f.get('relation'),
+                birthDate: f.get('birthDate')
             };
             if (isEdit) {
                 const depIndex = db.currentUser.dependents.findIndex(d => d.id === id);
@@ -957,6 +1003,206 @@ function showDependentModal(id) {
 function deleteDependent(id) {
     db.currentUser.dependents = db.currentUser.dependents.filter(d => d.id !== id);
     showSection('myUnit');
+}
+
+// --- **NUEVAS FUNCIONES IMPLEMENTADAS** ---
+
+function showResidentContactModal(userId) {
+    const user = db.users.find(u => u.id === userId);
+    if (!user) return;
+    
+    const socialLinks = user.social ? Object.entries(user.social).map(([platform, handle]) => {
+        const url = platform === 'whatsapp' ? `https://wa.me/${handle}` : `https://instagram.com/${handle}`;
+        return `<a href="${url}" target="_blank" class="flex items-center gap-2 text-flow-blue hover:underline">
+            <i class="fab fa-${platform}"></i> ${platform.charAt(0).toUpperCase() + platform.slice(1)}
+        </a>`;
+    }).join('') : '';
+
+    const modalHTML = `<button onclick="hideModal()" class="absolute top-4 right-4 text-secondary hover:text-main text-2xl">&times;</button>
+    <div class="flex flex-col items-center text-center">
+        <img src="${user.avatar}" class="w-24 h-24 rounded-full mb-4 border-4 border-flow-border">
+        <h2 class="text-2xl font-bold text-main">${user.name}</h2>
+        <p class="text-secondary">Unidad ${user.unit}</p>
+        <div class="mt-6 w-full text-left border-t pt-4 space-y-3">
+            <p class="text-sm flex items-center gap-3"><i class="fas fa-envelope fa-fw text-secondary"></i> <a href="mailto:${user.email}" class="text-flow-blue">${user.email}</a></p>
+            <p class="text-sm flex items-center gap-3"><i class="fas fa-phone fa-fw text-secondary"></i> <a href="tel:${user.phone}" class="text-flow-blue">${user.phone}</a></p>
+            ${socialLinks ? `<div class="text-sm flex items-center gap-3"><i class="fas fa-hashtag fa-fw text-secondary"></i> ${socialLinks}</div>` : ''}
+        </div>
+    </div>`;
+    showModal(modalHTML);
+}
+
+function renderFriendButton(userId) {
+    if (userId === db.currentUser.id) return '';
+    const isFriend = db.currentUser.friends.includes(userId);
+    if (isFriend) {
+        return `<button onclick="toggleFriend(${userId})" class="text-flow-danger text-xl" title="Eliminar Amigo"><i class="fas fa-user-minus"></i></button>`;
+    } else {
+        return `<button onclick="toggleFriend(${userId})" class="text-flow-success text-xl" title="Añadir Amigo"><i class="fas fa-user-plus"></i></button>`;
+    }
+}
+
+function toggleFriend(userId) {
+    const friendIndex = db.currentUser.friends.indexOf(userId);
+    if (friendIndex > -1) {
+        db.currentUser.friends.splice(friendIndex, 1);
+    } else {
+        db.currentUser.friends.push(userId);
+    }
+    showSection('residents');
+}
+
+function renderRideCard(ride) {
+    const driver = db.users.find(u => u.id === ride.driverId);
+    const isPassenger = ride.passengers.includes(db.currentUser.id);
+    const isOwner = ride.driverId === db.currentUser.id;
+    const availableSeats = ride.seats - ride.passengers.length;
+
+    let actionButton;
+    if (isOwner) {
+        actionButton = `<button class="text-xs font-semibold text-secondary" disabled>Es tu Ride</button>`;
+    } else if (isPassenger) {
+        actionButton = `<button onclick="joinRide(${ride.id})" class="bg-flow-danger/20 text-flow-danger text-xs font-semibold px-3 py-1 rounded-lg">Cancelar</button>`;
+    } else if (availableSeats > 0) {
+        actionButton = `<button onclick="joinRide(${ride.id})" class="bg-flow-success/20 text-flow-success text-xs font-semibold px-3 py-1 rounded-lg">Unirme</button>`;
+    } else {
+        actionButton = `<button class="text-xs font-semibold text-secondary" disabled>Lleno</button>`;
+    }
+
+    return `<div class="p-3 rounded-lg bg-flow-light dark:bg-flow-dark">
+        <div class="flex justify-between items-start">
+            <div>
+                <p class="font-bold text-main">${ride.from} <i class="fas fa-arrow-right text-xs"></i> ${ride.to}</p>
+                <p class="text-xs text-secondary">Conductor: ${driver.name}</p>
+                <p class="text-xs text-secondary">${ride.date} a las ${ride.time}</p>
+            </div>
+            <div class="text-right">
+                <p class="font-bold text-sm text-flow-cyan">${availableSeats} <span class="text-xs">asientos</span></p>
+                ${actionButton}
+            </div>
+        </div>
+    </div>`;
+}
+
+function joinRide(rideId) {
+    const ride = db.community.rides.find(r => r.id === rideId);
+    if (!ride) return;
+    const passengerIndex = ride.passengers.indexOf(db.currentUser.id);
+    if (passengerIndex > -1) {
+        ride.passengers.splice(passengerIndex, 1);
+    } else {
+        if (ride.passengers.length < ride.seats) {
+            ride.passengers.push(db.currentUser.id);
+            const driver = db.users.find(u => u.id === ride.driverId);
+            addNotification('ride', `${db.currentUser.name} se ha unido a tu aventón hacia ${ride.to}.`, () => showSection('community'), driver.id);
+        }
+    }
+    showSection('community');
+}
+
+function showRideModal() {
+    const modalHTML = `<button onclick="hideModal()" class="absolute top-4 right-4 text-secondary hover:text-main text-2xl">&times;</button>
+    <h2 class="text-2xl font-bold mb-4">Ofrecer un Aventón (Ride)</h2>
+    <form id="ride-form" class="space-y-4">
+        <input type="text" name="from" placeholder="Desde" class="input-field w-full p-2" value="Condominio" required>
+        <input type="text" name="to" placeholder="Hacia" class="input-field w-full p-2" required>
+        <input type="date" name="date" class="input-field w-full p-2" required>
+        <input type="time" name="time" class="input-field w-full p-2" required>
+        <input type="number" name="seats" placeholder="Asientos disponibles" class="input-field w-full p-2" min="1" required>
+        <button type="submit" class="btn-primary w-full py-3">Publicar Ride</button>
+    </form>`;
+    showModal(modalHTML, () => {
+        document.getElementById('ride-form').addEventListener('submit', e => {
+            e.preventDefault();
+            const f = new FormData(e.target);
+            db.community.rides.unshift({
+                id: Date.now(),
+                driverId: db.currentUser.id,
+                from: f.get('from'),
+                to: f.get('to'),
+                date: f.get('date'),
+                time: f.get('time'),
+                seats: parseInt(f.get('seats')),
+                passengers: []
+            });
+            hideModal();
+            showSection('community');
+        });
+    });
+}
+
+function renderBirthdaysOfMonth() {
+    const today = new Date();
+    const currentMonth = today.getMonth();
+    const birthdays = [];
+
+    db.users.forEach(user => {
+        if (user.role === 'resident') {
+            const birthDate = new Date(user.birthDate + 'T00:00:00');
+            if (birthDate.getMonth() === currentMonth) {
+                birthdays.push({ name: user.name, day: birthDate.getDate() });
+            }
+            user.dependents.forEach(dep => {
+                const depBirthDate = new Date(dep.birthDate + 'T00:00:00');
+                if (depBirthDate.getMonth() === currentMonth) {
+                    birthdays.push({ name: dep.name, day: depBirthDate.getDate() });
+                }
+            });
+        }
+    });
+
+    birthdays.sort((a, b) => a.day - b.day);
+
+    const birthdayListHTML = birthdays.length > 0 ? birthdays.map(b => `
+        <div class="flex items-center gap-3">
+            <i class="fas fa-cake-candles text-flow-purple"></i>
+            <p class="text-sm text-main">${b.name} <span class="text-secondary">- Día ${b.day}</span></p>
+        </div>
+    `).join('') : '<p class="text-sm text-secondary">No hay cumpleaños este mes.</p>';
+
+    return `<h3 class="font-bold text-lg mb-4 text-main">Cumpleaños del Mes</h3><div class="space-y-2">${birthdayListHTML}</div>`;
+}
+
+function rewardGoodNeighbor(userId) {
+    const user = db.users.find(u => u.id === userId);
+    if (user) {
+        user.intis += 25;
+        addTransaction(user.id, 'reward', 'Premio por ser un Buen Vecino', 25, 'Administración', user.name);
+        addNotification('reward', '¡La administración te ha premiado con 25 Intis por ser un buen vecino!', () => showSection('wallet'), userId);
+        showSuccessModal('¡Recompensa Enviada!', `Se han añadido 25 Intis a ${user.name}.`);
+    }
+}
+
+function showBoardManagementModal() {
+    const residents = db.users.filter(u => u.role === 'resident' && !db.board.some(m => m.userId === u.id));
+    const modalHTML = `<button onclick="hideModal()" class="absolute top-4 right-4 text-secondary hover:text-main text-2xl">&times;</button>
+    <h2 class="text-2xl font-bold mb-4">Asignar Cargo Directiva</h2>
+    <form id="board-form" class="space-y-4">
+        <input type="text" name="role" placeholder="Cargo (Ej: Presidente)" class="input-field w-full p-2" required>
+        <select name="userId" class="input-field w-full p-2" required>
+            <option value="">Selecciona un residente</option>
+            ${residents.map(r => `<option value="${r.id}">${r.name}</option>`).join('')}
+        </select>
+        <button type="submit" class="btn-primary w-full py-3">Asignar Cargo</button>
+    </form>`;
+    showModal(modalHTML, () => {
+        document.getElementById('board-form').addEventListener('submit', e => {
+            e.preventDefault();
+            const f = new FormData(e.target);
+            const role = f.get('role');
+            const userId = parseInt(f.get('userId'));
+            if (role && userId) {
+                db.board.push({ role, userId });
+                hideModal();
+                showSection('boardAdmin');
+            }
+        });
+    });
+}
+
+function removeBoardMember(role) {
+    db.board = db.board.filter(m => m.role !== role);
+    showSection('boardAdmin');
 }
 
 </script>
