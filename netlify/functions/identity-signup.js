@@ -10,13 +10,24 @@ exports.handler = async (event) => {
     process.env.SUPABASE_SERVICE_KEY
   );
 
-  // Le ordena a Supabase que cree un nuevo usuario en la tabla 'auth.users'.
-  const { data, error } = await supabaseAdmin.auth.admin.createUser({
-    id: user.id, // Usa el mismo ID de Netlify para mantener la sincronización.
+  // --- SECCIÓN CORREGIDA ---
+  // Ahora, en lugar de pasar todo el user_metadata,
+  // extraemos solo los datos que nos interesan de forma segura.
+  const userData = {
+    id: user.id,
     email: user.email,
-    user_metadata: user.user_metadata,
-    email_confirm: true // Marca el email como confirmado.
-  });
+    email_confirm: true, // Marcar el email como confirmado.
+    user_metadata: {
+      // Intenta obtener el nombre de 'full_name', si no, de 'name', y si no, usa el email.
+      full_name: user.user_metadata?.full_name || user.user_metadata?.name || user.email.split('@')[0],
+      // Obtiene la URL del avatar si existe.
+      avatar_url: user.user_metadata?.avatar_url
+    }
+  };
+  // --- FIN DE LA SECCIÓN CORREGIDA ---
+
+  // Le ordena a Supabase que cree el nuevo usuario con los datos limpios.
+  const { data, error } = await supabaseAdmin.auth.admin.createUser(userData);
 
   if (error) {
     console.error('Error creando el usuario en Supabase:', error);
