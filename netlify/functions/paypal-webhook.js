@@ -1,17 +1,17 @@
 /* ------------------------------------------------------------------
-   Goatify IA – PayPal Webhook (versión silenciosa sin errores rojos)
-   - No rompe si custom_id viene vacío
-   - Intenta recuperarlo desde Supabase o PayPal
-   - Actualiza profiles y subscriptions solo cuando tiene user_id
+   Goatify IA – PayPal Webhook (LÓGICA CORREGIDA)
+   - Otorga créditos SÓLO en eventos de activación o pago completado.
+   - Revierte el plan en cancelaciones.
+   - Maneja de forma segura la ausencia de 'custom_id'.
 ------------------------------------------------------------------- */
 
 const fetch = require('node-fetch');
 const { createClient } = require('@supabase/supabase-js');
 
-// === Init Supabase client ===
+// === Inicializar cliente de Supabase ===
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 
-// === Helpers PayPal ===
+// === Funciones de Ayuda para PayPal (Estas no necesitan cambios) ===
 async function getPayPalAccessToken() {
   const auth = Buffer.from(
     process.env.PAYPAL_CLIENT_ID + ':' + process.env.PAYPAL_CLIENT_SECRET
@@ -27,7 +27,7 @@ async function getPayPalAccessToken() {
   });
 
   const json = await res.json();
-  if (!res.ok) throw new Error('PayPal token error: ' + JSON.stringify(json));
+  if (!res.ok) throw new Error('Error en token de PayPal: ' + JSON.stringify(json));
   return json.access_token;
 }
 
@@ -40,131 +40,114 @@ async function fetchCustomIdFromPayPal(subscriptionId) {
   return data.custom_id || null;
 }
 
-// === Main handler ===
+// === Manejador Principal del Webhook ===
 exports.handler = async (event) => {
-  console.log('--- WEBHOOK INIT ---');
+  console.log('--- INICIO DE WEBHOOK ---');
 
   if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, body: 'Method not allowed' };
+    return { statusCode: 405, body: 'Método no permitido' };
   }
 
   try {
     const body = JSON.parse(event.body || '{}');
-    const type = body.event_type;
+    const eventType = body.event_type;
     const resource = body.resource || {};
 
-    // Eventos interesantes
-    const interesting = [
-      'BILLING.SUBSCRIPTION.ACTIVATED',
-      'BILLING.SUBSCRIPTION.CREATED',
-      'BILLING.SUBSCRIPTION.CANCELLED',
-      'BILLING.SUBSCRIPTION.SUSPENDED',
-      'BILLING.SUBSCRIPTION.EXPIRED',
-      'PAYMENT.SALE.COMPLETED'
-    ];
-    if (!interesting.includes(type)) {
-      console.log('Evento ignorado:', type);
-      return { statusCode: 200, body: 'ignored' };
-    }
-
-    // Extraer datos
     let customId  = resource.custom_id || resource.customId || null;
     const subId   = resource.id || resource.subscription_id || resource.billing_agreement_id || null;
     const ppPlanId = resource.plan_id || null;
-    const status  = (resource.status || 'ACTIVE').toLowerCase();
+    const status  = (resource.status || '').toLowerCase();
 
-    console.log('DEBUG custom_id recibido =>', customId);
-    console.log('DEBUG subscription_id  =>', subId);
-    console.log('DEBUG plan_id_paypal   =>', ppPlanId);
-    console.log('DEBUG status           =>', status);
-
-    // Si falta customId, intentamos encontrarlo
+    // Si falta customId, intentamos recuperarlo (lógica sin cambios, es correcta)
     if (!customId && subId) {
-      // 1) Buscar en Supabase por paypal_subscription_id (si ya existe un row previo)
-      const { data: subsRow, error: subsErr } = await supabase
+      const { data: subsRow } = await supabase
         .from('subscriptions')
         .select('user_id')
         .eq('paypal_subscription_id', subId)
         .maybeSingle();
 
-      if (!subsErr && subsRow && subsRow.user_id) {
+      if (subsRow && subsRow.user_id) {
         customId = subsRow.user_id;
-        console.log('DEBUG custom_id obtenido de Supabase:', customId);
-      }
-
-      // 2) Si aún no lo tenemos, ir a PayPal
-      if (!customId) {
+      } else {
         try {
-          const fetched = await fetchCustomIdFromPayPal(subId);
-          if (fetched) {
-            customId = fetched;
-            console.log('DEBUG custom_id obtenido de PayPal:', customId);
-          }
+          customId = await fetchCustomIdFromPayPal(subId);
         } catch (e) {
           console.warn('No se pudo consultar custom_id en PayPal:', e.message);
         }
       }
     }
 
-    // Si aún no hay customId, no es crítico; log y salimos ok.
     if (!customId) {
-      console.warn('custom_id vacío. Evento procesado pero sin actualización.');
+      console.warn('custom_id vacío. Evento procesado pero sin actualización de perfil.');
       return { statusCode: 200, body: 'no_custom_id_but_ok' };
     }
 
-    // Mapear plan interno
-    let plan = 'free';
-    let creditsToGive = 100;
-    if (ppPlanId === process.env.PAYPAL_BOOST_PLAN_ID) {
-      plan = 'boost';
-      creditsToGive = 1000;
-    } else if (ppPlanId === process.env.PAYPAL_PRO_PLAN_ID) {
-      plan = 'pro';
-      creditsToGive = 4000;
+    // --- INICIO DE LA LÓGICA CORREGIDA ---
+
+    let planToSet = null;
+    let creditsToSet = null;
+
+    // Solo asignamos plan y créditos si el pago FUE EXITOSO.
+    if (eventType === 'BILLING.SUBSCRIPTION.ACTIVATED' || eventType === 'PAYMENT.SALE.COMPLETED') {
+        console.log(`Evento de activación/pago para usuario: ${customId}`);
+        if (ppPlanId === process.env.PAYPAL_BOOST_PLAN_ID) {
+            planToSet = 'boost';
+            creditsToSet = 1000;
+        } else if (ppPlanId === process.env.PAYPAL_PRO_PLAN_ID) {
+            planToSet = 'pro';
+            creditsToSet = 4000;
+        }
+    } 
+    // Si la suscripción se cancela o expira, lo revertimos a 'free'.
+    else if (['BILLING.SUBSCRIPTION.CANCELLED', 'BILLING.SUBSCRIPTION.EXPIRED', 'BILLING.SUBSCRIPTION.SUSPENDED'].includes(eventType)) {
+        console.log(`Evento de cancelación/expiración para usuario: ${customId}`);
+        planToSet = 'free';
+        creditsToSet = 100; // O los créditos que correspondan al plan gratuito
+    }
+    // Para otros eventos como 'CREATED', no hacemos nada con los créditos.
+    else {
+        console.log(`Evento "${eventType}" recibido. No requiere actualización de plan/créditos.`);
     }
 
-    // Si el evento es CANCELLED / EXPIRED / SUSPENDED, bajamos a free
-    if (['billing.subscription.cancelled', 'billing.subscription.expired', 'billing.subscription.suspended'].includes(type.toLowerCase())) {
-      plan = 'free';
-      creditsToGive = 100;
+    // Si determinamos que hay que cambiar el plan, actualizamos la base de datos.
+    if (planToSet !== null && creditsToSet !== null) {
+        console.log(`Actualizando perfil de ${customId}: Plan=${planToSet}, Créditos=${creditsToSet}`);
+        const { error: profileErr } = await supabase
+            .from('profiles')
+            .update({ plan: planToSet, credits: creditsToSet, updated_at: new Date().toISOString() })
+            .eq('id', customId);
+
+        if (profileErr) {
+            console.error('Error al actualizar el perfil:', profileErr);
+            return { statusCode: 200, body: 'profile_update_error_logged' };
+        }
     }
 
-    // Actualizar profiles
-    const { error: profileErr } = await supabase
-      .from('profiles')
-      .update({ plan, credits: creditsToGive, updated_at: new Date().toISOString() })
-      .eq('id', customId);
-
-    if (profileErr) {
-      console.error('Error al actualizar profile:', profileErr);
-      // Aun así responde 200 para que PayPal no re-envíe eternamente
-      return { statusCode: 200, body: 'profile_update_error_logged' };
-    }
-
-    // Upsert en subscriptions (requiere índice único para onConflict)
+    // Siempre guardamos o actualizamos el estado de la suscripción para tener un registro.
     if (subId) {
-      const { error: subErr } = await supabase
-        .from('subscriptions')
-        .upsert({
-          user_id: customId,
-          plan_id: ppPlanId || '',
-          paypal_subscription_id: subId,
-          status,
-          updated_at: new Date().toISOString()
-        }, { onConflict: 'paypal_subscription_id' });
+        const { error: subErr } = await supabase
+            .from('subscriptions')
+            .upsert({
+                user_id: customId,
+                plan_id: ppPlanId || '',
+                paypal_subscription_id: subId,
+                status: status,
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'paypal_subscription_id' });
 
-      if (subErr) {
-        console.error('Error upsert subscriptions:', subErr);
-        return { statusCode: 200, body: 'subscriptions_upsert_error_logged' };
-      }
+        if (subErr) {
+            console.error('Error al actualizar la tabla de suscripciones:', subErr);
+            return { statusCode: 200, body: 'subscriptions_upsert_error_logged' };
+        }
     }
+    
+    // --- FIN DE LA LÓGICA CORREGIDA ---
 
-    console.log('WEBHOOK DONE -> Perfil y suscripción actualizados.');
+    console.log('--- FIN DE WEBHOOK: Procesado exitosamente ---');
     return { statusCode: 200, body: 'ok' };
 
   } catch (err) {
-    console.error('WEBHOOK ERROR FATAL:', err);
-    // Para que PayPal no bombardeé reintentos, aun en fatal devolvemos 200.
-    return { statusCode: 200, body: 'fatal_logged' };
+    console.error('ERROR FATAL EN WEBHOOK:', err);
+    return { statusCode: 200, body: 'fatal_error_logged' };
   }
 };
