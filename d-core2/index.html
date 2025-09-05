@@ -66,12 +66,18 @@
 
         /* Calendario Mejorado y Responsivo */
         #calendar { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
-        .calendar-day { padding: 4px; font-size: 0.8rem; aspect-ratio: 1/1; display:flex; align-items:center; justify-content:center; text-align: center; border-radius: 50%; transition: all 0.2s ease; position: relative; cursor: default; color: var(--text-dark); }
+        .calendar-day { padding: 4px; font-size: 0.8rem; aspect-ratio: 1/1; display:flex; align-items:center; justify-content:center; text-align: center; border-radius: 50%; transition: all 0.2s ease; position: relative; cursor: pointer; color: var(--text-dark); }
+        .calendar-day:not(.empty):hover { background-color: #f0f0f0; }
         .calendar-day.has-event::after { content: ''; position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); width: 5px; height: 5px; border-radius: 50%; background-color: var(--primary-red); }
         .calendar-day.today { background-color: var(--highlight-yellow); color: var(--text-dark); font-weight: 700; }
         .calendar-day.user-event { background-color: var(--accent-green); color: white; }
         .calendar-day.user-event::after { background-color: white; }
         @media (max-width: 640px) { .calendar-day { padding: 2px; font-size: 0.7rem; } }
+        
+        #info-modal-overlay { position: fixed; inset: 0; background-color: rgba(0,0,0,0.5); backdrop-filter: blur(4px); z-index: 2000; opacity: 0; transition: opacity 0.3s ease; pointer-events: none; }
+        #info-modal-overlay.open { opacity: 1; pointer-events: auto; }
+        #info-modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.95); opacity: 0; transition: all 0.3s ease; }
+        #info-modal-overlay.open #info-modal { transform: translate(-50%, -50%) scale(1); opacity: 1; }
 
         /* Taller Card Rediseño */
         .workshop-card { background-color: white; border-radius: 1.5rem; box-shadow: 0 10px 30px rgba(0,0,0,0.07); transition: all 0.3s ease; display: flex; flex-direction: column; }
@@ -219,7 +225,7 @@
                         <a href="https://wa.me/593987786632?text=Hola%20D'CORE,%20me%20gustaría%20cotizar%20un%20mueble%20a%20la%20medida." target="_blank" class="btn-primary">Cotizar Mi Proyecto</a>
                     </div>
                     <div class="md:w-1/2">
-                        <img src="https://images.unsplash.com/photo-1600172454282-1d57c5e5d592?q=80&w=2187&auto=format&fit=crop" alt="Estantería de madera a la medida" class="w-full h-auto rounded-xl shadow-md">
+                        <img src="https://images.unsplash.com/photo-1592078615290-033ee584e267?q=80&w=2160&auto=format&fit=crop" alt="Silla de madera de diseño" class="w-full h-auto rounded-xl shadow-md">
                     </div>
                 </div>
             </div>
@@ -230,7 +236,7 @@
         <section id="reminder-service" class="py-20" style="background-color: var(--accent-green); background-image: linear-gradient(135deg, var(--accent-green) 0%, #258a7e 100%);">
             <div class="container mx-auto px-6 fade-in-up">
                 <div class="text-center mb-12 text-white">
-                    <h2 class="text-4xl md:text-5xl font-bold mb-4">El Guardián de Fechas</h2>
+                    <h2 class="text-4xl md:text-5xl font-bold mb-4 flex items-center justify-center gap-3">El Guardián de Fechas <button id="info-btn" class="text-2xl bg-white/20 rounded-full w-8 h-8 flex items-center justify-center transition-transform hover:scale-110">i</button></h2>
                     <p class="max-w-3xl mx-auto text-lg text-green-100">¡No vuelva a olvidar una fecha importante! Revise nuestro calendario de celebraciones y agende sus recordatorios personales.</p>
                 </div>
                 <div class="max-w-6xl mx-auto grid lg:grid-cols-5 gap-8 items-start">
@@ -315,8 +321,25 @@
         </div>
     </footer>
 
-    <!-- Toast & Chatbot -->
-    <div id="toast" class="fixed bottom-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-full shadow-lg transition-all duration-500 opacity-0 -translate-y-4 z-[101]"></div>
+    <!-- Toast, Modals & Chatbot -->
+    <div id="toast" class="fixed bottom-8 left-1/2 -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-full shadow-lg transition-all duration-500 opacity-0 -translate-y-4 z-[2001]"></div>
+    
+    <div id="info-modal-overlay">
+        <div id="info-modal" class="max-w-lg w-11/12 bg-white rounded-2xl p-8 shadow-2xl z-[2001]">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-2xl font-bold">¿Cómo Funciona el Guardián?</h3>
+                <button id="close-info-modal" class="text-3xl text-gray-500 hover:text-red-500">&times;</button>
+            </div>
+            <ol class="list-decimal list-inside space-y-3 text-gray-700">
+                <li>Haga clic en cualquier día del calendario para seleccionarlo.</li>
+                <li>Llene el nombre de su evento (Ej: Cumpleaños de Mamá) y haga clic en "Agendar".</li>
+                <li>Su fecha se guardará en su navegador y aparecerá en la lista de "Fechas del Mes".</li>
+                <li>¡Listo! La próxima vez que visite la página en ese mes, verá su recordatorio.</li>
+                <li>Para un recordatorio personal, use el botón de WhatsApp <strong>( <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline-block" viewBox="0 0 20 20" fill="currentColor"><path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.518.76a11.034 11.034 0 006.364 6.364l.76-1.518a1 1 0 011.06-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" /></svg> )</strong> junto a su evento para enviarnos un mensaje y nosotros le avisaremos.</li>
+            </ol>
+        </div>
+    </div>
+
     <div id="chat-overlay"></div>
     <div id="chat-widget">
         <div id="chat-window">
@@ -450,11 +473,19 @@
                 updateCart();
             })();
 
-            // --- CALENDAR LOGIC (EXPANDED DATES) ---
+            // --- CALENDAR LOGIC (EXPANDED DATES & FUNCTIONALITY) ---
             (() => {
                 let currentDate = new Date();
                 const importantDates = {0:[{d:1,e:"Año Nuevo"},{d:4,e:"Día del Braille"},{d:13,e:"Día Mundial del Chicle"},{d:21,e:"Día del Abrazo"},{d:24,e:"Día del Community Manager"}],1:[{d:4,e:"Día contra el Cáncer"},{d:9,e:"Día de la Pizza"},{d:13,e:"Día del Soltero"},{d:14,e:"San Valentín"},{d:17,e:"Día del Gato"}],2:[{d:8,e:"Día de la Mujer"},{d:14,e:"Día de Pi"},{d:15,e:"Día del Sueño"},{d:19,e:"Día del Hombre/Artesano"},{d:20,e:"Día de la Felicidad"},{d:21,e:"Día del Perro/Poesía"}],3:[{d:1,e:"April Fools (Bromas)"},{d:7,e:"Día de la Salud"},{d:13,e:"Día del Beso"},{d:15,e:"Día Mundial del Arte"},{d:22,e:"Día de la Tierra"},{d:23,e:"Día del Libro"}],4:[{d:1,e:"Día del Trabajo"},{d:4,e:"Día de Star Wars"},{d:9,e:"Día de Goku"},{d:12,e:"Día de la Madre (EC)"},{d:15,e:"Día del Maestro (EC)"},{d:24,e:"Batalla de Pichincha"},{d:25,e:"Día del Orgullo Friki"}],5:[{d:1,e:"Día del Niño"},{d:5,e:"Día del Medio Ambiente"},{d:8,e:"Día de los Océanos"},{d:16,e:"Día del Padre (EC)"},{d:21,e:"Día de la Música"},{d:28,e:"Día del Orgullo LGBTQ+"}],6:[{d:4,e:"Indep. de EEUU"},{d:13,e:"Día del Rock"},{d:17,e:"Día del Emoji"},{d:20,e:"Día del Amigo"},{d:26,e:"Día de los Abuelos"}],7:[{d:8,e:"Día del Gato"},{d:10,e:"Primer Grito de Independencia"},{d:13,e:"Día de los Zurdos"},{d:19,e:"Día de la Fotografía"},{d:26,e:"Día del Perro (Global)"}],8:[{d:1,e:"Día de la Barba"},{d:13,e:"Día de los Programadores"},{d:19,e:"Día de Hablar como un Pirata"},{d:21,e:"Día de la Paz"},{d:27,e:"Día del Turismo"}],9:[{d:4,e:"Día de los Animales"},{d:9,e:"Indep. de Guayaquil"},{d:16,e:"Día del Jefe"},{d:21,e:"Día de Volver al Futuro"},{d:26,e:"Día de la Suegra"},{d:31,e:"Halloween / Día del Escudo"}],10:[{d:1,e:"Día del Veganismo"},{d:2,e:"Día de los Difuntos"},{d:3,e:"Indep. de Cuenca"},{d:11,e:"Black Friday (aprox)"},{d:13,e:"Día de la Bondad"}],11:[{d:6,e:"Fundación de Quito"},{d:24,e:"Nochebuena"},{d:25,e:"Navidad"},{d:28,e:"Día de los Inocentes"},{d:31,e:"Fin de Año"}]};
                 let userEvents = JSON.parse(localStorage.getItem('dcoreUserEvents')) || [];
+
+                const infoModalOverlay = document.getElementById('info-modal-overlay');
+                const openInfoModal = () => infoModalOverlay.classList.add('open');
+                const closeInfoModal = () => infoModalOverlay.classList.remove('open');
+                document.getElementById('info-btn').addEventListener('click', openInfoModal);
+                document.getElementById('close-info-modal').addEventListener('click', closeInfoModal);
+                infoModalOverlay.addEventListener('click', (e) => { if(e.target === infoModalOverlay) closeInfoModal(); });
+                
                 const renderCalendar = () => {
                     const calendarEl=document.getElementById('calendar'), monthYearEl=document.getElementById('month-year'), eventsListEl=document.getElementById('events-list'), eventsMonthEl=document.getElementById('events-month');
                     calendarEl.innerHTML=''; eventsListEl.innerHTML='';
@@ -462,22 +493,59 @@
                     const monthName = currentDate.toLocaleDateString('es-ES',{month:'long'});
                     monthYearEl.textContent=`${monthName.charAt(0).toUpperCase()+monthName.slice(1)} ${year}`;
                     eventsMonthEl.textContent=monthName;
-                    const monthEvents = importantDates[month]||[];
-                    monthEvents.sort((a,b) => a.d - b.d).forEach(evt => eventsListEl.innerHTML+=`<li><strong class="text-red-500">${evt.d}:</strong> ${evt.e}</li>`);
-                    userEvents.filter(e=>e.m===month && e.y===year).sort((a,b) => a.d - b.d).forEach(evt => eventsListEl.innerHTML+=`<li><strong class="text-green-500">${evt.d}:</strong> ${evt.e} (Su evento)</li>`);
+                    
+                    const allEventsThisMonth = [];
+                    (importantDates[month]||[]).forEach(evt => allEventsThisMonth.push({ ...evt, type: 'official' }));
+                    userEvents.filter(e=>e.m===month && e.y===year).forEach(evt => allEventsThisMonth.push({ ...evt, type: 'user' }));
+
+                    allEventsThisMonth.sort((a,b) => a.d - b.d).forEach(evt => {
+                        const li = document.createElement('li');
+                        li.className = 'flex justify-between items-center';
+                        let html = '';
+                        if (evt.type === 'user') {
+                            html += `<span><strong class="text-green-500">${evt.d}:</strong> ${evt.e}</span><button class="send-reminder-btn p-1 rounded-full hover:bg-green-100" data-name="${evt.e}" data-date="${evt.y}-${(evt.m+1).toString().padStart(2,'0')}-${evt.d.toString().padStart(2,'0')}"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2zM9 8h6m-3-3v6" /></svg></button>`;
+                        } else {
+                            html += `<span><strong class="text-red-500">${evt.d}:</strong> ${evt.e}</span>`;
+                        }
+                        li.innerHTML = html;
+                        eventsListEl.appendChild(li);
+                    });
+
                     if(eventsListEl.innerHTML==='') eventsListEl.innerHTML='<li>No hay eventos este mes.</li>';
+                    
                     const firstDayOfMonth=(new Date(year,month,1).getDay() + 7) % 7;
                     const daysInMonth=new Date(year,month+1,0).getDate();
-                    for(let i=0;i<firstDayOfMonth;i++) calendarEl.innerHTML+='<div></div>';
+                    for(let i=0;i<firstDayOfMonth;i++) calendarEl.innerHTML+='<div class="empty"></div>';
                     for(let day=1;day<=daysInMonth;day++){
                         const dayEl=document.createElement('div');
                         dayEl.textContent=day; dayEl.className='calendar-day';
-                        if(day===new Date().getDate()&&month===new Date().getMonth()&&year===new Date().getFullYear()) dayEl.classList.add('today');
-                        if(monthEvents.some(e=>e.d===day)) dayEl.classList.add('has-event');
+                        dayEl.dataset.day = day;
+                        if(importantDates[month] && importantDates[month].some(e=>e.d===day)) dayEl.classList.add('has-event');
                         if(userEvents.some(e=>e.d===day&&e.m===month&&e.y===year)) dayEl.classList.add('user-event');
+                        if(day===new Date().getDate()&&month===new Date().getMonth()&&year===new Date().getFullYear()) dayEl.classList.add('today');
                         calendarEl.appendChild(dayEl);
                     }
                 };
+
+                document.getElementById('calendar').addEventListener('click', (e) => {
+                    if (e.target.classList.contains('calendar-day') && !e.target.classList.contains('empty')) {
+                        const day = e.target.dataset.day;
+                        const dateStr = `${currentDate.getFullYear()}-${(currentDate.getMonth()+1).toString().padStart(2,'0')}-${day.toString().padStart(2,'0')}`;
+                        document.getElementById('event-date').value = dateStr;
+                        document.getElementById('event-name').focus();
+                    }
+                });
+                
+                document.getElementById('events-list').addEventListener('click', (e) => {
+                    const button = e.target.closest('.send-reminder-btn');
+                    if (button) {
+                        const { name, date } = button.dataset;
+                        const formattedDate=new Date(date+'T00:00:00').toLocaleDateString('es-EC',{dateStyle:'full'});
+                        const text=`¡Hola D'CORE! Le escribo para recordarles mi fecha especial: "${name}" el ${formattedDate}. ¡Gracias por el recordatorio!`;
+                        window.open(`https://wa.me/593987786632?text=${encodeURIComponent(text)}`,'_blank');
+                    }
+                });
+
                 document.getElementById('prev-month').addEventListener('click',()=>{currentDate.setMonth(currentDate.getMonth()-1);renderCalendar();});
                 document.getElementById('next-month').addEventListener('click',()=>{currentDate.setMonth(currentDate.getMonth()+1);renderCalendar();});
                 document.getElementById('date-form').addEventListener('submit',(e)=>{
@@ -488,9 +556,6 @@
                     const [year,month,day]=eventDate.split('-').map(Number);
                     userEvents.push({y:year,m:month-1,d:day,e:eventName});
                     localStorage.setItem('dcoreUserEvents',JSON.stringify(userEvents));
-                    const formattedDate=new Date(eventDate+'T00:00:00').toLocaleDateString('es-EC',{dateStyle:'full'});
-                    const text=`¡Hola D'CORE! Por favor, agenden un recordatorio para mi evento: "${eventName}" en la fecha ${formattedDate}. ¡Gracias!`;
-                    window.open(`https://wa.me/593987786632?text=${encodeURIComponent(text)}`,'_blank');
                     showToast(`'${eventName}' agendado.`); e.target.reset(); renderCalendar();
                 });
                 renderCalendar();
@@ -566,30 +631,34 @@
                 };
                 
                 const conversationTree = {
-                    'start': { response: "¡Bienvenido/a a D'CORE! Soy su asistente virtual y estoy para servirle. ¿Qué le gustaría hacer?", options: [{text:"Ver Productos", payload:"products"}, {text:"Consultar Talleres", payload:"workshops"},{text:"Envíos y Pagos", payload:"shipping_payment"}, {text:"Hablar con un Humano", payload:"human"}] },
-                    'products': { response: "¡Excelente! Nuestras creaciones son el alma de D'CORE. ¿Qué categoría le interesa explorar?", options: [{text:"Tejidos (Amigurumis)", payload:"prod_tejido"}, {text:"Bordados (Ropa)", payload:"prod_bordado"}, {text:"Madera (Detalles)", payload:"prod_madera"},{text:"Muebles a Medida", payload:"go_muebles"}, {text:"Cotizar Idea Personal", payload:"custom"}, {text:"Volver al inicio", payload:"start"}] },
+                    'start': { response: "¡Bienvenido/a a D'CORE! Soy su asistente virtual y estoy para servirle. ¿Qué le gustaría hacer?", options: [{text:"Ver Productos", payload:"products"}, {text:"Consultar Talleres", payload:"workshops"}, {text:"Agendar Recordatorio", payload:"reminders"}, {text:"Envíos y Pagos", payload:"shipping_payment"}, {text:"Hablar con un Humano", payload:"human"}] },
+                    'products': { response: "¡Excelente! Nuestras creaciones son el alma de D'CORE. ¿Qué categoría le interesa explorar?", options: [{text:"Tejidos (Amigurumis)", payload:"prod_tejido"}, {text:"Bordados (Ropa)", payload:"prod_bordado"}, {text:"Madera (Detalles)", payload:"prod_madera"},{text:"Muebles a Medida", payload:"prod_muebles"}, {text:"Cotizar Idea Personal", payload:"custom"}, {text:"Volver al inicio", payload:"start"}] },
                     'prod_tejido': { response: "Los amigurumis son nuestra especialidad. Cada uno es único. Los precios varían desde $12 (llaveros) hasta $50+ (personajes complejos). ¿Le gustaría cotizar un personaje o ver la galería?", options: [{text:"Ver Galería", payload:"go_products"}, {text:"Cotizar Personaje", payload:"custom"}, {text:"Volver a Productos", payload:"products"}]},
                     'prod_bordado': { response: "Bordamos diseños únicos en sudaderas y más. Una sudadera personalizada tiene un costo aproximado de $45. Podemos bordar casi cualquier idea que tenga. ¿Desea cotizar o ver ejemplos?", options: [{text:"Ver Galería", payload:"go_products"}, {text:"Cotizar Diseño", payload:"custom"}, {text:"Volver a Productos", payload:"products"}]},
-                    'prod_madera': { response: "Creamos detalles memorables en madera, desde llaveros ($15) hasta cajas personalizadas y muebles. ¿Qué tiene en mente?", options: [{text:"Ver Galería", payload:"go_products"}, {text:"Cotizar Mueble", payload:"go_muebles"},{text:"Volver a Productos", payload:"products"}]},
-                    'workshops': { response: "Nuestros talleres son una experiencia inolvidable para liberar su creatividad. ¿Cuál le llama más la atención?", options: [{text:"Amigurumi", payload:"w_amigurumi"}, {text:"Bordado Parejas", payload:"w_embroidery"}, {text:"Carpintería", payload:"w_wood"}, {text:"Asesoría 1-a-1", payload:"w_consult"}, {text:"Volver al inicio", payload:"start"}] },
+                    'prod_madera': { response: "Creamos detalles memorables en madera, desde llaveros ($15) hasta cajas personalizadas y muebles. ¿Qué tiene en mente?", options: [{text:"Ver Galería", payload:"go_products"}, {text:"Info de Muebles", payload:"prod_muebles"},{text:"Volver a Productos", payload:"products"}]},
+                    'prod_muebles': { response: "¡Claro! Fabricamos muebles a medida como anaqueles, muebles de cocina y centros de entretenimiento. Cada proyecto es único y se cotiza individualmente. ¿Le gustaría que un especialista le contacte?", options: [{text:"Sí, por favor", payload:"go_whatsapp_muebles"}, {text:"Ver sección de Muebles", payload:"go_muebles"},{text:"Volver", payload:"products"}]},
+                    'workshops': { response: "Nuestros talleres son una experiencia inolvidable. ¿Cuál le llama más la atención?", options: [{text:"Amigurumi", payload:"w_amigurumi"}, {text:"Bordado Parejas", payload:"w_embroidery"}, {text:"Carpintería", payload:"w_wood"}, {text:"Asesoría 1-a-1", payload:"w_consult"}, {text:"Volver al inicio", payload:"start"}] },
                     'shipping_payment': { response: "Gestionamos todo para que su detalle llegue perfecto. ¿Desea saber sobre costos de envío o sobre los métodos de pago?", options: [{text:"Costos de Envío", payload:"shipping_cost"}, {text:"Métodos de Pago", payload:"payment_methods"}, {text:"Volver", payload:"start"}] },
+                    'reminders': { response: "¡Con gusto! Con nuestro 'Guardián de Fechas' nunca olvidará una ocasión especial. Puede agregar sus fechas en nuestro calendario interactivo para tener un recordatorio visual. ¿Le gustaría que le lleve a esa sección?", options: [{text:"Sí, llévame al calendario", payload:"go_calendar"}, {text:"No, gracias", payload:"thanks"}]},
                     'shipping_cost': { response: "El envío dentro de Quito tiene un valor de $3. Al resto del país es de $5 vía Servientrega, y su pedido llega en 2 a 3 días hábiles. ¡Vale la pena la espera!", options: [{text:"¡Perfecto, gracias!", payload:"thanks"}, {text:"Volver", payload:"start"}]},
-                    'payment_methods': { response: "Aceptamos pagos por transferencia o depósito bancario (Pichincha, Produbanco). Una vez que confirme su pedido por WhatsApp, le facilitaremos todos los datos para que el proceso sea muy sencillo.", options: [{text:"¡Entendido!", payload:"thanks"}, {text:"Volver", payload:"start"}]},
-                    'human': { response: "Será un placer ponerle en contacto con un miembro de nuestro equipo. Puede escribirnos directamente a nuestro WhatsApp para una atención personalizada y cálida.", options: [{text:"Ir a WhatsApp", payload:"go_whatsapp"}, {text:"Prefiero seguir aquí", payload:"start"}]},
-                    'unknown': { response: "Le pido disculpas, no he comprendido del todo su consulta. Podría intentar reformularla o tal vez le interese uno de estos temas:", options: [{text:"Ver Productos", payload:"products"}, {text:"Info de Talleres", payload:"workshops"},{text:"Cotizar una Idea", payload:"custom"}]},
-                    'custom': { response: "¡Me encanta esa iniciativa! Para cotizar una idea personalizada, lo mejor es que nos contacte por WhatsApp. Así podrá enviarnos imágenes y describirnos su visión a detalle. ¿Le parece bien si le indico cómo?", options: [{text:"Sí, por favor", payload:"go_whatsapp"}, {text:"No, gracias", payload:"thanks"}]},
+                    'payment_methods': { response: "Aceptamos pagos por transferencia o depósito bancario (Pichincha, Produbanco). Una vez que confirme su pedido por WhatsApp, le facilitaremos todos los datos.", options: [{text:"¡Entendido!", payload:"thanks"}, {text:"Volver", payload:"start"}]},
+                    'human': { response: "Será un placer ponerle en contacto con un miembro de nuestro equipo. Puede escribirnos directamente a nuestro WhatsApp para una atención personalizada.", options: [{text:"Ir a WhatsApp", payload:"go_whatsapp"}, {text:"Prefiero seguir aquí", payload:"start"}]},
+                    'unknown': { response: "Le pido disculpas, no he comprendido del todo su consulta. Puede reformularla o tal vez le interese uno de estos temas:", options: [{text:"Ver Productos", payload:"products"}, {text:"Info de Talleres", payload:"workshops"},{text:"Cotizar una Idea", payload:"custom"}]},
+                    'custom': { response: "¡Me encanta esa iniciativa! Para cotizar una idea personalizada, lo mejor es que nos contacte por WhatsApp. ¿Le parece bien si le indico cómo?", options: [{text:"Sí, por favor", payload:"go_whatsapp"}, {text:"No, gracias", payload:"thanks"}]},
                     'thanks': { response: "¿Hay algo más en lo que pueda asistirle? Estoy a su disposición.", options: [{text:"Sí, volver al inicio", payload:"start"}, {text:"No, eso es todo", payload:"end"}] },
                     'end': { response: "Ha sido un verdadero placer atenderle. Si nos necesita, aquí estaremos. ¡Que tenga un excelente día!", options: []},
                     'w_amigurumi': { response: "El Taller de Amigurumi cuesta $45. Es perfecto para principiantes, dura 4 semanas e incluye todos los materiales. ¡Saldrá creando sus propios muñecos! ¿Le gustaría inscribirse?", options: [{text:"¡Sí, quiero unirme!", payload:"go_whatsapp_taller"}, {text:"Volver a Talleres", payload:"workshops"}]},
-                    'w_embroidery': { response: "Es una de nuestras experiencias más bonitas. Cuesta $60 por pareja y es una sesión intensiva de 3 horas donde crean una pieza juntos. ¡Perfecto para una cita diferente! ¿Desean reservar su espacio?", options: [{text:"¡Sí, reservar!", payload:"go_whatsapp_taller"}, {text:"Volver a Talleres", payload:"workshops"}]},
-                    'w_wood': { response: "Nuestro taller de carpintería tiene un costo de $75. Aprenderá técnicas básicas para crear objetos decorativos funcionales. ¡Una habilidad para toda la vida! ¿Le gustaría saber las próximas fechas?", options: [{text:"Sí, consultar fechas", payload:"go_whatsapp_taller"}, {text:"Volver a Talleres", payload:"workshops"}]},
-                    'w_consult': { response: "La asesoría 1-a-1 tiene un valor de $25 por hora. Es ideal para despejar esas dudas puntuales y avanzar en sus proyectos. ¿Agendamos una sesión para usted?", options: [{text:"¡Sí, agendar!", payload:"go_whatsapp_taller"}, {text:"Volver a Talleres", payload:"workshops"}]}
+                    'w_embroidery': { response: "Es una de nuestras experiencias más bonitas. Cuesta $60 por pareja y es una sesión intensiva de 3 horas. ¡Perfecto para una cita diferente! ¿Desean reservar su espacio?", options: [{text:"¡Sí, reservar!", payload:"go_whatsapp_taller"}, {text:"Volver a Talleres", payload:"workshops"}]},
+                    'w_wood': { response: "Nuestro taller de carpintería tiene un costo de $75. Aprenderá técnicas básicas para crear objetos decorativos. ¡Una habilidad para toda la vida! ¿Le gustaría saber las próximas fechas?", options: [{text:"Sí, consultar fechas", payload:"go_whatsapp_taller"}, {text:"Volver a Talleres", payload:"workshops"}]},
+                    'w_consult': { response: "La asesoría 1-a-1 tiene un valor de $25 por hora. Ideal para despejar dudas puntuales. ¿Agendamos una sesión para usted?", options: [{text:"¡Sí, agendar!", payload:"go_whatsapp_taller"}, {text:"Volver a Talleres", payload:"workshops"}]}
                 };
                 
                 const handlePayload = (payload) => {
                     if (payload === 'go_products') { window.location.hash = "productos"; if(isChatOpen) toggleChat(); return; }
                     if (payload === 'go_muebles') { window.location.hash = "muebles-medida"; if(isChatOpen) toggleChat(); return; }
+                    if (payload === 'go_calendar') { window.location.hash = "reminder-service"; if(isChatOpen) toggleChat(); return; }
                     if (payload === 'go_whatsapp') { window.open("https://wa.me/593987786632?text=Hola%20D'CORE,%20vengo%20desde%20la%20página%20web%20y%20quisiera%20más%20información.", '_blank'); return; }
+                    if (payload === 'go_whatsapp_muebles') { window.open("https://wa.me/593987786632?text=Hola%20D'CORE,%20me%20interesa%20cotizar%20un%20mueble%20a%20medida.", '_blank'); return; }
                     if (payload === 'go_whatsapp_taller') { window.open("https://wa.me/593987786632?text=Hola%20D'CORE,%20me%20interesa%20inscribirme%20en%20un%20taller.", '_blank'); return; }
 
                     const node = conversationTree[payload];
@@ -632,8 +701,9 @@
                 
                 // Open chat automatically after a delay
                 setTimeout(() => {
-                    if (!isChatOpen) {
+                    if (!isChatOpen && !sessionStorage.getItem('dcoreChatOpened')) {
                         toggleChat();
+                        sessionStorage.setItem('dcoreChatOpened', 'true');
                     }
                 }, 2500);
 
@@ -644,5 +714,4 @@
     </script>
 </body>
 </html>
-
 
