@@ -82,6 +82,7 @@
   /* Board & Tasks */
   .board{display:grid;grid-template-columns:repeat(4, 1fr);gap:10px;padding:10px}
   .col{background:var(--muted);border:1px solid var(--line);border-radius:12px;min-height:220px;padding:8px}
+  .col .row b { word-break: break-word; } /* Allow column title to wrap */
   .col.dragover { outline: 2px dashed var(--brand); background: color-mix(in hsl, var(--brand) 10%, transparent); }
   .task{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px;margin:8px 4px;cursor:grab;box-shadow:var(--shadow)}
   #task-list-table th { text-align: left; padding: 8px; color: var(--sub); border-bottom: 2px solid var(--line); font-size: var(--sm); }
@@ -236,7 +237,7 @@
     .gchat-grid > .card:first-child { max-height: 200px; }
     .gchat-grid { grid-template-columns: 1fr; } /* Force single column on mobile for global chats */
 
-    /* === IMPROVEMENT: Task Board adjustments -> 2x2 Grid === */
+    /* === CORRECTION: Task Board adjustments -> 2x2 Grid === */
     .board {
         display: grid;
         grid-template-columns: repeat(2, 1fr);
@@ -244,16 +245,11 @@
         overflow-x: hidden;
         padding: 10px;
     }
-    .board .col {
-        flex: auto;
-        min-width: 0;
-        scroll-snap-align: unset;
-    }
     .col { padding: 6px; min-height: 160px; }
     .task { padding: 8px; font-size: var(--sm); margin: 4px 2px; }
-    .col .row b { font-size: var(--sm); }
-    
-    /* === IMPROVEMENT: Finance & Task List Tables === */
+
+    /* === CORRECTION: Fix tables to not scroll horizontally === */
+    .table-wrapper { overflow-x: hidden; }
     #finTable, #task-list-table {
         min-width: 100%;
         width: 100%;
@@ -265,10 +261,12 @@
         padding: 8px 4px;
         white-space: normal;
         word-break: break-word;
+        text-align: left;
     }
-    #task-list-table th:nth-child(3), #task-list-table td:nth-child(3) {
-        text-align: center;
-    }
+    #finTable th:nth-child(3), #finTable td:nth-child(3) { text-align: right; } /* Monto */
+    #finTable th:last-child, #finTable td:last-child { width: 40px; }
+    #task-list-table th:last-child, #task-list-table td:last-child { width: 40px; }
+    #task-list-table th:nth-child(3), #task-list-table td:nth-child(3) { text-align: center; }
 
     /* Adjust general padding and dialogs */
     .panel { margin: 8px; }
@@ -277,7 +275,7 @@
     #project-header-right { flex-wrap: wrap; justify-content: flex-end; gap: 4px; }
     dialog { width: calc(100vw - 30px); max-width: 95%; }
     
-    /* === IMPROVEMENT: Finance overview grid stacks nicely === */
+    /* Finance overview grid stacks nicely */
     #p-tab-finance .overview-grid { grid-template-columns: 1fr 1fr; gap: 8px;}
     #p-tab-finance .stat-card p { font-size: var(--lg); }
     .stat-card { padding: 12px; }
@@ -290,12 +288,9 @@
   /* Fine-tuning for small screens */
   @media (max-width: 480px) {
       body { font-size: var(--sm); }
-      .board .col { flex: 0 0 80%; } /* Columns take 80% of screen width */
-      .col { min-height: 120px; }
       .stat-card p { font-size: var(--lg); }
       .brand { font-size: var(--md); }
       .row { gap: 6px; }
-      /* === IMPROVEMENT: Finance overview grid stacks fully === */
       #p-tab-finance .overview-grid { grid-template-columns: 1fr; }
   }
   /* ================================= */
@@ -311,19 +306,14 @@
     Goatify <span style="color:var(--brand)">IA</span>
 </div>
 <div class="spacer"></div>
-<!-- Controles para Escritorio -->
+<!-- CORRECTION: Controles directos para Escritorio -->
 <div class="header-desktop-actions">
     <div class="chip" id="walletChip" title="Ver Billetera"><i data-lucide="wallet"></i> <span id="wallet-amount">$0</span></div>
     <div class="chip" id="intisChip" title="Tus Intis (puntos de gamificación)"><i data-lucide="sparkles"></i> <span id="intis-amount">0</span></div>
-    <div class="dropdown-container">
-        <button class="btn btn-ghost" id="desktopMoreBtn"><i data-lucide="more-vertical"></i></button>
-        <div class="dropdown-menu" id="desktopDropdown">
-            <div id="desktopThemeBtn" class="dropdown-item"><i data-lucide="sun"></i><span>Tema</span></div>
-            <div id="desktopTourBtn" class="dropdown-item"><i data-lucide="help-circle"></i><span>Tour</span></div>
-        </div>
-    </div>
+    <button class="btn btn-ghost" id="themeBtn" title="Cambiar Tema"><i data-lucide="sun"></i></button>
+    <button class="btn btn-ghost" id="tourBtn" title="Iniciar Tour"><i data-lucide="help-circle"></i></button>
 </div>
-<!-- Controles para Móvil -->
+<!-- Controles para Móvil (con dropdown) -->
 <div class="header-mobile-actions">
     <div class="dropdown-container">
         <button class="btn btn-ghost" id="mobileMoreBtn"><i data-lucide="more-vertical"></i></button>
@@ -821,7 +811,6 @@
         </div>
     </div>
 </dialog>
-<!-- IMPROVEMENT: Modal for sending chat to project -->
 <dialog id="sendChatModal">
     <div style="padding: 24px;">
         <h3 id="sendChatModalTitle" style="margin-top:0">Enviar Conversación a Proyecto</h3>
@@ -854,7 +843,7 @@
 // ====== State ======
 var S = {};
 const initialState = {
-  version:'8.4', // Updated version
+  version:'8.5', // Updated version
   userProfile: { industry: null },
   projects: [],
   activeProject: null,
@@ -896,7 +885,7 @@ const CREDIT_COSTS = {
 
 function save(){ 
     try {
-        localStorage.setItem('goatify_v8_4', JSON.stringify(S)); 
+        localStorage.setItem('goatify_v8_5', JSON.stringify(S)); 
         syncHeader();
     } catch(e) {
         console.error("Error saving to localStorage", e);
@@ -904,7 +893,7 @@ function save(){
     }
 }
 function load(){
-  const raw = localStorage.getItem('goatify_v8_4');
+  const raw = localStorage.getItem('goatify_v8_5');
   S = raw ? JSON.parse(raw) : JSON.parse(JSON.stringify(initialState));
   // Ensure backward compatibility or state structure
   S.projects.forEach(p => {
@@ -1140,9 +1129,9 @@ function renderTaskBoard(){
   cols.forEach((c, index) => {
     const colEl=el('div',{class:'col',dataset:{status:c}},
       el('div',{class:'row', style:'padding:8px; align-items:center;'}, 
-          el('b',{textContent:c, style: 'flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;', title: c}), 
+          el('b',{textContent:c, style: 'flex: 1; white-space: normal; overflow: hidden; text-overflow: ellipsis;', title: c}), 
           el('span', {class:'chip', textContent: tasks.filter(t=>t.status===c).length}),
-          el('div', { class: 'proj-actions', style: 'display: flex;' }, // Always show on board for usability
+          el('div', { class: 'proj-actions', style: 'display: flex;' },
             el('button', { class: 'btn btn-ghost btn-sm', onclick: (e) => { e.stopPropagation(); renameColumn(index); }, title: 'Renombrar' }, el('i', { 'data-lucide': 'edit-3', width: 14 })),
             el('button', { class: 'btn btn-ghost btn-sm', onclick: (e) => { e.stopPropagation(); deleteColumn(index); }, title: 'Eliminar' }, el('i', { 'data-lucide': 'trash-2', width: 14 }))
           )
@@ -1224,7 +1213,6 @@ function renderTaskList() {
     lucide.createIcons();
 }
 function getTaskStatusColor(status) {
-    // Basic color logic, can be improved to match column index
     if (status.toLowerCase().includes('hecho') || status.toLowerCase().includes('done')) return 'var(--success)';
     if (status.toLowerCase().includes('curso') || status.toLowerCase().includes('progress')) return 'var(--info)';
     if (status.toLowerCase().includes('bloqueado') || status.toLowerCase().includes('blocked')) return 'var(--danger)';
@@ -1386,7 +1374,6 @@ function initDrawingCanvas(noteId) {
     const canvas = $('#drawingCanvas');
     const ctx = canvas.getContext('2d');
     
-    // Responsive canvas setup
     if (canvas.width !== canvas.clientWidth || canvas.height !== canvas.clientHeight) {
         canvas.width = canvas.clientWidth;
         canvas.height = canvas.clientHeight;
@@ -1427,7 +1414,6 @@ function initDrawingCanvas(noteId) {
         ctx.lineTo(x, y); ctx.stroke();
     };
     
-    // Cleanup old listeners before adding new ones
     const newCanvas = canvas.cloneNode(true);
     canvas.parentNode.replaceChild(newCanvas, canvas);
     
@@ -1703,16 +1689,13 @@ function createMessageElement(message, userProfile) {
     };
     const msgBody = el('div', { class: 'msg-body' });
     
-    // Check for code blocks
     const codeRegex = /\[CODE\]([\s\S]*?)\[\/CODE\]/g;
     let lastIndex = 0;
     let match;
     while ((match = codeRegex.exec(message.text)) !== null) {
-        // Add text before the code block
         if (match.index > lastIndex) {
             msgBody.append(document.createTextNode(message.text.substring(lastIndex, match.index)));
         }
-        // Add the code block
         const codeContent = match[1];
         const codeBlock = el('div', { class: 'code-block' },
             el('div', { class: 'code-header' },
@@ -1738,7 +1721,6 @@ function createMessageElement(message, userProfile) {
         msgBody.append(codeBlock);
         lastIndex = match.index + match[0].length;
     }
-    // Add any remaining text
     if (lastIndex < message.text.length) {
         msgBody.append(document.createTextNode(message.text.substring(lastIndex)));
     }
@@ -1782,13 +1764,11 @@ function renderCronoPOST() {
         dayEl.append(el('div', { textContent: d.getDate(), style: 'font-weight: 500; color: var(--sub); margin-bottom: 4px; text-align: right; font-size: var(--sm);' }));
 
         projectsToShow.forEach(proj => {
-            // Cronopost Posts
             const posts = S.cronopost.posts[proj.id] || {};
             (posts[dateKey] || []).forEach(p => {
                 const postEl = el('div', { class: 'cp-post', textContent: p.title, title: `${proj.name}: ${p.title}`, style: `border-left-color:${proj.color}; background: color-mix(in hsl, ${proj.color} 15%, transparent);` });
                 dayEl.append(postEl);
             });
-            // Tasks with due dates
             const tasks = S.tasks[proj.id] || [];
             tasks.filter(t => t.due && new Date(t.due).toDateString() === dateKey).forEach(t => {
                 const taskEl = el('div', { class: 'cal-task', textContent: `✓ ${t.title}`, title: `Tarea: ${t.title}`, style: `border-left-color:${proj.color};` });
@@ -2134,40 +2114,40 @@ function init(){
   handleNav(window.location.hash);
   renderAside();
   renderCronoPOST(); renderHub(); renderGChat(); renderMonetAssistant(); setupMindset();
-  setupHeaderDropdowns();
+  setupHeaderActions(); // CORRECTION: Use new setup function
+  setupAutoResize();
 }
 
-function setupHeaderDropdowns() {
-    const setupDropdown = (btnId, menuId) => {
-        const btn = $(`#${btnId}`);
-        const menu = $(`#${menuId}`);
-        if (!btn || !menu) return;
-        btn.onclick = (e) => { e.stopPropagation(); menu.classList.toggle('active'); };
-    };
-    setupDropdown('desktopMoreBtn', 'desktopDropdown');
-    setupDropdown('mobileMoreBtn', 'mobileDropdown');
-    document.addEventListener('click', () => {
-        $('#desktopDropdown').classList.remove('active');
-        $('#mobileDropdown').classList.remove('active');
-    });
-    
+function setupHeaderActions() {
     const themeHandler = () => {
         const h=document.documentElement; 
         const newTheme = h.getAttribute('data-theme')==='light'?'dark':'light'; 
-        h.setAttribute('data-theme', newTheme); 
-        const iconHtml = newTheme === 'light' ? '<i data-lucide="sun"></i>' : '<i data-lucide="moon"></i>';
-        $('#desktopThemeBtn').children[0].outerHTML = iconHtml;
-        $('#mobileThemeBtn').children[0].outerHTML = iconHtml;
+        h.setAttribute('data-theme', newTheme);
+        const themeIconName = newTheme === 'light' ? 'sun' : 'moon';
+        
+        // Update icons
+        const desktopIcon = $(`#themeBtn > i`);
+        if(desktopIcon) desktopIcon.outerHTML = `<i data-lucide="${themeIconName}"></i>`;
+        const mobileIcon = $(`#mobileThemeBtn > i`);
+        if(mobileIcon) mobileIcon.outerHTML = `<i data-lucide="${themeIconName}"></i>`;
+        
         lucide.createIcons();
     };
-
     const tourHandler = () => showTourStep(0);
 
-    $('#desktopThemeBtn').onclick = themeHandler;
+    // Desktop Buttons
+    $('#themeBtn').onclick = themeHandler;
+    $('#tourBtn').onclick = tourHandler;
+
+    // Mobile Dropdown
+    $('#mobileMoreBtn').onclick = (e) => { e.stopPropagation(); $('#mobileDropdown').classList.toggle('active'); };
+    document.addEventListener('click', () => { $('#mobileDropdown').classList.remove('active'); });
     $('#mobileThemeBtn').onclick = themeHandler;
-    $('#desktopTourBtn').onclick = tourHandler;
     $('#mobileTourBtn').onclick = tourHandler;
+    $('#mobileWalletBtn').onclick = () => $('#walletChip').click();
+    $('#mobileIntisBtn').onclick = () => $('#intisChip').click();
 }
+
 function setupAutoResize() {
     document.addEventListener('input', e => {
         if (e.target.tagName.toLowerCase() === 'textarea') {
@@ -2179,15 +2159,12 @@ function setupAutoResize() {
 // --- General Listeners ---
 $('#loadIndustryBtn').onclick = () => { const industry = $('#industrySelect').value; loadIndustryTemplate(industry); $('#industryModal').close(); };
 $('#newProject').onclick = createNewProject;
-$('#creditsChip')?.onclick(() => $('#creditsModal').showModal());
 $('#menuBtn').onclick=()=>document.body.classList.toggle('aside-open');
 $('#menu-overlay').onclick = () => document.body.classList.remove('aside-open');
 $('#walletChip').onclick = () => { renderWallet(); $('#walletModal').showModal(); };
-$('#mobileWalletBtn').onclick = () => $('#walletChip').click();
 $('#intisChip').onclick = () => { $('#intisModal').showModal(); lucide.createIcons(); };
-$('#mobileIntisBtn').onclick = () => $('#intisChip').click();
 $('#wAdd').onclick = addWalletTransaction;
-$('#resetApp').onclick=()=>{ if(confirm('¿BORRAR TODO?')) { localStorage.removeItem('goatify_v8_4'); window.location.reload();} };
+$('#resetApp').onclick=()=>{ if(confirm('¿BORRAR TODO?')) { localStorage.removeItem('goatify_v8_5'); window.location.reload();} };
 // --- Tour Listeners ---
 $('#tour-next').onclick = () => showTourStep(currentTourStep + 1);
 $('#tour-prev').onclick = () => showTourStep(currentTourStep - 1);
@@ -2280,7 +2257,6 @@ function wireTabs(scopeSelector, prefix, contentPrefix){
       const pane = root.querySelector(`#${contentPrefix}-${target}`);
       if(pane) pane.style.display='block';
 
-      // Update Quick Add button based on tab
       if (quickAddBtn) {
         let text = 'Nueva Tarea'; let handler = quickAddTask;
         let isVisible = true;
@@ -2300,7 +2276,7 @@ function wireTabs(scopeSelector, prefix, contentPrefix){
   });
 }
 init();
-setupAutoResize();
 </script>
 </body>
 </html>
+
