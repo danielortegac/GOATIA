@@ -80,7 +80,7 @@
   .tab{all:unset;cursor:pointer;padding:8px 14px;border:1px solid var(--line);border-radius:999px;background:var(--muted); font-weight: 600;}
   .tab.active{background:var(--brand);color:#fff;border-color:var(--brand)}
   /* Board & Tasks */
-  .board{display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap:10px;padding:10px}
+  .board{display:grid;grid-template-columns:repeat(4, 1fr);gap:10px;padding:10px}
   .col{background:var(--muted);border:1px solid var(--line);border-radius:12px;min-height:220px;padding:8px}
   .col.dragover { outline: 2px dashed var(--brand); background: color-mix(in hsl, var(--brand) 10%, transparent); }
   .task{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px;margin:8px 4px;cursor:grab;box-shadow:var(--shadow)}
@@ -100,13 +100,9 @@
   .profile-card .profile-header { height: 100px; background: var(--surface); border-radius: var(--radius) var(--radius) 0 0; transition: background .3s ease; }
   .profile-card .avatar { width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 4px solid var(--surface); box-shadow: 0 0 10px rgba(0,0,0,0.1); margin: -50px auto 10px; cursor: pointer; }
   /* Notes & Drawing */
-  .note-editor-wrapper { display: grid; grid-template-columns: 1fr; gap: 10px; align-items: start; height: calc(100vh - 150px); }
-  #noteEditor { min-height: 200px; background: var(--surface); border-radius: var(--radius); border: 1px solid var(--line); padding: 12px; overflow-y: auto; flex-grow: 1; }
-  .note-card-container { display: flex; flex-direction: column; height: 100%; }
+  .note-editor-wrapper { display: grid; grid-template-columns: 1fr 300px; gap: 10px; align-items: start;}
+  #noteEditor { min-height: 60vh; max-height: 60vh; background: var(--surface); border-radius: var(--radius); border: 1px solid var(--line); padding: 12px; overflow-y: auto; }
   #drawingCanvas { border: 1px solid var(--line); border-radius: var(--radius); cursor: crosshair; }
-  .canvas-container.fullscreen { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: var(--surface); z-index: 1000; padding: 20px; display: flex; flex-direction: column; }
-  .canvas-container.fullscreen #drawingCanvas { width: 100%; height: 100%; flex-grow: 1; }
-
   /* Chat IA & Global Chat */
   .chat-log { display: flex; flex-direction: column; overflow: auto; border: 1px solid var(--line); border-radius: var(--radius); padding: 10px; background: var(--muted); }
   .chat-log .msg { display: flex; gap: 10px; margin-bottom: 12px; max-width: 85%; align-items: flex-end; }
@@ -233,7 +229,6 @@
     .hub-grid, .note-editor-wrapper, #cronopost-grid, #gchat .gchat-grid, #ai-global-chat .gchat-grid {
         grid-template-columns: 1fr;
     }
-     .note-editor-wrapper { height: auto; }
 
     /* Adjust Global Chat layout for stacking */
     #gchat.panel, #ai-global-chat.panel { padding: 0; }
@@ -241,9 +236,16 @@
     .gchat-grid > .card:first-child { max-height: 200px; }
     .gchat-grid { grid-template-columns: 1fr; } /* Force single column on mobile for global chats */
 
-    /* Task Board adjustments -> Make it 2x2 grid */
+    /* Task Board adjustments -> Make it scrollable horizontally */
     .board {
-        grid-template-columns: 1fr 1fr;
+        display: flex;
+        overflow-x: auto;
+        padding-bottom: 16px; /* Space for scrollbar */
+        scroll-snap-type: x mandatory;
+    }
+    .board .col {
+        flex: 0 0 280px; /* Each column will be 280px wide */
+        scroll-snap-align: start;
     }
     .col { padding: 6px; min-height: 160px; }
     .task { padding: 8px; font-size: var(--sm); margin: 4px 2px; }
@@ -257,7 +259,7 @@
     dialog { width: calc(100vw - 30px); max-width: 95%; }
     
     /* Ensure finance overview grid stacks nicely */
-    #p-tab-finance .overview-grid { grid-template-columns: 1fr; }
+    #p-tab-finance .overview-grid { grid-template-columns: 1fr 1fr; }
     #p-tab-finance .stat-card p { font-size: var(--lg); }
 
     /* Calendar adjustments */
@@ -268,10 +270,12 @@
   /* Fine-tuning for small screens */
   @media (max-width: 480px) {
       body { font-size: var(--sm); }
+      .board .col { flex: 0 0 80%; } /* Columns take 80% of screen width */
+      .col { min-height: 120px; }
       .stat-card p { font-size: var(--lg); }
       .brand { font-size: var(--md); }
       .row { gap: 6px; }
-      #task-list-table { font-size: var(--xs); }
+      #p-tab-finance .overview-grid { grid-template-columns: 1fr; }
   }
   /* ================================= */
   /* == Mobile Responsiveness END == */
@@ -361,43 +365,35 @@
 </div>
 <!-- TASKS -->
 <div id="p-tab-tasks" style="display:none;">
-    <div id="tasks-content">
-        <div class="row" style="padding: 6px 10px; border-bottom: 1px solid var(--line);">
-            <button id="viewToggleBoard" class="btn btn-ghost active"><i data-lucide="layout-grid"></i> Tablero</button>
-            <button id="viewToggleList" class="btn btn-ghost"><i data-lucide="list"></i> Lista</button>
-            <span class="spacer"></span>
-            <button id="addColumnBtn" class="btn btn-sm"><i data-lucide="plus"></i> Nueva Columna</button>
-        </div>
-        <div id="kanban-view">
-            <div class="board" id="kanban"></div>
-        </div>
-        <div id="list-view" class="table-wrapper" style="display:none; padding: 10px;">
-            <table id="task-list-table" style="width:100%; border-collapse: collapse;">
-                <thead>
-                    <tr>
-                        <th style="width: 10px;"></th>
-                        <th style="width: 50%;">Tarea</th>
-                        <th>Estado</th>
-                        <th>Fecha Límite</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody></tbody>
-            </table>
-        </div>
+    <div class="row" style="padding: 6px 10px; border-bottom: 1px solid var(--line);">
+        <button id="viewToggleBoard" class="btn btn-ghost active"><i data-lucide="layout-grid"></i> Tablero</button>
+        <button id="viewToggleList" class="btn btn-ghost"><i data-lucide="list"></i> Lista</button>
+    </div>
+    <div id="kanban-view">
+        <div class="board" id="kanban"></div>
+    </div>
+    <div id="list-view" class="table-wrapper" style="display:none; padding: 10px;">
+        <table id="task-list-table" style="width:100%; border-collapse: collapse; min-width: 600px;">
+            <thead>
+                <tr>
+                    <th style="width: 50%;">Tarea</th>
+                    <th>Estado</th>
+                    <th>Fecha Límite</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
     </div>
 </div>
 <!-- CALENDAR -->
 <div id="p-tab-calendar" style="display:none; padding:10px;">
-    <div id="calendar-content">
-        <div class="row"><b>Calendario del proyecto</b><span class="spacer"></span><button class="btn" id="prevM"><i data-lucide="chevron-left"></i></button><div class="chip" id="monthLbl">Mes</div><button class="btn" id="nextM"><i data-lucide="chevron-right"></i></button></div>
-        <div class="calendar" id="calGrid" style="margin-top:10px;"></div>
-    </div>
+    <div class="row"><b>Calendario del proyecto</b><span class="spacer"></span><button class="btn" id="prevM"><i data-lucide="chevron-left"></i></button><div class="chip" id="monthLbl">Mes</div><button class="btn" id="nextM"><i data-lucide="chevron-right"></i></button></div>
+    <div class="calendar" id="calGrid" style="margin-top:10px;"></div>
 </div>
 <!-- NOTES -->
 <div id="p-tab-notes" style="display:none; padding:10px">
     <div class="note-editor-wrapper">
-      <div class="note-card-container">
         <div class="card" style="padding:8px;">
             <div class="row" style="margin-bottom:8px; padding: 4px; flex-wrap: wrap;">
                 <button class="btn btn-sm" data-cmd="bold"><b>B</b></button>
@@ -412,47 +408,42 @@
             </div>
             <div id="noteEditor" contenteditable="true"></div>
         </div>
-      </div>
-      <div class="note-card-container">
-          <div class="card">
-              <div class="row"><b>Mis Notas</b><span class="spacer"></span><button class="btn btn-sm" id="newNoteBtn"><i data-lucide="plus"></i></button></div>
-              <div id="noteList" style="margin-top:8px; max-height: 20vh; overflow-y: auto;"></div>
-          </div>
-          <div class="card canvas-container" style="margin-top:10px">
-              <div class="row"><b>Lienzo Rápido</b><span class="spacer"></span><button class="btn btn-sm" id="fullscreenCanvasBtn"><i data-lucide="maximize"></i></button><button class="btn btn-sm" id="clearCanvasBtn"><i data-lucide="eraser"></i></button></div>
-              <div class="row" style="margin: 8px 0;"><input type="color" id="canvasColorPicker"><input type="range" id="canvasStrokeSlider" min="1" max="20" value="3"></div>
-              <canvas id="drawingCanvas" width="250" height="180"></canvas>
-          </div>
-      </div>
+        <div>
+            <div class="card">
+                <div class="row"><b>Mis Notas</b><span class="spacer"></span><button class="btn btn-sm" id="newNoteBtn"><i data-lucide="plus"></i></button></div>
+                <div id="noteList" style="margin-top:8px; max-height: 20vh; overflow-y: auto;"></div>
+            </div>
+            <div class="card" style="margin-top:10px">
+                <div class="row"><b>Lienzo Rápido</b><span class="spacer"></span><button class="btn btn-sm" id="clearCanvasBtn"><i data-lucide="eraser"></i></button></div>
+                <div class="row" style="margin: 8px 0;"><input type="color" id="canvasColorPicker"><input type="range" id="canvasStrokeSlider" min="1" max="20" value="3"></div>
+                <canvas id="drawingCanvas" width="250" height="180"></canvas>
+            </div>
+        </div>
     </div>
 </div>
 <!-- TABLES -->
 <div id="p-tab-tables" style="display:none; padding:10px;">
-    <div id="tables-content">
-        <div class="row">
-          <select id="tableSelector" class="btn-sm"></select>
-          <button class="btn" id="newTableBtn"><i data-lucide="plus-square"></i></button>
-          <span class="spacer"></span>
-          <button class="btn" id="addCol"><i data-lucide="plus"></i> Columna</button>
-          <button class="btn" id="addRow"><i data-lucide="plus"></i> Fila</button>
-          <button class="btn" id="exportCSV">CSV</button>
-        </div>
-        <div class="section table-wrapper" id="sheetWrap" style="margin-top:10px;"></div>
+    <div class="row">
+      <select id="tableSelector" class="btn-sm"></select>
+      <button class="btn" id="newTableBtn"><i data-lucide="plus-square"></i></button>
+      <span class="spacer"></span>
+      <button class="btn" id="addCol"><i data-lucide="plus"></i> Columna</button>
+      <button class="btn" id="addRow"><i data-lucide="plus"></i> Fila</button>
+      <button class="btn" id="exportCSV">CSV</button>
     </div>
+    <div class="section table-wrapper" id="sheetWrap" style="margin-top:10px;"></div>
 </div>
 <!-- FILES -->
 <div id="p-tab-files" style="display:none;padding:10px">
-     <div id="files-content">
-        <div class="row"><b>Archivos</b><span class="spacer"></span><label class="btn btn-primary"><i data-lucide="upload"></i> Subir Archivos<input id="fileInput" multiple type="file" style="display: none;"/></label></div>
-        <div id="fileList" style="margin-top:10px" class="row"></div>
-    </div>
+    <div class="row"><b>Archivos</b><span class="spacer"></span><label class="btn btn-primary"><i data-lucide="upload"></i> Subir Archivos<input id="fileInput" multiple type="file" style="display: none;"/></label></div>
+    <div id="fileList" style="margin-top:10px" class="row"></div>
 </div>
 <!-- CHAT IA -->
 <div id="p-tab-chat" style="display:none">
     <div class="gchat-grid" style="height: calc(100vh - 140px);">
         <div>
             <div class="card">
-                <div class="row"><b>Conversaciones</b><span class="spacer"></span><button class="btn btn-sm" id="newChat"><i data-lucide="plus"></i></button></div>
+                <div class="row"><b>Hilos de Chat</b><span class="spacer"></span><button class="btn btn-sm" id="newChat"><i data-lucide="plus"></i></button></div>
                 <div id="chatList" style="margin-top:8px"></div>
             </div>
         </div>
@@ -477,19 +468,17 @@
 </div>
 <!-- FINANZAS -->
 <div id="p-tab-finance" style="display:none; padding:10px;">
-    <div id="finance-content">
-        <div class="row"><b>Finanzas del Proyecto</b><span class="spacer"></span><button class="btn btn-primary" id="finNew"><i data-lucide="plus"></i> Movimiento</button><button class="btn" id="finExport">CSV</button></div>
-        <div class="overview-grid" style="padding: 10px 0;">
-            <div class="stat-card"><h4>Ingresos Totales</h4><p id="finIn" style="color: var(--success);">0</p></div>
-            <div class="stat-card"><h4>Egresos Totales</h4><p id="finOut" style="color: var(--danger);">0</p></div>
-            <div class="stat-card"><h4>Balance Neto</h4><p id="finBal">0</p></div>
-        </div>
-        <div class="table-wrapper">
-            <table id="finTable" style="width:100%; border-collapse: collapse;">
-                <thead><tr><th style="text-align: left; padding: 8px;">Fecha</th><th style="text-align: left; padding: 8px;">Tipo</th><th style="text-align: right; padding: 8px;">Monto</th><th style="text-align: left; padding: 8px;">Categoría</th><th style="text-align: left; padding: 8px;">Nota</th><th></th></tr></thead>
-                <tbody></tbody>
-            </table>
-        </div>
+    <div class="row"><b>Finanzas del Proyecto</b><span class="spacer"></span><button class="btn btn-primary" id="finNew"><i data-lucide="plus"></i> Movimiento</button><button class="btn" id="finExport">CSV</button></div>
+    <div class="overview-grid" style="padding: 10px 0;">
+        <div class="stat-card"><h4>Ingresos Totales</h4><p id="finIn" style="color: var(--success);">0</p></div>
+        <div class="stat-card"><h4>Egresos Totales</h4><p id="finOut" style="color: var(--danger);">0</p></div>
+        <div class="stat-card"><h4>Balance Neto</h4><p id="finBal">0</p></div>
+    </div>
+    <div class="table-wrapper">
+        <table id="finTable" style="width:100%; border-collapse: collapse; min-width: 600px;">
+            <thead><tr><th style="text-align: left; padding: 8px;">Fecha</th><th style="text-align: left; padding: 8px;">Tipo</th><th style="text-align: right; padding: 8px;">Monto</th><th style="text-align: left; padding: 8px;">Categoría</th><th style="text-align: left; padding: 8px;">Nota</th><th></th></tr></thead>
+            <tbody></tbody>
+        </table>
     </div>
 </div>
 </section>
@@ -498,7 +487,7 @@
     <div class="gchat-grid">
         <div>
             <div class="card">
-                <div class="row"><b>Conversaciones</b><span class="spacer"></span><button class="btn btn-sm" id="aiNewChat"><i data-lucide="plus"></i></button></div>
+                <div class="row"><b>Hilos de Chat</b><span class="spacer"></span><button class="btn btn-sm" id="aiNewChat"><i data-lucide="plus"></i></button></div>
                 <div id="aiChatList" style="margin-top:8px"></div>
             </div>
              <div class="card" style="margin-top: 10px;">
@@ -834,7 +823,7 @@
 // ====== State ======
 var S = {};
 const initialState = {
-  version:'8.4',
+  version:'8.3',
   userProfile: { industry: null },
   projects: [],
   activeProject: null,
@@ -876,7 +865,7 @@ const CREDIT_COSTS = {
 
 function save(){ 
     try {
-        localStorage.setItem('goatify_v8_4', JSON.stringify(S)); 
+        localStorage.setItem('goatify_v8_3', JSON.stringify(S)); 
         syncHeader();
     } catch(e) {
         console.error("Error saving to localStorage", e);
@@ -884,7 +873,7 @@ function save(){
     }
 }
 function load(){
-  const raw = localStorage.getItem('goatify_v8_4');
+  const raw = localStorage.getItem('goatify_v8_3');
   S = raw ? JSON.parse(raw) : JSON.parse(JSON.stringify(initialState));
   // Ensure backward compatibility or state structure
   if (!S.userProfile) S.userProfile = { industry: null };
@@ -973,29 +962,6 @@ function showInputModal(title, description, placeholder, callback) {
         }
     };
 }
-function showEmptyState(tab, show) {
-    const content = $(`#${tab}-content`);
-    let emptyState = $(`#${tab}-empty-state`);
-
-    if (!emptyState) {
-        emptyState = el('div', { id: `${tab}-empty-state`, class: 'empty-state' });
-        let icon, title, text;
-        switch(tab) {
-            case 'tasks': icon = 'list-checks'; title = 'Sin Tareas Aún'; text = 'Crea tu primera tarea para organizar tu trabajo.'; break;
-            case 'calendar': icon = 'calendar-plus'; title = 'Calendario Vacío'; text = 'Las tareas con fecha límite aparecerán aquí.'; break;
-            case 'tables': icon = 'table-2'; title = 'Sin Tablas'; text = 'Crea tu primera tabla para organizar datos.'; break;
-            case 'files': icon = 'file-up'; title = 'Sin Archivos'; text = 'Sube documentos, imágenes o cualquier archivo relevante.'; break;
-            case 'finance': icon = 'dollar-sign'; title = 'Sin Movimientos'; text = 'Añade tu primer ingreso o egreso para empezar.'; break;
-            default: return;
-        }
-        emptyState.append(el('i', {'data-lucide': icon, width: 48, height: 48}), el('h4', {textContent: title}), el('p', {textContent: text}));
-        content.parentNode.insertBefore(emptyState, content);
-        lucide.createIcons();
-    }
-    
-    content.style.display = show ? 'none' : '';
-    emptyState.style.display = show ? '' : 'none';
-}
 
 
 // ====== UI: Navigation & Core ======
@@ -1062,7 +1028,7 @@ function createNewProject() {
         const color = `hsl(${Math.random() * 360}, 70%, 60%)`;
         S.projects.push({id, name, color});
         S.folders[id]=['General'];
-        S.tasks[id]={ columns: ['Backlog','En curso','Bloqueado','Hecho'], items: [] }; 
+        S.tasks[id]=[]; 
         S.notes[id]={list:[], active:null, bodies:{}, drawings:{}}; 
         S.chats[id]={threads:[], messages:{}, activeThread: null, model: 'pro'};
         S.tables[id]={list:[{id: 'tbl_default', name: 'Tabla 1'}], active: 'tbl_default', data: {'tbl_default': {cols:['Col 1'], rows:[]}}};
@@ -1085,7 +1051,7 @@ let calRef=new Date();
 function renderOverview(){
     const id = S.activeProject; if(!id) return;
     const wrap = $('#ovr'); wrap.innerHTML = '';
-    const tasks = S.tasks[id]?.items || [];
+    const tasks = S.tasks[id] || [];
     const finance = S.fin[id] || {rows:[]};
     const notes = S.notes[id]?.list || [];
     const files = S.files[id] || [];
@@ -1119,13 +1085,9 @@ function renderOverview(){
 }
 // --- TASKS (Kanban & List) ---
 function renderTasks(){
-    const id = S.activeProject;
-    if(!id || !S.tasks[id]) return;
-    showEmptyState('tasks', S.tasks[id].items.length === 0);
     const view = S.ui.taskView;
     $('#kanban-view').style.display = view === 'board' ? 'block' : 'none';
     $('#list-view').style.display = view === 'list' ? 'block' : 'none';
-    $('#addColumnBtn').style.display = view === 'board' ? 'inline-flex' : 'none';
     $('#viewToggleBoard').classList.toggle('active', view === 'board');
     $('#viewToggleList').classList.toggle('active', view === 'list');
     if (view === 'board') renderTaskBoard();
@@ -1133,17 +1095,14 @@ function renderTasks(){
 }
 function renderTaskBoard(){
   const id=S.activeProject; if(!id) return;
-  const taskData = S.tasks[id];
+  const tasks=S.tasks[id]||[];
+  const cols=['Backlog','En curso','Bloqueado','Hecho'];
   const board=$('#kanban'); board.innerHTML='';
-  taskData.columns.forEach((c, cIndex) => {
+  cols.forEach(c=>{
     const colEl=el('div',{class:'col',dataset:{status:c}},
-      el('div',{class:'row', style:'padding:8px;'}, 
-        el('b',{textContent:c, style: 'cursor:pointer;', onclick: () => editColumnName(cIndex) }), 
-        el('span',{class:'spacer'}), 
-        el('span', {class:'chip', textContent: taskData.items.filter(t=>t.status===c).length})
-      )
+      el('div',{class:'row', style:'padding:8px;'}, el('b',{textContent:c}), el('span',{class:'spacer'}), el('span', {class:'chip', textContent: tasks.filter(t=>t.status===c).length}))
     );
-    taskData.items.filter(t=>t.status===c).forEach(t=>{
+    tasks.filter(t=>t.status===c).forEach(t=>{
       const taskEl=el('div',{class:'task',draggable:'true', dataset: {id:t.id}, onclick: ()=>openTaskModal(t.id), style:'border-left: 3px solid ' + (S.projects.find(p=>p.id===id)?.color || 'var(--brand)')},
         el('div',{ textContent:t.title })
       );
@@ -1154,7 +1113,7 @@ function renderTaskBoard(){
     colEl.ondragleave=()=>colEl.classList.remove('dragover');
     colEl.ondrop=e=>{
       colEl.classList.remove('dragover');
-      const tid=e.dataTransfer.getData('text'); const t=taskData.items.find(x=>x.id===tid);
+      const tid=e.dataTransfer.getData('text'); const t=tasks.find(x=>x.id===tid);
       if (t) { 
         t.status=c; 
         if(c==='Hecho') addIntis(10, 'Tarea completada');
@@ -1166,13 +1125,12 @@ function renderTaskBoard(){
 }
 function renderTaskList() {
     const id = S.activeProject; if (!id) return;
-    const taskData = S.tasks[id];
+    const tasks = S.tasks[id] || [];
     const tbody = $('#task-list-table tbody');
     tbody.innerHTML = '';
-    taskData.items.forEach(t => {
-        const tr = el('tr', {},
-            el('td', {}, el('input', {type: 'checkbox', checked: t.status === 'Hecho', onchange: () => toggleTaskStatus(t.id)})),
-            el('td', { textContent: t.title, onclick: (e) => editTaskTitleInline(t.id, e.target) }),
+    tasks.forEach(t => {
+        const tr = el('tr', { onclick: () => openTaskModal(t.id) },
+            el('td', { textContent: t.title }),
             el('td', {}, el('span', { class: 'status-badge', style: `background: color-mix(in hsl, ${getTaskStatusColor(t.status)} 20%, transparent); color: ${getTaskStatusColor(t.status)};`, textContent: t.status })),
             el('td', { textContent: t.due ? new Date(t.due).toLocaleDateString() : 'N/A' }),
             el('td', {}, el('button', { class: 'btn btn-ghost btn-sm', onclick: (e) => { e.stopPropagation(); deleteTask(t.id); } }, el('i', { 'data-lucide': 'trash-2', width: 14 })))
@@ -1181,66 +1139,25 @@ function renderTaskList() {
     });
     lucide.createIcons();
 }
-function editTaskTitleInline(taskId, cell) {
-    const id = S.activeProject;
-    const task = S.tasks[id].items.find(t => t.id === taskId);
-    if (!task) return;
-    
-    const originalText = cell.textContent;
-    const input = el('input', { type: 'text', value: originalText, class: 'inline-edit' });
-    cell.textContent = '';
-    cell.appendChild(input);
-    input.focus();
-
-    const saveChange = () => {
-        const newValue = input.value.trim();
-        if (newValue && newValue !== originalText) {
-            task.title = newValue;
-            save();
-        }
-        cell.textContent = task.title; 
-    };
-
-    input.onblur = saveChange;
-    input.onkeydown = e => { if (e.key === 'Enter') input.blur(); };
-}
-function toggleTaskStatus(taskId) {
-    const id = S.activeProject;
-    const task = S.tasks[id].items.find(t => t.id === taskId);
-    if (!task) return;
-
-    if (task.status === 'Hecho') {
-        task.status = S.tasks[id].columns[0] || 'Backlog'; // Move to first column if not done
-    } else {
-        task.status = 'Hecho';
-        addIntis(10, 'Tarea completada');
-    }
-    save();
-    renderTasks();
-}
-
 function getTaskStatusColor(status) {
-    if (status === 'Hecho') return 'var(--success)';
-    if (status === 'Bloqueado') return 'var(--danger)';
-    if (S.tasks[S.activeProject]?.columns.includes(status)) {
-        const index = S.tasks[S.activeProject].columns.indexOf(status);
-        if (index === 0) return 'var(--sub)';
-        return 'var(--info)';
+    switch (status) {
+        case 'Hecho': return 'var(--success)';
+        case 'En curso': return 'var(--info)';
+        case 'Bloqueado': return 'var(--danger)';
+        default: return 'var(--sub)';
     }
-    return 'var(--sub)';
 }
 function quickAddTask() {
     const id=S.activeProject; if(!id) return;
-    const firstColumn = S.tasks[id].columns[0] || 'Backlog';
-    showInputModal('Nueva Tarea', `Añadir tarea a la columna "${firstColumn}"`, 'Describe la tarea...', (title) => {
-        S.tasks[id].items.push({id:'t'+Date.now(), title, status: firstColumn, desc:'', due:''});
+    showInputModal('Nueva Tarea', `Añadir tarea al proyecto: ${S.projects.find(p=>p.id===id).name}`, 'Describe la tarea...', (title) => {
+        S.tasks[id].push({id:'t'+Date.now(), title, status:'Backlog', desc:'', due:''});
         addIntis(5, 'Tarea creada');
         save(); renderTasks(); renderOverview();
     });
 }
 function openTaskModal(taskId) {
     const id = S.activeProject;
-    const task = S.tasks[id].items.find(t => t.id === taskId);
+    const task = S.tasks[id].find(t => t.id === taskId);
     if (!task) return;
     $('#taskDetailId').value = task.id;
     $('#taskDetailTitle').value = task.title;
@@ -1248,7 +1165,7 @@ function openTaskModal(taskId) {
     $('#taskDetailDue').value = task.due || '';
     const statusSel = $('#taskDetailStatus');
     statusSel.innerHTML = '';
-    S.tasks[id].columns.forEach(s => {
+    ['Backlog', 'En curso', 'Bloqueado', 'Hecho'].forEach(s => {
         statusSel.append(el('option', { value: s, textContent: s }));
     });
     statusSel.value = task.status;
@@ -1258,7 +1175,7 @@ function openTaskModal(taskId) {
 function saveTaskDetails() {
     const id = S.activeProject;
     const taskId = $('#taskDetailId').value;
-    const task = S.tasks[id].items.find(t => t.id === taskId);
+    const task = S.tasks[id].find(t => t.id === taskId);
     if (!task) return;
     const oldStatus = task.status;
     const newStatus = $('#taskDetailStatus').value;
@@ -1272,42 +1189,19 @@ function saveTaskDetails() {
     save();
     renderTasks();
     renderOverview();
-    renderCalendar();
+    renderCalendar(); // Also update calendars
     renderCronoPOST();
     $('#taskDetailModal').close();
 }
 function deleteTask(taskId) {
     if (!confirm('¿Eliminar esta tarea?')) return;
     const id = S.activeProject;
-    S.tasks[id].items = S.tasks[id].items.filter(t => t.id !== taskId);
+    S.tasks[id] = S.tasks[id].filter(t => t.id !== taskId);
     save(); renderTasks(); renderOverview(); renderCalendar(); renderCronoPOST();
 }
-function addColumn() {
-    const id = S.activeProject; if (!id) return;
-    showInputModal('Nueva Columna', 'Nombre de la nueva columna de estado:', 'Ej: Revisión', (name) => {
-        S.tasks[id].columns.push(name);
-        save();
-        renderTaskBoard();
-    });
-}
-function editColumnName(columnIndex) {
-    const id = S.activeProject; if (!id) return;
-    const oldName = S.tasks[id].columns[columnIndex];
-    showInputModal('Editar Nombre de Columna', `Nuevo nombre para "${oldName}":`, oldName, (newName) => {
-        S.tasks[id].items.forEach(task => {
-            if (task.status === oldName) task.status = newName;
-        });
-        S.tasks[id].columns[columnIndex] = newName;
-        save();
-        renderTaskBoard();
-    });
-}
-
 // --- CALENDAR ---
 function renderCalendar(){
   const id=S.activeProject; if(!id) return;
-  const tasks = S.tasks[id]?.items || [];
-  showEmptyState('calendar', tasks.filter(t => t.due).length === 0);
   $('#monthLbl').textContent = calRef.toLocaleString('es', {month:'long', year:'numeric'});
   const grid=$('#calGrid'); grid.innerHTML='';
   const monthGrid = (ref=new Date()) => {
@@ -1323,7 +1217,7 @@ function renderCalendar(){
     const day=el('div',{class:'day'});
     if(d.getMonth() !== calRef.getMonth()) day.style.opacity = .4;
     day.append(el('div',{class:'sub', textContent:d.getDate()}));
-    tasks.filter(t => t.due && new Date(t.due).toDateString() === d.toDateString()).forEach(t => {
+    (S.tasks[id]||[]).filter(t => t.due && new Date(t.due).toDateString() === d.toDateString()).forEach(t => {
         const taskEl = el('div', { class: 'cal-task', textContent: t.title, style: `border-left-color: ${projColor}` });
         taskEl.onclick = () => openTaskModal(t.id);
         day.append(taskEl);
@@ -1425,24 +1319,10 @@ function exportNote(format) {
         doc.html(content, { callback: (doc) => { doc.save(`${title}.pdf`); }, x: 10, y: 20, width: 180, windowWidth: 800 });
     }
 }
-function toggleCanvasFullscreen() {
-    const canvasContainer = $('.canvas-container');
-    const icon = $('#fullscreenCanvasBtn i');
-    canvasContainer.classList.toggle('fullscreen');
-    if(canvasContainer.classList.contains('fullscreen')) {
-        icon.outerHTML = '<i data-lucide="minimize"></i>';
-    } else {
-        icon.outerHTML = '<i data-lucide="maximize"></i>';
-    }
-    lucide.createIcons();
-    // Redraw canvas content after transition
-    setTimeout(() => initDrawingCanvas(S.notes[S.activeProject].active), 300);
-}
 // --- TABLES, FILES, FINANCE ---
 function renderTables(){
   const id=S.activeProject; if(!id) return;
   const T_PROJ = S.tables[id];
-  showEmptyState('tables', T_PROJ.list.length === 0);
   const selector = $('#tableSelector');
   selector.innerHTML = '';
   T_PROJ.list.forEach(t => selector.append(el('option',{value:t.id, textContent:t.name})));
@@ -1452,7 +1332,8 @@ function renderTables(){
   const T_DATA = T_PROJ.data[T_PROJ.active];
 
   if (!T_DATA || !T_DATA.cols || T_DATA.cols.length === 0) {
-      return;
+      wrap.innerHTML = `<div class="empty-state"><i data-lucide="table-2" width="48" height="48"></i><h4>Tabla vacía.</h4><p>Añade columnas y filas para empezar.</p></div>`;
+      lucide.createIcons(); return;
   }
   const tbl=el('table',{style:'width:100%; border-collapse: collapse; min-width: 600px;'});
   const thead=el('thead',{}, el('tr',{}, ...T_DATA.cols.map(c=>el('th',{textContent:c, style:'border: 1px solid var(--line); padding: 8px;'}))));
@@ -1477,9 +1358,11 @@ function createNewTable() {
 }
 function renderFiles(){
   const id=S.activeProject; if(!id) return;
-  const L=S.files[id]||[]; 
-  showEmptyState('files', L.length === 0);
-  const wrap=$('#fileList'); wrap.innerHTML='';
+  const L=S.files[id]||[]; const wrap=$('#fileList'); wrap.innerHTML='';
+  if (L.length === 0) {
+      wrap.innerHTML = `<div class="empty-state" style="width:100%"><i data-lucide="file-up" width="48" height="48"></i><h4>No hay archivos.</h4><p>Sube documentos, imágenes, etc.</p></div>`;
+      lucide.createIcons(); return;
+  }
   L.forEach((f,idx)=>{
       const fileChip = el('div', {class:'chip'},  
         el('a',{href:f.url,download:f.name, textContent:f.name}),
@@ -1491,9 +1374,7 @@ function renderFiles(){
 }
 function renderFin(){
   const id=S.activeProject; if(!id) return;
-  const F=S.fin[id]; 
-  showEmptyState('finance', F.rows.length === 0);
-  const tbody=$('#finTable tbody'); tbody.innerHTML='';
+  const F=S.fin[id]; const tbody=$('#finTable tbody'); tbody.innerHTML='';
   (F.rows || []).forEach((r,i)=>{
     const tr=el('tr',{}, 
         el('td',{textContent:fmtDate(r.fecha), style:'padding:8px'}), 
@@ -1601,8 +1482,8 @@ function renderGlobalAIChat() {
     $$('#ai-global-chat [data-model]').forEach(b => b.classList.toggle('active', C.model === b.dataset.model));
     const log = $('#aiChatLog'); log.innerHTML = '';
     if (C.activeThread) {
-        if (!C.messages[C.activeThread] || C.messages[C.activeThread].length === 0) {
-            C.messages[C.activeThread] = [{ who: 'IA', at: new Date(), text: '¡Hola! Soy tu asistente IA global. ¿Cómo puedo ayudarte a organizar tus ideas hoy?' }];
+        if (C.messages[C.activeThread]?.length === 0) {
+            C.messages[C.activeThread].push({ who: 'IA', at: new Date(), text: '¡Hola! Soy tu asistente IA global. ¿Cómo puedo ayudarte a organizar tus ideas hoy?' });
         }
         C.messages[C.activeThread].forEach(m => log.append(createMessageElement(m, S.hub.perfil)));
         log.scrollTop = log.scrollHeight;
@@ -1721,7 +1602,7 @@ function renderCronoPOST() {
                 dayEl.append(postEl);
             });
             // Tasks with due dates
-            const tasks = S.tasks[proj.id]?.items || [];
+            const tasks = S.tasks[proj.id] || [];
             tasks.filter(t => t.due && new Date(t.due).toDateString() === dateKey).forEach(t => {
                 const taskEl = el('div', { class: 'cal-task', textContent: `✓ ${t.title}`, title: `Tarea: ${t.title}`, style: `border-left-color:${proj.color};` });
                 dayEl.append(taskEl);
@@ -1983,9 +1864,9 @@ function addWalletTransaction() {
 }
 // ====== Onboarding ======
 const industryTemplates = {
-    agency: { projects: [{id: 'p_agency_1', name: 'Cliente Tech Solutions', color: '#3b82f6'}], tasks: {'p_agency_1': { columns: ['Backlog','En curso','Bloqueado','Hecho'], items: [ {id:'t_a1', title:'Reunión de kickoff con cliente', status:'Hecho', desc:'', due:''}, {id:'t_a2', title:'Definir KPIs de la campaña', status:'En curso', desc:'', due:''}, {id:'t_a3', title:'Enviar propuesta de diseño', status:'Backlog', desc:'', due:''} ]}}, notes: {'p_agency_1': {list: [{id:'n_a1', title: 'Minuta Kickoff'}], active:'n_a1', bodies:{'n_a1':'<p><strong>Puntos clave:</strong> Foco en Aumento de Leads.</p>'}, drawings:{}}}, },
-    ecommerce: { projects: [{id: 'p_ecom_1', name: 'Lanzamiento Colección Otoño', color: '#16a34a'}], tasks: {'p_ecom_1': { columns: ['Backlog','En curso','Bloqueado','Hecho'], items: [ {id:'t_e1', title:'Sesión de fotos de producto', status:'En curso', desc:'', due:''}, {id:'t_e2', title:'Actualizar banners de la web', status:'Backlog', desc:'', due:''}, {id:'t_e3', title:'Preparar campaña de email marketing', status:'Backlog', desc:'', due:''} ]}}, notes: {'p_ecom_1': {list: [{id:'n_e1', title: 'Ideas para Campaña'}], active:'n_e1', bodies:{'n_e1':'<p>Foco en colores cálidos y confort.</p>'}, drawings:{}}}, },
-    creator: { projects: [{id: 'p_creator_1', name: 'Contenido YouTube Q4', color: '#ef4444'}], tasks: {'p_creator_1': { columns: ['Backlog','En curso','Bloqueado','Hecho'], items: [ {id:'t_c1', title:'Grabar video sobre "5 Errores Comunes"', status:'En curso', desc:'', due:''}, {id:'t_c2', title:'Escribir guion para colaboración con @usuario', status:'Backlog', desc:'', due:''}, {id:'t_c3', title:'Investigar temas para videos de Diciembre', status:'Backlog', desc:'', due:''} ]}}, cronopost: { ideas: {'p_creator_1': [{id:'i_c1', title: 'Detrás de cámaras de mi último video'}]}}, }
+    agency: { projects: [{id: 'p_agency_1', name: 'Cliente Tech Solutions', color: '#3b82f6'}], tasks: {'p_agency_1': [ {id:'t_a1', title:'Reunión de kickoff con cliente', status:'Hecho', desc:'', due:''}, {id:'t_a2', title:'Definir KPIs de la campaña', status:'En curso', desc:'', due:''}, {id:'t_a3', title:'Enviar propuesta de diseño', status:'Backlog', desc:'', due:''} ]}, notes: {'p_agency_1': {list: [{id:'n_a1', title: 'Minuta Kickoff'}], active:'n_a1', bodies:{'n_a1':'<p><strong>Puntos clave:</strong> Foco en Aumento de Leads.</p>'}, drawings:{}}}, },
+    ecommerce: { projects: [{id: 'p_ecom_1', name: 'Lanzamiento Colección Otoño', color: '#16a34a'}], tasks: {'p_ecom_1': [ {id:'t_e1', title:'Sesión de fotos de producto', status:'En curso', desc:'', due:''}, {id:'t_e2', title:'Actualizar banners de la web', status:'Backlog', desc:'', due:''}, {id:'t_e3', title:'Preparar campaña de email marketing', status:'Backlog', desc:'', due:''} ]}, notes: {'p_ecom_1': {list: [{id:'n_e1', title: 'Ideas para Campaña'}], active:'n_e1', bodies:{'n_e1':'<p>Foco en colores cálidos y confort.</p>'}, drawings:{}}}, },
+    creator: { projects: [{id: 'p_creator_1', name: 'Contenido YouTube Q4', color: '#ef4444'}], tasks: {'p_creator_1': [ {id:'t_c1', title:'Grabar video sobre "5 Errores Comunes"', status:'En curso', desc:'', due:''}, {id:'t_c2', title:'Escribir guion para colaboración con @usuario', status:'Backlog', desc:'', due:''}, {id:'t_c3', title:'Investigar temas para videos de Diciembre', status:'Backlog', desc:'', due:''} ]}, cronopost: { ideas: {'p_creator_1': [{id:'i_c1', title: 'Detrás de cámaras de mi último video'}]}}, }
 };
 function loadIndustryTemplate(industry) {
     const template = industryTemplates[industry] || {};
@@ -2110,7 +1991,7 @@ function setupAutoResize() {
 // --- General Listeners ---
 $('#loadIndustryBtn').onclick = () => { const industry = $('#industrySelect').value; loadIndustryTemplate(industry); $('#industryModal').close(); };
 $('#newProject').onclick = createNewProject;
-$('#creditsChip')?.onclick(() => $('#creditsModal').showModal());
+$('#creditsChip')?.onclick(() => $('#creditsModal').showModal()); // Optional chaining in case it's removed
 const themeBtn = $('#themeBtn'); if(themeBtn) themeBtn.onclick=()=>{ const h=document.documentElement; const newTheme = h.getAttribute('data-theme')==='light'?'dark':'light'; h.setAttribute('data-theme', newTheme); themeBtn.innerHTML = newTheme === 'light' ? '<i data-lucide="sun"></i>' : '<i data-lucide="moon"></i>'; lucide.createIcons(); };
 $('#menuBtn').onclick=()=>document.body.classList.toggle('aside-open');
 $('#menu-overlay').onclick = () => document.body.classList.remove('aside-open');
@@ -2119,28 +2000,27 @@ $('#mobileWalletBtn').onclick = () => $('#walletChip').click();
 $('#intisChip').onclick = () => { $('#intisModal').showModal(); lucide.createIcons(); };
 $('#mobileIntisBtn').onclick = () => $('#intisChip').click();
 $('#wAdd').onclick = addWalletTransaction;
-$('#resetApp').onclick=()=>{ if(confirm('¿BORRAR TODO?')) { localStorage.removeItem('goatify_v8_4'); window.location.reload();} };
+$('#resetApp').onclick=()=>{ if(confirm('¿BORRAR TODO?')) { localStorage.removeItem('goatify_v8_3'); window.location.reload();} };
 // --- Tour Listeners ---
 $('#tour-next').onclick = () => showTourStep(currentTourStep + 1);
 $('#tour-prev').onclick = () => showTourStep(currentTourStep - 1);
 // --- Project Listeners ---
 wireTabs('#projectShell', 'ptab', 'p-tab');
-$('#quickAdd').onclick = quickAddTask;
+$('#quickAdd').onclick = quickAddTask; // Default, will be changed by tabs
 $('#addFolder').onclick=()=>{ const id=S.activeProject; if(!id)return; showInputModal('Nueva Subcarpeta', 'Nombre de la nueva subcarpeta:', 'Ej: Documentos', name => {S.folders[id].push(name); save(); openProject(id);})};
 $('#prevM').onclick=()=>{calRef.setMonth(calRef.getMonth()-1); renderCalendar();};
 $('#nextM').onclick=()=>{calRef.setMonth(calRef.getMonth()+1); renderCalendar();};
 $('#newNoteBtn').onclick = createNewNote;
 $$('#p-tab-notes [data-cmd]').forEach(btn=>btn.onclick=()=>document.execCommand(btn.dataset.cmd, false, btn.dataset.value || null));
 $('#clearCanvasBtn').onclick=()=>{ const id=S.activeProject; if(!id||!S.notes[id].active)return; delete S.notes[id].drawings[S.notes[id].active]; save(); renderNotes(); };
-$('#fullscreenCanvasBtn').onclick = toggleCanvasFullscreen;
 $('#exportNotePDF').onclick = () => exportNote('pdf');
 $('#fileInput').onchange=(e)=>{ const id=S.activeProject; if(!id) return; for(const f of e.target.files){ S.files[id].push({name:f.name,url:URL.createObjectURL(f), size:f.size}); } addIntis(5, 'Archivo subido'); save(); renderFiles(); renderOverview();};
-$('#newChat').onclick=()=>{ const id=S.activeProject; if(!id)return; showInputModal('Nueva Conversación', 'Título de la nueva conversación:', 'Ej: Ideas para el blog', t => { const newId = 'c'+Date.now(); S.chats[id].threads.push({id:newId, title:t}); S.chats[id].activeThread = newId; save(); renderProjectChat();})};
+$('#newChat').onclick=()=>{ const id=S.activeProject; if(!id)return; showInputModal('Nuevo Hilo de Chat', 'Título del nuevo hilo:', 'Ej: Ideas para el blog', t => { const newId = 'c'+Date.now(); S.chats[id].threads.push({id:newId, title:t}); S.chats[id].activeThread = newId; save(); renderProjectChat();})};
 $$('#p-tab-chat [data-model]').forEach(b=>b.onclick=()=>{const id=S.activeProject; if(!id)return; S.chats[id].model=b.dataset.model; save(); renderProjectChat();});
 $('#sendMsg').onclick = sendProjectChatMessage;
 $('#chatMsg').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendProjectChatMessage(); }});
 $('#p_attachFileBtn').onclick = () => $('#p_chatFileInput').click();
-$('#chatToTasks').onclick=()=>{ const id=S.activeProject; const C=S.chats[id]; if(!C?.activeThread) return; const lastMsg = C.messages[C.activeThread]?.filter(m=>m.who==='IA').pop(); if(!lastMsg) return showToast('No hay respuesta de IA para convertir.','warn'); S.tasks[id].items.push({id:'t'+Date.now(), title: lastMsg.text.substring(0, 50) + "...", status: S.tasks[id].columns[0], desc:lastMsg.text, due:''}); save(); renderTasks(); showToast('Tarea creada desde el chat.','success');};
+$('#chatToTasks').onclick=()=>{ const id=S.activeProject; const C=S.chats[id]; if(!C?.activeThread) return; const lastMsg = C.messages[C.activeThread]?.filter(m=>m.who==='IA').pop(); if(!lastMsg) return showToast('No hay respuesta de IA para convertir.','warn'); S.tasks[id].push({id:'t'+Date.now(), title: lastMsg.text.substring(0, 50) + "...", status:'Backlog', desc:lastMsg.text, due:''}); save(); renderTasks(); showToast('Tarea creada desde el chat.','success');};
 $('#newTableBtn').onclick = createNewTable;
 $('#tableSelector').onchange = (e) => { S.tables[S.activeProject].active = e.target.value; save(); renderTables(); };
 $('#addCol').onclick=()=>{ const id=S.activeProject; if(!id) return; const T=S.tables[id].data[S.tables[id].active]; showInputModal('Nueva Columna', 'Nombre de la nueva columna:', 'Ej: Prioridad', name => { T.cols.push(name); T.rows.forEach(r=>r.push('')); save(); renderTables(); })};
@@ -2151,7 +2031,6 @@ $('#finExport').onclick=()=>{ const id=S.activeProject; if(!id) return; const F=
 // --- Task View Listeners ---
 $('#viewToggleBoard').onclick = () => { S.ui.taskView = 'board'; save(); renderTasks(); };
 $('#viewToggleList').onclick = () => { S.ui.taskView = 'list'; save(); renderTasks(); };
-$('#addColumnBtn').onclick = addColumn;
 $('#taskDetailSaveBtn').onclick = saveTaskDetails;
 $('#taskDetailDeleteBtn').onclick = () => deleteTask($('#taskDetailId').value);
 // --- Global Module Listeners ---
@@ -2195,7 +2074,7 @@ $('#jobSearchInput').oninput = renderJobs;
 $('#sendGChat').onclick = sendGChatMessage;
 $('#gChatMsg').addEventListener('keydown', e => { if (e.key === 'Enter') sendGChatMessage(); });
 // --- Global AI Chat Listeners ---
-$('#aiNewChat').onclick=()=>{ showInputModal('Nueva Conversación Global', 'Título de la nueva conversación:', 'Ej: Brainstorming General', t => { const newId = 'c_g_'+Date.now(); S.aiGlobalChat.threads.push({id:newId, title:t}); S.aiGlobalChat.messages[newId] = []; S.aiGlobalChat.activeThread = newId; save(); renderGlobalAIChat();})};
+$('#aiNewChat').onclick=()=>{ showInputModal('Nuevo Hilo de Chat Global', 'Título del nuevo hilo:', 'Ej: Brainstorming General', t => { const newId = 'c_g_'+Date.now(); S.aiGlobalChat.threads.push({id:newId, title:t}); S.aiGlobalChat.messages[newId] = []; S.aiGlobalChat.activeThread = newId; save(); renderGlobalAIChat();})};
 $('#aiSendMsg').onclick = sendGlobalAIChatMessage;
 $('#aiChatMsg').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendGlobalAIChatMessage(); }});
 $('#g_attachFileBtn').onclick = () => $('#g_chatFileInput').click();
@@ -2250,4 +2129,3 @@ setupAutoResize();
 </script>
 </body>
 </html>
-
