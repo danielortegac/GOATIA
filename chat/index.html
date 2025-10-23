@@ -4400,6 +4400,240 @@ $('#aiImageGenBtn').onclick = () => showInputModal('Generar Imagen con IA', 'Des
 // --- Ejecutar Inicialización ---
 init();
 </script>
+
+<!-- === MJ PATCH 2025-10-23 :: CSS === -->
+<style id="mj-patch-20251023">
+/* Mobile: model cards in a single horizontal row */
+@media (max-width: 640px) {
+  .model-selector { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 8px; }
+  .model-selector .model-card { flex: 0 0 auto; min-width: 220px; }
+}
+
+/* '+ Nueva tarea…' row in List */
+#task-list-table tbody tr.mj-new-task-row td {
+  color: var(--sub);
+  font-style: italic;
+  padding: 10px 12px;
+}
+#task-list-table tbody tr.mj-new-task-row:hover td { color: var(--fg); }
+
+/* Folder chip */
+.mj-folder-chip {
+  display: inline-block;
+  font-size: 12px;
+  line-height: 1;
+  padding: 3px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  margin-left: 6px;
+  opacity: .9;
+}
+</style>
+
+<!-- === MJ PATCH 2025-10-23 :: JS === -->
+<script id="mj-patch-20251023">
+(function(){
+  const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
+  const $  = (s, r=document) => r.querySelector(s);
+
+  // Helper: map Spanish month to index
+  const MONTHS = {'enero':0,'febrero':1,'marzo':2,'abril':3,'mayo':4,'junio':5,'julio':6,'agosto':7,'septiembre':8,'setiembre':8,'octubre':9,'noviembre':10,'diciembre':11};
+
+  // 1) LISTA: click-to-create (fila '+ Nueva tarea…' y click en vacío)
+  if (window.renderTaskList) {
+    const __orig_renderTaskList = window.renderTaskList;
+    window.renderTaskList = function(){
+      const result = __orig_renderTaskList.apply(this, arguments);
+      try {
+        const tbody = $('#task-list-table tbody');
+        if (!tbody) return result;
+        if (!tbody.querySelector('tr.mj-new-task-row')) {
+          const tr = document.createElement('tr');
+          tr.className = 'mj-new-task-row';
+          const td = document.createElement('td');
+          td.colSpan = 99;
+          td.textContent = '+ Nueva tarea…';
+          tr.appendChild(td);
+          tr.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (typeof window.quickAddTask === 'function') return window.quickAddTask();
+            if (typeof window.openTaskModal === 'function') return window.openTaskModal(null);
+            const btn = document.querySelector('[data-action="add-task"], .addTaskBtn, #addTaskBtn, .btn-add-task, .btn[data-add="task"]');
+            if (btn) btn.click();
+          });
+          tbody.prepend(tr);
+
+          const table = $('#task-list-table');
+          if (table && !table.__mj_click_added) {
+            table.__mj_click_added = true;
+            table.addEventListener('click', (ev) => {
+              if (ev.target.closest('tr') && !ev.target.closest('tr.mj-new-task-row')) return;
+              tr.click();
+            });
+          }
+        }
+      } catch(e){ console.warn('MJ: renderTaskList patch error', e); }
+      return result;
+    };
+  }
+
+  // 2) CALENDARIO (proyecto): mostrar SOLO carpeta activa (sin reescribir tu lógica)
+  if (window.renderCalendar) {
+    const __orig_renderCalendar = window.renderCalendar;
+    window.renderCalendar = function(){
+      const result = __orig_renderCalendar.apply(this, arguments);
+      try {
+        const projId = window.S?.activeProject;
+        const activeFolder = window.S?.ui?.activeFolder;
+        if (!projId || !activeFolder) return result;
+
+        // Derivar mes/año visibles desde la etiqueta
+        const label = ($('#monthLbl')?.textContent || '').toLowerCase(); // ej: "octubre de 2025"
+        const parts = label.match(/([a-záéíóúñ]+).*?(\d{4})/i);
+        if (!parts) return result;
+        const monthName = parts[1].normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        const year = parseInt(parts[2], 10);
+        const month = MONTHS[monthName] ?? null;
+        if (month == null) return result;
+
+        // Construye un lookup: { 'YYYY-MM-DD' => Set(titles) } de la carpeta activa
+        const tasksByDate = {};
+        const tasksFolder = (window.S?.tasks?.[projId]?.[activeFolder]) || [];
+        tasksFolder.forEach(t => {
+          if (!t.due) return;
+          const d = new Date(t.due);
+          const key = d.toISOString().slice(0,10);
+          (tasksByDate[key] ||= new Set()).add(t.title);
+        });
+
+        // Recorre días del grid y elimina tareas que no pertenezcan a la carpeta activa
+        $$('#calGrid .day').forEach(dayEl => {
+          const numEl = $('.sub', dayEl);
+          if (!numEl) return;
+          const dayNum = parseInt(numEl.textContent, 10);
+          if (!dayNum) return;
+          const d = new Date(year, month, dayNum);
+          const key = d.toISOString().slice(0,10);
+          const allowed = tasksByDate[key] || new Set();
+          $$('.cal-task', dayEl).forEach(taskEl => {
+            // el texto del elemento suele ser el título (sin chip)
+            const txt = taskEl.childNodes[0]?.textContent?.trim() || taskEl.textContent.trim();
+            if (!allowed.has(txt)) {
+              taskEl.remove();
+            } else {
+              // marca carpeta para que otras features la lean
+              taskEl.dataset.folder = activeFolder;
+            }
+          });
+        });
+      } catch(e){ console.warn('MJ: renderCalendar patch error', e); }
+      return result;
+    };
+  }
+
+  // 3) CRONOPOST (general): añade chip visual de carpeta si hay data-folder
+  if (window.renderCronoPOST) {
+    const __orig_renderCronoPOST = window.renderCronoPOST;
+    window.renderCronoPOST = function(){
+      const result = __orig_renderCronoPOST.apply(this, arguments);
+      try {
+        $$('#cpCalendar .cp-task').forEach(el => {
+          if (el.querySelector('.mj-folder-chip')) return;
+          const folder = el.getAttribute('data-folder') || el.dataset.folder || el.getAttribute('data-f') || el.dataset.f;
+          if (folder) {
+            const chip = document.createElement('span');
+            chip.className = 'mj-folder-chip';
+            chip.textContent = folder;
+            el.appendChild(chip);
+          }
+        });
+      } catch(e){ console.warn('MJ: renderCronoPOST patch error', e); }
+      return result;
+    };
+  }
+
+  // 4) TABLAS: Autonomía por subcarpeta (retro-compatible)
+  function ensureTablesByFolder(){
+    const pid = window.S?.activeProject;
+    if (!pid) return;
+    const T = window.S.tables[pid];
+    if (!T) return;
+    if (!T.byFolder) {
+      const fallback = (window.S?.ui?.activeFolder) || 'General';
+      // Clona estructura básica a nuevo scope
+      const clone = JSON.parse(JSON.stringify({list: T.list || [{id:'tbl_default', name:'Tabla 1'}], data: T.data || {'tbl_default': {cols:['Col 1'], rows:[]}}, active: T.active || 'tbl_default'}));
+      T.byFolder = {}; T.byFolder[fallback] = clone;
+    }
+  }
+
+  if (window.renderTables) {
+    const __orig_renderTables = window.renderTables;
+    window.renderTables = function(){
+      ensureTablesByFolder();
+      const pid = window.S?.activeProject;
+      const fold = window.S?.ui?.activeFolder || 'General';
+      const T = window.S?.tables?.[pid];
+      if (T?.byFolder) {
+        // Swap-in scope
+        const old = { list: T.list, data: T.data, active: T.active };
+        const scope = T.byFolder[fold] ||= { list: [{id:'tbl_default', name:'Tabla 1'}], data: {'tbl_default': {cols:['Col 1'], rows:[]}}, active: 'tbl_default' };
+        T.list = scope.list; T.data = scope.data; T.active = scope.active;
+        const res = __orig_renderTables.apply(this, arguments);
+        // Persist back
+        scope.list = T.list; scope.data = T.data; scope.active = T.active;
+        // Restore
+        T.list = old.list; T.data = old.data; T.active = old.active;
+        return res;
+      }
+      return __orig_renderTables.apply(this, arguments);
+    };
+  }
+
+  // 5) ASIDE: vista de cascada (proyecto → carpetas con contador)
+  if (window.renderAside) {
+    const __orig_renderAside = window.renderAside;
+    window.renderAside = function(){
+      const res = __orig_renderAside.apply(this, arguments);
+      try {
+        const list = $('#projList'); if (!list) return res;
+        // Limpia previos
+        $$('.mj-folder-list', list).forEach(n=>n.remove());
+
+        (window.S?.projects || []).forEach(p => {
+          const item = list.querySelector(`.projItem[data-id="${p.id}"]`);
+          if (!item) return;
+          const wrap = document.createElement('div');
+          wrap.className = 'mj-folder-list';
+          wrap.style.cssText = 'margin: 6px 0 10px 28px; display: grid; gap: 6px;';
+          const folders = Object.keys(window.S?.tasks?.[p.id] || {'General': []});
+          folders.forEach(f => {
+            const cnt = (window.S?.tasks?.[p.id]?.[f] || []).length;
+            const row = document.createElement('div');
+            row.className = 'mj-folder-row';
+            row.style.cssText = 'display:flex;align-items:center;gap:8px;cursor:pointer;font-size: var(--sm);';
+            const dot = document.createElement('span'); dot.style.cssText = `width:8px;height:8px;border-radius:50%;background:${p.color||'var(--brand)'};display:inline-block;`;
+            const label = document.createElement('span'); label.textContent = `${f} (${cnt})`;
+            row.append(dot, label);
+            row.addEventListener('click', (e)=>{
+              e.stopPropagation();
+              window.openProject?.(p.id);
+              if (!window.S.ui) window.S.ui = {};
+              window.S.ui.activeFolder = f;
+              window.save?.();
+              window.renderFolderSelector?.();
+              window.renderTasks?.();
+              window.renderCalendar?.();
+            });
+            wrap.appendChild(row);
+          });
+          item.after(wrap);
+        });
+      } catch(e){ console.warn('MJ: renderAside patch error', e); }
+      return res;
+    };
+  }
+
+})();</script>
 </body>
 </html>
 
