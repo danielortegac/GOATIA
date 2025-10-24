@@ -140,7 +140,7 @@
     padding: 10px 0;
   }
   
-  /* NUEVO: Separador redimensionable */
+  /* Separador redimensionable */
   #sidebar-resizer {
     flex-shrink: 0;
     height: 5px;
@@ -154,13 +154,49 @@
     background: var(--muted);
   }
 
+  /* MODIFICADO: Contenedor de Navegación Inferior */
   aside .aside-bottom-section {
     flex-shrink: 0; /* No se encoge */
     /* Base flexible, pero no crecerá tanto como el de arriba */
     flex: 0 1 40%;
-    overflow-y: auto;
+    overflow-y: hidden; /* Previene que este contenedor scrollee */
+    display: flex;
+    flex-direction: column;
     min-height: 150px;
   }
+
+  /* NUEVO: Contenedor para el link de IA "fijado" */
+  .pinned-nav-item {
+      padding: 5px 4px 10px 4px;
+      border-bottom: 1px solid var(--line);
+      flex-shrink: 0; /* No se encoge */
+  }
+  .pinned-nav-item .navBtn {
+      /* Estilo destacado para el botón fijado */
+      background: color-mix(in hsl, var(--brand) 12%, transparent);
+      color: var(--brand);
+      font-weight: 600;
+  }
+  .pinned-nav-item .navBtn:hover {
+      background: color-mix(in hsl, var(--brand) 20%, transparent);
+  }
+  /* Estilo cuando está colapsado */
+  body.aside-collapsed .pinned-nav-item {
+      padding: 10px 4px;
+  }
+  body.aside-collapsed .pinned-nav-item .navBtn {
+      width: 54px;
+      justify-content: center;
+  }
+
+  /* MODIFICADO: #nav-list ahora es el contenedor scrollable */
+  #nav-list {
+      flex-grow: 1; /* Ocupa el espacio restante */
+      overflow-y: auto; /* Permite scroll */
+      padding-top: 10px;
+      /* hereda .projList (display: flex, flex-direction: column) */
+  }
+
 
   header.app{
     position:sticky;
@@ -319,6 +355,7 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    position: relative; /* Añadido para tooltips */
   }
   .navBtn i, .projItem i {
     flex-shrink: 0;
@@ -434,7 +471,7 @@
     height: 14px;
   }
 
-  /* NUEVO: Icono para plegar/desplegar proyecto */
+  /* Icono para plegar/desplegar proyecto */
   .projItem .proj-toggle {
     width: 16px;
     height: 16px;
@@ -630,7 +667,7 @@
     cursor: grabbing;
   }
   
-  /* NUEVO: Tags de Tareas */
+  /* Tags de Tareas */
   .task-tags {
     display: flex;
     flex-wrap: wrap;
@@ -703,7 +740,7 @@
   .day:hover { 
     background: var(--muted); 
   }
-  .day.dragover { /* CORRECCIÓN D&D: Estilo para drop */
+  .day.dragover {
     outline: 2px dashed var(--brand); 
     background: color-mix(in hsl, var(--brand) 10%, transparent);
   }
@@ -778,16 +815,17 @@
   }
   
   /* ----------------------------------------------------------------------------
-  MÓDULO: CHAT IA & CHAT GLOBAL
+  MÓDULO: CHAT IA & CHAT GLOBAL (¡DISEÑO MODIFICADO!)
   ----------------------------------------------------------------------------
   */
-  .gchat-grid { /* Layout para grids de chat */
+  .gchat-grid {
     display: grid; 
     gap: 10px; 
     grid-template-columns: 260px 1fr; 
     padding: 10px; 
     height: 100%; /* Ocupa el 100% del panel padre */
     box-sizing: border-box;
+    transition: grid-template-columns 0.3s ease; /* Transición para colapsar */
   }
   #p-tab-chat .gchat-grid { 
     height: calc(100vh - 140px); /* Ajuste para header + tabs */
@@ -800,10 +838,11 @@
   .gchat-grid > .card:first-child {
     display:flex; 
     flex-direction: column; 
-    overflow-y: auto;
+    overflow: hidden; /* Oculta scrollbar, el div interno scrollea */
     max-height: 100%;
     background: var(--muted);
     padding: 8px;
+    transition: opacity 0.3s ease, padding 0.3s ease, margin 0.3s ease, width 0.3s ease;
   }
   /* Contenedor de log de chat */
   .gchat-grid > .card:last-child {
@@ -814,10 +853,78 @@
     padding: 8px;
   }
 
+  /* NUEVO: Header de la lista de chat */
+  .gchat-list-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+      flex-shrink: 0;
+  }
+  .gchat-list-header b {
+      flex-grow: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+  }
+  /* Div scrolleable para la lista */
+  #chatList, #aiChatList {
+      flex-grow: 1;
+      overflow-y: auto;
+      margin-top: 0;
+  }
+
+  /* NUEVO: Header del panel de chat principal */
+  .gchat-main-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 8px;
+      margin-bottom: 8px;
+      flex-shrink: 0;
+  }
+  /* Botón para mostrar la lista, oculto por defecto */
+  .gchat-main-header #showChatListBtn {
+      display: none; 
+  }
+  /* Mueve el model selector al header */
+  .gchat-main-header .model-selector {
+      flex-grow: 1;
+      margin: 0;
+      padding: 0;
+      border: none;
+      /* Ajustes para que quepa */
+      grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+      gap: 6px;
+  }
+   /* Quita márgenes del model selector original */
+  .gchat-grid > .card:last-child > .model-selector {
+      display: none; /* Ocultar el selector de modelo original */
+  }
+  
+  /* NUEVO: Estado colapsado del chat */
+  .gchat-grid.chat-list-collapsed {
+      grid-template-columns: 0px 1fr;
+      gap: 0;
+  }
+  .gchat-grid.chat-list-collapsed > .card:first-child {
+      opacity: 0;
+      pointer-events: none;
+      padding: 0;
+      margin: 0;
+      width: 0;
+      border: none;
+  }
+  .gchat-grid.chat-list-collapsed .gchat-main-header #showChatListBtn {
+      display: inline-flex; /* Mostrar botón */
+  }
+
+
   .chat-log { 
     display: flex; 
     flex-direction: column; 
-    overflow-y: auto; 
+    overflow-y: auto; /* <--- ESTO APLICA EL SCROLL REQUERIDO */
     overflow-x: hidden; 
     border-radius: var(--radius); 
     padding: 10px; 
@@ -890,7 +997,7 @@
     border: none;
   }
 
-  /* Selector de Modelo IA */
+  /* Selector de Modelo IA (original, ahora oculto) */
   .model-selector { 
     display: grid; 
     grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); 
@@ -933,6 +1040,21 @@
     line-height: 1.3; 
   }
 
+  /* Header vacío de Chat IA */
+  #aiChatEmptyHeader {
+      position: relative; /* Para el botón de mostrar lista */
+  }
+  #aiChatEmptyHeader #showChatListBtn {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      display: none; /* Oculto hasta que se colapsa */
+  }
+  .gchat-grid.chat-list-collapsed #aiChatEmptyHeader #showChatListBtn {
+      display: inline-flex;
+  }
+
+
   /* Bloques de Código en Chat */
   .code-block { 
     border: 1px solid var(--line); 
@@ -970,7 +1092,7 @@
   }
   
   /* ----------------------------------------------------------------------------
-  MÓDULO: BOLSA DE EMPLEO
+  MÓDULO: BOLSA de EMPLEO
   ----------------------------------------------------------------------------
   */
   .job-card { 
@@ -1004,40 +1126,79 @@
   }
   
   /* ----------------------------------------------------------------------------
-  MÓDULO: ASISTENTE DE MONETIZACIÓN
+  MÓDULO: ASISTENTE DE MONETIZACIÓN (NUEVO DISEÑO)
   ----------------------------------------------------------------------------
   */
-  .monet-card { 
-    background: var(--surface); 
-    border: 1px solid var(--line); 
-    border-radius: var(--radius); 
-    padding: 20px; 
-    text-align: center; 
-    cursor: pointer; 
-    transition: transform .2s, box-shadow .2s; 
+  #service-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+    margin-top: 16px;
   }
-  .monet-card:hover { 
-    transform: translateY(-5px); 
-    box-shadow: var(--shadow); 
-    border-color: var(--brand); 
+  .service-card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    transition: transform 0.2s, box-shadow 0.2s;
   }
-  .monet-card i { 
-    color: var(--brand); 
+  .service-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow);
+    border-color: var(--brand);
   }
-  .monet-card h4 { 
-    margin: 10px 0 5px 0; 
+  .service-card i[data-lucide] {
+    color: var(--brand);
+    margin-bottom: 8px;
   }
-  .monet-card p { 
-    font-size: var(--sm); 
-    color: var(--sub); 
-    margin: 0; 
+  .service-card h4 {
+    margin: 0;
+    font-size: var(--lg);
   }
+  .service-card .service-price {
+    font-size: var(--md);
+    font-weight: 600;
+    color: var(--success);
+  }
+  .service-card .service-desc {
+    font-size: var(--sm);
+    color: var(--sub);
+    flex-grow: 1; /* Asegura que el botón esté al fondo */
+    margin: 4px 0 12px 0;
+  }
+  .service-card.socios-card {
+     background: linear-gradient(145deg, color-mix(in hsl, var(--brand) 85%, black), color-mix(in hsl, var(--accent) 85%, black));
+     color: white;
+  }
+  .service-card.socios-card i[data-lucide] {
+      color: white;
+  }
+  .service-card.socios-card .service-price {
+      color: var(--warn);
+      font-size: var(--lg);
+  }
+  .service-card.socios-card .service-desc {
+      color: rgba(255,255,255,0.8);
+  }
+  .service-card.socios-card .btn {
+      background: rgba(255,255,255,0.2);
+      border-color: rgba(255,255,255,0.3);
+      color: white;
+  }
+  .service-card.socios-card .btn:hover {
+      background: rgba(255,255,255,0.3);
+  }
+
+  /* Estilos para lista de servicios en modal de socios */
   #monetModuleModal h4 { 
     color: var(--brand2); 
     margin-top: 1.5em; 
     margin-bottom: 0.5em; 
   }
-  #monetModuleModal ul { 
+  #monetModuleModal ul, #monetModuleModal ol { 
     padding-left: 20px; 
   }
   #monetModuleModal .tip { 
@@ -1046,6 +1207,24 @@
     padding: 12px; 
     margin: 1em 0; 
     border-radius: 8px;
+  }
+  .service-list-item {
+      background: var(--muted);
+      border-radius: var(--radius);
+      padding: 12px 16px;
+      margin-bottom: 10px;
+      border: 1px solid var(--line);
+  }
+  .service-list-item strong {
+      display: block;
+      color: var(--text);
+      font-size: var(--md);
+      margin-bottom: 4px;
+  }
+  .service-list-item p {
+      margin: 0;
+      font-size: var(--sm);
+      color: var(--sub);
   }
   
   /* ----------------------------------------------------------------------------
@@ -1151,7 +1330,7 @@
   }
 
   /* ----------------------------------------------------------------------------
-  ASIDE COLAPSABLE (Desktop) - ¡LÓGICA ACTUALIZADA!
+  ASIDE COLAPSABLE (Desktop)
   ----------------------------------------------------------------------------
   */
   
@@ -1163,28 +1342,26 @@
     width: 74px; 
     align-items: center; /* Centra todo */
     padding: 10px 0;
+    cursor: pointer; /* Cursor para indicar que se puede expandir */
   }
   
-  /* 2. ELIMINADO EL :hover PARA EXPANDIR */
-  /* body.aside-collapsed aside:hover { ... } <== ¡ELIMINADO! */
-
-  /* 3. Transiciones (se mantienen para el toggle) */
+  /* 2. Transiciones */
   body.aside-collapsed aside .brand span, 
   body.aside-collapsed aside .projItem > .proj-text, 
   body.aside-collapsed aside .navBtn > span {
     transition: opacity .1s, transform .1s, width .1s; 
   }
   
-  /* 4. Ocultar texto y elementos extra cuando está colapsado */
+  /* 3. Ocultar texto y elementos extra cuando está colapsado */
   body.aside-collapsed aside .brand span,
-  body.aside-collapsed aside .navBtn > span,
-  body.aside-collapsed aside .projItem > .proj-text, /* Target específico */
-  body.aside-collapsed aside .projItem > .proj-toggle, /* Icono de plegar */
-  body.aside-collapsed aside .projItem > .proj-actions, /* Acciones */
+  body.aside-collapsed aside .navBtn > span, /* Afecta a spans en .navBtn */
+  body.aside-collapsed aside .projItem > .proj-text,
+  body.aside-collapsed aside .projItem > .proj-toggle,
+  body.aside-collapsed aside .projItem > .proj-actions,
   body.aside-collapsed aside .projList-header,
   body.aside-collapsed aside .search input,
   body.aside-collapsed aside .mj-folder-list,
-  body.aside-collapsed aside #sidebar-resizer /* Oculta resizer */
+  body.aside-collapsed aside #sidebar-resizer
   { 
     opacity: 0; 
     pointer-events: none; 
@@ -1193,7 +1370,7 @@
     display: none; /* Asegura que no ocupe espacio */
   }
   
-  /* 5. Ajustar logo y botones de íconos */
+  /* 4. Ajustar logo y botones de íconos */
   body.aside-collapsed aside .aside-top-section .brand {
     justify-content: center;
   }
@@ -1214,14 +1391,51 @@
   body.aside-collapsed aside .search { 
     padding: 0; 
   }
-  body.aside-collapsed aside .aside-middle-section,
+  body.aside-collapsed aside .aside-middle-section {
+    padding: 10px 4px;
+    align-items: center;
+  }
+  /* MODIFICADO: Afecta al nuevo layout del bottom section */
   body.aside-collapsed aside .aside-bottom-section {
-    padding: 10px 4px; /* Menos padding lateral */
+    padding: 0;
     align-items: center;
   }
   body.aside-collapsed aside .projList {
     align-items: center;
   }
+  /* Asegura que el span en el botón de IA fijado se oculte */
+  body.aside-collapsed aside .pinned-nav-item .navBtn > span {
+      display: none;
+  }
+  
+  /* 5. NUEVO: Tooltips para el menú colapsado */
+  body.aside-collapsed .projItem[data-tooltip]::after,
+  body.aside-collapsed .navBtn[data-tooltip]::after {
+      content: attr(data-tooltip);
+      position: absolute;
+      left: 70px; /* Fuera de la barra colapsada */
+      top: 50%;
+      transform: translateY(-50%);
+      background: var(--surface);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      padding: 4px 8px;
+      border-radius: var(--radius);
+      font-size: var(--sm);
+      font-weight: 500;
+      color: var(--text);
+      white-space: nowrap;
+      z-index: 100;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+  }
+  body.aside-collapsed .projItem[data-tooltip]:hover::after,
+  body.aside-collapsed .navBtn[data-tooltip]:hover::after {
+      opacity: 1;
+      transform: translateY(-50%) translateX(5px); /* Pequeño efecto de aparición */
+  }
+
 
   /* ----------------------------------------------------------------------------
   MENÚ MÓVIL (Overlay y Dropdown)
@@ -1290,6 +1504,147 @@
   .dropdown-item i { 
     color: var(--sub); 
   }
+  
+  /* ----------------------------------------------------------------------------
+  NUEVOS MODALES: Color Picker, Wallet, Intis
+  ----------------------------------------------------------------------------
+  */
+  .color-picker-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(32px, 1fr));
+    gap: 8px;
+    margin: 12px 0;
+  }
+  .color-swatch {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 3px solid transparent;
+    transition: border-color 0.2s;
+  }
+  .color-swatch.selected {
+    border-color: var(--brand);
+  }
+  
+  /* Rediseño Modal Billetera */
+  #walletModal {
+    max-width: 800px; /* Más ancho */
+  }
+  #walletModal .modal-content {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: 20px;
+    padding: 24px;
+  }
+  #walletModal .wallet-form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  #walletModal .wallet-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  #walletModal .wallet-stats .stat-card {
+    padding: 12px;
+  }
+  #walletModal .wallet-transactions {
+    max-height: 50vh;
+    overflow-y: auto;
+  }
+  #walletModal .wallet-transactions table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  #walletModal .wallet-transactions th {
+    text-align: left;
+    padding: 8px;
+    color: var(--sub);
+    border-bottom: 2px solid var(--line);
+    font-size: var(--sm);
+  }
+  #walletModal .wallet-transactions td {
+    padding: 10px 8px;
+    border-bottom: 1px solid var(--line);
+    font-size: var(--sm);
+  }
+  
+  /* Rediseño Modal Intis */
+  #intisModal {
+    max-width: 700px;
+  }
+  #intisModal .modal-content {
+    padding: 24px;
+  }
+  .intis-balance {
+    text-align: center;
+    margin-bottom: 24px;
+  }
+  .intis-balance i {
+    color: var(--brand);
+  }
+  .intis-balance h2 {
+    margin: 8px 0 0 0;
+    font-size: 2.5rem;
+  }
+  .intis-balance p {
+    margin: 0;
+    color: var(--sub);
+  }
+  .intis-section {
+    margin-bottom: 20px;
+  }
+  .intis-section h4 {
+    margin-top: 0;
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 4px;
+  }
+  .intis-section ul {
+    padding-left: 20px;
+    margin: 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .intis-section li {
+    font-size: var(--sm);
+  }
+  .redeem-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+  }
+  .redeem-card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 16px;
+    text-align: center;
+  }
+  .redeem-card img {
+    height: 40px;
+    margin-bottom: 8px;
+    border-radius: 8px;
+  }
+  .redeem-card b {
+    display: block;
+    font-size: var(--sm);
+  }
+  .redeem-card .redeem-price {
+    font-size: var(--lg);
+    font-weight: 700;
+    color: var(--brand);
+    margin: 8px 0;
+  }
+  .redeem-card .redeem-value {
+    font-size: var(--xs);
+    color: var(--sub);
+  }
+
 
   /* ============================================================================
   INICIO DE MEDIA QUERIES (ESTILOS RESPONSIVOS)
@@ -1311,6 +1666,7 @@
       transform: translateX(-101%);
       align-items: stretch; /* Revertir centrado */
       padding: 10px 10px 20px 10px;
+      cursor: default; /* Revertir cursor en móvil */
     }
     
     /* Mostrar el menú overlay */
@@ -1360,9 +1716,11 @@
     body.aside-collapsed aside .projItem > .proj-text,
     body.aside-collapsed aside .projItem > .proj-toggle,
     body.aside-collapsed aside .projList-header,
-    body.aside-collapsed aside .search input,
-    body.aside-collapsed aside #sidebar-resizer {
+    body.aside-collapsed aside .search input {
         display: block; /* O flex, etc. */
+    }
+    body.aside-collapsed aside #sidebar-resizer {
+      display: none; /* Ocultar resizer en móvil/tablet */
     }
     body.aside-collapsed aside .projItem > .proj-actions,
     body.aside-collapsed aside .mj-folder-list {
@@ -1371,6 +1729,10 @@
     /* ...y para .projItem:hover .proj-actions */
     body.aside-collapsed aside .projItem:hover .proj-actions {
         display: flex;
+    }
+    /* Asegura que el span en el botón de IA fijado se MUESTRE */
+    body.aside-collapsed aside .pinned-nav-item .navBtn > span {
+        display: inline;
     }
 
     body.aside-collapsed aside .navBtn,
@@ -1388,13 +1750,26 @@
         width: 8px; /* Tamaño pequeño original */
         height: 8px;
     }
-    body.aside-collapsed aside .aside-middle-section,
-    body.aside-collapsed aside .aside-bottom-section {
+    body.aside-collapsed aside .aside-middle-section {
       padding: 10px 0;
       align-items: stretch;
     }
+    /* MODIFICADO: Revertir layout colapsado del bottom section */
+    body.aside-collapsed aside .aside-bottom-section {
+      padding: 0; /* padding: 10px 0; */
+      align-items: stretch;
+    }
+    body.aside-collapsed aside .pinned-nav-item {
+        padding: 5px 4px 10px 4px;
+    }
     body.aside-collapsed aside .projList {
       align-items: stretch;
+    }
+    
+    /* Ocultar tooltips en móvil */
+    body.aside-collapsed .projItem[data-tooltip]::after,
+    body.aside-collapsed .navBtn[data-tooltip]::after {
+        display: none;
     }
 
     /* Ocultar el resizer en móvil */
@@ -1403,16 +1778,45 @@
     }
     /* Asegurar que las secciones tomen altura en móvil */
     aside .aside-middle-section {
-      height: 50%;
+      height: 50%; /* Base 50% */
+      flex-basis: 50%;
     }
     aside .aside-bottom-section {
       height: auto; /* Crece según necesidad */
       flex: 1 1 auto;
-      overflow-y: auto;
     }
-
   }
   
+  /* ----------------------------------------------------------------------------
+  TABLET (Hasta 1024px) - Layouts de Grids
+  ----------------------------------------------------------------------------
+  */
+  @media (max-width: 1024px) {
+      /* Stack layouts que son demasiado anchos */
+      .hub-grid, .note-editor-wrapper, #cronopost-grid { 
+        grid-template-columns: 1fr; 
+      }
+      
+      /* El grid de chat puede mantenerse en 2, pero más flexible */
+      .gchat-grid {
+          grid-template-columns: minmax(220px, 260px) 1fr;
+      }
+
+      /* Columnas de Kanban más anchas */
+      .board { 
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      }
+      
+      /* Rediseño Wallet Modal en Tablet */
+      #walletModal .modal-content {
+        grid-template-columns: 1fr;
+        padding: 16px;
+      }
+      #walletModal .wallet-transactions {
+        max-height: 40vh;
+      }
+  }
+
   /* ----------------------------------------------------------------------------
   MÓVIL (Hasta 768px) - Layouts principales y chats
   ----------------------------------------------------------------------------
@@ -1425,11 +1829,6 @@
       display: flex; 
     }
     
-    /* Layouts de Grids a 1 Columna */
-    .hub-grid, .note-editor-wrapper, #cronopost-grid { 
-      grid-template-columns: 1fr; 
-    }
-    
     /* --------------------------------------------------------------------------
     MEJORA DE CHAT MÓVIL
     --------------------------------------------------------------------------
@@ -1439,12 +1838,10 @@
         margin: 8px;
     }
     #p-tab-chat {
-        /* El panel de tabs ya no tiene altura fija, el grid la controla */
         height: auto; 
         padding: 0;
     }
     #p-tab-chat .gchat-grid {
-      /* Ajuste para header + tabs de proyecto + margen */
       height: calc(100vh - 55px - 60px - 16px); 
       padding: 8px;
     }
@@ -1452,16 +1849,25 @@
     .gchat-grid {
         display: flex; /* CAMBIO: de grid a flex */
         flex-direction: column; /* Stack vertical */
-        height: 100%; /* Ocupa el 100% del panel padre */
+        height: 100%;
         max-height: none;
         padding: 8px;
         gap: 8px;
+        /* Resetea grid-template-columns para evitar conflictos */
+        grid-template-columns: 1fr; 
     }
     /* Lista de chats (Primer card) */
     .gchat-grid > .card:first-child {
         flex-shrink: 0; /* No se encoge */
         max-height: 180px; /* Altura máxima */
-        overflow-y: auto;
+        overflow-y: auto; /* Permite scroll solo en esta sección */
+        /* Resetea estilos de colapso */
+        opacity: 1;
+        pointer-events: auto;
+        padding: 8px;
+        margin: 0;
+        width: auto;
+        border: 1px solid var(--line);
     }
     /* Contenedor de chat (Segundo card) */
     .gchat-grid > .card:last-child {
@@ -1471,27 +1877,30 @@
     }
     /* El log de chat */
     .gchat-grid > .card:last-child .chat-log {
-        flex-grow: 1; /* Ocupa espacio en el card */
+        flex-grow: 1;
         min-height: 0;
     }
     /* El área de input */
     .gchat-grid > .card:last-child .chat-input-area {
-        flex-shrink: 0; /* No se encoge */
+        flex-shrink: 0;
     }
-    
-    /* AJUSTE MODEL CARDS (Puntos 4 y 6) */
-    .model-selector { 
-      display: grid; 
-      grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); 
-      gap: 6px; 
-      overflow-x: visible; 
-      padding-bottom: 6px;
-      margin-bottom: 6px;
+
+    /* Oculta botones de colapso de chat en móvil */
+    .gchat-list-header #p-collapse-chat-list,
+    .gchat-list-header #ai-collapse-chat-list,
+    .gchat-main-header #showChatListBtn {
+        display: none !important;
     }
-    .model-selector .model-card { 
-      min-width: 0; 
-      padding: 6px; 
-      flex-basis: auto;
+    /* Muestra el selector de modelo original en el header del chat */
+    .gchat-main-header .model-selector {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); /* Reducido */
+        gap: 4px; /* Reducido */
+        padding-bottom: 0;
+        margin-bottom: 0;
+    }
+    .model-card { 
+      padding: 6px 4px; /* Menos padding lateral */
     }
     .model-card h5 { 
       font-size: 11px; 
@@ -1504,7 +1913,7 @@
     /* ----------------------------------------------------------------------- */
 
     .board { 
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); /* Columnas más anchas en móvil */
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
       gap: 8px; 
       padding: 10px; 
     }
@@ -1519,19 +1928,15 @@
     }
     
     /* Mejoras en Tablas Móviles */
-    .table-wrapper { 
-      /* overflow-x: auto; */ /* Ya estaba, pero aseguramos */
-    }
     #finTable, #task-list-table { 
       min-width: 100%; 
       width: 100%; 
-      /* table-layout: fixed; */ /* Quitado para que se ajuste al contenido */
       font-size: var(--sm); 
     }
     #finTable td, #finTable th, 
     #task-list-table td, #task-list-table th { 
       padding: 8px 4px; 
-      white-space: nowrap; /* Evita saltos de línea feos */
+      white-space: nowrap;
     }
     #finTable th:nth-child(3), #finTable td:nth-child(3) { 
       text-align: right; 
@@ -1581,6 +1986,14 @@
     #cpMonthLbl { 
       min-width: 100px; 
     }
+    
+    /* Rediseño Modal Intis en Móvil */
+    #intisModal .intis-section ul {
+      grid-template-columns: 1fr;
+    }
+    #intisModal .redeem-grid {
+      grid-template-columns: 1fr;
+    }
   }
   
   /* ----------------------------------------------------------------------------
@@ -1602,6 +2015,10 @@
       }
       #p-tab-finance .overview-grid { 
         grid-template-columns: 1fr; /* 1 columna en móvil pequeño */
+      }
+      /* Rediseño Wallet Modal en Móvil Pequeño */
+      #walletModal .wallet-stats {
+        grid-template-columns: 1fr;
       }
   }
 </style>
@@ -1655,7 +2072,8 @@ CONTENEDOR PRINCIPAL (Aside y Main)
 BARRA LATERAL (ASIDE) - ¡ESTRUCTURA ACTUALIZADA!
 ----------------------------------------------------------------------------
 -->
-<aside>
+<!-- NUEVO: onclick para expandir al hacer clic en el fondo -->
+<aside onclick="toggleAside(event)"> 
 <!-- Sección Superior: Logo y Búsqueda -->
 <div class="aside-top-section">
     <div class="brand">
@@ -1670,22 +2088,36 @@ BARRA LATERAL (ASIDE) - ¡ESTRUCTURA ACTUALIZADA!
     <div class="projList-header row"><b>Proyectos</b><span class="spacer"></span><button class="btn btn-sm" id="newProject"><i data-lucide="plus"></i> Nuevo</button></div>
     <div class="projList" id="projList" style="margin-top: 10px;">
         <!-- Los proyectos y carpetas se renderizan aquí -->
+        <!-- 
+          EJEMPLO DE PROYECTO RENDERIZADO (con data-tooltip):
+          <a class="projItem" data-id="p123" data-tooltip="Nombre del Proyecto" href="#!project/p123">
+            ...
+          </a>
+        -->
     </div>
 </div>
 
-<!-- NUEVO: Separador Redimensionable -->
+<!-- Separador Redimensionable -->
 <div id="sidebar-resizer" title="Ajustar tamaño"></div>
 
-<!-- Sección Inferior: Navegación Global -->
+<!-- Sección Inferior: Navegación Global (MODIFICADA) -->
 <div class="aside-bottom-section">
-    <div id="nav-list" class="projList" style="padding-top: 5px;">
-        <a class="navBtn" data-nav="ai-global-chat" href="#!ai-global-chat"><i data-lucide="bot"></i> <span>Asistente IA Global</span></a>
-        <a class="navBtn" data-nav="cronopost" href="#!cronopost"><i data-lucide="calendar-days"></i> <span>Calendario General</span></a>
-        <a class="navBtn" data-nav="hub" href="#!hub"><i data-lucide="globe-2"></i> <span>Hub Profesional</span></a>
-        <a class="navBtn" data-nav="gchat" href="#!gchat"><i data-lucide="messages-square"></i> <span>Chat Global</span></a>
-        <a class="navBtn" data-nav="monet" href="#!monet"><i data-lucide="dollar-sign"></i> <span>Asistente de Monetización</span></a>
-        <a class="navBtn" data-nav="mindset" href="#!mindset"><i data-lucide="brain-circuit"></i> <span>Bienestar y Mindset</span></a>
-        <a class="navBtn" data-nav="settings" href="#!settings"><i data-lucide="settings"></i> <span>Ajustes</span></a>
+    <!-- NUEVO: Link de IA Fijado (con data-tooltip) -->
+    <div class="pinned-nav-item">
+        <a class="navBtn" data-nav="ai-global-chat" href="#!ai-global-chat" data-tooltip="Asistente IA Global">
+            <i data-lucide="bot"></i> <span>Asistente IA Global</span>
+        </a>
+    </div>
+    
+    <!-- Lista de Navegación Scrollable (con data-tooltip) -->
+    <div id="nav-list" class="projList">
+        <!-- Quitado: Asistente IA Global de aquí -->
+        <a class="navBtn" data-nav="cronopost" href="#!cronopost" data-tooltip="Calendario General"><i data-lucide="calendar-days"></i> <span>Calendario General</span></a>
+        <a class="navBtn" data-nav="hub" href="#!hub" data-tooltip="Hub Profesional"><i data-lucide="globe-2"></i> <span>Hub Profesional</span></a>
+        <a class="navBtn" data-nav="gchat" href="#!gchat" data-tooltip="Chat Global"><i data-lucide="messages-square"></i> <span>Chat Global</span></a>
+        <a class="navBtn" data-nav="monet" href="#!monet" data-tooltip="Monetización y Servicios"><i data-lucide="dollar-sign"></i> <span>Monetización</span></a>
+        <a class="navBtn" data-nav="mindset" href="#!mindset" data-tooltip="Bienestar y Mindset"><i data-lucide="brain-circuit"></i> <span>Bienestar y Mindset</span></a>
+        <a class="navBtn" data-nav="settings" href="#!settings" data-tooltip="Ajustes"><i data-lucide="settings"></i> <span>Ajustes</span></a>
     </div>
 </div>
 </aside>
@@ -1729,7 +2161,6 @@ SHELL DEL PROYECTO (Panel único para todas las pestañas de proyecto)
         <button id="viewToggleBoard" class="btn btn-ghost active"><i data-lucide="layout-grid"></i> Tablero</button>
         <button id="viewToggleList" class="btn btn-ghost"><i data-lucide="list"></i> Lista</button>
         
-        <!-- NUEVO: Filtro de Tags -->
         <div class="chip" style="padding: 0 0 0 8px; margin-left: 10px;">
            <i data-lucide="tag" style="width:14px; height:14px; color: var(--sub);"></i>
            <input id="taskTagFilter" placeholder="Filtrar por tag..." style="border:none; background:transparent; padding: 6px 8px; font-size: var(--sm); width: 150px;">
@@ -1808,34 +2239,43 @@ SHELL DEL PROYECTO (Panel único para todas las pestañas de proyecto)
     <div class="row"><b>Archivos</b><span class="spacer"></span><label class="btn btn-primary"><i data-lucide="upload"></i> Subir Archivos<input id="fileInput" multiple type="file" style="display: none;"/></label></div>
     <div id="fileList" style="margin-top:10px" class="row"></div>
 </div>
-<!-- Pestaña: Chat IA (Proyecto) -->
+<!-- Pestaña: Chat IA (Proyecto) (MODIFICADO) -->
 <div id="p-tab-chat" style="display:none">
-    <div class="gchat-grid">
+    <div class="gchat-grid" id="p-chat-grid"> <!-- ID para colapsar -->
         <!-- Columna de Lista de Chats -->
-        <div class="card" style="display:flex; flex-direction: column; overflow-y: auto;">
-            <div class="row"><b>Conversaciones</b><span class="spacer"></span><button class="btn btn-sm" id="newChat"><i data-lucide="plus"></i></button></div>
-            <div id="chatList" style="margin-top:8px"></div>
+        <div class="card" style="display:flex; flex-direction: column; overflow: hidden;">
+            <div class="gchat-list-header">
+                <b>Conversaciones</b>
+                <button class="btn btn-sm" id="newChat"><i data-lucide="plus"></i></button>
+                <button class="btn btn-sm btn-ghost" id="p-collapse-chat-list" title="Ocultar lista"><i data-lucide="chevron-left"></i></button>
+            </div>
+            <div id="chatList" style="flex-grow: 1; overflow-y: auto;"></div>
         </div>
         <!-- Columna de Chat Activo -->
         <div class="card" style="display:flex; flex-direction:column; height: 100%;">
-            <div class="model-selector">
-                <div class="model-card active" data-model="pro">
-                    <h5>Goatify Pro</h5>
-                    <p>Potente y creativo, ideal para la mayoría de tareas.</p>
+            <!-- Header del Chat Principal (con selector de modelo) -->
+            <div class="gchat-main-header">
+                <button class="btn btn-sm btn-ghost" id="showChatListBtn"><i data-lucide="chevron-right"></i></button>
+                <div class="model-selector" style="flex-grow: 1; margin: 0; padding: 0; border: none;">
+                    <div class="model-card active" data-model="pro">
+                        <h5>Goatify Pro</h5>
+                        <p>Potente y creativo.</p>
+                    </div>
+                    <div class="model-card" data-model="web">
+                        <h5>Goatify Web</h5>
+                        <p>Conectado a internet.</p>
+                    </div>
+                    <div class="model-card disabled" data-model="x" title="Próximamente">
+                        <h5>Goatify X</h5>
+                        <p>Avanzado y veloz.</p>
+                    </div>
                 </div>
-                <div class="model-card" data-model="web">
-                    <h5>Goatify Web</h5>
-                    <p>Conectado a internet para respuestas actualizadas.</p>
-                </div>
-                <div class="model-card disabled" data-model="x" title="Próximamente">
-                    <h5>Goatify X</h5>
-                    <p>Nuestro modelo más avanzado y veloz.</p>
-                </div>
-            </div>
-            <div class="row" style="border-bottom: 1px solid var(--line); padding-bottom: 8px; margin-bottom: 8px; flex-shrink: 0;">
-                 <span class="spacer"></span>
                 <button class="btn btn-sm" id="chatToTasks"><i data-lucide="list-plus"></i> Crear Tarea</button>
             </div>
+            
+            <!-- Selector de modelo original (oculto por CSS) -->
+            <div class="model-selector" style="display: none;"></div>
+
             <div id="chatLog" class="chat-log"></div>
             <div class="row chat-input-area">
                 <button class="btn btn-ghost" id="p_attachFileBtn" title="Analizar Imagen, PDF, etc."><i data-lucide="paperclip"></i></button>
@@ -1865,43 +2305,53 @@ SHELL DEL PROYECTO (Panel único para todas las pestañas de proyecto)
 
 <!-- 
 ============================================================================
-MÓDULO: ASISTENTE IA GLOBAL - ¡ESTRUCTURA ACTUALIZADA!
+MÓDULO: ASISTENTE IA GLOBAL - (MODIFICADO)
 ============================================================================
 -->
 <section class="panel full-height-panel" id="ai-global-chat" style="display:none;">
-    <div class="gchat-grid">
+    <div class="gchat-grid" id="ai-chat-grid"> <!-- ID para colapsar -->
         <!-- Columna de Lista de Chats -->
-        <div class="card">
-            <div class="row"><b>Conversaciones</b><span class="spacer"></span><button class="btn btn-sm" id="aiNewChat"><i data-lucide="plus"></i></button></div>
-            <div id="aiChatList" style="margin-top:8px"></div>
+        <div class="card" style="display:flex; flex-direction: column; overflow: hidden;">
+            <div class="gchat-list-header">
+                <b>Conversaciones</b>
+                <button class="btn btn-sm" id="aiNewChat"><i data-lucide="plus"></i></button>
+                <button class="btn btn-sm btn-ghost" id="ai-collapse-chat-list" title="Ocultar lista"><i data-lucide="chevron-left"></i></button>
+            </div>
+            <div id="aiChatList" style="flex-grow: 1; overflow-y: auto;"></div>
         </div>
         <!-- Columna de Chat Activo -->
-        <div class="card">
-             <!-- NUEVO: Encabezado de estado vacío (Punto 5) -->
-             <div id="aiChatEmptyHeader" class="empty-state" style="display:none; padding: 20px 0 0 0; text-align: center; border-bottom: 1px solid var(--line);">
+        <div class="card" style="display:flex; flex-direction:column; height: 100%;">
+             <!-- Encabezado de estado vacío -->
+             <div id="aiChatEmptyHeader" class="empty-state" style="display:none; padding: 20px 0 0 0; text-align: center; border-bottom: 1px solid var(--line); position: relative;">
+                <button class="btn btn-sm btn-ghost" id="showChatListBtn" style="position: absolute; top: 16px; left: 16px;"><i data-lucide="chevron-right"></i></button>
                 <img src="Logos HD.png" style="width: 60px; height: 60px; margin-bottom: 12px;" alt="Goatify Logo">
                 <h3 style="margin: 0; padding-bottom: 16px;">¿Cómo puedo ayudarte hoy?</h3>
              </div>
-             <!-- Selector de Modelo (Ahora después del header) -->
-             <div class="model-selector">
-                <div class="model-card active" data-model="pro">
-                    <h5>Goatify Pro</h5>
-                    <p>Potente y creativo, ideal para la mayoría de tareas.</p>
+             
+             <!-- Header del Chat Principal (con selector de modelo) -->
+             <div class="gchat-main-header">
+                <button class="btn btn-sm btn-ghost" id="showChatListBtn"><i data-lucide="chevron-right"></i></button>
+                <div class="model-selector" style="flex-grow: 1; margin: 0; padding: 0; border: none;">
+                    <div class="model-card active" data-model="pro">
+                        <h5>Goatify Pro</h5>
+                        <p>Potente y creativo.</p>
+                    </div>
+                    <div class="model-card" data-model="web">
+                        <h5>Goatify Web</h5>
+                        <p>Conectado a internet.</p>
+                    </div>
+                    <div class="model-card disabled" data-model="x" title="Próximamente">
+                        <h5>Goatify X</h5>
+                        <p>Avanzado y veloz.</p>
+                    </div>
                 </div>
-                <div class="model-card" data-model="web">
-                    <h5>Goatify Web</h5>
-                    <p>Conectado a internet para respuestas actualizadas.</p>
-                </div>
-                <div class="model-card disabled" data-model="x" title="Próximamente">
-                    <h5>Goatify X</h5>
-                    <p>Nuestro modelo más avanzado y veloz.</p>
-                </div>
-            </div>
-            <div class="row" style="border-bottom: 1px solid var(--line); padding-bottom: 8px; margin-bottom: 8px; flex-shrink: 0;">
-                <span class="spacer"></span>
                 <button class="btn btn-sm" id="aiImageGenBtn"><i data-lucide="image"></i> Generar Imagen</button>
-            </div>
-            <!-- Log del Chat -->
+             </div>
+
+             <!-- Selector de modelo original (oculto por CSS) -->
+            <div class="model-selector" style="display: none;"></div>
+            
+            <!-- Log del Chat (con scroll) -->
             <div id="aiChatLog" class="chat-log">
                 <!-- El estado vacío (sugerencias) se renderizará aquí -->
             </div>
@@ -1923,7 +2373,6 @@ MÓDULO: CRONOPOST (Calendario General)
 -->
 <section class="panel" id="cronopost" style="display:none;">
     <div class="row" style="padding:12px; border-bottom: 1px solid var(--line);">
-        <!-- TÍTULO CAMBIADO -->
         <b>Calendario General</b>
         <div class="chip" style="margin-left: 10px;">Proyecto:</div>
         <select id="cpProjectSelect" class="btn-sm"></select>
@@ -2040,15 +2489,88 @@ MÓDULO: CHAT GLOBAL
 
 <!-- 
 ============================================================================
-MÓDULO: ASISTENTE DE MONETIZACIÓN
+MÓDULO: ASISTENTE DE MONETIZACIÓN (REDISÉÑADO)
 ============================================================================
 -->
 <section class="panel" id="monet" style="display:none; padding: 10px;">
     <div class="card" style="text-align: center; background: linear-gradient(145deg, color-mix(in hsl, var(--brand) 85%, black), color-mix(in hsl, var(--accent) 85%, black)); color: white;">
-        <h2 style="margin:0;">Asistente de Monetización Quantum Pro</h2>
-        <p style="opacity: 0.8;">Transforma tus ideas en ingresos. Selecciona un módulo para empezar.</p>
+        <h2 style="margin:0;">Monetización y Servicios Digitales</h2>
+        <p style="opacity: 0.8;">Transforma tus ideas en ingresos con nuestros servicios y programas.</p>
     </div>
-    <div id="monet-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px; margin-top: 10px;">
+    
+    <!-- NUEVO: Grid de Servicios -->
+    <div id="service-grid">
+        <!-- Tarjeta 1: Agentes de Venta IA -->
+        <div class="service-card">
+            <i data-lucide="bot"></i>
+            <h4>Agentes de Venta IA 24/7</h4>
+            <div class="service-price">Desde $47/mes</div>
+            <p class="service-desc">Vendedores virtuales entrenados con tu información que responden dudas y cierran ventas en tu web, 24/7.</p>
+            <button class="btn btn-primary" style="width: 100%;">Me Interesa</button>
+        </div>
+        
+        <!-- Tarjeta 2: Sitios Web Smart -->
+        <div class="service-card">
+            <i data-lucide="layout-grid"></i>
+            <h4>Sitios Web Smart</h4>
+            <div class="service-price">Desde $47 (Pago único)</div>
+            <p class="service-desc">Páginas web completas con IA integrada, e-commerce, dominio y hosting. Todo listo para vender.</p>
+            <button class="btn btn-primary" style="width: 100%;">Me Interesa</button>
+        </div>
+        
+        <!-- Tarjeta 3: Kit de Branding con IA -->
+        <div class="service-card">
+            <i data-lucide="palette"></i>
+            <h4>Kit de Branding con IA</h4>
+            <div class="service-price">Consultar</div>
+            <p class="service-desc">Tu identidad de marca profesional (logo, colores, tipografías) generada por IA en minutos.</p>
+            <button class="btn btn-primary" style="width: 100%;">Me Interesa</button>
+        </div>
+        
+        <!-- Tarjeta 4: Aplicaciones a Medida -->
+        <div class="service-card">
+            <i data-lucide="app-window"></i>
+            <h4>Aplicaciones a Medida</h4>
+            <div class="service-price">Consultar</div>
+            <p class="service-desc">Desarrollamos aplicaciones inteligentes y personalizadas para solucionar los problemas de tu negocio.</p>
+            <button class="btn btn-primary" style="width: 100%;">Me Interesa</button>
+        </div>
+        
+        <!-- Tarjeta 5: Videos Promocionales IA -->
+        <div class="service-card">
+            <i data-lucide="video"></i>
+            <h4>Videos Promocionales con IA</h4>
+            <div class="service-price">Consultar</div>
+            <p class="service-desc">Avatares hiperrealistas y voces IA para crear videos de marketing y formación sin necesidad de cámaras.</p>
+            <button class="btn btn-primary" style="width: 100%;">Me Interesa</button>
+        </div>
+        
+        <!-- Tarjeta 6: Consultoría IA -->
+        <div class="service-card">
+            <i data-lucide="briefcase"></i>
+            <h4>Consultoría Empresarial en IA</h4>
+            <div class="service-price">Consultar</div>
+            <p class="service-desc">Analizamos tu empresa y creamos una estrategia de implementación de IA para optimizar y crecer.</p>
+            <button class="btn btn-primary" style="width: 100%;">Me Interesa</button>
+        </div>
+        
+        <!-- Tarjeta 7: Capacitación IA -->
+        <div class="service-card">
+            <i data-lucide="users"></i>
+            <h4>Capacitación en IA para Equipos</h4>
+            <div class="service-price">Consultar</div>
+            <p class="service-desc">Entrenamos a tu personal para usar IA, aumentando la productividad y reduciendo costos operativos.</p>
+            <button class="btn btn-primary" style="width: 100%;">Me Interesa</button>
+        </div>
+        
+         <!-- Tarjeta 8: Programa de Socios (Especial) -->
+        <div class="service-card socios-card" onclick="openMonetModule('socios')">
+            <i data-lucide="handshake"></i>
+            <h4>Programa de Socios Goatify.ia</h4>
+            <div class="service-price">¡Gana hasta 50% en comisiones!</div>
+            <p class="service-desc">Genera ingresos reales recomendando nuestras soluciones. Cero experiencia requerida, nosotros cerramos la venta.</p>
+            <button class="btn" style="width: 100%;">Ver Detalles del Programa</button>
+        </div>
     </div>
 </section>
 
@@ -2119,7 +2641,7 @@ OVERLAY PARA MENÚ MÓVIL
 
 <!-- 
 ============================================================================
-MODALES DE LA APLICACIÓN
+MODALES DE LA APLICACIÓN (¡ACTUALIZADOS!)
 ============================================================================
 -->
 <!-- Modal: Selección de Industria (Onboarding) -->
@@ -2151,6 +2673,35 @@ MODALES DE LA APLICACIÓN
             <button class="btn" onclick="$('#inputModal').close()">Cancelar</button>
             <span class="spacer"></span>
             <button class="btn btn-primary" id="inputModalConfirm">Confirmar</button>
+        </div>
+    </div>
+</dialog>
+
+<!-- NUEVO: Modal de Creación de Proyecto (con color) -->
+<dialog id="newProjectModal">
+    <div style="padding: 24px;">
+        <h3 id="newProjectModalTitle" style="margin-top:0">Crear Nuevo Proyecto</h3>
+        <p id="newProjectModalDesc" class="sub">Dale un nombre y elige un color para tu nuevo espacio de trabajo.</p>
+        
+        <label for="newProjectName">Nombre del Proyecto</label>
+        <input id="newProjectName" placeholder="Ej: Lanzamiento App Móvil" style="margin: 8px 0 16px;"/>
+        
+        <label>Color del Proyecto</label>
+        <div class="color-picker-grid" id="newProjectColorPicker">
+            <!-- Los colores se añadirán dinámicamente, pero puedes poner placeholders -->
+            <div class="color-swatch selected" data-color="#6d28d9" style="background-color: #6d28d9;"></div>
+            <div class="color-swatch" data-color="#db2777" style="background-color: #db2777;"></div>
+            <div class="color-swatch" data-color="#0ea5e9" style="background-color: #0ea5e9;"></div>
+            <div class="color-swatch" data-color="#10b981" style="background-color: #10b981;"></div>
+            <div class="color-swatch" data-color="#f59e0b" style="background-color: #f59e0b;"></div>
+            <div class="color-swatch" data-color="#ef4444" style="background-color: #ef4444;"></div>
+            <div class="color-swatch" data-color="#78716c" style="background-color: #78716c;"></div>
+        </div>
+        
+        <div class="row" style="margin-top: 24px;">
+            <button class="btn" onclick="$('#newProjectModal').close()">Cancelar</button>
+            <span class="spacer"></span>
+            <button class="btn btn-primary" id="newProjectConfirm">Crear Proyecto</button>
         </div>
     </div>
 </dialog>
@@ -2188,7 +2739,7 @@ MODALES DE LA APLICACIÓN
                  <select id="taskDetailFolder" style="margin-top: 8px;"></select>
              </div>
 
-             <!-- NUEVO: Input de Tags -->
+             <!-- Input de Tags -->
              <div style="margin-bottom: 16px;">
                  <label>Tags (separados por coma)</label>
                  <input id="taskDetailTags" placeholder="Ej: urgente, diseño, cliente" style="margin-top: 8px;" />
@@ -2232,7 +2783,7 @@ MODALES DE LA APLICACIÓN
     </div>
 </dialog>
 
-<!-- Modal: Módulo de Monetización -->
+<!-- Modal: Módulo de Monetización (Programa de Socios) -->
 <dialog id="monetModuleModal">
     <div style="padding: 24px; display: flex; flex-direction: column; max-height: 85vh;">
          <div class="row">
@@ -2240,26 +2791,40 @@ MODALES DE LA APLICACIÓN
             <span class="spacer"></span>
             <button onclick="$('#monetModuleModal').close()" class="btn btn-ghost"><i data-lucide="x"></i></button>
         </div>
-        <div id="monetModuleContent" style="overflow-y: auto; padding-right: 10px;"></div>
+        <div id="monetModuleContent" style="overflow-y: auto; padding-right: 10px;">
+            <!-- El contenido del programa de socios se carga aquí -->
+        </div>
     </div>
 </dialog>
 
-<!-- Modal: Billetera General -->
+<!-- Modal: Billetera General (REDISÉÑADO) -->
 <dialog id="walletModal">
-    <div style="padding: 24px; display: flex; flex-direction: column; max-height: 85vh;">
-        <div class="row">
-            <h3 style="margin-top:0"><i data-lucide="wallet"></i> Billetera General</h3>
-            <span class="spacer"></span>
-            <button onclick="$('#walletModal').close()" class="btn btn-ghost"><i data-lucide="x"></i></button>
-        </div>
-        <p class="sub">Registra aquí todos los ingresos y egresos de tus proyectos para tener un control financiero centralizado.</p>
-        <div class="card" style="margin: 10px 0;">
+    <div class="modal-content">
+        <!-- Columna Izquierda: Formulario -->
+        <div class="wallet-form">
+            <div class="row">
+                <h3 style="margin-top:0"><i data-lucide="wallet"></i> Billetera General</h3>
+                <span class="spacer"></span>
+                <button onclick="$('#walletModal').close()" class="btn btn-ghost btn-sm"><i data-lucide="x"></i></button>
+            </div>
+            <p class="sub">Registra aquí todos tus movimientos para tener un control financiero centralizado.</p>
+            
+            <div class="wallet-stats">
+                 <div class="stat-card"><h4>Ingresos</h4><p id="wModalIn" style="color: var(--success); font-size: var(--lg);">0</p></div>
+                 <div class="stat-card"><h4>Egresos</h4><p id="wModalOut" style="color: var(--danger); font-size: var(--lg);">0</p></div>
+                 <div class="stat-card"><h4>Balance</h4><p id="wModalBal" style="font-size: var(--lg);">0</p></div>
+            </div>
+
+            <b>Nuevo Movimiento</b>
             <div class="row"><input id="wMonto" placeholder="Monto" type="number" step="0.01"/><select id="wTipo"><option>Ingreso</option><option>Egreso</option></select></div>
-            <div class="row" style="margin-top:8px"><input id="wCat" placeholder="Categoría" class="spacer"/><input id="wNota" placeholder="Nota" class="spacer"/></div>
+            <input id="wCat" placeholder="Categoría"/>
+            <input id="wNota" placeholder="Nota (Opcional)"/>
             <button class="btn btn-primary" id="wAdd" style="width:100%; margin-top:8px;">+ Añadir Movimiento</button>
         </div>
-        <div class="table-wrapper" style="overflow-y: auto; padding-right: 10px;">
-            <table style="width:100%;">
+        
+        <!-- Columna Derecha: Transacciones -->
+        <div class="wallet-transactions">
+            <table id="wTable">
                 <thead><tr><th>Fecha</th><th>Tipo</th><th>Monto</th><th>Cat</th><th>Nota</th><th></th></tr></thead>
                 <tbody id="wBody"></tbody>
             </table>
@@ -2267,27 +2832,65 @@ MODALES DE LA APLICACIÓN
     </div>
 </dialog>
 
-<!-- Modal: Intis (Gamificación) -->
+<!-- Modal: Intis (Gamificación) (REDISÉÑADO) -->
 <dialog id="intisModal">
-     <div style="padding: 24px; text-align: center;">
+     <div class="modal-content">
         <button onclick="$('#intisModal').close()" class="btn btn-ghost" style="position:absolute; top:10px; right:10px;"><i data-lucide="x"></i></button>
-        <i data-lucide="sparkles" width="48" height="48" style="color: var(--brand);"></i>
-        <h2 style="margin-top: 10px;">¿Qué son los Intis? ✨</h2>
-        <p class="sub">Los Intis son nuestra moneda de gamificación, diseñada para fomentar una economía circular y colaborativa dentro de Goatify.</p>
-        <div class="card" style="text-align: left;">
-            <h4 style="margin-top:0">Reglas para Ganar Intis</h4>
-            <ul style="padding-left: 20px;">
-                <li><b>+100 Intis:</b> Cargar una plantilla de industria al empezar.</li>
-                <li><b>+50 Intis:</b> Crear un nuevo proyecto desde cero.</li>
-                <li><b>+20 Intis:</b> Publicar en el Hub Profesional (empleos y servicios).</li>
-                <li><b>+10 Intis:</b> Completar una tarea (moverla a "Hecho").</li>
-                <li><b>+5 Intis:</b> Crear una nueva tarea, nota, tabla, o idea de contenido.</li>
-                <li><b>+5 Intis:</b> Registrar un movimiento en la billetera.</li>
+        
+        <div class="intis-balance">
+            <i data-lucide="sparkles" width="48" height="48"></i>
+            <h2 id="intisModalBalance">0</h2>
+            <p>Intis Disponibles</p>
+        </div>
+        
+        <div class="intis-section">
+            <h4>¿Qué son los Intis? ✨</h4>
+            <p class="sub" style="font-size: var(--md);"><b>Te pagamos por usar la aplicación para trabajar.</b><br>Los Intis son nuestra moneda digital de gamificación, diseñada para premiar tu productividad y fomentar una economía colaborativa dentro de Goatify.</p>
+        </div>
+        
+        <div class="intis-section">
+            <h4>¿Cómo Ganar Intis?</h4>
+            <ul id="intis-rules-list">
+                <li><b>+100 Intis:</b> Cargar una plantilla de industria.</li>
+                <li><b>+50 Intis:</b> Crear un nuevo proyecto.</li>
+                <li><b>+20 Intis:</b> Publicar en el Hub Profesional.</li>
+                <li><b>+10 Intis:</b> Completar una tarea.</li>
+                <li><b>+5 Intis:</b> Crear tarea, nota, tabla, o idea.</li>
+                <li><b>+5 Intis:</b> Registrar un movimiento financiero.</li>
                 <li><b>+5 Intis:</b> Subir un archivo.</li>
-                <li><b>+2 Intis:</b> Enviar un mensaje en el Chat Global.</li>
+                <li><b>+2 Intis:</b> Enviar un mensaje en Chat Global.</li>
             </ul>
-             <h4 style="margin-top:1em;">¿Para qué sirven?</h4>
-             <p>Actualmente, los Intis miden tu progreso y participación. En el futuro, podrás usarlos para canjear recompensas, acceder a funciones exclusivas y realizar transacciones dentro del mercado.</p>
+        </div>
+        
+        <div class="intis-section">
+            <h4>¿Cómo Canjear tus Intis?</h4>
+            <p class="sub">Usa tus Intis con nuestras marcas aliadas para obtener servicios y productos reales.</p>
+            <div class="redeem-grid">
+                <div class="redeem-card">
+                    <img src="https://placehold.co/60x40/f1f5f9/6d28d9?text=CIE" alt="Centro Iberoamericano de Educación">
+                    <b>Cursos de Marketing</b>
+                    <p class="redeem-price">5,000 Intis</p>
+                    <p class="redeem-value">Centro Iberoamericano de Educación</p>
+                </div>
+                <div class="redeem-card">
+                    <img src="Logos HD.png" style="height: 40px; background: var(--muted); padding: 4px;" alt="Gotify">
+                    <b>Agente de Ventas IA</b>
+                    <p class="redeem-price">15,000 Intis</p>
+                    <p class="redeem-value">Valor: $47 USD/mes</p>
+                </div>
+                 <div class="redeem-card">
+                    <img src="Logos HD.png" style="height: 40px; background: var(--muted); padding: 4px;" alt="Gotify">
+                    <b>Kit de Branding IA</b>
+                    <p class="redeem-price">10,000 Intis</p>
+                    <p class="redeem-value">Valor: $97 USD</p>
+                </div>
+                 <div class="redeem-card">
+                    <img src="Logos HD.png" style="height: 40px; background: var(--muted); padding: 4px;" alt="Gotify">
+                    <b>Sitio Web Smart</b>
+                    <p class="redeem-price">12,000 Intis</p>
+                    <p class="redeem-value">Valor: $47 USD</p>
+                </div>
+            </div>
         </div>
     </div>
 </dialog>
@@ -2306,16 +2909,44 @@ MODALES DE LA APLICACIÓN
     </div>
 </dialog>
 
-<!-- Modal: Nueva Tarea (desde Cronopost) -->
+<!-- Modal: Nueva Tarea (desde Cronopost) (MODIFICADO) -->
 <dialog id="cronoTaskModal">
-    <div style="padding: 24px;">
-        <h3 id="cronoTaskModalTitle" style="margin-top:0">Nueva Tarea</h3>
+    <div style="padding: 24px; display: flex; flex-direction: column; max-height: 85vh;">
+        <div class="row">
+            <h3 id="cronoTaskModalTitle" style="margin-top:0">Nueva Tarea</h3>
+             <span class="spacer"></span>
+            <button class="btn btn-ghost" onclick="$('#cronoTaskModal').close()"><i data-lucide="x"></i></button>
+        </div>
         <p id="cronoTaskModalDesc" class="sub"></p>
-        <label>Título de la Tarea</label>
-        <input id="cronoTaskTitle" style="margin: 8px 0 16px;" />
-        <label>Asignar a Proyecto</label>
-        <select id="cronoTaskProjectSelect" style="margin-top: 8px;"></select>
-        <div class="row" style="margin-top: 24px;">
+        
+        <div style="overflow-y: auto; padding-right: 10px;">
+            <label>Título de la Tarea</label>
+            <input id="cronoTaskTitle" placeholder="¿Qué hay que hacer?" style="margin: 8px 0 16px; font-size: var(--lg); padding: 12px;" />
+            
+            <label>Descripción</label>
+            <textarea id="cronoTaskDesc" placeholder="Añade más detalles..." rows="3" style="margin: 8px 0 16px;"></textarea>
+            
+            <div class="row" style="gap: 16px; margin-bottom: 16px;">
+                <div style="flex:1">
+                    <label>Asignar a Proyecto</label>
+                    <select id="cronoTaskProjectSelect" style="margin-top: 8px;"></select>
+                </div>
+                <div style="flex:1">
+                    <label>Estado Inicial</label>
+                    <select id="cronoTaskStatusSelect" style="margin-top: 8px;">
+                        <!-- Se poblará dinámicamente -->
+                    </select>
+                </div>
+            </div>
+
+             <!-- NUEVO: Input de Tags -->
+             <div style="margin-bottom: 16px;">
+                 <label>Tags (separados por coma)</label>
+                 <input id="cronoTaskTags" placeholder="Ej: urgente, marketing" style="margin-top: 8px;" />
+             </div>
+        </div>
+        
+        <div class="row" style="margin-top: 24px; border-top: 1px solid var(--line); padding-top: 16px;">
             <button class="btn" onclick="$('#cronoTaskModal').close()">Cancelar</button>
             <span class="spacer"></span>
             <button class="btn btn-primary" id="cronoTaskConfirm">Crear Tarea</button>
@@ -2335,7 +2966,7 @@ MODALES DE LA APLICACIÓN
     </div>
 </dialog>
 
-<!-- Modal: Finanzas de Proyecto (Corregido) -->
+<!-- Modal: Finanzas de Proyecto -->
 <dialog id="projectFinModal">
     <div style="padding: 24px;">
         <h3 style="margin-top:0">Nuevo Movimiento de Proyecto</h3>
@@ -2382,20 +3013,10 @@ NOTIFICACIÓN TOAST
 -->
 <div id="toast" class="info"></div>
 
-
 <!-- 
 ============================================================================
 ============================================================================
-INICIO DE JAVASCRIPT
-============================================================================
-============================================================================
--->
-<!-- ... (El HTML y CSS de la entrega anterior va aquí) ... -->
-
-<!-- 
-============================================================================
-============================================================================
-INICIO DE JAVASCRIPT
+FIN DE HTML/CSS - INICIO DE JAVASCRIPT
 ============================================================================
 ============================================================================
 -->
@@ -2408,7 +3029,7 @@ SECCIÓN 1: ESTADO GLOBAL Y MANEJO DE DATOS
 */
 var S = {}; // El objeto de estado global
 const initialState = {
-  version:'9.1-final', // Versión actualizada con todas las mejoras
+  version:'10.0-fixes', // Versión actualizada con correcciones y mejoras
   userProfile: { industry: null },
   projects: [],
   activeProject: null,
@@ -2418,7 +3039,10 @@ const initialState = {
       asideCollapsed: true, // Inicia colapsado en desktop
       activeFolder: 'General', // Siempre hay una carpeta activa
       sidebarTopHeight: '50%', // Altura inicial de la sección de proyectos
-      projectCollapsedState: {} // Guarda el estado plegado de cada proyecto { projectId: true/false }
+      projectCollapsedState: {}, // Guarda el estado plegado de cada proyecto { projectId: true/false }
+      pChatCollapsed: false, // Estado de colapso para chat de proyecto
+      aiChatCollapsed: false, // Estado de colapso para chat global IA
+      newProjectColor: '#6d28d9', // Color por defecto para nuevo proyecto
   },
   folders: {}, // folders[projectId] = ['General', 'Folder2', ...]
   tasks: {},   // tasks[projectId] = { 'General': [], 'Folder2': [] } // Incluye tags: ['tag1', 'tag2']
@@ -2439,7 +3063,7 @@ const initialState = {
     ]
   },
   gchat: { messages:{'general': []}, dms: {}, activeChat: 'general' },
-  monet: {},
+  monet: {}, // Se manejará con la estructura visual, no necesita estado complejo aquí por ahora
   mindset: { frequency: 'daily' },
   wallet: { movs: [] },
   intis: 0,
@@ -2457,7 +3081,7 @@ const CREDIT_COSTS = {
  */
 function save(){ 
     try {
-        localStorage.setItem('goatify_v9_final', JSON.stringify(S)); // Nueva clave v9.1
+        localStorage.setItem('goatify_v10_fixes', JSON.stringify(S)); // Nueva clave v10
         syncHeader();
     } catch(e) {
         console.error("Error saving to localStorage", e);
@@ -2470,13 +3094,14 @@ function save(){
  * Realiza migraciones y comprobaciones de integridad.
  */
 function load(){
-  let raw = localStorage.getItem('goatify_v9_final') || localStorage.getItem('goatify_v9_nav') || localStorage.getItem('goatify_v8_7'); // Carga datos antiguos si existen
+  let raw = localStorage.getItem('goatify_v10_fixes') || localStorage.getItem('goatify_v9_2_final') || localStorage.getItem('goatify_v9_final') || localStorage.getItem('goatify_v9_nav') || localStorage.getItem('goatify_v8_7'); // Carga datos antiguos si existen
   S = raw ? JSON.parse(raw) : JSON.parse(JSON.stringify(initialState));
   
   // Migraciones y valores por defecto (asegura que el estado viejo sea compatible)
   S.projects.forEach(p => {
       const projId = p.id;
       if(!p.taskColumns) p.taskColumns = ['Backlog','En curso','Bloqueado','Hecho'];
+      if(!p.color) p.color = `hsl(${Math.random() * 360}, 70%, 60%)`; // Añade color si falta
       
       // MIGRACIÓN: Estructura de Tareas por Carpetas y Tags
       if (!S.tasks[projId] || Array.isArray(S.tasks[projId])) {
@@ -2489,10 +3114,11 @@ function load(){
               S.tasks[projId][task.folder].push(task);
           });
       } else {
-          // Si ya existe la estructura de carpetas, solo asegura tags
-          Object.values(S.tasks[projId]).forEach(folderTasks => {
+          // Si ya existe la estructura de carpetas, solo asegura tags y 'folder'
+          Object.entries(S.tasks[projId]).forEach(([folderName, folderTasks]) => {
               folderTasks.forEach(task => {
                   if (!task.tags) task.tags = [];
+                  if (!task.folder) task.folder = folderName; // Asegura que la propiedad folder exista
               });
           });
       }
@@ -2521,13 +3147,16 @@ function load(){
   if (!S.hub.jobs) S.hub.jobs = [];
   if (!S.gchat) S.gchat = initialState.gchat;
   if (!S.wallet) S.wallet = { movs: [] };
-  if (!S.intis) S.intis = 0;
-  if (!S.aiGlobalChat) S.aiGlobalChat = initialState.aiGlobalChat;
-  if (!S.ui) S.ui = { taskView: 'board', asideCollapsed: true, activeFolder: 'General', sidebarTopHeight: '50%', projectCollapsedState: {} };
+  if (S.intis === undefined) S.intis = 0; // Asegura que Intis sea numérico
+  if (!S.aiGlobalChat) S.aiGlobalChat = JSON.parse(JSON.stringify(initialState.aiGlobalChat));
+  if (!S.ui) S.ui = JSON.parse(JSON.stringify(initialState.ui)); // Copia completa para evitar mutaciones
   if (!S.tables) S.tables = {};
   if (!S.ui.activeFolder) S.ui.activeFolder = 'General';
   if (!S.ui.sidebarTopHeight) S.ui.sidebarTopHeight = '50%';
   if (!S.ui.projectCollapsedState) S.ui.projectCollapsedState = {};
+  if (S.ui.pChatCollapsed === undefined) S.ui.pChatCollapsed = false; // Añade valor por defecto si no existe
+  if (S.ui.aiChatCollapsed === undefined) S.ui.aiChatCollapsed = false; // Añade valor por defecto si no existe
+  if (!S.ui.newProjectColor) S.ui.newProjectColor = '#6d28d9'; // Asegura color por defecto
   
   syncHeader();
   document.body.classList.toggle('aside-collapsed', S.ui.asideCollapsed);
@@ -2579,9 +3208,13 @@ function useCredits(amount) {
  * @param {string} reason - Razón para el log.
  */
 function addIntis(points, reason) {
-    S.intis += points;
+    S.intis = (S.intis || 0) + points; // Asegura que sea numérico
     save();
     showToast(`+${points} Intis ✨ (${reason})`, 'info');
+    // Actualiza el modal si está abierto
+    if ($('#intisModal').open) {
+        $('#intisModalBalance').textContent = S.intis;
+    }
 }
 
 /* ============================================================================
@@ -2727,7 +3360,7 @@ SECCIÓN 3: NAVEGACIÓN PRINCIPAL Y UI CORE
 
 /**
  * Renderiza la lista de proyectos y carpetas en el aside.
- * Incluye lógica de plegado/desplegado.
+ * Incluye lógica de plegado/desplegado y tooltips.
  */
 function renderAside() {
   const list = $('#projList'); list.innerHTML='';
@@ -2738,7 +3371,7 @@ function renderAside() {
     // 1. Crear el item del Proyecto (como <a>)
     const item = el('a', {
         class:'projItem', 
-        dataset: {id: p.id, collapsed: isCollapsed}, 
+        dataset: {id: p.id, collapsed: isCollapsed, tooltip: p.name}, // Añade data-tooltip
         href: `#!project/${p.id}`,
         onclick: (e) => {
             // Permitir click en toggle sin navegar
@@ -2756,8 +3389,8 @@ function renderAside() {
         el('div', {class:'proj-color-dot', style:`background-color:${p.color}`}),
         el('span',{class: 'proj-text', textContent:p.name, title: p.name}),
         el('div', {class: 'proj-actions'},
-            el('button', {class: 'btn btn-ghost btn-sm', title: 'Editar nombre', onclick: (e) => { e.stopPropagation(); e.preventDefault(); editProjectName(p.id); }}, el('i', {'data-lucide': 'edit-3', width: 14})),
-            el('button', {class: 'btn btn-ghost btn-sm', title: 'Eliminar Proyecto', onclick: (e) => { e.stopPropagation(); e.preventDefault(); deleteProject(p.id); }}, el('i', {'data-lucide': 'trash-2', width: 14})) // Botón Eliminar Proyecto
+            el('button', {class: 'btn btn-ghost btn-sm', title: 'Editar', onclick: (e) => { e.stopPropagation(); e.preventDefault(); editProjectName(p.id); }}, el('i', {'data-lucide': 'edit-3', width: 14})),
+            el('button', {class: 'btn btn-ghost btn-sm', title: 'Eliminar', onclick: (e) => { e.stopPropagation(); e.preventDefault(); deleteProject(p.id); }}, el('i', {'data-lucide': 'trash-2', width: 14})) 
         )
     );
     if (p.id === S.activeProject) item.classList.add('active');
@@ -2780,9 +3413,9 @@ function renderAside() {
             el('span', {class: 'dot', style: `background-color:${p.color}`}),
             el('span', {class: 'label', textContent: f, title: f}),
             el('div', {class: 'mj-folder-actions'},
-                 el('button', {class: 'btn btn-ghost btn-sm', title: 'Renombrar Carpeta', onclick: (e) => { e.stopPropagation(); e.preventDefault(); editFolderName(p.id, f); }}, el('i', {'data-lucide': 'edit-3', width: 14})),
+                 el('button', {class: 'btn btn-ghost btn-sm', title: 'Renombrar', onclick: (e) => { e.stopPropagation(); e.preventDefault(); editFolderName(p.id, f); }}, el('i', {'data-lucide': 'edit-3', width: 14})),
                  // Solo permite eliminar si no es 'General'
-                 f !== 'General' ? el('button', {class: 'btn btn-ghost btn-sm', title: 'Eliminar Carpeta', onclick: (e) => { e.stopPropagation(); e.preventDefault(); deleteFolder(p.id, f); }}, el('i', {'data-lucide': 'trash-2', width: 14})) : null
+                 f !== 'General' ? el('button', {class: 'btn btn-ghost btn-sm', title: 'Eliminar', onclick: (e) => { e.stopPropagation(); e.preventDefault(); deleteFolder(p.id, f); }}, el('i', {'data-lucide': 'trash-2', width: 14})) : null
             )
         );
         folderWrap.appendChild(folderRow);
@@ -2790,10 +3423,19 @@ function renderAside() {
     list.appendChild(folderWrap);
   });
   
-  // 3. Actualiza el estado activo de los botones de navegación global
+  // 3. Actualiza el estado activo y tooltip de los botones de navegación global
   $$('.navBtn[data-nav]').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.nav === S.activeNav && !S.activeProject);
+    // Asegura que el tooltip se actualice (el texto del span)
+    btn.dataset.tooltip = btn.querySelector('span')?.textContent || btn.dataset.nav; 
   });
+  
+  // 4. Asegura que el botón de IA fijado esté activo y tenga tooltip
+  const pinnedBtn = $('.pinned-nav-item .navBtn');
+  if (pinnedBtn) {
+      pinnedBtn.classList.toggle('active', pinnedBtn.dataset.nav === S.activeNav && !S.activeProject);
+      pinnedBtn.dataset.tooltip = pinnedBtn.querySelector('span')?.textContent || 'Asistente IA';
+  }
 
   lucide.createIcons();
 }
@@ -2805,6 +3447,19 @@ function toggleProjectCollapse(projectId) {
     S.ui.projectCollapsedState[projectId] = !S.ui.projectCollapsedState[projectId];
     save();
     renderAside(); // Re-renderiza para aplicar el cambio visual
+}
+
+/**
+ * NUEVO: Expande el menú lateral si está colapsado y se hace clic en el fondo.
+ */
+function toggleAside(event) {
+    const isDesktop = window.innerWidth > 1180;
+    // Solo expandir en desktop si está colapsado Y el click NO es en un botón/input interno
+    if (isDesktop && S.ui.asideCollapsed && event.target === $('aside')) {
+        S.ui.asideCollapsed = false;
+        document.body.classList.remove('aside-collapsed');
+        save();
+    }
 }
 
 
@@ -2833,7 +3488,7 @@ function show(sectionId){
     case 'cronopost': renderCronoPOST(); break;
     case 'hub': renderHub(); break;
     case 'gchat': renderGChat(); break;
-    case 'monet': renderMonetAssistant(); break;
+    case 'monet': renderMonetAssistant(); break; // Ya no hay sub-módulos aquí
     case 'mindset': setupMindset(); break;
   }
 }
@@ -2923,55 +3578,115 @@ SECCIÓN 4: CRUD DE PROYECTOS Y CARPETAS
 */
 
 /**
- * Muestra un modal para crear un nuevo proyecto y lo inicializa.
+ * Muestra el modal para crear un nuevo proyecto y lo inicializa.
  */
 function createNewProject() {
-    showInputModal('Crear Nuevo Proyecto', 'Dale un nombre a tu nuevo espacio de trabajo.', 'Ej: Lanzamiento App Móvil', (name) => {
-        const id = 'p' + Date.now();
-        const color = `hsl(${Math.random() * 360}, 70%, 60%)`;
-        
-        // Inicializa el estado para el nuevo proyecto
-        S.projects.push({id, name, color, taskColumns: ['Backlog','En curso','Bloqueado','Hecho']});
-        S.folders[id]=['General'];
-        S.tasks[id]= { 'General': [] }; // Estructura inicial de tareas por carpeta
-        S.notes[id]={list:[], active:null, bodies:{}, drawings:{}}; 
-        S.chats[id]={threads:[], messages:{}, activeThread: null, model: 'pro'};
-        S.tables[id]={list:[{id: 'tbl_default', name: 'Tabla 1'}], active: 'tbl_default', data: {'tbl_default': {cols:['Col 1'], rows:[]}}};
-        S.files[id]=[];
-        S.fin[id]={rows:[]};
-        S.cronopost.posts[id] = {}; 
-        S.cronopost.ideas[id] = [];
-        S.ui.projectCollapsedState[id] = false; // Inicia expandido
-        
-        addIntis(50, 'Proyecto nuevo');
-        showToast('Proyecto creado!', 'success');
-        save();
-        
-        // Navega al nuevo proyecto
-        history.pushState({view: `project/${id}`}, '', `#!project/${id}`);
-        openProject(id, 'General');
-        renderAside(); // Renderiza el aside para mostrar el nuevo proyecto
-    });
+    // Resetea el color seleccionado y el input
+    $('#newProjectName').value = '';
+    $$('#newProjectColorPicker .color-swatch').forEach(swatch => swatch.classList.remove('selected'));
+    const defaultSwatch = $('#newProjectColorPicker .color-swatch');
+    if (defaultSwatch) {
+        defaultSwatch.classList.add('selected');
+        S.ui.newProjectColor = defaultSwatch.dataset.color || '#6d28d9';
+    } else {
+        S.ui.newProjectColor = '#6d28d9'; // Fallback
+    }
+
+    $('#newProjectModal').showModal();
+    $('#newProjectName').focus();
 }
 
 /**
- * Edita el nombre de un proyecto.
+ * Confirma la creación del nuevo proyecto desde el modal.
+ */
+function confirmNewProject() {
+    const name = $('#newProjectName').value.trim();
+    if (!name) {
+        showToast('Por favor, ingresa un nombre para el proyecto.', 'warn');
+        return;
+    }
+    const color = S.ui.newProjectColor; // Usa el color guardado en el estado UI
+    const id = 'p' + Date.now();
+    
+    // Inicializa el estado para el nuevo proyecto
+    S.projects.push({id, name, color, taskColumns: ['Backlog','En curso','Bloqueado','Hecho']});
+    S.folders[id]=['General'];
+    S.tasks[id]= { 'General': [] }; // Estructura inicial de tareas por carpeta
+    S.notes[id]={list:[], active:null, bodies:{}, drawings:{}}; 
+    S.chats[id]={threads:[], messages:{}, activeThread: null, model: 'pro'};
+    S.tables[id]={list:[{id: 'tbl_default', name: 'Tabla 1'}], active: 'tbl_default', data: {'tbl_default': {cols:['Col 1'], rows:[]}}};
+    S.files[id]=[];
+    S.fin[id]={rows:[]};
+    S.cronopost.posts[id] = {}; 
+    S.cronopost.ideas[id] = [];
+    S.ui.projectCollapsedState[id] = false; // Inicia expandido
+    
+    addIntis(50, 'Proyecto nuevo');
+    showToast('Proyecto creado!', 'success');
+    save();
+    
+    $('#newProjectModal').close();
+    
+    // Navega al nuevo proyecto
+    history.pushState({view: `project/${id}`}, '', `#!project/${id}`);
+    openProject(id, 'General');
+    renderAside(); // Renderiza el aside para mostrar el nuevo proyecto
+}
+
+/**
+ * Edita el nombre y color de un proyecto.
  */
 function editProjectName(projectId) {
     const project = S.projects.find(p => p.id === projectId);
     if (!project) return;
     
-    showInputModal('Editar Proyecto', 'Nuevo nombre para el proyecto:', project.name, (newName) => {
-        if (!newName || newName === project.name) return;
+    // Pre-selecciona el color actual en el modal (reutilizando el de nuevo proyecto)
+    $('#newProjectName').value = project.name;
+    $$('#newProjectColorPicker .color-swatch').forEach(swatch => {
+        swatch.classList.toggle('selected', swatch.dataset.color === project.color);
+    });
+    S.ui.newProjectColor = project.color; // Guarda color actual
+
+    // Cambia título y botón del modal
+    $('#newProjectModalTitle').textContent = 'Editar Proyecto';
+    $('#newProjectModalDesc').textContent = 'Modifica el nombre y color del proyecto.';
+    $('#newProjectConfirm').textContent = 'Guardar Cambios';
+
+    // Cambia la función del botón confirmar TEMPORALMENTE
+    const confirmBtn = $('#newProjectConfirm');
+    const newConfirmBtn = confirmBtn.cloneNode(true); // Clonar para quitar listeners viejos
+    confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+
+    newConfirmBtn.onclick = () => {
+        const newName = $('#newProjectName').value.trim();
+        const newColor = S.ui.newProjectColor;
+
+        if (!newName) {
+            showToast('El nombre no puede estar vacío.', 'warn');
+            return;
+        }
+
         project.name = newName;
+        project.color = newColor;
         save();
         renderAside();
-        // Si el proyecto está abierto, actualiza el chip
+        // Si el proyecto está abierto, actualiza el chip y el selector de carpetas
         if (S.activeProject === projectId) {
              $('#projectNameChip').textContent = newName;
+             $('#projectNameChip').style.borderLeft = `3px solid ${newColor}`;
+             renderFolderSelector(); // Re-renderiza para actualizar color de puntos
         }
-        showToast('Proyecto renombrado', 'success');
-    }, project.name);
+        showToast('Proyecto actualizado', 'success');
+        $('#newProjectModal').close();
+
+        // Restaura el modal a su estado original para la próxima vez
+        $('#newProjectModalTitle').textContent = 'Crear Nuevo Proyecto';
+        $('#newProjectModalDesc').textContent = 'Dale un nombre y elige un color...';
+        $('#newProjectConfirm').textContent = 'Crear Proyecto';
+        newConfirmBtn.onclick = confirmNewProject; // Restaura listener original
+    };
+
+    $('#newProjectModal').showModal();
 }
 
 /**
@@ -3017,6 +3732,7 @@ function deleteProject(projectId) {
 function addFolder() {
     const id = S.activeProject; if (!id) return;
     showInputModal('Nueva Carpeta', 'Nombre de la nueva carpeta:', 'Ej: Documentos', name => {
+        if (!name) return; // No permitir nombres vacíos
         if ((S.folders[id] || []).includes(name)) { // Asegura que S.folders[id] exista
             showToast(`La carpeta "${name}" ya existe.`, 'warn');
             return;
@@ -3060,7 +3776,7 @@ function editFolderName(projectId, oldName) {
             S.tasks[projectId][newName] = S.tasks[projectId][oldName];
             delete S.tasks[projectId][oldName];
 
-            // 3. Actualizar la propiedad 'folder' en cada tarea
+            // 3. Actualizar la propiedad 'folder' en cada tarea DENTRO de esa carpeta renombrada
             (S.tasks[projectId][newName] || []).forEach(task => {
                 task.folder = newName;
             });
@@ -3210,8 +3926,12 @@ function renderTasks(){
     else renderTaskList(filteredTasks);
 }
 
+// Variable global para almacenar el ID de la tarea que se está arrastrando
+let draggedTaskId = null;
+
 /**
  * Renderiza el tablero Kanban con tareas filtradas (carpeta y tag).
+ * Incluye lógica Drag & Drop CORREGIDA.
  * @param {Array<object>} tasks - Array de tareas filtradas.
  */
 function renderTaskBoard(tasks){
@@ -3247,35 +3967,79 @@ function renderTaskBoard(tasks){
             el('div',{ textContent:t.title }),
             tagsHtml // Añade los tags aquí
           );
-          taskEl.ondragstart=e=>{ e.stopPropagation(); e.dataTransfer.setData('text/plain',t.id); };
+          
+          // --- CORRECCIÓN DRAG & DROP ---
+          taskEl.ondragstart=e=>{ 
+              e.stopPropagation(); // Evita que eventos padre interfieran
+              draggedTaskId = t.id; // Guarda el ID de la tarea arrastrada
+              e.dataTransfer.setData('text/plain', t.id); // Necesario para Firefox
+              e.dataTransfer.effectAllowed = 'move';
+              // console.log("DragStart:", draggedTaskId); // Debug
+          };
+          taskEl.ondragend = () => {
+              // console.log("DragEnd:", draggedTaskId); // Debug
+              draggedTaskId = null; // Limpia el ID al soltar
+          };
+          // --- FIN CORRECCIÓN ---
+          
           return taskEl;
         })
       ) // Fin col-content
     );
     
+    // --- CORRECCIÓN DRAG & DROP ---
     // Eventos D&D para la columna
-    colEl.ondragover=e=>{e.preventDefault(); colEl.classList.add('dragover');};
+    colEl.ondragover=e=>{
+        e.preventDefault(); 
+        e.dataTransfer.dropEffect = 'move'; 
+        colEl.classList.add('dragover');
+    };
     colEl.ondragleave=()=>colEl.classList.remove('dragover');
     colEl.ondrop=e=>{
       e.preventDefault(); // Asegura prevenir comportamiento por defecto
+      e.stopPropagation(); // Evita que el evento se propague a elementos padres
       colEl.classList.remove('dragover');
-      const tid=e.dataTransfer.getData('text');
+      
+      const targetStatus = colEl.dataset.status; // Estado de la columna destino
       const activeFolder = S.ui.activeFolder || 'General';
       
-      // Busca la tarea en la carpeta activa
+      // console.log("Drop:", draggedTaskId, "TargetStatus:", targetStatus); // Debug
+
+      if (!draggedTaskId) {
+          console.warn("Drop event sin draggedTaskId válido.");
+          return; // No hay tarea que mover
+      }
+      
+      // Busca la tarea USANDO EL ID GUARDADO (draggedTaskId) en la carpeta activa
       const taskList = S.tasks[projId]?.[activeFolder];
       if (!taskList) return; // Seguridad
       
-      const t=taskList.find(x=>x.id===tid);
-      const doneColName = p.taskColumns[p.taskColumns.length - 1];
-      if (t) { 
-        if(t.status !== doneColName && c === doneColName) addIntis(10, 'Tarea completada');
-        t.status=c; 
-        save(); 
-        renderTasks(); // Re-renderiza con filtros aplicados
-        renderOverview();
+      const taskIndex = taskList.findIndex(x => x.id === draggedTaskId);
+      
+      if (taskIndex > -1) { 
+          const task = taskList[taskIndex];
+          const oldStatus = task.status;
+          
+          if (oldStatus !== targetStatus) {
+              task.status = targetStatus; // Actualiza el estado
+              
+              const doneColName = p.taskColumns[p.taskColumns.length - 1];
+              if (oldStatus !== doneColName && targetStatus === doneColName) {
+                  addIntis(10, 'Tarea completada');
+              }
+              
+              save(); 
+              renderTasks(); // Re-renderiza con filtros aplicados
+              renderOverview();
+          }
+      } else {
+          console.warn(`Tarea ${draggedTaskId} no encontrada en carpeta ${activeFolder} durante el drop.`);
       }
+      
+      draggedTaskId = null; // Limpia siempre al final del drop
     };
+    // --- FIN CORRECCIÓN ---
+    
     board.appendChild(colEl);
   });
   lucide.createIcons();
@@ -3289,6 +4053,7 @@ function addColumn() {
     const p = S.projects.find(x => x.id === id);
     if (!p) return;
     showInputModal('Nueva Columna', 'Nombre para la nueva columna de tareas:', 'Ej: Revisión', name => {
+        if (!name) return; // No permitir nombres vacíos
         if (!p.taskColumns) p.taskColumns = [];
         p.taskColumns.push(name);
         save();
@@ -3409,6 +4174,7 @@ function quickAddTask() {
     const activeFolder = S.ui.activeFolder || 'General';
     
     showInputModal('Nueva Tarea', `Añadir tarea a la carpeta "${activeFolder}"`, 'Describe la tarea...', (title) => {
+        if (!title) return; // No permitir vacíos
         if (!S.tasks[projId][activeFolder]) S.tasks[projId][activeFolder] = []; // Asegura que exista
         S.tasks[projId][activeFolder].push({id:'t'+Date.now(), title, status:firstColumn, desc:'', due:'', folder: activeFolder, tags: []}); // Añade tags vacío
         addIntis(5, 'Tarea creada');
@@ -3424,6 +4190,7 @@ function createTaskInColumn(columnStatus) {
     const projId = S.activeProject; if (!projId) return;
     const activeFolder = S.ui.activeFolder || 'General';
     showInputModal(`Nueva Tarea en "${columnStatus}"`, `Añadir tarea a la carpeta "${activeFolder}"`, 'Describe la tarea...', (title) => {
+         if (!title) return; // No permitir vacíos
          if (!S.tasks[projId][activeFolder]) S.tasks[projId][activeFolder] = []; // Asegura que exista
          S.tasks[projId][activeFolder].push({id:'t'+Date.now(), title, status:columnStatus, desc:'', due:'', folder: activeFolder, tags: []}); // Añade tags vacío
          addIntis(5, 'Tarea creada');
@@ -3443,25 +4210,22 @@ function openTaskModal(taskId) {
     const p = S.projects.find(x => x.id === projId);
     if (!p) return;
     
-    // Busca la tarea en la carpeta activa (o en todas si falla)
-    let task = S.tasks[projId]?.[activeFolder]?.find(t => t.id === taskId);
-    let taskOriginFolder = activeFolder; // Guarda la carpeta original
+    // Busca la tarea en TODAS las carpetas del proyecto actual
+    let task = null;
+    let taskOriginFolder = null; 
     
-    if (!task) {
-        console.warn(`Task ${taskId} not found in active folder ${activeFolder}, searching globally...`);
-        for (let folderName in S.tasks[projId]) {
-            task = S.tasks[projId][folderName].find(t => t.id === taskId);
-            if (task) {
-                console.log(`Task ${taskId} found in folder ${folderName}`);
-                taskOriginFolder = folderName;
-                // No cambiamos S.ui.activeFolder aquí, solo usamos taskOriginFolder
-                break;
-            }
+    for (let folderName in S.tasks[projId]) {
+        const foundTask = S.tasks[projId][folderName].find(t => t.id === taskId);
+        if (foundTask) {
+            task = foundTask;
+            taskOriginFolder = folderName;
+            break; // Salir del bucle una vez encontrada
         }
     }
 
     if (!task) {
         showToast('Error: No se encontró la tarea.', 'danger');
+        console.error(`Task ${taskId} not found anywhere in project ${projId}`);
         return;
     }
     
@@ -3492,6 +4256,9 @@ function openTaskModal(taskId) {
     // Guarda la carpeta original en un dataset para usarla al guardar
     $('#taskDetailModal').dataset.originFolder = taskOriginFolder; 
     
+    // Muestra/oculta botón eliminar
+    $('#taskDetailDeleteBtn').style.display = 'inline-flex';
+    
     $('#taskDetailModal').showModal();
     lucide.createIcons();
 }
@@ -3507,17 +4274,34 @@ function saveTaskDetails() {
     
     const taskId = $('#taskDetailId').value;
     const modal = $('#taskDetailModal');
-    const oldFolder = modal.dataset.originFolder || S.ui.activeFolder || 'General'; // Carpeta de donde viene
+    const isNewTask = !taskId; // Verifica si es una nueva tarea
+    
+    const oldFolder = isNewTask ? (S.ui.activeFolder || 'General') : (modal.dataset.originFolder || S.ui.activeFolder || 'General'); // Carpeta de donde viene o activa si es nueva
     const newFolder = $('#taskDetailFolder').value;
     
-    // Encuentra la tarea y su índice en la carpeta ORIGINAL
-    let taskIndex = -1;
     let task = null;
-    if (S.tasks[projId]?.[oldFolder]) {
-         taskIndex = S.tasks[projId][oldFolder].findIndex(t => t.id === taskId);
-         if (taskIndex !== -1) {
-             task = S.tasks[projId][oldFolder][taskIndex];
-         }
+    let taskIndex = -1;
+    const newTaskId = 't'+Date.now();
+
+    if (isNewTask) {
+        // Crear nueva tarea
+        task = { 
+            id: newTaskId, 
+            title: '', 
+            desc: '', 
+            due: '', 
+            status: '', 
+            folder: newFolder, 
+            tags: [] 
+        };
+    } else {
+        // Encontrar tarea existente en la carpeta ORIGINAL
+        if (S.tasks[projId]?.[oldFolder]) {
+             taskIndex = S.tasks[projId][oldFolder].findIndex(t => t.id === taskId);
+             if (taskIndex !== -1) {
+                 task = S.tasks[projId][oldFolder][taskIndex];
+             }
+        }
     }
     
     if (!task) {
@@ -3526,16 +4310,18 @@ function saveTaskDetails() {
         modal.close();
         return;
     }
-
-    const oldStatus = task.status;
-    const newStatus = $('#taskDetailStatus').value;
-    const doneColName = p.taskColumns[p.taskColumns.length - 1];
-
+    
+    const oldStatus = task.status; // Guardar estado anterior
+    
     // Actualiza datos de la tarea
     task.title = $('#taskDetailTitle').value.trim();
+    if (!task.title) {
+        showToast('El título de la tarea no puede estar vacío.', 'warn');
+        return;
+    }
     task.desc = $('#taskDetailDesc').value.trim();
     task.due = $('#taskDetailDue').value; // Guarda como YYYY-MM-DD
-    task.status = newStatus;
+    task.status = $('#taskDetailStatus').value;
     task.folder = newFolder; // Actualiza la carpeta
     // Actualiza tags: limpia, separa por coma, quita espacios y vacíos
     task.tags = ($('#taskDetailTags').value || '')
@@ -3543,15 +4329,18 @@ function saveTaskDetails() {
                   .map(tag => tag.trim())
                   .filter(tag => tag !== ''); 
 
-    // Mover la tarea si la carpeta cambió
-    if (oldFolder !== newFolder) {
-        // Quita de la carpeta vieja
-        S.tasks[projId][oldFolder].splice(taskIndex, 1);
+    // Mover la tarea si la carpeta cambió O si es una tarea nueva
+    if (isNewTask || oldFolder !== newFolder) {
+        // Quita de la carpeta vieja (solo si no es nueva)
+        if (!isNewTask) {
+            S.tasks[projId][oldFolder].splice(taskIndex, 1);
+        }
         // Añade a la carpeta nueva (asegura que exista)
         if (!S.tasks[projId][newFolder]) S.tasks[projId][newFolder] = [];
         S.tasks[projId][newFolder].push(task);
-        // Si la carpeta activa ERA la antigua, actualízala a la nueva
-        if (S.ui.activeFolder === oldFolder) {
+        
+        // Si la carpeta activa ERA la antigua (y no es la nueva) O si es nueva y la carpeta activa no es la destino, actualiza la UI
+        if ((!isNewTask && S.ui.activeFolder === oldFolder && S.ui.activeFolder !== newFolder) || (isNewTask && S.ui.activeFolder !== newFolder) ) {
              $('#folderSel').value = newFolder; // Actualiza visualmente el selector
              S.ui.activeFolder = newFolder;
              history.pushState({view: `project/${projId}/folder/${newFolder}`}, '', `#!project/${projId}/folder/${encodeURIComponent(newFolder)}`); // Actualiza URL
@@ -3559,7 +4348,11 @@ function saveTaskDetails() {
     }
     
     // Gamificación
-    if (oldStatus !== doneColName && newStatus === doneColName) {
+    const doneColName = p.taskColumns[p.taskColumns.length - 1];
+    if (isNewTask) {
+        addIntis(5, 'Tarea creada');
+    }
+    if (oldStatus !== doneColName && task.status === doneColName) {
         addIntis(10, 'Tarea completada');
     }
     
@@ -3567,7 +4360,7 @@ function saveTaskDetails() {
     renderTasks(); // Re-renderiza las tareas (con filtro si aplica)
     renderOverview();
     renderCalendar();
-    renderCronoPOST();
+    renderCronoPOST(); // Importante sincronizar cronopost si la fecha cambió
     renderAside(); // Actualiza contadores
     modal.close();
     delete modal.dataset.originFolder; // Limpia la carpeta de origen
@@ -3618,7 +4411,7 @@ let calRef=new Date(); // Referencia de fecha para el calendario del proyecto
 
 /**
  * Renderiza el calendario del proyecto, mostrando tareas de la CARPETA ACTIVA.
- * CORREGIDO: Manejo de fechas para D&D.
+ * Lógica D&D corregida.
  */
 function renderCalendar(){
   const projId=S.activeProject; if(!projId) return;
@@ -3651,48 +4444,77 @@ function renderCalendar(){
     const day=el('div',{class:'day', dataset: {localDate: localDateString}}); // Guarda YYYY-MM-DD local
     if(d.getMonth() !== calRef.getMonth()) day.style.opacity = .4;
     day.append(el('div',{class:'sub', textContent:d.getDate()}));
-    day.onclick = () => createTaskOnDate(d); // Usa el objeto Date original para crear
+    day.onclick = () => openTaskModalFromDate(d); // Usa la nueva función
     
-    day.ondragover = (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; day.classList.add('dragover'); };
-    day.ondragleave = () => { day.classList.remove('dragover'); };
+    // --- CORRECCIÓN DRAG & DROP ---
+    day.ondragover = (e) => { 
+        e.preventDefault(); 
+        e.dataTransfer.dropEffect = 'move'; 
+        day.classList.add('dragover'); 
+    };
+    day.ondragleave = () => { 
+        day.classList.remove('dragover'); 
+    };
     day.ondrop = (e) => {
         e.preventDefault();
+        e.stopPropagation(); // Evita que se propague
         day.classList.remove('dragover');
-        const taskId = e.dataTransfer.getData('text/plain');
-        if (!taskId || !projId) return;
+        
+        const droppedTaskId = draggedTaskId; // Usa la variable global
+        // console.log("Calendar Drop:", droppedTaskId, "TargetDate:", day.dataset.localDate); // Debug
 
-        // Busca la tarea SÓLO en la carpeta activa
-        const task = S.tasks[projId]?.[activeFolder]?.find(t => t.id === taskId);
+        if (!droppedTaskId || !projId) {
+             console.warn("Calendar Drop sin ID válido.");
+             return;
+        }
 
-        if (task) {
+        // Busca la tarea USANDO EL ID GUARDADO SÓLO en la carpeta activa
+        const taskList = S.tasks[projId]?.[activeFolder];
+        if (!taskList) return; // Seguridad
+        const taskIndex = taskList.findIndex(t => t.id === droppedTaskId);
+
+        if (taskIndex > -1) {
+            const task = taskList[taskIndex];
             // CORRECCIÓN TIMEZONE: Guarda la fecha local YYYY-MM-DD
             task.due = day.dataset.localDate; 
             save();
-            renderCalendar(); 
-            renderCronoPOST(); 
-            renderTasks(); // Re-renderiza tareas
+            renderCalendar(); // Re-renderiza calendario de proyecto
+            renderCronoPOST(); // Re-renderiza calendario global
+            renderTasks(); // Re-renderiza tareas (lista/tablero)
+        } else {
+             console.warn(`Tarea ${droppedTaskId} no encontrada en carpeta ${activeFolder} durante drop en calendario.`);
         }
+        draggedTaskId = null; // Limpia siempre
     };
+    // --- FIN CORRECCIÓN ---
     
     // Renderiza las tareas (de la carpeta activa) en el día
-    // CORRECCIÓN TIMEZONE: Compara usando YYYY-MM-DD o toDateString según cómo se guarde 'due'
     tasksForFolder.filter(t => t.due && (t.due === localDateString || new Date(t.due).toDateString() === dateKeyForComparison)).forEach(t => {
         const taskEl = el('div', { 
             class: 'cal-task', 
             textContent: t.title, 
             style: `border-left-color: ${projColor}`,
             draggable: 'true',
-            title: t.title
+            title: t.title,
+            dataset: {id: t.id} // Guarda el ID aquí
         });
         taskEl.onclick = (e) => { 
             e.stopPropagation(); 
             openTaskModal(t.id); 
         };
+        // --- CORRECCIÓN DRAG & DROP ---
         taskEl.ondragstart = (e) => {
             e.stopPropagation(); 
-            e.dataTransfer.setData('text/plain', t.id);
+            draggedTaskId = t.id; // Guarda el ID en la variable global
+            e.dataTransfer.setData('text/plain', t.id); // Necesario para Firefox
             e.dataTransfer.effectAllowed = 'move';
+            // console.log("Calendar DragStart:", draggedTaskId); // Debug
         };
+         taskEl.ondragend = () => {
+             // console.log("Calendar DragEnd:", draggedTaskId); // Debug
+             draggedTaskId = null; // Limpia al soltar
+         };
+         // --- FIN CORRECCIÓN ---
         day.append(taskEl);
     });
     grid.append(day);
@@ -3700,43 +4522,57 @@ function renderCalendar(){
 }
 
 /**
- * Crea una tarea en una fecha específica, asignándola a la carpeta activa.
- * CORREGIDO: Guarda la fecha en formato YYYY-MM-DD local.
+ * Abre el modal de detalles de tarea pre-rellenado con la fecha.
  * @param {Date} date - Fecha seleccionada (objeto Date local).
  */
-function createTaskOnDate(date) {
+function openTaskModalFromDate(date) {
     const projId = S.activeProject; if (!projId) return;
     const p = S.projects.find(x => x.id === projId);
     if (!p) return;
-    const firstColumn = p.taskColumns[0] || 'Backlog';
-    const activeFolder = S.ui.activeFolder || 'General'; // Usa la carpeta activa
+    const activeFolder = S.ui.activeFolder || 'General';
     
-    // CORRECCIÓN TIMEZONE: Formatea a YYYY-MM-DD local para guardar
+    // Pre-rellena los campos básicos para NUEVA tarea
+    $('#taskDetailId').value = ''; // ID vacío
+    $('#taskDetailTitle').value = '';
+    $('#taskDetailDesc').value = '';
+    
+    // CORRECCIÓN TIMEZONE: Formatea a YYYY-MM-DD local
     const localYear = date.getFullYear();
     const localMonth = String(date.getMonth() + 1).padStart(2, '0');
     const localDay = String(date.getDate()).padStart(2, '0');
-    const localDateString = `${localYear}-${localMonth}-${localDay}`; // YYYY-MM-DD
+    $('#taskDetailDue').value = `${localYear}-${localMonth}-${localDay}`;
     
-    showInputModal('Nueva Tarea', `Crear tarea para ${fmtDate(date, 'short')} en carpeta "${activeFolder}"`, 'Describe la tarea...', (title) => {
-        const newTask = { 
-            id: 't' + Date.now(), 
-            title, 
-            status: firstColumn, 
-            desc: '', 
-            due: localDateString, // Guarda YYYY-MM-DD local
-            folder: activeFolder, // Asigna la carpeta
-            tags: []
-        };
-        if (!S.tasks[projId][activeFolder]) S.tasks[projId][activeFolder] = []; // Asegura
-        S.tasks[projId][activeFolder].push(newTask);
-        addIntis(5, 'Tarea creada');
-        save();
-        renderTasks(); renderCalendar(); renderOverview(); renderAside();
+    $('#taskDetailTags').value = '';
+
+    // Carga estados y selecciona el primero
+    const statusSel = $('#taskDetailStatus');
+    statusSel.innerHTML = '';
+    (p.taskColumns || []).forEach(s => {
+        statusSel.append(el('option', { value: s, textContent: s }));
     });
+    if (p.taskColumns?.length > 0) statusSel.value = p.taskColumns[0];
+    
+    // Carga carpetas y selecciona la activa
+    const folderSel = $('#taskDetailFolder');
+    folderSel.innerHTML = '';
+    (S.folders[projId] || ['General']).forEach(f => {
+        folderSel.append(el('option', { value: f, textContent: f}));
+    });
+    folderSel.value = activeFolder;
+    
+    // Limpia la carpeta de origen del modal anterior
+    delete $('#taskDetailModal').dataset.originFolder; 
+
+    // Oculta el botón de eliminar porque es nueva tarea
+    $('#taskDetailDeleteBtn').style.display = 'none';
+
+    $('#taskDetailModal').showModal();
+    lucide.createIcons();
 }
 
+
 // --- 5.4: NOTAS Y LIENZO ---
-let currentDrawingNoteId = null; // Mueve la declaración aquí
+let currentDrawingNoteId = null; 
 function renderNotes(){ 
     const id=S.activeProject; if(!id) return;
     // Asegura inicialización si falta
@@ -3756,18 +4592,16 @@ function renderNotes(){
     
     if(!N.active && N.list.length > 0) {
         N.active=N.list[0].id;
-        // No guardes aquí, solo actualiza la UI
     }
     
     const editor = $('#noteEditor');
     editor.innerHTML = (N.active? (N.bodies[N.active]||'') : 'Selecciona o crea una nota para empezar.');
-    // Quita el oninput y usa un listener más robusto
     if (editor.dataset.listenerAttached !== 'true') {
         editor.addEventListener('input', () => { 
-            const currentProjectId = S.activeProject; // Captura el ID en el momento del listener
+            const currentProjectId = S.activeProject; 
             if (currentProjectId && S.notes[currentProjectId]?.active) { 
                 S.notes[currentProjectId].bodies[S.notes[currentProjectId].active] = editor.innerHTML; 
-                save(); // Considera un debounce aquí si hay problemas de rendimiento
+                save(); 
             } 
         });
         editor.dataset.listenerAttached = 'true';
@@ -3779,13 +4613,14 @@ function renderNotes(){
     } else if (!N.active) {
         const canvas = $('#drawingCanvas'); if (!canvas) return; const ctx = canvas.getContext('2d');
         ctx.clearRect(0,0,canvas.width,canvas.height);
-        currentDrawingNoteId = null; // Resetea si no hay nota activa
+        currentDrawingNoteId = null; 
     }
     lucide.createIcons();
 }
 function createNewNote() { 
     const id=S.activeProject; if(!id) return; 
     showInputModal('Nueva Nota', 'Título de la nueva nota:', 'Ej: Ideas para reunión', (t) => {
+        if (!t) return; // No permitir vacío
         const nid='n'+Date.now(); 
         if (!S.notes[id]) S.notes[id] = { list: [], active: null, bodies: {}, drawings: {} }; // Asegura inicialización
         S.notes[id].list.push({id:nid,title:t}); 
@@ -3817,7 +4652,6 @@ function initDrawingCanvas(noteId) {
     const canvas = $('#drawingCanvas'); if (!canvas) return;
     const ctx = canvas.getContext('2d');
     
-    // Ajusta tamaño del canvas a su contenedor si ha cambiado
     if (canvas.width !== canvas.clientWidth || canvas.height !== canvas.clientHeight) {
         canvas.width = canvas.clientWidth;
         canvas.height = canvas.clientHeight;
@@ -3826,8 +4660,7 @@ function initDrawingCanvas(noteId) {
     let drawing = false;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    // Carga el dibujo guardado
-    const currentProjectId = S.activeProject; // Captura el ID actual
+    const currentProjectId = S.activeProject; 
     if (S.notes[currentProjectId]?.drawings?.[noteId]) {
         const img = new Image();
         img.onload = () => ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
@@ -3838,13 +4671,12 @@ function initDrawingCanvas(noteId) {
     const getCoords = (e) => {
         const rect = canvas.getBoundingClientRect();
         const event = e.touches ? e.touches[0] : e;
-        // Escala las coordenadas al tamaño real del canvas
         const x = (event.clientX - rect.left) * (canvas.width / rect.width);
         const y = (event.clientY - rect.top) * (canvas.height / rect.height);
         return {x, y};
     };
 
-    let lastX, lastY; // Para suavizar líneas táctiles
+    let lastX, lastY; 
     const start = (e) => { 
         e.preventDefault(); 
         drawing = true; 
@@ -3856,12 +4688,11 @@ function initDrawingCanvas(noteId) {
     const end = (e) => {
         if (!drawing) return;
         drawing = false; 
-        ctx.beginPath(); // Finaliza la línea actual
+        ctx.beginPath(); 
         
-        // Guarda el canvas como Data URL (con manejo de errores)
         try {
-           const activeNoteIdNow = S.notes[currentProjectId]?.active; // Verifica si la nota sigue activa
-           if (activeNoteIdNow === noteId) { // Solo guarda si la nota no cambió mientras dibujabas
+           const activeNoteIdNow = S.notes[currentProjectId]?.active; 
+           if (activeNoteIdNow === noteId) { 
              S.notes[currentProjectId].drawings[noteId] = canvas.toDataURL(); 
              save();
            } else {
@@ -3879,33 +4710,30 @@ function initDrawingCanvas(noteId) {
         ctx.lineWidth = $('#canvasStrokeSlider').value; ctx.lineCap = 'round';
         ctx.strokeStyle = $('#canvasColorPicker').value;
         ctx.lineTo(x, y); ctx.stroke();
-        ctx.beginPath(); // Empieza nuevo trazo
+        ctx.beginPath(); 
         ctx.moveTo(x, y);
         lastX = x; lastY = y;
     };
     
-    // Reemplaza el canvas para limpiar listeners antiguos (más robusto)
     const newCanvas = canvas.cloneNode(true);
     canvas.parentNode.replaceChild(newCanvas, canvas);
-    const newCtx = newCanvas.getContext('2d'); // Usa el nuevo contexto
+    const newCtx = newCanvas.getContext('2d'); 
     
-    // Carga el dibujo existente en el nuevo canvas
     if (S.notes[currentProjectId]?.drawings?.[noteId]) {
         const img = new Image();
         img.onload = () => newCtx.drawImage(img, 0, 0, newCanvas.width, newCanvas.height);
         img.src = S.notes[currentProjectId].drawings[noteId];
     }
     
-    // Añade listeners al nuevo canvas
     newCanvas.addEventListener('mousedown', start); 
     newCanvas.addEventListener('mouseup', end); 
     newCanvas.addEventListener('mousemove', draw);
-    newCanvas.addEventListener('mouseleave', end); // Termina si el ratón sale
+    newCanvas.addEventListener('mouseleave', end); 
 
     newCanvas.addEventListener('touchstart', start, { passive: false }); 
     newCanvas.addEventListener('touchend', end, { passive: false }); 
     newCanvas.addEventListener('touchmove', draw, { passive: false });
-    newCanvas.addEventListener('touchcancel', end, { passive: false }); // Termina si se cancela el toque
+    newCanvas.addEventListener('touchcancel', end, { passive: false }); 
 }
 function exportNote(format) { 
     const id = S.activeProject; const noteId = S.notes[id]?.active;
@@ -3918,7 +4746,6 @@ function exportNote(format) {
             const doc = new jsPDF();
             doc.text(title, 10, 10);
             
-            // Intenta renderizar HTML, con fallback a texto plano si falla
             doc.html(contentHTML, { 
                 callback: (doc) => { 
                     try {
@@ -3932,11 +4759,10 @@ function exportNote(format) {
                 y: 20, 
                 width: 180, 
                 windowWidth: 800,
-                html2canvas: { scale: 0.25 } // Escala baja para evitar problemas de tamaño
+                html2canvas: { scale: 0.25 } 
             }).catch(htmlErr => {
                  console.error("jsPDF html rendering error:", htmlErr);
                  showToast("Error al generar el PDF desde HTML, exportando como texto.", "warn");
-                 // Fallback a texto plano
                  const textContent = el('div', {html: contentHTML}).textContent || "";
                  doc.text(textContent, 10, 20, { maxWidth: 180 });
                  doc.save(`${title}_texto.pdf`);
@@ -3951,17 +4777,15 @@ function exportNote(format) {
 // --- 5.5: TABLAS --- 
 function renderTables(){ 
   const id=S.activeProject; if(!id) return;
-  // Asegura inicialización si falta
   if (!S.tables[id]) S.tables[id] = { list: [{id: 'tbl_default', name: 'Tabla 1'}], active: 'tbl_default', data: {'tbl_default': {cols:['Col 1'], rows:[]}} };
   const T_PROJ = S.tables[id];
   
   const selector = $('#tableSelector');
   selector.innerHTML = '';
   T_PROJ.list.forEach(t => selector.append(el('option',{value:t.id, textContent:t.name})));
-  // Asegura que el valor activo exista en la lista
   if (!T_PROJ.list.find(t => t.id === T_PROJ.active) && T_PROJ.list.length > 0) {
       T_PROJ.active = T_PROJ.list[0].id;
-      save(); // Guarda el cambio de tabla activa
+      save(); 
   }
   selector.value = T_PROJ.active;
 
@@ -3974,7 +4798,6 @@ function renderTables(){
   }
   
   const tbl=el('table',{style:'width:100%; border-collapse: collapse; min-width: 600px;'});
-  // Cabecera con botón de eliminar columna
   const thead=el('thead',{}, el('tr',{}, 
       ...T_DATA.cols.map((c,ci)=>el('th',{style:'border: 1px solid var(--line); padding: 8px; position:relative;'}, 
           el('span', {textContent: c}),
@@ -3996,7 +4819,6 @@ function renderTables(){
                 onchange:(e)=>{r[ci]=e.target.value; save();}
             })
         )),
-        // Botón eliminar fila
         el('td', {style:'border: 1px solid var(--line); padding: 0; width: 40px; text-align: center;'},
             el('button', {
                 class: 'btn btn-ghost btn-sm', 
@@ -4017,6 +4839,7 @@ function renderTables(){
 function createNewTable() { 
     const id = S.activeProject; if (!id) return;
     showInputModal('Nueva Tabla', `Nombre de la nueva tabla:`, `Tabla ${S.tables[id].list.length + 1}`, (name) => {
+        if (!name) return; // No permitir vacío
         const tableId = 'tbl_' + Date.now();
         S.tables[id].list.push({ id: tableId, name: name });
         S.tables[id].data[tableId] = { cols: ['Nueva Columna'], rows: [['']] };
@@ -4057,7 +4880,6 @@ function deleteTableRow(rowIndex) {
 // --- 5.6: ARCHIVOS ---
 function renderFiles(){ 
   const id=S.activeProject; if(!id) return;
-  // Asegura inicialización
   if (!S.files[id]) S.files[id] = [];
   const L=S.files[id]; const wrap=$('#fileList'); wrap.innerHTML='';
   if (L.length === 0) {
@@ -4067,7 +4889,7 @@ function renderFiles(){
   L.forEach((f,idx)=>{
       const fileChip = el('div', {class:'chip'},  
         el('a',{href:f.url,download:f.name, textContent:f.name, target:'_blank', title:`Tamaño: ${f.size ? (f.size / 1024).toFixed(1) + ' KB' : 'N/A'}`}),
-        el('button', {class: 'btn btn-ghost btn-sm', style:'padding:2px;', onclick:()=>{ L.splice(idx,1); save(); renderFiles(); renderOverview(); }}, el('i', {'data-lucide':'trash-2', width:14}))
+        el('button', {class: 'btn btn-ghost btn-sm', style:'padding:2px;', onclick:()=>{ L.splice(idx,1); save(); renderFiles(); renderOverview(); }}, el('i',{'data-lucide':'trash-2', width:14}))
       );
       wrap.append(fileChip);
   });
@@ -4077,18 +4899,20 @@ function renderFiles(){
 // --- 5.7: FINANZAS (PROYECTO) ---
 function renderFin(){ 
   const id=S.activeProject; if(!id) return;
-  // Asegura inicialización
   if (!S.fin[id]) S.fin[id] = { rows: [] };
   const F=S.fin[id]; 
   const tbody=$('#finTable tbody'); tbody.innerHTML='';
-  (F.rows || []).forEach((r,i)=>{
+  const sortedRows = [...(F.rows || [])].sort((a,b) => new Date(b.fecha) - new Date(a.fecha)); // Ordena por fecha descendente
+  
+  sortedRows.forEach((r,i)=>{ // Usa el índice del array original para eliminar
+    const originalIndex = F.rows.findIndex(orig => orig === r);
     const tr=el('tr',{}, 
         el('td',{textContent:fmtDate(r.fecha, 'short'), style:'padding:8px'}), 
         el('td',{textContent:r.tipo, style:'padding:8px; color:' + (r.tipo === 'Ingreso' ? 'var(--success)' : 'var(--danger)')}), 
         el('td',{textContent:'$'+Number(r.monto).toFixed(2), style:'text-align:right; padding:8px'}), 
         el('td',{textContent:r.cat, style:'padding:8px'}), 
         el('td',{textContent:r.nota, style:'padding:8px'}),
-        el('td',{}, el('button',{class:'btn btn-ghost btn-sm',onclick:()=>{F.rows.splice(i,1); save(); renderFin(); renderOverview();}}, el('i',{'data-lucide':'trash-2', width:14})))
+        el('td',{}, el('button',{class:'btn btn-ghost btn-sm',onclick:()=>{F.rows.splice(originalIndex,1); save(); renderFin(); renderOverview();}}, el('i',{'data-lucide':'trash-2', width:14})))
     );
     tbody.appendChild(tr);
   });
@@ -4102,7 +4926,6 @@ function renderFin(){
 }
 function addProjectFinanceMove() { 
     const id = S.activeProject; if (!id) return;
-    // Asegura inicialización
     if (!S.fin[id]) S.fin[id] = { rows: [] };
     const F = S.fin[id];
     const monto = parseFloat($('#pF_Monto').value);
@@ -4110,12 +4933,12 @@ function addProjectFinanceMove() {
     const cat = $('#pF_Cat').value.trim() || 'General';
     const nota = $('#pF_Nota').value.trim();
     
-    if (isNaN(monto) || monto <= 0) { // Comprueba si es NaN
+    if (isNaN(monto) || monto <= 0) { 
         showToast('Por favor, ingresa un monto válido.', 'warn');
         return;
     }
     
-    F.rows.push({ fecha: new Date().toISOString(), tipo, monto, cat, nota }); // Guarda fecha ISO
+    F.rows.push({ fecha: new Date().toISOString(), tipo, monto, cat, nota }); 
     addIntis(5, 'Movimiento financiero');
     save();
     renderFin();
@@ -4127,18 +4950,19 @@ function addProjectFinanceMove() {
     $('#projectFinModal').close();
 }
 
-// --- 5.8: CHAT IA (PROYECTO) ---
+// --- 5.8: CHAT IA (PROYECTO) --- (MODIFICADO)
 function renderProjectChat() { 
     const pid = S.activeProject; if (!pid) return;
-    // Asegura inicialización
     if (!S.chats[pid]) S.chats[pid] = { threads: [], messages: {}, activeThread: null, model: 'pro' };
     const C = S.chats[pid];
-    const list = $('#chatList'); list.innerHTML = '';
     
+    // Aplicar estado colapsado
+    $('#p-chat-grid')?.classList.toggle('chat-list-collapsed', S.ui.pChatCollapsed);
+    
+    const list = $('#chatList'); list.innerHTML = '';
     (C.threads || []).forEach(th => {
         const it = el('div', { class: 'projItem', dataset: { id: th.id }, onclick: () => { C.activeThread = th.id; save(); renderProjectChat(); } },
            el('span', {textContent: th.title, style:'flex: 1; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;'})
-           // Aquí podrías añadir botones de renombrar/eliminar si quieres
         );
         if (th.id === C.activeThread) it.classList.add('active');
         list.append(it);
@@ -4146,33 +4970,31 @@ function renderProjectChat() {
     
     if (!C.activeThread && C.threads?.length > 0) { C.activeThread = C.threads[0].id; save(); }
     
-    $$('#p-tab-chat .model-card').forEach(c => c.classList.toggle('active', C.model === c.dataset.model));
+    // Sincroniza el selector de modelo en el header
+    $$('#p-chat-grid .gchat-main-header .model-card').forEach(c => c.classList.toggle('active', C.model === c.dataset.model));
     
     const log = $('#chatLog'); log.innerHTML = '';
     if (C.activeThread) {
         (C.messages[C.activeThread] || []).forEach(m => log.append(createMessageElement(m, S.hub.perfil)));
-        // Scroll al final después de renderizar mensajes
+        // Scroll al fondo DESPUÉS de añadir mensajes
         requestAnimationFrame(() => { log.scrollTop = log.scrollHeight; }); 
     }
 }
 function sendProjectChatMessage() { 
     const pid = S.activeProject; if (!pid) return;
-    // Asegura inicialización
     if (!S.chats[pid]) S.chats[pid] = { threads: [], messages: {}, activeThread: null, model: 'pro' };
     if (!S.chats[pid]?.activeThread) {
-        // Si no hay hilo activo, intenta crear uno o selecciona el primero
         if ((S.chats[pid].threads || []).length > 0) {
             S.chats[pid].activeThread = S.chats[pid].threads[0].id;
         } else {
-            // Crea un hilo inicial si no hay ninguno
             const newId = 'c'+Date.now();
             S.chats[pid].threads = [{id: newId, title: 'Chat Inicial'}];
             S.chats[pid].activeThread = newId;
             S.chats[pid].messages = {[newId]: []};
         }
         save();
-        renderProjectChat(); // Re-renderiza para mostrar el hilo activo
-        // No envíes el mensaje aún, permite al usuario confirmar
+        renderProjectChat(); 
+        // No enviar mensaje aún, solo preparar el chat
         return; 
     }
 
@@ -4185,8 +5007,9 @@ function sendProjectChatMessage() {
     
     const threadId = C.activeThread;
     if (!C.messages[threadId]) C.messages[threadId] = [];
-    C.messages[threadId].push({ who: 'Tú', at: new Date().toISOString(), text: msg }); // Guarda fecha ISO
-    msgInput.value = ''; msgInput.style.height = 'auto'; renderProjectChat();
+    C.messages[threadId].push({ who: 'Tú', at: new Date().toISOString(), text: msg }); 
+    msgInput.value = ''; msgInput.style.height = 'auto'; 
+    renderProjectChat(); // Renderiza mensaje del usuario inmediatamente
 
     // Simulación de respuesta de IA
     setTimeout(() => {
@@ -4222,8 +5045,12 @@ function sendProjectChatMessage() {
 </html>
 [/CODE]`;
         }
-        C.messages[threadId].push({ who: 'IA', at: new Date().toISOString(), text: responseText, type: model }); // Guarda fecha ISO
-        save(); renderProjectChat();
+        // Asegura que el threadId sigue siendo el activo antes de añadir la respuesta
+        if(S.chats[pid]?.activeThread === threadId) {
+             C.messages[threadId].push({ who: 'IA', at: new Date().toISOString(), text: responseText, type: model }); 
+             save(); 
+             renderProjectChat(); // Renderiza respuesta IA
+        }
     }, 1500);
 }
 
@@ -4232,7 +5059,7 @@ SECCIÓN 6: MÓDULOS GLOBALES
 ============================================================================
 */
 
-// --- 6.1: ASISTENTE IA GLOBAL --- (¡ACTUALIZADO!)
+// --- 6.1: ASISTENTE IA GLOBAL --- (MODIFICADO)
 const aiPrompts = [
     { title: 'Dame ideas de posts', prompt: 'Dame 5 ideas de posts para redes sociales sobre productividad para emprendedores' },
     { title: 'Crea una imagen', prompt: 'Crea una imagen de un astronauta meditando en marte, estilo acuarela' },
@@ -4240,11 +5067,13 @@ const aiPrompts = [
     { title: 'Escribe un email', prompt: 'Escribe un email corto para un cliente potencial presentando mis servicios de desarrollo web' },
 ];
 function renderGlobalAIChat() { 
-    // Asegura inicialización
     if (!S.aiGlobalChat) S.aiGlobalChat = JSON.parse(JSON.stringify(initialState.aiGlobalChat));
     const C = S.aiGlobalChat;
+
+    // Aplicar estado colapsado
+    $('#ai-chat-grid')?.classList.toggle('chat-list-collapsed', S.ui.aiChatCollapsed);
+
     const list = $('#aiChatList'); list.innerHTML = '';
-    
     C.threads.forEach(th => {
         const actions = el('div', { class: 'proj-actions' },
             el('button', { class: 'btn btn-ghost btn-sm', onclick: (e) => { e.stopPropagation(); renameAIChat(th.id); }, title: 'Renombrar' }, el('i', { 'data-lucide': 'edit-3', width: 14 })),
@@ -4259,21 +5088,20 @@ function renderGlobalAIChat() {
         list.append(it);
     });
     
-    // Si no hay hilo activo, selecciona el primero o crea uno
     if (!C.activeThread && C.threads.length > 0) {
         C.activeThread = C.threads[0].id;
         save();
     } else if (C.threads.length === 0) {
-        // Crea un hilo inicial si no hay ninguno
         const newId = 'c_global_1';
         C.threads = [{id: newId, title: 'Chat General'}];
         C.activeThread = newId;
         C.messages = {[newId]: []};
         save();
-        return renderGlobalAIChat(); // Llama de nuevo para renderizar
+        return renderGlobalAIChat(); 
     }
 
-    $$('#ai-global-chat .model-card').forEach(c => c.classList.toggle('active', C.model === c.dataset.model));
+    // Sincroniza el selector de modelo en el header
+    $$('#ai-chat-grid .gchat-main-header .model-card').forEach(c => c.classList.toggle('active', C.model === c.dataset.model));
     
     const log = $('#aiChatLog'); log.innerHTML = '';
     const emptyHeader = $('#aiChatEmptyHeader');
@@ -4281,7 +5109,6 @@ function renderGlobalAIChat() {
     if (C.activeThread) {
         const messages = C.messages[C.activeThread] || [];
         if (messages.length === 0) {
-            // Estado vacío: Muestra header y sugerencias
             emptyHeader.style.display = 'block';
             const suggestions = el('div', {style: 'display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 16px;'});
             aiPrompts.forEach(p => {
@@ -4294,14 +5121,12 @@ function renderGlobalAIChat() {
             });
             log.append(suggestions);
         } else {
-            // Chat con mensajes: Oculta header
             emptyHeader.style.display = 'none';
             messages.forEach(m => log.append(createMessageElement(m, S.hub.perfil)));
         }
-        // Scroll al final después de renderizar
+         // Scroll al fondo DESPUÉS de añadir mensajes
          requestAnimationFrame(() => { log.scrollTop = log.scrollHeight; });
     } else {
-        // No hay thread activo (raro, pero posible)
         emptyHeader.style.display = 'block';
     }
     lucide.createIcons();
@@ -4343,7 +5168,6 @@ function showSendToProjectModal(threadId) {
         $('#sendChatConfirmBtn').disabled = false;
     }
     
-    // Asegura listener único
     const confirmBtn = $('#sendChatConfirmBtn');
     const newConfirmBtn = confirmBtn.cloneNode(true);
     confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
@@ -4355,19 +5179,17 @@ function showSendToProjectModal(threadId) {
             const thread = C.threads.find(t => t.id === threadId);
             const messages = C.messages[threadId];
             if (!thread || !messages) return;
-            // Asegura inicialización del chat de proyecto
             if (!S.chats[projId]) S.chats[projId] = { threads: [], messages: {}, activeThread: null, model: 'pro' };
 
             const newThreadId = 'c' + Date.now();
             S.chats[projId].threads.unshift({ id: newThreadId, title: `Desde Global: ${thread.title}`});
-            S.chats[projId].messages[newThreadId] = JSON.parse(JSON.stringify(messages)); // Copia profunda
+            S.chats[projId].messages[newThreadId] = JSON.parse(JSON.stringify(messages)); 
             S.chats[projId].activeThread = newThreadId;
             save();
             showToast(`Chat enviado a "${S.projects.find(p=>p.id===projId).name}"`, 'success');
             
-            // Navega al proyecto y pestaña
             history.pushState({view: `project/${projId}`}, '', `#!project/${projId}`);
-            openProject(projId, 'General'); // Abre en General por defecto
+            openProject(projId, 'General'); 
             $('#project-tabs .tab[data-ptab="chat"]').click();
             modal.close();
         }
@@ -4379,8 +5201,17 @@ function sendGlobalAIChatMessage() {
     const msg = msgInput.value.trim(); if (!msg) return;
     const C = S.aiGlobalChat;
     if (!C || !C.activeThread) {
-         showToast("Error: No hay una conversación activa.", "danger");
-         return; 
+         // Si no hay thread activo pero hay threads, selecciona el primero
+         if (C && C.threads.length > 0) {
+             C.activeThread = C.threads[0].id;
+             save();
+             renderGlobalAIChat();
+             // Ahora intenta enviar de nuevo
+             // return sendGlobalAIChatMessage(); // Evita recursión infinita
+         } else {
+             showToast("Error: No hay una conversación activa.", "danger");
+             return;
+         }
     }
     const model = C.model;
     const cost = model === 'web' ? CREDIT_COSTS.aiChatWeb : CREDIT_COSTS.aiChatPro;
@@ -4388,32 +5219,39 @@ function sendGlobalAIChatMessage() {
     
     const threadId = C.activeThread;
     if (!C.messages[threadId]) C.messages[threadId] = [];
-    C.messages[threadId].push({ who: 'Tú', at: new Date().toISOString(), text: msg }); // Guarda fecha ISO
-    msgInput.value = ''; msgInput.style.height = 'auto'; renderGlobalAIChat();
+    C.messages[threadId].push({ who: 'Tú', at: new Date().toISOString(), text: msg }); 
+    msgInput.value = ''; msgInput.style.height = 'auto'; 
+    renderGlobalAIChat(); // Renderiza mensaje del usuario
 
     // Simulación de respuesta de IA
     setTimeout(() => {
         let responseText = `Respuesta genérica para "${msg}". Recuerda que puedes enviar esta conversación a un proyecto específico.`;
          if (msg.toLowerCase().includes('genera código')) responseText = "Por supuesto, ¿qué tipo de código necesitas? Especifícalo y lo crearé para ti.";
          if (msg.toLowerCase().includes('crea una imagen')) responseText = "¡Claro! Generando imagen... [Aquí iría la imagen]";
-        C.messages[threadId].push({ who: 'IA', at: new Date().toISOString(), text: responseText, type: model }); // Guarda fecha ISO
-        save(); renderGlobalAIChat();
+         
+         // Asegura que el threadId sigue siendo el activo antes de añadir la respuesta
+         if(S.aiGlobalChat?.activeThread === threadId) {
+             C.messages[threadId].push({ who: 'IA', at: new Date().toISOString(), text: responseText, type: model }); 
+             save(); 
+             renderGlobalAIChat(); // Renderiza respuesta IA
+         }
     }, 1000);
 }
 function createMessageElement(message, userProfile) { 
-    const isMine = message.who === 'Tú';
-    // Asegura que userProfile exista
-    const profile = userProfile || { avatar: null }; 
+    const isMine = message.who === 'Tú' || message.senderId === 'u_me'; // Compatible con chat global
+    const profile = isMine ? S.hub.perfil : (userProfile || { avatar: null, nombre: 'Usuario' }); // Usa perfil global para 'Tú'
     const sender = {
-        name: isMine ? 'Tú' : (message.who || 'IA'), // Usa message.who si existe
-        avatar: isMine ? (profile.avatar || 'https://placehold.co/40x40/dde2ed/0b132a?text=TÚ') : 'Logos HD.png'
+        name: isMine ? 'Tú' : (message.who || profile.nombre || 'IA'), 
+        avatar: isMine 
+            ? (profile.avatar || 'https://placehold.co/40x40/dde2ed/0b132a?text=TÚ') 
+            : (profile.avatar || 'Logos HD.png') // Avatar por defecto para otros o IA
     };
     const msgBody = el('div', { class: 'msg-body' });
     
     const codeRegex = /\[CODE\]([\s\S]*?)\[\/CODE\]/g;
     let lastIndex = 0;
     let match;
-    const textToParse = message.text || ""; // Asegura que sea string
+    const textToParse = message.text || ""; 
     
     while ((match = codeRegex.exec(textToParse)) !== null) {
         if (match.index > lastIndex) {
@@ -4459,12 +5297,12 @@ function createMessageElement(message, userProfile) {
             msgBody
         )
     );
-    lucide.createIcons(); // Llama a lucide después de crear los botones
+    lucide.createIcons(); 
     return msgElement;
 }
 
 
-// --- 6.2: CRONOPOST (Calendario General) ---
+// --- 6.2: CRONOPOST (Calendario General) --- (MODIFICADO)
 let cpRef = new Date(); // Referencia de fecha para Cronopost
 function renderCronoPOST() { 
     const sel = $('#cpProjectSelect'); const currentSelection = sel.value;
@@ -4485,116 +5323,136 @@ function renderCronoPOST() {
         const y = ref.getFullYear(), m = ref.getMonth(); const first = new Date(y, m, 1);
         const start = new Date(first); start.setDate(1 - ((first.getDay() + 6) % 7)); // Empieza en Lunes
         const days = []; let cur = new Date(start);
-        // Genera 35 días (5 semanas) o 42 si el mes empieza tarde en la semana
-        const numDays = (first.getDay() === 0 || first.getDay() > 4) ? 42 : 35; 
+        const numDays = (first.getDay() === 0 || first.getDay() > 4 || (m === 1 && y % 4 === 0) ) ? 42 : 35; // Ajuste para Febrero bisiesto
         while (days.length < numDays) { days.push(new Date(cur)); cur.setDate(cur.getDate() + 1); } return days;
     };
     
     const projectsToShow = activeProjectId === 'all' ? S.projects : S.projects.filter(p => p.id === activeProjectId);
 
     monthGrid(cpRef).forEach(d => {
-        // CORRECCIÓN TIMEZONE: Fecha local YYYY-MM-DD
         const localYear = d.getFullYear();
         const localMonth = String(d.getMonth() + 1).padStart(2, '0');
         const localDay = String(d.getDate()).padStart(2, '0');
-        const localDateString = `${localYear}-${localMonth}-${localDay}`; // YYYY-MM-DD
-        const dateKeyForComparison = d.toDateString(); // Clave simple para posts
+        const localDateString = `${localYear}-${localMonth}-${localDay}`; 
+        const dateKeyForComparison = d.toDateString(); 
 
-        const dayEl = el('div', { class: 'day', dataset: { localDate: localDateString, dateString: dateKeyForComparison } }); // Guarda ambos formatos
-        dayEl.onclick = () => createTaskFromCronoPOST(d);
+        const dayEl = el('div', { class: 'day', dataset: { localDate: localDateString, dateString: dateKeyForComparison } }); 
+        dayEl.onclick = () => openCronoTaskModal(d); // Usa la nueva función modal
         if(d.getMonth() !== cpRef.getMonth()) dayEl.style.opacity = .5;
         dayEl.append(el('div', { textContent: d.getDate(), style: 'font-weight: 500; color: var(--sub); margin-bottom: 4px; text-align: right; font-size: var(--sm);' }));
 
         projectsToShow.forEach(proj => {
-            // Posts (usa dateKeyForComparison - toDateString)
+            // Renderiza Posts
             const posts = S.cronopost.posts[proj.id] || {};
             (posts[dateKeyForComparison] || []).forEach((p) => {
                 const postEl = el('div', { class: 'cp-post', draggable: 'true', textContent: p.title, title: `${proj.name}: ${p.title}`, style: `border-left-color:${proj.color}; background: color-mix(in hsl, ${proj.color} 15%, transparent);` });
                 postEl.ondragstart = e => {
                     e.stopPropagation(); 
-                    e.dataTransfer.setData('text/plain', JSON.stringify({type: 'post', id: p.id, title: p.title, fromDateString: dateKeyForComparison, fromProject: proj.id}));
+                    draggedTaskId = JSON.stringify({type: 'post', id: p.id, title: p.title, fromDateString: dateKeyForComparison, fromProject: proj.id}); // Guarda data completa
+                    e.dataTransfer.setData('text/plain', draggedTaskId); // Necesario para Firefox
                     e.dataTransfer.effectAllowed = 'move';
                 };
+                postEl.ondragend = () => { draggedTaskId = null; };
                 dayEl.append(postEl);
             });
-            // Tareas (Leer de todas las carpetas, compara con localDateString Y toDateString)
+            // Renderiza Tareas (de TODAS las carpetas)
             const allTasksForProject = Object.values(S.tasks[proj.id] || {}).flat();
             allTasksForProject.filter(t => t.due && (t.due === localDateString || new Date(t.due).toDateString() === dateKeyForComparison)).forEach(t => {
                 const taskEl = el('div', { class: 'cal-task', draggable: 'true', textContent: `✓ ${t.title}`, title: `Tarea: ${t.title}`, style: `border-left-color:${proj.color};` });
-                taskEl.dataset.folder = t.folder; // Añade la carpeta
+                taskEl.dataset.folder = t.folder; // Guarda la carpeta original
                 taskEl.ondragstart = e => {
                      e.stopPropagation();
-                     e.dataTransfer.setData('text/plain', JSON.stringify({type: 'task', id: t.id, fromProject: proj.id, folder: t.folder }));
+                     draggedTaskId = JSON.stringify({type: 'task', id: t.id, fromProject: proj.id, folder: t.folder }); // Guarda data completa
+                     e.dataTransfer.setData('text/plain', draggedTaskId); // Necesario para Firefox
                      e.dataTransfer.effectAllowed = 'move';
                 };
+                taskEl.ondragend = () => { draggedTaskId = null; };
                 dayEl.append(taskEl);
             });
         });
 
-        // Eventos D&D
-        dayEl.ondragover = (e) => { e.preventDefault(); dayEl.classList.add('dragover'); };
+        // --- CORRECCIÓN DRAG & DROP para Cronopost ---
+        dayEl.ondragover = (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; dayEl.classList.add('dragover'); };
         dayEl.ondragleave = (e) => { dayEl.classList.remove('dragover'); };
         dayEl.ondrop = (e) => { 
-            e.preventDefault(); dayEl.classList.remove('dragover');
+            e.preventDefault(); 
+            e.stopPropagation();
+            dayEl.classList.remove('dragover');
+            
             let data;
-            try { data = JSON.parse(e.dataTransfer.getData('text/plain')); } catch(err) { console.error("Error parsing D&D data:", err); return; }
+            try { 
+                // Usa la variable global si existe, sino intenta obtener de dataTransfer
+                const rawData = draggedTaskId || e.dataTransfer.getData('text/plain'); 
+                if (!rawData) { throw new Error("No data found"); }
+                data = JSON.parse(rawData); 
+            } catch(err) { 
+                console.error("Error parsing D&D data en Cronopost:", err); 
+                draggedTaskId = null; // Limpia por si acaso
+                return; 
+            }
 
-            // CORRECCIÓN TIMEZONE: Usa las fechas guardadas en el día
-            const toLocalDate = dayEl.dataset.localDate; // YYYY-MM-DD
-            const toDateStringKey = dayEl.dataset.dateString; // toDateString()
+            const toLocalDate = dayEl.dataset.localDate; 
+            const toDateStringKey = dayEl.dataset.dateString; 
+            const targetProjectId = $('#cpProjectSelect').value; // Proyecto seleccionado en el dropdown
             
-            const targetProjectId = $('#cpProjectSelect').value;
-            
+            // console.log("Crono Drop:", data, "TargetDate:", toLocalDate); // Debug
+
             if (data.type === 'idea') { 
                 if (targetProjectId === 'all') { showToast('Selecciona un proyecto específico para agendar ideas.', 'warn'); return; }
                 if (!S.cronopost.posts[targetProjectId]) S.cronopost.posts[targetProjectId] = {};
                 if (!S.cronopost.posts[targetProjectId][toDateStringKey]) S.cronopost.posts[targetProjectId][toDateStringKey] = [];
                 S.cronopost.posts[targetProjectId][toDateStringKey].push({ id: 'post' + Date.now(), title: data.title });
-                // Elimina de ideas (asegura que exista el array)
+                
+                // Elimina la idea del banco correspondiente
                 if (S.cronopost.ideas[targetProjectId]) {
                      S.cronopost.ideas[targetProjectId] = S.cronopost.ideas[targetProjectId].filter(i => i.id !== data.id);
                 }
             
             } else if (data.type === 'post') { 
-                 // Mueve el post usando toDateString como clave
                 const fromPosts = S.cronopost.posts[data.fromProject]?.[data.fromDateString];
                 if (!fromPosts) return; 
                 
                 const postIndex = fromPosts.findIndex(p => p.id === data.id);
                 if (postIndex > -1) {
-                    const [post] = fromPosts.splice(postIndex, 1);
-                    // Si el array de origen queda vacío, elimínalo (opcional)
-                    if (fromPosts.length === 0) delete S.cronopost.posts[data.fromProject][data.fromDateString];
+                    const [post] = fromPosts.splice(postIndex, 1); // Quita el post del origen
+                    if (fromPosts.length === 0) delete S.cronopost.posts[data.fromProject][data.fromDateString]; // Limpia si queda vacío
                     
-                    // Añade al destino
+                    // Añade el post al destino
                     if (!S.cronopost.posts[data.fromProject]) S.cronopost.posts[data.fromProject] = {};
                     if (!S.cronopost.posts[data.fromProject][toDateStringKey]) S.cronopost.posts[data.fromProject][toDateStringKey] = [];
                     S.cronopost.posts[data.fromProject][toDateStringKey].push(post);
                 }
             
             } else if (data.type === 'task') {
+                const taskFolder = data.folder || 'General'; // Carpeta original de la tarea
                 // Busca la tarea en su carpeta original
-                const taskFolder = data.folder || 'General';
                 const task = S.tasks[data.fromProject]?.[taskFolder]?.find(t => t.id === data.id);
-                // CORRECCIÓN TIMEZONE: Guarda la fecha local YYYY-MM-DD
-                if (task) task.due = toLocalDate; 
+                if (task) {
+                     task.due = toLocalDate; // Actualiza la fecha de la tarea
+                } else {
+                     console.warn(`Tarea ${data.id} no encontrada en proyecto ${data.fromProject}, carpeta ${taskFolder} durante drop en cronopost.`);
+                }
             }
+            
             save(); 
-            renderCronoPOST();
-            // Si el proyecto afectado es el activo, renderiza su calendario también
-            if (S.activeProject && (S.activeProject === data.fromProject || S.activeProject === targetProjectId)) {
+            renderCronoPOST(); // Re-renderiza cronopost
+            // Si el proyecto activo es relevante, actualiza sus vistas
+            if (S.activeProject && (S.activeProject === data.fromProject || S.activeProject === targetProjectId || targetProjectId === 'all')) {
                 renderCalendar();
+                renderTasks(); 
             }
+             draggedTaskId = null; // Limpia al final
         };
+        // --- FIN CORRECCIÓN ---
+        
         calendarEl.append(dayEl);
     });
 
-    // Banco de ideas
+    // Renderiza Banco de Ideas
     const ideasList = $('#cpIdeasList'); ideasList.innerHTML = '';
     const ideasContainer = $('#cpIdeas');
     if (activeProjectId !== 'all') { 
         ideasContainer.style.opacity = 1;
-        // Asegura inicialización de ideas
         if (!S.cronopost.ideas[activeProjectId]) S.cronopost.ideas[activeProjectId] = []; 
         const ideas = S.cronopost.ideas[activeProjectId];
         
@@ -4603,11 +5461,15 @@ function renderCronoPOST() {
         } else {
             ideas.forEach(idea => {
                 const ideaEl = el('div', { class: 'cp-post', draggable: 'true', textContent: idea.title });
+                // --- CORRECCIÓN DRAG & DROP para Ideas ---
                 ideaEl.ondragstart = (e) => {
                     e.stopPropagation();
-                    e.dataTransfer.setData('text/plain', JSON.stringify({type: 'idea', id: idea.id, title: idea.title}));
+                    draggedTaskId = JSON.stringify({type: 'idea', id: idea.id, title: idea.title}); // Guarda data completa
+                    e.dataTransfer.setData('text/plain', draggedTaskId); // Necesario para Firefox
                     e.dataTransfer.effectAllowed = 'move';
                 };
+                 ideaEl.ondragend = () => { draggedTaskId = null; };
+                // --- FIN CORRECCIÓN ---
                 ideasList.append(ideaEl);
             });
         }
@@ -4616,33 +5478,72 @@ function renderCronoPOST() {
          ideasContainer.style.opacity = 0.6;
     }
 }
-function createTaskFromCronoPOST(date) { 
+
+
+/**
+ * Abre el modal mejorado para crear una tarea desde Cronopost.
+ * ASEGURA que la tarea se cree en la carpeta 'General' del proyecto seleccionado.
+ * @param {Date} date - Fecha seleccionada.
+ */
+function openCronoTaskModal(date) { 
     const modal = $('#cronoTaskModal');
     $('#cronoTaskModalDesc').textContent = `Crear tarea para ${fmtDate(date, 'short')}`;
-    const select = $('#cronoTaskProjectSelect');
-    select.innerHTML = '';
+    const projectSelect = $('#cronoTaskProjectSelect');
+    const statusSelect = $('#cronoTaskStatusSelect');
+    
+    // Limpia campos
+    $('#cronoTaskTitle').value = '';
+    $('#cronoTaskDesc').value = '';
+    $('#cronoTaskTags').value = '';
+    projectSelect.innerHTML = '';
+    statusSelect.innerHTML = '';
+    
     if(S.projects.length === 0) {
         showToast('Debes crear un proyecto primero.', 'warn');
         return;
     }
-    S.projects.forEach(p => select.append(el('option', {value: p.id, textContent: p.name})));
     
-    // Asegura listener único
+    // Poblar proyectos
+    S.projects.forEach(p => projectSelect.append(el('option', {value: p.id, textContent: p.name})));
+    
+    // Función para poblar estados basada en el proyecto seleccionado
+    const populateStatuses = (projectId) => {
+        statusSelect.innerHTML = '';
+        const project = S.projects.find(p => p.id === projectId);
+        if (project && project.taskColumns) {
+            project.taskColumns.forEach(status => statusSelect.append(el('option', {value: status, textContent: status})));
+        } else {
+             statusSelect.append(el('option', {value: 'Backlog', textContent: 'Backlog'})); // Default
+        }
+    };
+
+    // Poblar estados iniciales y añadir listener de cambio
+    populateStatuses(projectSelect.value);
+    // Asegura listener único para el cambio de proyecto
+    if (!projectSelect.dataset.listenerAttached) {
+        projectSelect.addEventListener('change', () => populateStatuses(projectSelect.value));
+        projectSelect.dataset.listenerAttached = 'true';
+    }
+    
+    // Asegura listener único para el botón de confirmar
     const confirmBtn = $('#cronoTaskConfirm');
     const newConfirmBtn = confirmBtn.cloneNode(true);
     confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
     
     newConfirmBtn.onclick = () => {
         const title = $('#cronoTaskTitle').value.trim();
-        const projectId = select.value;
+        const projectId = projectSelect.value;
         if (!title || !projectId) return showToast('Se requiere un título y un proyecto.', 'warn');
 
-        const p = S.projects.find(x => x.id === projectId);
-        if (!p) return; // Seguridad
-        const firstColumn = p.taskColumns[0] || 'Backlog';
-        const targetFolder = 'General'; // Siempre a General desde Cronopost
+        const desc = $('#cronoTaskDesc').value.trim();
+        const status = statusSelect.value;
+        const tags = ($('#cronoTaskTags').value || '')
+                     .split(',')
+                     .map(tag => tag.trim())
+                     .filter(tag => tag !== ''); 
+        const targetFolder = 'General'; // Siempre a General, como solicitado
         
-        // CORRECCIÓN TIMEZONE: Guarda YYYY-MM-DD local
+        // Formato YYYY-MM-DD local
         const localYear = date.getFullYear();
         const localMonth = String(date.getMonth() + 1).padStart(2, '0');
         const localDay = String(date.getDate()).padStart(2, '0');
@@ -4651,32 +5552,40 @@ function createTaskFromCronoPOST(date) {
         const newTask = { 
             id: 't' + Date.now(), 
             title, 
-            status: firstColumn, 
-            desc: '', 
-            due: localDateString, // Guarda YYYY-MM-DD
-            folder: targetFolder, // Asigna carpeta
-            tags: []
+            status, 
+            desc, 
+            due: localDateString, 
+            folder: targetFolder, // Asegura carpeta 'General'
+            tags
         };
         
-        // Asegura inicialización
+        // --- CORRECCIÓN SYNC TAREAS ---
+        // Asegura que la estructura exista antes de añadir
         if (!S.tasks[projectId]) S.tasks[projectId] = {};
         if (!S.tasks[projectId][targetFolder]) S.tasks[projectId][targetFolder] = []; 
         
-        S.tasks[projectId][targetFolder].push(newTask);
+        S.tasks[projectId][targetFolder].push(newTask); // Añade a la carpeta 'General'
         addIntis(5, 'Tarea creada');
         save();
+        
+        // Re-renderiza todas las vistas relevantes
         renderCronoPOST(); 
-        if(S.activeProject === projectId) { renderCalendar(); renderTasks(); } // Actualiza si está activo
-        renderAside(); // Actualiza contadores
+        if(S.activeProject === projectId) { 
+            // Si el proyecto donde se creó la tarea está activo
+            renderCalendar(); 
+            renderTasks(); // <- ESTO asegura que se vea en el tablero/lista
+        } 
+        renderAside(); // Actualiza contadores generales
+        // --- FIN CORRECCIÓN ---
+        
         modal.close();
-        $('#cronoTaskTitle').value = '';
     };
     modal.showModal();
+    lucide.createIcons(); // Para el icono de cerrar
 }
 
 // --- 6.3: HUB PROFESIONAL ---
 function renderHub() { 
-    // Asegura inicialización
     if (!S.hub) S.hub = JSON.parse(JSON.stringify(initialState.hub)); 
     const P = S.hub.perfil;
     $('#avatar').src = P.avatar || 'https://placehold.co/100x100/dde2ed/0b132a?text=TÚ';
@@ -4694,7 +5603,7 @@ function renderHub() {
     if(P.socials?.twitter) socialsEl.append(el('a', {href: P.socials.twitter, target:'_blank', class:'btn btn-ghost btn-sm'}, el('i', {'data-lucide':'twitter'})));
     
     const mkList = $('#mkList'); mkList.innerHTML = '';
-    (S.hub.market || []).forEach(item => { // Asegura que market exista
+    (S.hub.market || []).forEach(item => { 
         mkList.append(el('div', {class: 'card', style:'margin-bottom:10px; background: var(--surface);'},
             el('div', {class:'row'}, el('b', {textContent: item.name}), el('span', {class:'spacer'}), el('span', {class:'chip', textContent: `$${item.price}`})),
             el('p', {class:'sub', textContent:item.desc}),
@@ -4709,8 +5618,8 @@ function renderHub() {
 }
 function renderJobs(){ 
     const list = $('#jobsList'); list.innerHTML = '';
-    const searchTerm = ($('#jobSearchInput')?.value || '').toLowerCase().trim(); // Asegura que exista
-    const jobs = (S.hub.jobs || []).filter(j => // Asegura que jobs exista
+    const searchTerm = ($('#jobSearchInput')?.value || '').toLowerCase().trim(); 
+    const jobs = (S.hub.jobs || []).filter(j => 
          (j.title || '').toLowerCase().includes(searchTerm) || 
          (j.company || '').toLowerCase().includes(searchTerm)
     );
@@ -4743,7 +5652,6 @@ function renderJobs(){
     });
 }
 function addJob() { 
-    // Asegura inicialización
     if (!S.hub) S.hub = JSON.parse(JSON.stringify(initialState.hub));
     if (!S.hub.jobs) S.hub.jobs = []; 
 
@@ -4754,7 +5662,6 @@ function addJob() {
     ['#jobTitle', '#jobCompany', '#jobLocation', '#jobPay', '#jobDesc'].forEach(s => $(s).value = '');
 }
 function saveProfile() { 
-    // Asegura inicialización
     if (!S.hub) S.hub = JSON.parse(JSON.stringify(initialState.hub));
     if (!S.hub.perfil.socials) S.hub.perfil.socials = { linkedin: '', twitter: '' };
 
@@ -4763,12 +5670,11 @@ function saveProfile() {
     save(); renderHub(); showToast("Perfil actualizado", "success");
 }
 function handleAvatarUpload(e) { 
-    const file = e.target.files?.[0]; if (!file) return; // Optional chaining
+    const file = e.target.files?.[0]; if (!file) return; 
     const reader = new FileReader();
     reader.onload = (event) => { 
-        // Asegura inicialización
         if (!S.hub) S.hub = JSON.parse(JSON.stringify(initialState.hub)); 
-        S.hub.perfil.avatar = event.target?.result; // Optional chaining
+        S.hub.perfil.avatar = event.target?.result; 
         save(); 
         renderHub(); 
     };
@@ -4776,20 +5682,18 @@ function handleAvatarUpload(e) {
     reader.readAsDataURL(file);
 }
 function editMarketItem(id) { 
-    // Asegura inicialización
     if (!S.hub || !S.hub.market) return;
     const item = S.hub.market.find(i => i.id === id); if (!item) return;
     showInputModal('Editar Servicio', 'Nuevo nombre:', item.name, newName => {
         showInputModal('Editar Servicio', 'Nuevo precio:', item.price, newPrice => {
             if (newName) item.name = newName;
-            const priceNum = Number(newPrice); // Convierte a número
-            if (!isNaN(priceNum)) item.price = priceNum; // Solo actualiza si es un número válido
+            const priceNum = Number(newPrice); 
+            if (!isNaN(priceNum)) item.price = priceNum; 
             save(); renderHub();
         }, item.price);
     }, item.name);
 }
 function deleteMarketItem(id) { 
-     // Asegura inicialización
     if (!S.hub || !S.hub.market) return;
     showInputModal('Confirmar Eliminación', `¿Eliminar este servicio del mercado? Escribe "eliminar".`, 'eliminar', (confirmText) => {
         if (confirmText.toLowerCase() === 'eliminar') {
@@ -4801,22 +5705,19 @@ function deleteMarketItem(id) {
 
 // --- 6.4: CHAT GLOBAL ---
 function renderGChat() { 
-    // Asegura inicialización
     if (!S.hub) S.hub = JSON.parse(JSON.stringify(initialState.hub)); 
     if (!S.gchat) S.gchat = JSON.parse(JSON.stringify(initialState.gchat));
     if (!S.gchat.messages) S.gchat.messages = { 'general': [] };
     if (!S.gchat.dms) S.gchat.dms = {};
 
-    const allUsers = [S.hub.perfil, ...(S.hub.users || [])]; // Asegura que users exista
+    const allUsers = [S.hub.perfil, ...(S.hub.users || [])]; 
     const userList = $('#gUserList'); userList.innerHTML = '';
     
-    // Canal #general
     const generalChannel = el('div', {class: 'projItem', onclick: ()=> openDirectMessage('general')}, el('i', {'data-lucide': 'hash'}), el('span', {textContent: 'general'}));
     if (S.gchat.activeChat === 'general') generalChannel.classList.add('active');
     userList.append(generalChannel);
     
-    // Lista de usuarios (para DMs)
-    allUsers.filter(u => u && u.id !== 'u_me').forEach(u => { // Añade chequeo de nulidad para u
+    allUsers.filter(u => u && u.id !== 'u_me').forEach(u => { 
         const dmKey = ['u_me', u.id].sort().join('-');
         const userEl = el('div', {class: 'projItem', dataset: {userid: u.id}, onclick: ()=> openDirectMessage(u.id)},
             el('div', {class:'presence-dot', style:`width: 8px; height: 8px; border-radius: 50%; background:${u.online ? 'var(--success)' : 'var(--sub)'}`}),
@@ -4828,17 +5729,15 @@ function renderGChat() {
     
     const log = $('#gChatLog'); log.innerHTML = ''; let messages = []; let activeChatName = "Chat";
     
-    // Carga mensajes del chat activo
     if (S.gchat.activeChat === 'general') {
         activeChatName = "# general"; messages = S.gchat.messages.general || [];
-        if (messages.length === 0) messages.push({senderId: 'system', at: new Date().toISOString(), text: '¡Bienvenido al chat global! Sé respetuoso y colabora.'}); // Guarda ISO
+        if (messages.length === 0) messages.push({senderId: 'system', at: new Date().toISOString(), text: '¡Bienvenido al chat global! Sé respetuoso y colabora.'}); 
         $('#gChatHeader').textContent = activeChatName;
     } else {
         const otherUserId = S.gchat.activeChat.replace('u_me','').replace('-','');
-        const otherUser = allUsers.find(u => u && u.id === otherUserId); // Chequeo de nulidad
+        const otherUser = allUsers.find(u => u && u.id === otherUserId); 
         if(otherUser) {
             activeChatName = `Chat con ${otherUser.nombre}`;
-            // Recrea el header para asegurar el listener
             const header = $('#gChatHeader');
             header.innerHTML = `Chat con ${otherUser.nombre}`;
             const callBtn = el('button', {class:"btn btn-sm btn-ghost", id:"videoCallBtn", style:"margin-left: auto;"}, el('i', {'data-lucide':"video"}));
@@ -4850,12 +5749,11 @@ function renderGChat() {
         messages = S.gchat.dms[S.gchat.activeChat] || [];
     }
 
-    // Renderiza mensajes
     messages.forEach(m => {
-        const sender = allUsers.find(u => u && u.id === m.senderId) || {nombre: 'Sistema', avatar: 'Logos HD.png'}; // Chequeo de nulidad
-        log.append(createMessageElement(m, sender)); // Pasa el objeto sender completo
+        const sender = allUsers.find(u => u && u.id === m.senderId) || {nombre: 'Sistema', avatar: 'Logos HD.png'}; 
+        log.append(createMessageElement(m, sender)); 
     });
-    // Scroll al final
+    // Scroll al fondo DESPUÉS de añadir mensajes
     requestAnimationFrame(() => { log.scrollTop = log.scrollHeight; });
     lucide.createIcons();
 }
@@ -4867,12 +5765,11 @@ function sendGChatMessage() {
     const msgInput = $('#gChatMsg');
     const msg = msgInput.value.trim(); if (!msg) return;
     
-    // Asegura inicialización
     if (!S.gchat) S.gchat = JSON.parse(JSON.stringify(initialState.gchat));
     if (!S.gchat.messages) S.gchat.messages = { 'general': [] };
     if (!S.gchat.dms) S.gchat.dms = {};
 
-    const message = { senderId: 'u_me', at: new Date().toISOString(), text: msg }; // Guarda ISO
+    const message = { senderId: 'u_me', at: new Date().toISOString(), text: msg }; 
     
     if (S.gchat.activeChat === 'general') { 
         S.gchat.messages.general.push(message);
@@ -4884,28 +5781,17 @@ function sendGChatMessage() {
     save(); renderGChat(); msgInput.value = '';
 }
 
-// --- 6.5: MONETIZACIÓN & MINDSET ---
-const monetizationModules = { 
-    oferta: { icon: 'gem', title: 'Ofertas Irresistibles', desc: 'Estructura productos que tus clientes no puedan rechazar.', content: `<h4>El Principio de la Transformación</h4><p>Una oferta irresistible no es sobre tu producto, es sobre la <strong>transformación</strong> que vendes. Debes llevar a tu cliente de un "Estado A" (con un problema doloroso) a un "Estado B" (con el problema resuelto y aspiraciones cumplidas).</p><h4>Componentes Clave de tu Oferta:</h4><ul><li><strong>Resultado Específico y Deseado:</strong> ¿Qué logrará exactamente tu cliente? (Ej: "Lanza tu podcast profesional en 30 días", no "Aprende a hacer podcasts").</li><li><strong>Bonos de Alto Valor:</strong> Añade extras que complementen la oferta principal. (Ej: Plantillas de guiones, checklist técnico, acceso a comunidad privada).</li><li><strong>Garantía Sólida (Inversión de Riesgo):</strong> Reduce el riesgo a cero para el comprador.</li><li><strong>Urgencia y Escasez:</strong> Motiva la acción inmediata. (Ej: "Disponible solo para las primeras 20 personas").</li></ul><div class="tip"><strong>Tip Profesional:</strong> Nombra tu oferta basándote en el resultado. "El Sistema Podcast Launchpad 30" suena mucho más valioso.</div>` },
-    contenido: { icon: 'megaphone', title: 'Marketing de Contenidos', desc: 'Atrae a tu cliente ideal creando contenido de valor.', content: `<h4>La Estrategia del "Dar Primero"</h4><p>El marketing de contenidos se basa en atraer clientes en lugar de perseguirlos. Lo haces ofreciendo valor por adelantado, posicionándote como una autoridad en tu nicho.</p><h4>Pasos para una Estrategia Exitosa:</h4><ul><li><strong>Define tu Pilar de Contenido:</strong> Elige un tema central en el que eres experto.</li><li><strong>Elige UN Formato y UN Canal Principal:</strong> ¿Videos en YouTube? ¿Hilos en Twitter/X? Domina uno antes de expandirte.</li><li><strong>Crea "Contenido Solución":</strong> Cada pieza de contenido debe resolver un micro-problema de tu audiencia.</li><li><strong>Llamada a la Acción (CTA):</strong> Al final de tu contenido, invita a la audiencia a dar el siguiente paso. (Ej: "Descarga mi guía gratuita sobre X").</li></ul><div class="tip"><strong>Tip Profesional:</strong> Crea una pieza de contenido larga y de alto valor y luego "recíclala" en piezas más pequeñas para otras redes.</div>` },
-    suscripcion: { icon: 'calendar-check', title: 'Modelos de Suscripción', desc: 'Crea ingresos recurrentes y una comunidad fiel.', content: `<h4>El Poder del Ingreso Predecible</h4><p>Los modelos de suscripción transforman tu negocio de transacciones únicas a relaciones a largo plazo, dándote un flujo de caja estable.</p><h4>Tipos de Modelos Populares:</h4><ul><li><strong>Comunidad Privada:</strong> Acceso a un grupo (Discord, Slack, etc.), networking y contenido exclusivo.</li><li><strong>Software como Servicio (SaaS):</strong> Ofreces una herramienta o software por una cuota mensual/anual.</li><li><strong>Producto como Servicio (PaaS):</strong> Ofreces un servicio "hecho para ti" de forma ilimitada por una cuota fija (Ej: Diseño gráfico ilimitado).</li></ul><div class="tip"><strong>Tip Profesional:</strong> Empieza con una "Oferta Fundacional" a un precio más bajo para tus primeros miembros. Ellos te darán feedback valioso.</div>` },
-     embudos: { icon: 'filter', title: 'Embudos de Venta', desc: 'Diseña el viaje de un extraño a un cliente leal.', content: `<h4>¿Qué es un Embudo de Ventas?</h4><p>Es el proceso paso a paso que guía a tus clientes potenciales hacia la compra. En lugar de una tienda con mil opciones, un embudo ofrece un camino claro.</p><h4>Fases de un Embudo Básico:</h4><ol><li><strong>Tráfico (ToFu):</strong> ¿Cómo te descubren? (Redes sociales, anuncios, SEO).</li><li><strong>Captación (MoFu):</strong> Ofreces un "Lead Magnet" (ebook, webinar) a cambio del correo.</li><li><strong>Venta (BoFu):</strong> Presentas tu oferta principal a través de una página de ventas y correos.</li><li><strong>Fidelización:</strong> Aportas valor post-compra para que se conviertan en clientes recurrentes.</li></ol><div class="tip"><strong>Tip Profesional:</strong> La mayoría de las ventas no ocurren en el primer contacto. Una secuencia de 5-7 correos automáticos puede multiplicar tus conversiones.</div>` }
-};
+// --- 6.5: MONETIZACIÓN & MINDSET --- (REDISÉÑADO)
 function renderMonetAssistant() { 
-    const grid = $('#monet-grid'); grid.innerHTML = '';
-    for (const key in monetizationModules) {
-        const module = monetizationModules[key];
-        const card = el('div', {class: 'monet-card', onclick: () => openMonetModule(key)},
-            el('i', {'data-lucide': module.icon, width: 40, height: 40}),
-            el('h4', {textContent: module.title}),
-            el('p', {textContent: module.desc})
-        );
-        grid.append(card);
-    }
+    // La renderización ahora es estática en el HTML, 
+    // solo necesitamos asegurar que los iconos se creen.
     lucide.createIcons();
+    // Podrías añadir lógica aquí si los botones "Me interesa" deben hacer algo específico
 }
 function openMonetModule(key) { 
-    const module = monetizationModules[key]; if (!module) return;
+    // Esta función ahora solo se usa para el modal del programa de socios
+    const module = monetizationModules[key]; 
+    if (!module || key !== 'socios') return; // Solo abre el modal para 'socios'
     $('#monetModuleTitle').textContent = module.title;
     $('#monetModuleContent').innerHTML = module.content;
     $('#monetModuleModal').showModal();
@@ -4916,44 +5802,53 @@ function setupMindset() {
     $('#mindsetQuote').textContent = `"${quotes[Math.floor(Math.random()*quotes.length)]}"`;
     const breathingText = $('#breathing-text');
     const circle = $('#breathing-circle');
-    // Reinicia la animación para asegurar sincronización
+    // Reinicia animación para que siempre empiece en 'Inhala'
     circle.style.animation = 'none';
     breathingText.style.animation = 'none';
     requestAnimationFrame(() => {
         circle.style.animation = '';
         breathingText.style.animation = '';
-        breathingText.textContent = 'Inhala...'; // Asegura estado inicial
+        breathingText.textContent = 'Inhala...'; 
     });
-    // El listener de 'animationiteration' puede ser menos fiable, se quita
 }
 
-// --- 6.6: BILLETERA GLOBAL & INTIS ---
+// --- 6.6: BILLETERA GLOBAL & INTIS --- (REDISÉÑADO)
 function renderWallet() { 
-    // Asegura inicialización
     if (!S.wallet) S.wallet = { movs: [] };
     const tbody = $('#wBody'); tbody.innerHTML = '';
-    // Ordena por fecha descendente antes de renderizar
     const sortedMovs = [...S.wallet.movs].sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
     
-    sortedMovs.forEach((mov, i) => { // 'i' aquí es el índice original si lo necesitas, pero no se usa para eliminar
+    let totalIn = 0;
+    let totalOut = 0;
+    
+    sortedMovs.forEach((mov) => { 
+        if (mov.tipo === 'Ingreso') totalIn += mov.monto;
+        else totalOut += mov.monto;
+        
+        const originalIndex = S.wallet.movs.findIndex(originalMov => originalMov === mov); // Encuentra índice original para eliminar
+        
         const tr = el('tr', {},
-            el('td', {textContent: fmtDate(mov.fecha, 'short')}), // Usa formato corto
+            el('td', {textContent: fmtDate(mov.fecha, 'short')}), 
             el('td', {textContent: mov.tipo, style: `color: ${mov.tipo === 'Ingreso' ? 'var(--success)' : 'var(--danger)'}`}),
             el('td', {textContent: `$${mov.monto.toFixed(2)}`, style:'text-align: right;'}),
             el('td', {textContent: mov.cat}),
             el('td', {textContent: mov.nota}),
             el('td', {}, el('button', {class: 'btn btn-ghost btn-sm', onclick: () => { 
-                // Encuentra el índice real en S.wallet.movs para eliminar
-                const originalIndex = S.wallet.movs.findIndex(originalMov => originalMov === mov);
                 if (originalIndex > -1) {
                     S.wallet.movs.splice(originalIndex, 1); 
+                    save(); 
+                    renderWallet(); // Re-renderiza el modal
                 }
-                save(); 
-                renderWallet(); 
             }}, el('i', {'data-lucide': 'trash-2', width: 14})))
         );
-        tbody.append(tr); // Usa append para orden normal (fecha más reciente arriba por sort)
+        tbody.append(tr); 
     });
+    
+    // Actualiza stats en el modal
+    $('#wModalIn').textContent = `$${totalIn.toFixed(2)}`;
+    $('#wModalOut').textContent = `$${totalOut.toFixed(2)}`;
+    $('#wModalBal').textContent = `$${(totalIn - totalOut).toFixed(2)}`;
+    
     lucide.createIcons();
 }
 function addWalletTransaction() { 
@@ -4961,11 +5856,12 @@ function addWalletTransaction() {
     if (isNaN(monto) || monto <= 0) return showToast('Por favor, ingresa un monto válido.', 'warn');
     const newMov = { fecha: new Date().toISOString(), tipo: $('#wTipo').value, monto: monto, cat: $('#wCat').value.trim() || 'General', nota: $('#wNota').value.trim() };
     
-    // Asegura inicialización
     if (!S.wallet) S.wallet = { movs: [] };
     S.wallet.movs.push(newMov);
     addIntis(5, 'Movimiento en billetera');
-    save(); renderWallet();
+    save(); 
+    renderWallet(); // Re-renderiza el modal
+    syncHeader(); // Actualiza el chip del header
     $('#wMonto').value = ''; $('#wCat').value = ''; $('#wNota').value = '';
 }
 
@@ -5008,22 +5904,24 @@ const industryTemplates = {
 function loadIndustryTemplate(industry) { 
     const template = industryTemplates[industry] || {};
     
-    // Asigna los datos de la plantilla usando deep copy para evitar referencias
     S.projects = JSON.parse(JSON.stringify(template.projects || [])); 
     S.folders = JSON.parse(JSON.stringify(template.folders || {}));
     S.tasks = JSON.parse(JSON.stringify(template.tasks || {})); 
     S.notes = JSON.parse(JSON.stringify(template.notes || {}));
     if (template.cronopost) S.cronopost.ideas = JSON.parse(JSON.stringify(template.cronopost.ideas || {}));
     
-    // Inicializa todos los sub-estados para los proyectos de la plantilla
+    // Inicialización por defecto para CADA proyecto cargado
     S.projects.forEach(p => {
         const id = p.id;
         if (!p.taskColumns) p.taskColumns = ['Backlog','En curso','Bloqueado','Hecho'];
+        if (!p.color) p.color = `hsl(${Math.random() * 360}, 70%, 60%)`; // Añade color si falta
         if (!S.folders[id]) S.folders[id] = ['General'];
         if (!S.tasks[id]) S.tasks[id] = { 'General': [] }; 
-        // Asegura que todas las tareas tengan array de tags
          Object.values(S.tasks[id]).forEach(folderTasks => {
-              folderTasks.forEach(task => { if (!task.tags) task.tags = []; });
+              folderTasks.forEach(task => { 
+                  if (!task.tags) task.tags = []; 
+                  if (!task.folder) task.folder = Object.keys(S.tasks[id]).find(fName => S.tasks[id][fName].includes(task)) || 'General'; // Intenta asignar folder si falta
+              });
          });
         if (!S.notes[id]) S.notes[id] = {list:[], active:null, bodies:{}, drawings:{}}; 
         if (!S.chats[id]) S.chats[id] = {threads:[], messages:{}, activeThread: null, model: 'pro'};
@@ -5032,7 +5930,7 @@ function loadIndustryTemplate(industry) {
         if (!S.fin[id]) S.fin[id] = {rows:[]};
         if (!S.cronopost.posts[id]) S.cronopost.posts[id] = {};
         if (!S.cronopost.ideas[id]) S.cronopost.ideas[id] = [];
-        S.ui.projectCollapsedState[id] = false; // Inicia expandido
+        S.ui.projectCollapsedState[id] = false; 
     });
     
     S.userProfile.industry = industry; 
@@ -5078,16 +5976,14 @@ function performSearch() {
                 }
             });
         }
-        // Busca en Tareas (itera sobre carpetas)
         Object.entries(S.tasks[projId] || {}).forEach(([folderName, tasksInFolder]) => {
-            (tasksInFolder || []).forEach(t => { // Asegura que tasksInFolder exista
+            (tasksInFolder || []).forEach(t => { 
                 if (isMatch(t.title) || isMatch(t.desc)) {
                     results.push({
                         type: 'Tarea', name: t.title, context: `En proyecto: ${p.name} (Carpeta: ${folderName})`,
                         action: () => { 
                             history.pushState({view: `project/${projId}/folder/${folderName}`}, '', `#!project/${projId}/folder/${encodeURIComponent(folderName)}`);
                             openProject(projId, folderName); 
-                            // Espera un poco a que se renderice antes de abrir el modal
                             setTimeout(() => openTaskModal(t.id), 100); 
                             $('#searchModal').close(); 
                         }
@@ -5095,7 +5991,6 @@ function performSearch() {
                 }
             });
         });
-        // Busca en Notas
         (S.notes[projId]?.list || []).forEach(n => {
             if (isMatch(n.title) || isMatch(S.notes[projId].bodies[n.id])) {
                 results.push({
@@ -5105,10 +6000,9 @@ function performSearch() {
                         openProject(projId);
                         S.notes[projId].active = n.id;
                         save();
-                        // Espera a que se abra el proyecto y luego cambia de pestaña
                         setTimeout(() => {
                             $('#project-tabs .tab[data-ptab="notes"]').click();
-                            renderNotes(); // Asegura que la nota correcta se muestre
+                            renderNotes(); 
                         }, 50); 
                         $('#searchModal').close();
                     }
@@ -5117,7 +6011,6 @@ function performSearch() {
         });
     });
     
-    // Muestra resultados
     const resultsEl = $('#searchResults'); resultsEl.innerHTML = '';
     if (results.length === 0) { 
         resultsEl.innerHTML = `<div class="empty-state">No se encontraron resultados para "${query}"</div>`;
@@ -5168,27 +6061,23 @@ function showTourStep(index) {
     $('#tour-step').textContent = `${index + 1} / ${tourSteps.length}`;
     $('#tour-prev').disabled = index === 0;
 
-    // Asegura que el elemento sea visible antes de calcular la posición
     targetEl.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
     
-    // Espera un poco para que el scroll termine antes de posicionar
     setTimeout(() => {
         const rect = targetEl.getBoundingClientRect();
         
-        // Posicionamiento inteligente del tooltip
         let top = rect.bottom + 10;
         let left = rect.left;
 
         tooltip.style.top = `${top}px`;
         tooltip.style.left = `${left}px`;
         
-        // Ajusta si se sale de la pantalla
         const tooltipRect = tooltip.getBoundingClientRect();
         if(tooltipRect.right > window.innerWidth) tooltip.style.left = `${window.innerWidth - tooltipRect.width - 10}px`;
         if(tooltipRect.bottom > window.innerHeight) tooltip.style.top = `${rect.top - tooltipRect.height - 10}px`;
         if (tooltipRect.top < 0) tooltip.style.top = '10px';
         if (tooltipRect.left < 0) tooltip.style.left = '10px';
-    }, 300); // Ajusta este tiempo si es necesario
+    }, 300); 
 }
 function endTour() { 
     $('#tour-overlay').style.display = 'none';
@@ -5204,7 +6093,7 @@ SECCIÓN 10: INICIALIZACIÓN Y EVENT LISTENERS GLOBALES
  * Manejador de navegación basado en Hash.
  */
 function handleNav() {
-    const hash = window.location.hash.replace('#!', ''); // Limpia el hash
+    const hash = window.location.hash.replace('#!', ''); 
     if (hash.startsWith('project/')) {
         const parts = hash.split('/');
         const projId = parts[1];
@@ -5220,7 +6109,7 @@ function handleNav() {
     } else if (hash && $(`[data-nav="${hash}"]`)) {
         show(hash);
     } else {
-        // Default: si hay proyectos, abre el primero, sino va a IA Global
+        // Lógica de redirección inicial: si hay proyectos va al primero, sino a IA global
         if (S.projects.length > 0) {
             const firstProjId = S.projects[0].id;
             history.replaceState({view: `project/${firstProjId}`}, '', `#!project/${firstProjId}`);
@@ -5236,18 +6125,18 @@ function handleNav() {
  * Función de inicialización principal.
  */
 function init(){
-  load(); // Carga los datos y realiza migraciones
-  lucide.createIcons(); // Renderiza iconos iniciales
+  load(); 
+  lucide.createIcons(); 
   
   if (!S.userProfile || !S.userProfile.industry) {
-    // Solo muestra si NO hay proyectos (asume que si hay proyectos, ya pasó el onboarding)
     if (S.projects.length === 0) {
+        // Solo muestra onboarding si NO hay proyectos Y no se ha elegido industria
         $('#industryModal').showModal(); 
     }
   }
   
-  // Listener para la navegación global en el aside
-  $('#nav-list').addEventListener('click', (e) => {
+  // Listener para la navegación global en el aside (incluye el fijado)
+  $('aside').addEventListener('click', (e) => {
       const link = e.target.closest('a.navBtn');
       if (link && link.dataset.nav) {
           e.preventDefault(); 
@@ -5272,7 +6161,6 @@ function init(){
   
   // Listener para popstate (navegación historial del navegador)
   window.addEventListener('popstate', (e) => {
-      // Si el estado tiene view, úsalo, sino re-parsea el hash
       if (e.state && e.state.view) {
            const view = e.state.view;
            if (view.startsWith('project/')) {
@@ -5284,15 +6172,18 @@ function init(){
               show(view);
            }
       } else {
+          // Si no hay estado, vuelve a evaluar el hash actual
           handleNav();
       }
   });
 
-  handleNav(); // Llama al manejador de navegación al cargar
+  handleNav(); // Carga la vista inicial basada en el hash o estado por defecto
   renderAside();
   setupHeaderActions();
   setupAutoResize();
-  setupSidebarResizer(); // Configura el resizer
+  setupSidebarResizer(); 
+  setupChatCollapse(); // Configura botones de colapso de chat
+  setupNewProjectModal(); // Configura el modal de nuevo proyecto
 }
 
 /**
@@ -5305,7 +6196,6 @@ function setupHeaderActions() {
         h.setAttribute('data-theme', newTheme);
         const themeIconName = newTheme === 'light' ? 'sun' : 'moon';
         
-        // Actualiza ambos iconos (desktop y mobile)
         $$(`#themeBtn > i, #mobileThemeBtn > i`).forEach(icon => {
            if(icon) icon.outerHTML = `<i data-lucide="${themeIconName}"></i>`;
         });
@@ -5317,10 +6207,8 @@ function setupHeaderActions() {
     $('#themeBtn').onclick = themeHandler;
     $('#tourBtn').onclick = tourHandler;
     
-    // Dropdown móvil
     $('#mobileMoreBtn').onclick = (e) => { e.stopPropagation(); $('#mobileDropdown').classList.toggle('active'); };
     document.addEventListener('click', (e) => { 
-        // Cierra si se hace click fuera del dropdown
         if (!e.target.closest('.dropdown-container')) {
             $('#mobileDropdown').classList.remove('active'); 
         }
@@ -5337,8 +6225,8 @@ function setupHeaderActions() {
 function setupAutoResize() { 
     document.addEventListener('input', e => {
         if (e.target.tagName.toLowerCase() === 'textarea') {
-            e.target.style.height = 'auto'; // Reinicia altura
-            // Ajusta altura al scrollHeight, con un máx de 150px (del CSS)
+            e.target.style.height = 'auto'; 
+            // Limita la altura máxima para evitar que crezca indefinidamente
             e.target.style.height = Math.min(e.target.scrollHeight, 150) + 'px'; 
         }
     });
@@ -5358,33 +6246,32 @@ function setupSidebarResizer() {
     resizer.addEventListener('mousedown', (e) => {
         isResizing = true;
         sidebar.style.userSelect = 'none'; // Evita seleccionar texto mientras se arrastra
-        document.body.style.cursor = 'ns-resize'; // Cambia cursor globalmente
+        document.body.style.cursor = 'ns-resize'; // Cambia el cursor
     });
 
     document.addEventListener('mousemove', (e) => {
-        if (!isResizing) return;
+        if (!isResizing || !topSection || !bottomSection) return;
 
         const sidebarRect = sidebar.getBoundingClientRect();
-        // Calcula la nueva altura relativa de la sección superior
+        // Calcula la nueva altura relativa a la parte superior del sidebar
         const newTopHeight = e.clientY - sidebarRect.top - topSection.offsetTop; 
-        const totalHeight = topSection.offsetHeight + bottomSection.offsetHeight; // Altura total disponible
+        const totalResizableHeight = topSection.offsetHeight + bottomSection.offsetHeight; // Altura total de las secciones que cambian
         
-        // Limita la altura mínima (ej: 100px) y máxima
+        // Establece límites mínimos de altura (ej: 100px)
         const minHeight = 100;
-        const maxHeight = totalHeight - 100; // Deja al menos 100px para la sección inferior
+        const maxHeight = totalResizableHeight - 100; 
         
+        // Limita la altura calculada
         const clampedHeight = Math.max(minHeight, Math.min(newTopHeight, maxHeight));
         
-        // Calcula el porcentaje
-        const newTopPercentage = (clampedHeight / totalHeight) * 100;
+        // Calcula el nuevo porcentaje para flex-basis
+        const newTopPercentage = (clampedHeight / totalResizableHeight) * 100;
 
-        // Aplica usando flex-basis
+        // Aplica el cambio a flex-basis
         topSection.style.flexBasis = `${newTopPercentage}%`;
-        // bottomSection se ajustará automáticamente
         
         // Guarda el porcentaje en el estado para persistencia
         S.ui.sidebarTopHeight = `${newTopPercentage}%`; 
-        // No guardes ('save()') en cada mousemove por rendimiento
     });
 
     document.addEventListener('mouseup', () => {
@@ -5392,7 +6279,7 @@ function setupSidebarResizer() {
             isResizing = false;
             sidebar.style.userSelect = ''; // Restaura selección de texto
             document.body.style.cursor = ''; // Restaura cursor
-            save(); // Guarda el estado final
+            save(); // Guarda el nuevo tamaño
         }
     });
 }
@@ -5406,109 +6293,190 @@ function wireTabs(scopeSelector, prefix, contentPrefix){
   
   root.querySelectorAll(`.tabs .tab[data-${prefix}]`).forEach(btn=>{
     btn.addEventListener('click',()=>{
-      // Desactiva todas las pestañas
       root.querySelectorAll(`.tabs .tab[data-${prefix}]`).forEach(t=>t.classList.remove('active'));
-      // Activa la clickeada
       btn.classList.add('active');
       const target = btn.dataset[prefix];
       
-      // Oculta todos los paneles de contenido
       root.querySelectorAll(`[id^="${contentPrefix}-"]`).forEach(p=>p.style.display='none');
-      // Muestra el panel correspondiente
       const pane = root.querySelector(`#${contentPrefix}-${target}`);
       if(pane) pane.style.display='block';
 
-      // Lógica del botón "Quick Add"
+      // Actualiza el botón Quick Add
       if (quickAddBtn) {
-        let text = 'Nueva Tarea'; let handler = quickAddTask;
+        let text = 'Nueva Tarea'; 
+        let handler = quickAddTask; // Handler por defecto
         let icon = 'plus';
         let isVisible = true;
+        
         switch(target) {
             case 'tasks': text = 'Tarea'; handler = quickAddTask; icon = 'plus'; break;
             case 'notes': text = 'Nota'; handler = createNewNote; icon = 'plus'; break;
             case 'tables': text = 'Tabla'; handler = createNewTable; icon = 'plus-square'; break;
             case 'finance': text = 'Movimiento'; handler = ()=>{$('#finNew').click()}; icon = 'plus'; break;
-            default: isVisible = false;
+            // Añadir más casos si es necesario para otras pestañas
+            default: isVisible = false; // Oculta si no hay acción rápida definida
         }
+        
         quickAddBtn.style.display = isVisible ? 'inline-flex' : 'none';
         quickAddBtn.innerHTML = `<i data-lucide="${icon}"></i> ${text}`;
-        quickAddBtn.onclick = handler;
-        lucide.createIcons();
+        quickAddBtn.onclick = handler; // Asigna el handler correcto
+        lucide.createIcons(); // Actualiza el icono
       }
     });
   });
 }
+
+/**
+ * Configura los botones para colapsar/expandir las listas de chat.
+ */
+function setupChatCollapse() {
+    // Chat de Proyecto
+    $('#p-collapse-chat-list')?.addEventListener('click', () => {
+        S.ui.pChatCollapsed = true;
+        save();
+        renderProjectChat(); // Re-renderiza para aplicar la clase
+    });
+    $('#p-chat-grid #showChatListBtn')?.addEventListener('click', () => {
+        S.ui.pChatCollapsed = false;
+        save();
+        renderProjectChat();
+    });
+
+    // Chat Global IA
+    $('#ai-collapse-chat-list')?.addEventListener('click', () => {
+        S.ui.aiChatCollapsed = true;
+        save();
+        renderGlobalAIChat(); // Re-renderiza para aplicar la clase
+    });
+    $('#ai-chat-grid #showChatListBtn')?.addEventListener('click', () => {
+        S.ui.aiChatCollapsed = false;
+        save();
+        renderGlobalAIChat();
+    });
+}
+
+/**
+ * Configura el modal de nuevo proyecto (selector de color).
+ */
+function setupNewProjectModal() {
+    const colorPicker = $('#newProjectColorPicker');
+    const confirmBtn = $('#newProjectConfirm');
+    
+    colorPicker.addEventListener('click', e => {
+        const swatch = e.target.closest('.color-swatch');
+        if (swatch) {
+            $$('#newProjectColorPicker .color-swatch').forEach(s => s.classList.remove('selected'));
+            swatch.classList.add('selected');
+            S.ui.newProjectColor = swatch.dataset.color; // Guarda el color seleccionado
+        }
+    });
+    
+    // Asigna la función de confirmación inicial
+    confirmBtn.onclick = confirmNewProject;
+}
+
 
 /* ============================================================================
 SECCIÓN 11: LISTENERS ESPECÍFICOS DE MÓDULOS Y OTROS
 ============================================================================
 */
 
-// --- Listeners Generales (ya configurados en init, añadimos los que faltan) ---
+// --- Listeners Generales ---
 $('#loadIndustryBtn').onclick = () => { const industry = $('#industrySelect').value; loadIndustryTemplate(industry); $('#industryModal').close(); };
-$('#newProject').onclick = createNewProject;
+$('#newProject').onclick = createNewProject; // Ahora abre el modal
 $('#q').addEventListener('keydown', e => { if (e.key === 'Enter') performSearch(); });
 $('#menuBtn').onclick=()=>{
     const bodyClassList = document.body.classList;
-    if (window.innerWidth <= 1180) {
-        // En móvil, solo toggle 'aside-open'
+    if (window.innerWidth <= 1180) { // Comportamiento móvil/tablet
         bodyClassList.toggle('aside-open');
-        // No afecta 'aside-collapsed' ni guarda estado
-    } else {
-        // En desktop, toggle 'aside-collapsed' y guarda
+    } else { // Comportamiento desktop
         S.ui.asideCollapsed = !S.ui.asideCollapsed;
         bodyClassList.toggle('aside-collapsed', S.ui.asideCollapsed);
         save();
     }
 };
 $('#menu-overlay').onclick = () => document.body.classList.remove('aside-open');
-$('#walletChip').onclick = () => { renderWallet(); $('#walletModal').showModal(); };
-$('#intisChip').onclick = () => { $('#intisModal').showModal(); lucide.createIcons(); };
+$('#walletChip').onclick = () => { renderWallet(); $('#walletModal').showModal(); }; // Abre modal rediseñado
+$('#intisChip').onclick = () => { 
+    $('#intisModalBalance').textContent = S.intis; // Actualiza balance en modal
+    $('#intisModal').showModal(); 
+    lucide.createIcons(); 
+};
 $('#wAdd').onclick = addWalletTransaction;
-$('#resetApp').onclick=()=>{ showInputModal('Confirmar Eliminación Total', `Esto es irreversible. Escribe "BORRAR TODO" para confirmar.`, 'BORRAR TODO', (confirmText) => { if(confirmText === 'BORRAR TODO') { localStorage.clear(); window.location.reload(); } })}; // localStorage.clear() es más seguro
+$('#resetApp').onclick=()=>{ showInputModal('Confirmar Eliminación Total', `Esto es irreversible. Escribe "BORRAR TODO" para confirmar.`, 'BORRAR TODO', (confirmText) => { if(confirmText === 'BORRAR TODO') { localStorage.clear(); window.location.reload(); } })}; 
 $('#tour-next').onclick = () => showTourStep(currentTourStep + 1);
 $('#tour-prev').onclick = () => showTourStep(currentTourStep - 1);
+$('#btnExport').onclick = () => download(`goatify_backup_${new Date().toISOString().split('T')[0]}.json`, JSON.stringify(S));
+$('#btnImport').onchange = (e) => {
+    const file = e.target.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+        try {
+            const importedData = JSON.parse(event.target.result);
+            // Validación básica (podría ser más robusta)
+            if (importedData && importedData.version) {
+                S = importedData;
+                save();
+                showToast("Datos importados con éxito. Recargando...", "success");
+                setTimeout(() => window.location.reload(), 1500);
+            } else {
+                showToast("Archivo JSON inválido o corrupto.", "danger");
+            }
+        } catch (err) {
+            showToast("Error al leer el archivo JSON.", "danger");
+            console.error("Import error:", err);
+        }
+    };
+    reader.readAsText(file);
+    e.target.value = null; // Limpia el input para permitir re-importar el mismo archivo
+};
 
 // --- Listeners de Proyecto ---
 wireTabs('#projectShell', 'ptab', 'p-tab');
-// $('#quickAdd') se configura en wireTabs
 $('#addColumnBtn').onclick = addColumn;
 $('#addFolder').onclick = addFolder; 
-$('#taskTagFilter').addEventListener('input', renderTasks); // Filtra al escribir
-
-// Calendario de Proyecto
+$('#taskTagFilter').addEventListener('input', renderTasks); 
+// Calendario
 $('#prevM').onclick=()=>{calRef.setMonth(calRef.getMonth()-1); renderCalendar();};
 $('#nextM').onclick=()=>{calRef.setMonth(calRef.getMonth()+1); renderCalendar();};
 // Notas
 $('#newNoteBtn').onclick = createNewNote;
 $$('#p-tab-notes [data-cmd]').forEach(btn=>btn.onclick=()=>document.execCommand(btn.dataset.cmd, false, btn.dataset.value || null));
-$('#clearCanvasBtn').onclick=()=>{ const id=S.activeProject; if(!id||!S.notes[id]?.active)return; delete S.notes[id].drawings[S.notes[id].active]; save(); initDrawingCanvas(S.notes[id].active); }; // Llama a initDrawingCanvas para limpiar
+$('#clearCanvasBtn').onclick=()=>{ const id=S.activeProject; if(!id||!S.notes[id]?.active)return; delete S.notes[id].drawings[S.notes[id].active]; save(); initDrawingCanvas(S.notes[id].active); }; 
 $('#exportNotePDF').onclick = () => exportNote('pdf');
 // Archivos
-$('#fileInput').onchange=(e)=>{ const id=S.activeProject; if(!id) return; if (!S.files[id]) S.files[id] = []; for(const f of e.target.files){ S.files[id].push({name:f.name,url:URL.createObjectURL(f), size:f.size}); } addIntis(5, 'Archivo subido'); save(); renderFiles(); renderOverview(); e.target.value = null; }; // Resetea input
-// Chat IA de Proyecto
-$('#newChat').onclick=()=>{ const id=S.activeProject; if(!id)return; if(!S.chats[id]) S.chats[id] = { threads: [], messages: {}, activeThread: null, model: 'pro' }; showInputModal('Nueva Conversación', 'Título de la nueva conversación:', 'Ej: Ideas para el blog', t => { const newId = 'c'+Date.now(); S.chats[id].threads.push({id:newId, title:t}); S.chats[id].activeThread = newId; if(!S.chats[id].messages) S.chats[id].messages={}; S.chats[id].messages[newId] = []; save(); renderProjectChat();})};
-$$('#p-tab-chat .model-card:not(.disabled)').forEach(card => card.onclick=()=>{ const id=S.activeProject; if(!id || !S.chats[id])return; S.chats[id].model=card.dataset.model; save(); renderProjectChat(); });
+$('#fileInput').onchange=(e)=>{ const id=S.activeProject; if(!id) return; if (!S.files[id]) S.files[id] = []; for(const f of e.target.files){ S.files[id].push({name:f.name,url:URL.createObjectURL(f), size:f.size}); } addIntis(5, 'Archivo subido'); save(); renderFiles(); renderOverview(); e.target.value = null; }; 
+// Chat IA Proyecto
+$('#newChat').onclick=()=>{ const id=S.activeProject; if(!id)return; if(!S.chats[id]) S.chats[id] = { threads: [], messages: {}, activeThread: null, model: 'pro' }; showInputModal('Nueva Conversación', 'Título de la nueva conversación:', 'Ej: Ideas para el blog', t => { if(!t) return; const newId = 'c'+Date.now(); S.chats[id].threads.push({id:newId, title:t}); S.chats[id].activeThread = newId; if(!S.chats[id].messages) S.chats[id].messages={}; S.chats[id].messages[newId] = []; save(); renderProjectChat();})};
+// Listener para selectores de modelo en el header del chat de proyecto
+$$('#p-chat-grid .gchat-main-header .model-card:not(.disabled)').forEach(card => card.onclick=()=>{ const id=S.activeProject; if(!id || !S.chats[id])return; S.chats[id].model=card.dataset.model; save(); renderProjectChat(); });
 $('#sendMsg').onclick = sendProjectChatMessage;
 $('#chatMsg').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendProjectChatMessage(); }});
-$('#p_attachFileBtn').onclick = () => $('#p_chatFileInput').click(); // Falta lógica de manejo de archivo
-$('#chatToTasks').onclick=()=>{ const id=S.activeProject; if(!id) return; const C=S.chats[id]; if(!C?.activeThread) return; const lastMsg = C.messages[C.activeThread]?.filter(m=>m.who==='IA').pop(); if(!lastMsg) return showToast('No hay respuesta de IA para convertir.','warn'); const activeFolder = S.ui.activeFolder || 'General'; if (!S.tasks[id]) S.tasks[id] = {}; if (!S.tasks[id][activeFolder]) S.tasks[id][activeFolder] = []; S.tasks[id][activeFolder].push({id:'t'+Date.now(), title: (lastMsg.text || '').substring(0, 50) + "...", status:S.projects.find(p=>p.id===id)?.taskColumns[0] || 'Backlog', desc:lastMsg.text || '', due:'', folder: activeFolder, tags: []}); save(); renderTasks(); renderAside(); showToast('Tarea creada desde el chat.','success');};
+$('#p_attachFileBtn').onclick = () => $('#p_chatFileInput').click(); 
+$('#chatToTasks').onclick=()=>{ const id=S.activeProject; if(!id) return; const C=S.chats[id]; if(!C?.activeThread) return; const lastMsg = C.messages[C.activeThread]?.filter(m=>m.who==='IA').pop(); if(!lastMsg) return showToast('No hay respuesta de IA para convertir.','warn'); const activeFolder = S.ui.activeFolder || 'General'; if (!S.tasks[id]) S.tasks[id] = {}; if (!S.tasks[id][activeFolder]) S.tasks[id][activeFolder] = []; const firstColumn = S.projects.find(p=>p.id===id)?.taskColumns[0] || 'Backlog'; S.tasks[id][activeFolder].push({id:'t'+Date.now(), title: (lastMsg.text || '').substring(0, 50) + "...", status:firstColumn, desc:lastMsg.text || '', due:'', folder: activeFolder, tags: []}); save(); renderTasks(); renderAside(); showToast('Tarea creada desde el chat.','success');};
 // Tablas
 $('#newTableBtn').onclick = createNewTable;
 $('#tableSelector').onchange = (e) => { const projId = S.activeProject; if (!projId || !S.tables[projId]) return; S.tables[projId].active = e.target.value; save(); renderTables(); };
-$('#addCol').onclick=()=>{ const id=S.activeProject; if(!id || !S.tables[id]) return; const activeTableId = S.tables[id].active; if (!activeTableId) return; const T=S.tables[id].data[activeTableId]; showInputModal('Nueva Columna', 'Nombre de la nueva columna:', `Col ${T.cols.length + 1}`, name => { if (!T.cols) T.cols = []; T.cols.push(name); if (!T.rows) T.rows = []; T.rows.forEach(r=>r.push('')); save(); renderTables(); })};
+$('#addCol').onclick=()=>{ const id=S.activeProject; if(!id || !S.tables[id]) return; const activeTableId = S.tables[id].active; if (!activeTableId) return; const T=S.tables[id].data[activeTableId]; showInputModal('Nueva Columna', 'Nombre de la nueva columna:', `Col ${T.cols.length + 1}`, name => { if(!name) return; if (!T.cols) T.cols = []; T.cols.push(name); if (!T.rows) T.rows = []; T.rows.forEach(r=>r.push('')); save(); renderTables(); })};
 $('#addRow').onclick=()=>{ const id=S.activeProject; if(!id || !S.tables[id]) return; const activeTableId = S.tables[id].active; if (!activeTableId) return; const T=S.tables[id].data[activeTableId]; if (!T.cols) T.cols = ['Col 1']; if (!T.rows) T.rows = []; T.rows.push(new Array(T.cols.length).fill('')); save(); renderTables();};
 $('#exportCSV').onclick=()=>{ const id=S.activeProject; if(!id || !S.tables[id]) return; const activeTableId = S.tables[id].active; if (!activeTableId) return; const T=S.tables[id].data[activeTableId]; const tableName = S.tables[id].list.find(t => t.id === activeTableId)?.name || 'tabla'; download(`${tableName}.csv`, csv([T.cols, ...T.rows]));};
-// Finanzas de Proyecto
+// Finanzas Proyecto
 $('#finNew').onclick=()=>{ $('#projectFinModal').showModal(); };
 $('#pF_Confirm').onclick = addProjectFinanceMove;
 $('#finExport').onclick=()=>{ const id=S.activeProject; if(!id || !S.fin[id]) return; const F=S.fin[id]; const projName = S.projects.find(p=>p.id===id)?.name || 'proyecto'; download(`finanzas_${projName}.csv`, csv([['Fecha','Tipo','Monto','Cat','Nota'], ...F.rows.map(r=>[r.fecha,r.tipo,r.monto,r.cat,r.nota])]));};
-// Vistas de Tareas
+// Vistas Tareas
 $('#viewToggleBoard').onclick = () => { S.ui.taskView = 'board'; save(); renderTasks(); };
 $('#viewToggleList').onclick = () => { S.ui.taskView = 'list'; save(); renderTasks(); };
-// Modal de Tareas
+// Modal Tareas
 $('#taskDetailSaveBtn').onclick = saveTaskDetails;
-$('#taskDetailDeleteBtn').onclick = () => deleteTask($('#taskDetailId').value);
+$('#taskDetailDeleteBtn').onclick = () => { 
+    const taskId = $('#taskDetailId').value;
+    if (taskId) {
+        deleteTask(taskId); 
+    } else {
+        showToast('No se puede eliminar una tarea nueva.', 'warn');
+    }
+}; 
 
 // --- Listeners de Módulos Globales ---
 // Cronopost
@@ -5532,7 +6500,7 @@ $('#cpGenAIIdeas').onclick = () => {
     showToast('Generando ideas con IA...', 'info');
     setTimeout(()=> {
         const ideas = [`Campaña de "Detrás de Cámaras" para ${projName}`, `Colaboración con influencer de nicho`, `Contenido generado por usuarios (UGC)`];
-        if (!S.cronopost.ideas[activeProjectId]) S.cronopost.ideas[activeProjectId] = []; // Asegura
+        if (!S.cronopost.ideas[activeProjectId]) S.cronopost.ideas[activeProjectId] = []; 
         ideas.forEach(title => S.cronopost.ideas[activeProjectId].push({ id: 'i' + Date.now(), title }));
         save(); renderCronoPOST();
     }, 1500);
@@ -5543,7 +6511,6 @@ $('#avatar').onclick = () => $('#avatarInput').click();
 $('#avatarInput').onchange = handleAvatarUpload;
 $('#savePerfil').onclick = saveProfile;
 $('#addMK').onclick = () => {
-    // Asegura inicialización
     if (!S.hub) S.hub = JSON.parse(JSON.stringify(initialState.hub));
     if (!S.hub.market) S.hub.market = []; 
     const name = $('#mkName').value; const price = Number($('#mkPrice').value || 0); if (!name) return;
@@ -5556,14 +6523,15 @@ $('#addJob').onclick = addJob;
 $('#jobSearchInput').oninput = renderJobs;
 // Chat Global
 $('#sendGChat').onclick = sendGChatMessage;
-$('#gChatMsg').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendGChatMessage();} }); // Añadido shiftKey check
+$('#gChatMsg').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendGChatMessage();} }); 
 // Chat IA Global
-$('#aiNewChat').onclick=()=>{ showInputModal('Nueva Conversación Global', 'Título de la nueva conversación:', 'Ej: Brainstorming General', t => { const newId = 'c_g_'+Date.now(); if(!S.aiGlobalChat) S.aiGlobalChat=JSON.parse(JSON.stringify(initialState.aiGlobalChat)); S.aiGlobalChat.threads.push({id:newId, title:t}); S.aiGlobalChat.messages[newId] = []; S.aiGlobalChat.activeThread = newId; save(); renderGlobalAIChat();})};
+$('#aiNewChat').onclick=()=>{ showInputModal('Nueva Conversación Global', 'Título de la nueva conversación:', 'Ej: Brainstorming General', t => { if(!t) return; const newId = 'c_g_'+Date.now(); if(!S.aiGlobalChat) S.aiGlobalChat=JSON.parse(JSON.stringify(initialState.aiGlobalChat)); S.aiGlobalChat.threads.push({id:newId, title:t}); S.aiGlobalChat.messages[newId] = []; S.aiGlobalChat.activeThread = newId; save(); renderGlobalAIChat();})};
 $('#aiSendMsg').onclick = sendGlobalAIChatMessage;
-$$('#ai-global-chat .model-card:not(.disabled)').forEach(card => card.onclick = () => { if(S.aiGlobalChat) S.aiGlobalChat.model = card.dataset.model; save(); renderGlobalAIChat(); });
+// Listener para selectores de modelo en el header del chat global IA
+$$('#ai-chat-grid .gchat-main-header .model-card:not(.disabled)').forEach(card => card.onclick = () => { if(S.aiGlobalChat) S.aiGlobalChat.model = card.dataset.model; save(); renderGlobalAIChat(); });
 $('#aiChatMsg').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendGlobalAIChatMessage(); }});
-$('#g_attachFileBtn').onclick = () => $('#g_chatFileInput').click(); // Falta lógica de manejo
-$('#aiImageGenBtn').onclick = () => showInputModal('Generar Imagen con IA', 'Describe la imagen que quieres crear:', 'Un gato astronauta en marte', p => { $('#aiChatMsg').value = `Crea una imagen de ${p}`; sendGlobalAIChatMessage(); });
+$('#g_attachFileBtn').onclick = () => $('#g_chatFileInput').click(); 
+$('#aiImageGenBtn').onclick = () => showInputModal('Generar Imagen con IA', 'Describe la imagen que quieres crear:', 'Un gato astronauta en marte', p => { if(!p) return; $('#aiChatMsg').value = `Crea una imagen de ${p}`; sendGlobalAIChatMessage(); });
 
 // --- Ejecutar Inicialización al cargar el DOM ---
 document.addEventListener('DOMContentLoaded', init);
