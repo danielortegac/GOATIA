@@ -772,7 +772,7 @@
     cursor: pointer; 
   }
   /* NUEVO: Estilo para Avatar de Iniciales */
-  .avatar-initials {
+  .avatar-ials {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1262,13 +1262,13 @@
     height: 100%; 
     border-radius: 50%; 
     background: var(--brand); 
-    animation: breathe 8s ease-in-out infinite; 
+    animation: breathe 8s ease-in-out infe; 
   }
   #breathing-text { 
     position: absolute; 
     color: white; 
     font-weight: 600; 
-    animation: breathe-text 8s ease-in-out infinite;
+    animation: breathe-text 8s ease-in-out infe;
   }
   @keyframes breathe { 
     0%, 100% { transform: scale(0.6); opacity: 0.7; } 
@@ -1355,7 +1355,7 @@
   }
   /* Notificación de "brillo" para Intis */
   #intisChip.notify {
-    animation: pulse-brand 1.5s infinite;
+    animation: pulse-brand 1.5s infe;
   }
   @keyframes pulse-brand {
     0%, 100% { box-shadow: 0 0 0 0 color-mix(in hsl, var(--brand) 50%, transparent); }
@@ -6973,61 +6973,50 @@ function handleNav() {
 </script>
 
 /**
- * Función de inicialización principal.
+ * Función de inicialización principal (CORREGIDA).
  */
 function init(){
   // Intenta cargar el estado (usuario o invitado)
   load();
 
-  // Si después de cargar sigue siendo invitado Y NO hay pantalla de login visible (p.ej. refresh)
-  // O si NO es invitado pero NO hay userId (estado inválido), muestra pantalla de login.
-  // Excepto si explícitamente se pide entrar como invitado via URL hash #!guest (para desarrollo)
-  if (window.location.hash !== '#!guest' && ((S.ui.isGuest && !$('#loginScreen')) || (!S.ui.isGuest && !S.userProfile.userId))) {
-      // Renderiza pantalla de login si no existe
-      if (!$('#loginScreen')) {
-          const loginScreen = el('div', {id: 'loginScreen', style: 'position: fixed; inset: 0; background: var(--bg); z-index: 100; display: flex; align-items: center; justify-content: center; text-align: center; padding: 20px;'},
-              el('div', {class: 'card', style: 'background: var(--surface); max-width: 400px; padding: 40px;'},
-                  el('img', {src: 'Logos HD.png', alt: 'Goatify Logo', style: 'height: 60px; margin-bottom: 20px;'}),
-                  el('h2', {textContent: 'Bienvenido a Goatify IA'}),
-                  el('p', {class: 'sub', textContent: 'Tu súper app para gestionar proyectos, colaborar y monetizar con IA.'}),
-                  el('button', {id: 'loginBtn', class: 'btn btn-primary', style: 'width: 100%; margin-top: 20px; padding: 12px;'}, 'Iniciar Sesión / Registrarse'),
-                  el('button', {id: 'guestBtn', class: 'btn', style: 'width: 100%; margin-top: 10px;'}, 'Entrar como Invitado')
-              )
-          );
-          document.body.appendChild(loginScreen);
-          // Ocultar contenido principal
-          if (!$('#appContent')) {
-              const appContent = el('div', {id: 'appContent'}, $('header.app'), $('.container'));
-              document.body.appendChild(appContent);
-          }
-          $('#appContent').style.display = 'none';
+  // FORZAR MODO INVITADO (si el estado cargado sigue siendo invitado o no hay ID de usuario)
+  if (S.ui.isGuest || !S.userProfile.userId) {
+      console.log("Forzando modo invitado...");
+      S = JSON.parse(JSON.stringify(initialState)); // Carga estado inicial limpio
+      S.ui.isGuest = true;
+      S.ui.guestActionsCount = 0;
+      S.hub.perfil.nombre = 'Invitado'; // Perfil de invitado
+      S.hub.perfil.id = 'guest_user';
+      save(); // Guarda el estado de invitado
+  }
 
-          // Asignar listeners a los botones de login
-          $('#loginBtn').onclick = simulateLogin; // Reemplazar con lógica real
-          $('#guestBtn').onclick = startAsGuest;
-      }
-      // Asegurarse de que esté visible
-      $('#loginScreen').style.display = 'flex';
-      $('#appContent').style.display = 'none';
+  // Asegurar que el contenido de la app esté en el contenedor #appContent
+  // (Esto soluciona si borraste el HTML del final)
+  if (!$('#appContent')) {
+      // Mueve el header y el container dentro de appContent
+      const appHeader = $('header.app');
+      const appContainer = $('.container');
+      const appContent = el('div', {id: 'appContent'}, appHeader, appContainer);
+      document.body.appendChild(appContent);
+  }
+  $('#appContent').style.display = 'block'; // Mostrar la app
 
+  // Ocultar la pantalla de login (la del HTML) si todavía existe
+  if ($('#loginScreen')) {
+      $('#loginScreen').style.display = 'none';
+  }
+
+  // Continuar con la inicialización normal de la app
+  lucide.createIcons();
+  setupListeners(); // Configurar todos los listeners
+  handleNav(); // Navegar a la vista correcta
+  renderAside();
+  updateUILimits(); // Aplicar restricciones visuales
+  
+  if (S.ui.isGuest) {
+      showToast("Explorando como invitado. Funciones limitadas.", "info");
   } else {
-       // Si ya está logueado o es invitado válido (o entró con #!guest), muestra la app
-       if ($('#loginScreen')) $('#loginScreen').style.display = 'none';
-       if (!$('#appContent')) { // Asegurar que appContent exista
-            const appContent = el('div', {id: 'appContent'}, $('header.app'), $('.container'));
-            document.body.appendChild(appContent);
-       }
-       $('#appContent').style.display = 'block';
-
-       // Continuar con la inicialización normal de la app
-       lucide.createIcons();
-       setupListeners(); // Configurar todos los listeners
-       handleNav(); // Navegar a la vista correcta
-       renderAside();
-       updateUILimits(); // Aplicar restricciones visuales
-       if (S.ui.isGuest) {
-            showToast("Explorando como invitado. Funciones limitadas.", "info");
-       }
+      showToast(`¡Bienvenido, ${S.userProfile.firstName}!`, "success");
   }
 }
 
