@@ -1,0 +1,804 @@
+import React, { useContext, useState, useMemo } from 'react';
+import { 
+  Trophy, Globe, Check, Star, Briefcase, Zap, Search, 
+  ChevronRight, Calendar, DollarSign, PieChart, Users, 
+  FileText, PenTool, List, Send, Upload, X, Shield, 
+  Mail, Smartphone, Plus, Minus, Lock, Rocket, Target, Award,
+  Activity, Play, ExternalLink, TrendingUp, Heart, Headphones,
+  HelpCircle, ChevronDown, CheckCircle2, XCircle, Sparkles, MapPin,
+  Gift, Percent, Code, Laptop, MousePointerClick, Gem, Layers,
+  MessageCircle, BarChart3, Wallet, GraduationCap, HandHeart,
+  Lightbulb, ArrowUpRight
+} from 'lucide-react';
+
+// --- CONSTANTS & MOCKS ---
+
+const LOGO_URL = "https://firebasestorage.googleapis.com/v0/b/goatify-app-ia.firebasestorage.app/o/Logos%20HD.png?alt=media&token=293a80b4-b5b8-4249-8d57-cc4925598747";
+const PARTNERS_LINK = "https://ia.goatify.app/#partners";
+const CALENDLY_URL = "https://calendly.com/goatify";
+const AGENT_SUPPORT_URL = "https://ia.goatify.app/#/agent/9nbHyfMQg1EXq8y6Q2pb";
+
+const rates: Record<string, number> = {
+    USD: 1, MXN: 18.5, COP: 4100, PEN: 3.75, ARS: 910, EUR: 0.92,
+    CAD: 1.37, BRL: 5.15, CLP: 980, GTQ: 7.8,
+};
+
+// --- DATA ---
+
+const commissionCatalog = [
+    { id: 'custom_app', service: 'App Personalizada', price: 500, commission: '35%', profit: 175, note: 'Desarrollo High-End' },
+    { id: 'academy_semestral', service: 'Academia Semestral', price: 367, commission: '35%', profit: 128, note: 'Programa Ejecutivo' },
+    { id: 'calls_system', service: 'Sistema Llamadas IA', price: 200, commission: '35%', profit: 70, note: 'Agentes de Voz' },
+    { id: 'ecommerce', service: 'E-commerce Smart', price: 147, commission: '35%', profit: 51, note: 'Infraestructura Digital' },
+    { id: 'web_smart_pro', service: 'Web Smart PRO', price: 97, commission: '35%', profit: 34, note: 'Portal Corporativo' },
+    { id: 'bot_elite', service: 'Bot IA Elite', price: 77, commission: '30%', profit: 23, note: 'Asistente Comercial VIP' },
+    { id: 'academy_monthly', service: 'Academia Mensual', price: 77, commission: '35%', profit: 27, note: 'Membresía Continua' },
+    { id: 'integracion_crm', service: 'Integración CRM', price: 70, commission: '35%', profit: 25, note: 'Automatización de Flujos' },
+    { id: 'seo_adv', service: 'SEO Avanzado', price: 60, commission: '30%', profit: 18, note: 'Posicionamiento Orgánico' },
+    { id: 'social_auto', service: 'Social Autopilot', price: 50, commission: '30%', profit: 15, note: 'Gestión de Redes' },
+    { id: 'video_promo', service: 'Video IA Promos', price: 50, commission: '30%', profit: 15, note: 'Contenido Audiovisual' },
+    { id: 'web_smart', service: 'Web Smart', price: 47, commission: '35%', profit: 16, note: 'Landing Page' },
+    { id: 'branding', service: 'Kit Branding', price: 40, commission: '35%', profit: 14, note: 'Identidad Corporativa' },
+    { id: 'consulting', service: 'Consultoría IA', price: 30, commission: '40%', profit: 12, note: 'Sesión Estratégica' },
+];
+
+const simulatorData = commissionCatalog.slice(0, 5);
+
+// --- UTILS ---
+
+const convertAndFormatCurrency = (usdValue: number, userCurrency: string): string => {
+    const selectedRate = rates[userCurrency] || rates['USD'];
+    const convertedValue = usdValue * selectedRate;
+    return new Intl.NumberFormat(undefined, {
+        style: 'currency',
+        currency: userCurrency,
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+    }).format(convertedValue);
+};
+
+// --- CONTEXT ---
+
+const AppContext = React.createContext<any>({
+  userProfile: { currency: 'USD', name: 'Invitado' },
+  setProModalOpen: () => console.log("Open Modal"),
+});
+
+// --- UI COMPONENTS ---
+
+const Icon: React.FC<{ name: string; className?: string }> = ({ name, className }) => {
+  const icons: Record<string, any> = {
+    trophy: Trophy, globe: Globe, check: Check, star: Star, briefcase: Briefcase,
+    ai: Zap, search: Search, arrowRight: ChevronRight, calendar: Calendar,
+    market: DollarSign, chart: PieChart, hub: Users, goat: Trophy,
+    security: Shield, book: FileText, studio: PenTool, list: List,
+    upload: Upload, send: Send, mail: Mail, phone: Smartphone,
+    plus: Plus, minus: Minus, close: X, externalLink: ExternalLink,
+    clock: Activity, discover: Search, agent: Users, lock: Lock,
+    rocket: Rocket, target: Target, award: Award, play: Play,
+    trendingUp: TrendingUp, heart: Heart, headphones: Headphones,
+    help: HelpCircle, chevronDown: ChevronDown, checkCircle: CheckCircle2, xCircle: XCircle,
+    sparkles: Sparkles, mapPin: MapPin, gift: Gift, percent: Percent,
+    code: Code, laptop: Laptop, click: MousePointerClick, gem: Gem, layers: Layers,
+    message: MessageCircle, barChart: BarChart3, wallet: Wallet, gradCap: GraduationCap,
+    handHeart: HandHeart, lightbulb: Lightbulb, arrowUpRight: ArrowUpRight
+  };
+  const LucideIcon = icons[name] || Star;
+  return <LucideIcon className={className} />;
+};
+
+const Button: React.FC<any> = ({ children, className, variant = 'primary', ...props }) => {
+  const base = "px-8 py-4 rounded-xl font-bold transition-all active:scale-[0.98] flex items-center justify-center gap-3 text-sm sm:text-base tracking-widest uppercase relative overflow-hidden group border";
+  
+  // Estilo Primario: Púrpura Real y Azul Medianoche (Elegancia Tecnológica)
+  const primaryStyle = "bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-[0_0_25px_rgba(124,58,237,0.3)] border-white/10 hover:border-white/30 hover:shadow-[0_0_40px_rgba(124,58,237,0.5)]";
+  
+  // Estilo Calendly: Cyan Sutil
+  const calendlyStyle = "bg-white/5 backdrop-blur-md text-cyan-400 border-cyan-500/20 hover:bg-cyan-500/10 hover:border-cyan-500/50 shadow-[0_0_15px_rgba(6,182,212,0.1)]";
+
+  // Estilo Secundario: Vidrio Ahumado
+  const secondaryStyle = "bg-white/5 backdrop-blur-md text-white border-white/10 hover:bg-white/10 hover:border-white/30";
+
+  const getStyle = () => {
+      if (variant === 'calendly') return calendlyStyle;
+      if (variant === 'secondary') return secondaryStyle;
+      return primaryStyle;
+  }
+
+  return (
+    <button className={`${base} ${getStyle()} ${className}`} {...props}>
+      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+      {children}
+    </button>
+  );
+};
+
+// --- FEATURE SECTIONS ---
+
+const HeroSection = ({ onJoin, onSchedule }: { onJoin: () => void, onSchedule: () => void }) => (
+  <section className="relative pt-40 pb-32 overflow-hidden">
+    {/* Fondo sofisticado */}
+    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[120rem] h-[120rem] bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-violet-900/20 via-[#050505] to-[#000] -z-10 opacity-60"></div>
+    <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-[0.03] -z-10"></div>
+    
+    <div className="text-center max-w-7xl mx-auto px-4 space-y-10 relative z-10">
+      
+      <div className="inline-flex items-center gap-3 px-5 py-2 rounded-full bg-white/5 border border-white/10 backdrop-blur-2xl animate-fade-in-down hover:bg-white/10 transition-all cursor-default">
+        <Icon name="gem" className="w-3.5 h-3.5 text-violet-400"/>
+        <span className="text-[10px] font-bold text-violet-200 uppercase tracking-[0.25em]">Programa Partners Elite 2026</span>
+      </div>
+
+      <h1 className="text-5xl sm:text-7xl md:text-8xl font-medium text-white tracking-tighter leading-[0.95]">
+        Vive de los <br/> 
+        <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-200 via-white to-violet-400 font-bold">Negocios Digitales.</span>
+      </h1>
+      
+      <p className="text-lg sm:text-xl text-neutral-400 max-w-3xl mx-auto leading-relaxed font-light px-4">
+        Genera ingresos recurrentes y construye tu propio imperio tecnológico sin saber programar.
+        <br className="hidden md:block"/>
+        <span className="text-white font-medium">Nosotros ponemos la infraestructura. Tú construyes tu libertad.</span>
+      </p>
+
+      <div className="flex flex-col sm:flex-row gap-6 justify-center pt-8 px-4 items-center">
+        <div className="flex flex-col items-center gap-3 w-full sm:w-auto">
+            <Button onClick={onJoin} className="h-16 px-12 text-base w-full sm:w-auto shadow-2xl">
+                <Icon name="rocket" className="w-5 h-5"/> Generar Ingresos Ahora
+            </Button>
+            <span className="text-[10px] text-neutral-500 uppercase tracking-widest font-medium opacity-80">Membresía Operativa: $4/mes</span>
+        </div>
+        <Button onClick={onSchedule} variant="secondary" className="h-16 px-10 text-base w-full sm:w-auto">
+            <Icon name="calendar" className="w-5 h-5"/> Agendar Sesión Estratégica
+        </Button>
+      </div>
+    </div>
+  </section>
+);
+
+const PartnerCareSection = () => (
+    <section className="py-32 px-4 bg-gradient-to-b from-[#050505] to-black relative overflow-hidden">
+        {/* Subtle animated particles background */}
+        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-5 animate-pulse"></div>
+        
+        <div className="max-w-7xl mx-auto text-center relative z-10">
+            <div className="inline-flex items-center justify-center w-20 h-20 bg-violet-600/10 rounded-full mb-10 border border-violet-500/20 shadow-[0_0_60px_rgba(139,92,246,0.15)]">
+                <Icon name="rocket" className="w-10 h-10 text-violet-400"/>
+            </div>
+            
+            <h2 className="text-4xl sm:text-5xl font-medium text-white mb-8 tracking-tight">
+                Comprometidos con Tu Éxito
+            </h2>
+            
+            <p className="text-lg sm:text-xl text-neutral-400 mb-20 leading-relaxed max-w-3xl mx-auto font-light">
+                En Goatify, no eres un número más. Eres un <span className="text-white font-bold">socio estratégico</span>. Entendemos que tu éxito es el combustible de nuestra expansión, por eso ponemos toda nuestra maquinaria a tu servicio.
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div className="p-8 rounded-[2rem] bg-gradient-to-b from-white/5 to-transparent border border-white/5 hover:border-violet-500/40 transition-all duration-500 group relative overflow-hidden">
+                    <div className="absolute inset-0 bg-violet-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                    <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform border border-white/10">
+                        <Icon name="gradCap" className="w-6 h-6 text-violet-300"/>
+                    </div>
+                    <h3 className="text-lg font-bold text-white mb-3">Formación Continua</h3>
+                    <p className="text-neutral-400 text-xs leading-relaxed">
+                        Acceso a masterclasses exclusivas sobre IA, ventas B2B y liderazgo.
+                    </p>
+                </div>
+                
+                <div className="p-8 rounded-[2rem] bg-gradient-to-b from-white/5 to-transparent border border-white/5 hover:border-blue-500/40 transition-all duration-500 group relative overflow-hidden">
+                    <div className="absolute inset-0 bg-blue-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                    <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform border border-white/10">
+                        <Icon name="users" className="w-6 h-6 text-blue-300"/>
+                    </div>
+                    <h3 className="text-lg font-bold text-white mb-3">Mentoring Privado</h3>
+                    <p className="text-neutral-400 text-xs leading-relaxed">
+                        Acceso directo a directores comerciales para destrabar negociaciones complejas.
+                    </p>
+                </div>
+
+                <div className="p-8 rounded-[2rem] bg-gradient-to-b from-white/5 to-transparent border border-white/5 hover:border-amber-500/40 transition-all duration-500 group relative overflow-hidden">
+                    <div className="absolute inset-0 bg-amber-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                    <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform border border-white/10">
+                        <Icon name="award" className="w-6 h-6 text-amber-300"/>
+                    </div>
+                    <h3 className="text-lg font-bold text-white mb-3">Premios Reales</h3>
+                    <p className="text-neutral-400 text-xs leading-relaxed">
+                        Bonos en efectivo, viajes y tecnología por cumplimiento de metas trimestrales.
+                    </p>
+                </div>
+
+                <div className="p-8 rounded-[2rem] bg-gradient-to-b from-white/5 to-transparent border border-white/5 hover:border-emerald-500/40 transition-all duration-500 group relative overflow-hidden">
+                    <div className="absolute inset-0 bg-emerald-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                    <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform border border-white/10">
+                        <Icon name="lightbulb" className="w-6 h-6 text-emerald-300"/>
+                    </div>
+                    <h3 className="text-lg font-bold text-white mb-3">Herramientas Pro</h3>
+                    <p className="text-neutral-400 text-xs leading-relaxed">
+                        Software de gestión, contratos legales listos y material de marketing de alta conversión.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+);
+
+const BusinessModelSection = () => {
+    const steps = [
+        { 
+            icon: "award", 
+            title: "1. Acreditación", 
+            desc: "Obtienes tu credencial digital y código de socio único. Esto te autoriza a representar nuestro portafolio tecnológico global.",
+            bg: "bg-violet-500/5",
+            border: "border-violet-500/20",
+            iconColor: "text-violet-400"
+        },
+        { 
+            icon: "layers", 
+            title: "2. Conexión Estratégica", 
+            desc: "Identificas oportunidades en tu red. Empresas que requieren modernización. No vendes productos, ofreces transformación digital.",
+            bg: "bg-indigo-500/5",
+            border: "border-indigo-500/20",
+            iconColor: "text-indigo-400"
+        },
+        { 
+            icon: "target", 
+            title: "3. Ejecución Corporativa", 
+            desc: "Nuestro equipo senior toma el relevo. Realizamos el cierre, la implementación técnica y el onboarding del cliente bajo tu código.",
+            bg: "bg-blue-500/5",
+            border: "border-blue-500/20",
+            iconColor: "text-blue-400"
+        },
+        { 
+            icon: "gem", 
+            title: "4. Rentabilidad", 
+            desc: "Percibes comisiones inmediatas sobre cada contrato cerrado. Generas flujo de caja sin los costos operativos de una agencia tradicional.",
+            bg: "bg-emerald-500/5",
+            border: "border-emerald-500/20",
+            iconColor: "text-emerald-400"
+        },
+    ];
+
+    return (
+        <section className="py-24 px-4 bg-[#030303] border-t border-white/5">
+            <div className="max-w-7xl mx-auto">
+                <div className="text-center mb-20">
+                    <span className="text-neutral-500 font-bold uppercase tracking-[0.2em] text-xs mb-4 block">Modelo de Negocio</span>
+                    <h2 className="text-3xl sm:text-5xl font-medium text-white mb-6 tracking-tight">Arquitectura del Éxito</h2>
+                    <p className="text-neutral-400 text-lg max-w-2xl mx-auto font-light">
+                        Hemos simplificado la complejidad operativa para que puedas enfocarte en lo más valioso: las relaciones comerciales.
+                    </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    {steps.map((s, i) => (
+                        <div key={i} className={`p-8 rounded-[2rem] border ${s.border} ${s.bg} hover:bg-opacity-50 transition-all duration-500 group`}>
+                            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-8 ${s.bg} border ${s.border} group-hover:scale-110 transition-transform duration-500`}>
+                                <Icon name={s.icon} className={`w-7 h-7 ${s.iconColor}`} />
+                            </div>
+                            <h3 className="text-xl font-bold text-white mb-4 tracking-tight">{s.title}</h3>
+                            <p className="text-neutral-400 text-sm leading-relaxed">{s.desc}</p>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </section>
+    );
+};
+
+const EcosystemSection = () => (
+    <section className="py-32 px-4 bg-black relative overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-neutral-900/40 via-black to-black"></div>
+        <div className="max-w-6xl mx-auto relative z-10">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+                <div>
+                    <h2 className="text-4xl sm:text-5xl font-medium text-white mb-8 tracking-tight leading-tight">
+                        Más que un Socio, <br/>
+                        <span className="text-violet-400">Tu Respaldo Corporativo.</span>
+                    </h2>
+                    <p className="text-lg text-neutral-400 mb-10 leading-relaxed font-light">
+                        Al unirte a Goatify, no empiezas de cero. Te apalancas en una infraestructura de millones de dólares. Tú pones la visión, nosotros la ejecución.
+                    </p>
+                    
+                    <div className="space-y-6">
+                        <div className="flex gap-5 items-start group">
+                            <div className="w-12 h-12 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center flex-shrink-0 group-hover:bg-violet-500/20 transition-colors">
+                                <Icon name="code" className="w-6 h-6 text-violet-400"/>
+                            </div>
+                            <div>
+                                <h4 className="text-white font-bold text-lg mb-1">Desarrollo Tecnológico</h4>
+                                <p className="text-neutral-500 text-sm">Equipo de ingeniería IA dedicado a mantener tus soluciones a la vanguardia.</p>
+                            </div>
+                        </div>
+                        <div className="flex gap-5 items-start group">
+                            <div className="w-12 h-12 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-500/20 transition-colors">
+                                <Icon name="headphones" className="w-6 h-6 text-blue-400"/>
+                            </div>
+                            <div>
+                                <h4 className="text-white font-bold text-lg mb-1">Soporte Técnico 24/7</h4>
+                                <p className="text-neutral-500 text-sm">Atención al cliente final garantizada. Tú no recibes llamadas de soporte.</p>
+                            </div>
+                        </div>
+                        <div className="flex gap-5 items-start group">
+                            <div className="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center flex-shrink-0 group-hover:bg-emerald-500/20 transition-colors">
+                                <Icon name="briefcase" className="w-6 h-6 text-emerald-400"/>
+                            </div>
+                            <div>
+                                <h4 className="text-white font-bold text-lg mb-1">Departamento Legal</h4>
+                                <p className="text-neutral-500 text-sm">Contratos, facturación y cumplimiento normativo gestionado por nosotros.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div className="relative">
+                    <div className="absolute inset-0 bg-violet-500/5 rounded-[3rem] blur-3xl transform rotate-3"></div>
+                    <div className="bg-[#0a0a0a] border border-white/5 rounded-[3rem] p-10 relative overflow-hidden shadow-2xl">
+                        <div className="flex items-center gap-4 mb-8 pb-8 border-b border-white/5">
+                            <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center">
+                                <Icon name="shield" className="w-6 h-6 text-white"/>
+                            </div>
+                            <div>
+                                <p className="text-white font-bold">Garantía Corporativa</p>
+                                <p className="text-xs text-neutral-500 uppercase tracking-widest">CIE S.A.S. Ecuador</p>
+                            </div>
+                        </div>
+                        <div className="space-y-4 font-light text-neutral-400 text-sm">
+                            <p>"Nuestra prioridad es la reputación de nuestros socios. Cada entrega pasa por un control de calidad riguroso para asegurar que tu cliente reciba excelencia."</p>
+                            <p className="pt-4 text-white font-medium">— Directorio Ejecutivo, Goatify IA</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+);
+
+const CorporateBonusesSection = () => {
+    const bonuses = [
+        { title: 'Ejecutivo Trimestral', reward: 300, goal: 3000, color: 'border-blue-500/30' },
+        { title: 'Socio Semestral', reward: 1000, goal: 8000, color: 'border-violet-500/30' },
+        { title: 'Director Anual', reward: 3000, goal: 20000, color: 'border-amber-500/30' }
+    ];
+
+    return (
+        <section className="py-24 px-4 bg-[#050505] border-t border-white/5">
+            <div className="max-w-6xl mx-auto">
+                <div className="text-center mb-16">
+                    <span className="text-neutral-500 font-bold uppercase tracking-[0.2em] text-xs mb-4 block">Incentivos de Rendimiento</span>
+                    <h2 className="text-3xl sm:text-5xl font-medium text-white mb-6">Plan de Bonificaciones Corporativas</h2>
+                    <p className="text-neutral-400 text-lg max-w-2xl mx-auto font-light">
+                        Reconocemos la excelencia. Tu facturación acumulada desbloquea capital adicional para tu negocio.
+                    </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {bonuses.map((bonus, i) => (
+                        <div key={i} className={`p-8 rounded-[2rem] bg-neutral-900/30 border ${bonus.color} relative overflow-hidden group hover:bg-neutral-900/50 transition-colors`}>
+                            <div className="flex justify-between items-start mb-8">
+                                <div>
+                                    <p className="text-xs text-neutral-500 font-bold uppercase tracking-widest mb-1">{bonus.title}</p>
+                                    <p className="text-3xl font-medium text-white">${bonus.reward} USD</p>
+                                </div>
+                                <div className="p-3 rounded-xl bg-white/5 border border-white/5">
+                                    <Icon name="barChart" className="w-5 h-5 text-white opacity-70"/>
+                                </div>
+                            </div>
+                            
+                            <div className="space-y-3">
+                                <div className="flex justify-between text-xs text-neutral-400">
+                                    <span>Meta de Ventas</span>
+                                    <span className="font-mono">${bonus.goal.toLocaleString()}</span>
+                                </div>
+                                <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                                    <div className="h-full w-0 bg-white rounded-full group-hover:w-[10%] transition-all duration-1000"></div>
+                                </div>
+                                <p className="text-[10px] text-neutral-600 text-right mt-2">
+                                    *Calculado sobre facturación neta.
+                                </p>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </section>
+    );
+};
+
+const IncomeProjectionSection = ({ onJoin }: { onJoin: () => void }) => (
+    <section className="py-32 px-4 bg-[#050505] border-y border-white/5">
+        <div className="max-w-6xl mx-auto">
+            <div className="text-center mb-20">
+                <span className="text-emerald-500 font-bold uppercase tracking-[0.2em] text-xs mb-4 block">Potencial de Ingresos</span>
+                <h2 className="text-3xl sm:text-5xl font-medium text-white mb-6">Proyección Financiera Realista</h2>
+                <p className="text-neutral-400 text-lg max-w-2xl mx-auto font-light">
+                    Basado en el cierre de contratos High-Ticket (Aplicaciones, Consultoría, IA Avanzada).
+                </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
+                <div className="bg-neutral-900/30 border border-white/5 p-8 rounded-[2.5rem] text-center hover:border-white/10 transition-colors">
+                    <p className="text-neutral-500 text-xs font-bold uppercase tracking-widest mb-4">Nivel Inicial</p>
+                    <h3 className="text-4xl font-bold text-white mb-2">$500 - $1,000</h3>
+                    <p className="text-emerald-500 text-sm font-medium mb-6">Mensuales</p>
+                    <p className="text-neutral-400 text-sm leading-relaxed">
+                        Refiriendo 1-2 clientes de Web Smart o E-commerce al mes.
+                    </p>
+                </div>
+                <div className="bg-neutral-900/60 border border-violet-500/20 p-8 rounded-[2.5rem] text-center relative overflow-hidden transform md:-translate-y-4 shadow-2xl">
+                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-violet-600 to-indigo-600"></div>
+                    <p className="text-violet-400 text-xs font-bold uppercase tracking-widest mb-4">Partner Consolidado</p>
+                    <h3 className="text-5xl font-bold text-white mb-2">$2,500+</h3>
+                    <p className="text-violet-400 text-sm font-medium mb-6">Mensuales</p>
+                    <p className="text-neutral-400 text-sm leading-relaxed">
+                        Cerrando 1 App Personalizada o sistema corporativo al mes.
+                    </p>
+                </div>
+                <div className="bg-neutral-900/30 border border-white/5 p-8 rounded-[2.5rem] text-center hover:border-white/10 transition-colors">
+                    <p className="text-neutral-500 text-xs font-bold uppercase tracking-widest mb-4">Partner Regional</p>
+                    <h3 className="text-4xl font-bold text-white mb-2">$5,000+</h3>
+                    <p className="text-emerald-500 text-sm font-medium mb-6">Mensuales</p>
+                    <p className="text-neutral-400 text-sm leading-relaxed">
+                        Gestionando una cartera recurrente de servicios IA y bonos anuales.
+                    </p>
+                </div>
+            </div>
+
+            <div className="text-center">
+                <Button onClick={onJoin} className="h-14 px-10 text-sm">
+                    Ver Plan de Comisiones Detallado
+                </Button>
+            </div>
+        </div>
+    </section>
+);
+
+const AcademyPreviewSection = ({ onJoin, onSchedule }: { onJoin: () => void, onSchedule: () => void }) => (
+  <section className="py-32 px-4 bg-black relative">
+    <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
+      <div>
+        <div className="inline-flex items-center gap-3 mb-8 px-5 py-2 rounded-full bg-white/5 border border-white/10 text-white text-[10px] font-bold uppercase tracking-widest">
+            <Icon name="award" className="w-3.5 h-3.5 text-yellow-500"/> Beneficio Exclusivo Socios
+        </div>
+        <h2 className="text-4xl sm:text-6xl font-medium text-white mb-8 tracking-tight">
+          Escuela de Negocios <br/>
+          <span className="text-transparent bg-clip-text bg-gradient-to-r from-neutral-200 to-neutral-500">& Liderazgo</span>
+        </h2>
+        <p className="text-lg text-neutral-400 mb-10 leading-relaxed font-light">
+            No vendemos humo. Te formamos como un consultor tecnológico de alto nivel. Accede a estrategias probadas para dialogar con gerentes, directores y dueños de negocio.
+        </p>
+
+        <div className="space-y-6 mb-12">
+          {[
+            { t: "Visión Estratégica de Negocios", d: "Cómo identificar dolores reales en las empresas y ofrecer soluciones." },
+            { t: "Networking de Alto Valor", d: "Técnicas para conectar con decisores y evitar a los 'curiosos'." },
+            { t: "Posicionamiento de Marca Personal", d: "Conviértete en una autoridad en transformación digital en tu círculo." }
+          ].map((item, i) => (
+            <div key={i} className="flex gap-5 items-start">
+              <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center flex-shrink-0 mt-1 border border-white/10">
+                <Icon name="check" className="w-4 h-4 text-white"/>
+              </div>
+              <div>
+                  <h4 className="text-white font-bold text-base mb-1">{item.t}</h4>
+                  <p className="text-neutral-500 text-sm leading-relaxed font-light">{item.d}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex flex-wrap gap-4">
+            <Button onClick={onJoin} variant="secondary" className="h-14 px-8 text-sm">
+            Acceder a la Academia
+            </Button>
+            <Button onClick={onSchedule} variant="calendly" className="h-14 px-8 text-sm">
+            <Icon name="calendar" className="w-4 h-4"/> Agendar Mentoría
+            </Button>
+        </div>
+      </div>
+
+      <div className="relative">
+         <div className="absolute inset-0 bg-gradient-to-tr from-violet-900/20 to-blue-900/20 rounded-[3rem] blur-3xl"></div>
+         <div className="relative bg-[#080808] border border-white/10 rounded-[2.5rem] p-8 sm:p-12 overflow-hidden shadow-2xl">
+            <div className="flex justify-between items-center mb-10 border-b border-white/5 pb-6">
+                <h3 className="text-2xl font-bold text-white">Programa Educativo</h3>
+                <span className="text-xs font-bold text-emerald-500 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">Incluido</span>
+            </div>
+
+            <div className="space-y-4">
+                <div className="group p-4 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors cursor-pointer flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-lg bg-violet-600 flex items-center justify-center text-white"><Icon name="play" className="w-4 h-4 fill-current"/></div>
+                        <div>
+                            <p className="text-white font-bold text-sm">Módulo 1: Fundamentos</p>
+                            <p className="text-[10px] text-neutral-500 uppercase tracking-wider">Ecosistema Digital 2026</p>
+                        </div>
+                    </div>
+                    <Icon name="chevronDown" className="w-4 h-4 text-neutral-600 -rotate-90"/>
+                </div>
+                
+                <div className="group p-4 rounded-xl bg-black border border-white/5 opacity-70 flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-lg bg-neutral-800 flex items-center justify-center text-neutral-500"><Icon name="lock" className="w-4 h-4"/></div>
+                        <div>
+                            <p className="text-neutral-400 font-bold text-sm">Módulo 2: Negociación B2B</p>
+                            <p className="text-[10px] text-neutral-600 uppercase tracking-wider">Solo Socios</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="group p-4 rounded-xl bg-black border border-white/5 opacity-70 flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-lg bg-neutral-800 flex items-center justify-center text-neutral-500"><Icon name="lock" className="w-4 h-4"/></div>
+                        <div>
+                            <p className="text-neutral-400 font-bold text-sm">Módulo 3: Escalamiento</p>
+                            <p className="text-[10px] text-neutral-600 uppercase tracking-wider">Solo Socios</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+         </div>
+      </div>
+    </div>
+  </section>
+);
+
+const EarningsSimulator = ({ onJoin }: { onJoin: () => void }) => {
+    const { userProfile } = useContext(AppContext);
+    const [counts, setCounts] = useState<Record<string, number>>({
+        custom_app: 1, academy_semestral: 1, calls_system: 2, ecommerce: 1, web_smart_pro: 2
+    });
+
+    const totals = useMemo(() => {
+        let monthly = 0;
+        simulatorData.forEach(svc => {
+            const count = counts[svc.id] || 0;
+            monthly += (svc.profit * count);
+        });
+        const annualBonus = 6200; 
+        const commissionsAnnual = monthly * 12;
+        return { monthly, annual: commissionsAnnual + annualBonus };
+    }, [counts]);
+
+    const updateCount = (id: string, val: number) => setCounts(prev => ({ ...prev, [id]: val }));
+
+    return (
+        <section className="py-32 px-4 bg-[#030303] border-t border-white/5">
+            <div className="max-w-6xl mx-auto">
+                <div className="text-center mb-20">
+                    <span className="text-neutral-500 font-bold uppercase tracking-[0.2em] text-xs mb-4 block">Proyección Financiera</span>
+                    <h2 className="text-3xl sm:text-5xl font-medium text-white mb-6">Simulador de Ingresos High-Ticket</h2>
+                    <p className="text-neutral-400 text-lg max-w-2xl mx-auto font-light">
+                        Enfócate en calidad, no en cantidad. Mira lo que sucede al cerrar solo unos pocos contratos de alto valor al mes.
+                    </p>
+                </div>
+
+                <div className="bg-[#0a0a0a] border border-white/5 rounded-[3rem] p-8 sm:p-16 shadow-2xl flex flex-col lg:flex-row gap-20 items-center">
+                    <div className="flex-1 space-y-8 w-full">
+                        <div className="flex justify-between items-center mb-6 border-b border-white/5 pb-4">
+                            <p className="text-xs font-bold text-neutral-500 uppercase tracking-widest">Servicio</p>
+                            <p className="text-xs font-bold text-neutral-500 uppercase tracking-widest">Volumen Mensual</p>
+                        </div>
+                        {simulatorData.map(svc => (
+                            <div key={svc.id} className="group">
+                                <div className="flex justify-between items-end mb-3">
+                                    <div>
+                                        <span className="text-white font-bold block text-base">{svc.service}</span>
+                                        <span className="text-neutral-600 text-[10px] uppercase tracking-wider font-bold">{svc.note}</span>
+                                    </div>
+                                    <span className="text-emerald-400 font-bold text-xs bg-emerald-900/10 px-3 py-1 rounded-md border border-emerald-500/10">Ganancia: ${svc.profit}</span>
+                                </div>
+                                <div className="flex items-center gap-6">
+                                    <div className="relative flex-1 h-2 bg-neutral-900 rounded-full">
+                                        <input 
+                                            type="range" min="0" max="5" step="1" 
+                                            value={counts[svc.id] || 0}
+                                            onChange={(e) => updateCount(svc.id, parseInt(e.target.value))}
+                                            className="absolute w-full h-full opacity-0 cursor-pointer z-10"
+                                        />
+                                        <div 
+                                            className="h-full bg-neutral-700 rounded-full transition-all duration-300"
+                                            style={{ width: `${(counts[svc.id] || 0) * 20}%` }}
+                                        ></div>
+                                        <div 
+                                            className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-white rounded-full shadow-lg transition-all duration-300 pointer-events-none"
+                                            style={{ left: `${(counts[svc.id] || 0) * 20}%` }}
+                                        ></div>
+                                    </div>
+                                    <span className="w-8 text-right font-mono text-xl text-white">{counts[svc.id] || 0}</span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="w-full lg:w-[400px] bg-gradient-to-b from-neutral-900 to-black border border-white/10 rounded-[2.5rem] p-10 text-center relative overflow-hidden shadow-2xl">
+                        <div className="relative z-10">
+                            <p className="text-xs font-bold text-neutral-500 uppercase tracking-widest mb-4">Ingreso Mensual Estimado</p>
+                            <p className="text-6xl font-medium text-white mb-8 tracking-tighter">{convertAndFormatCurrency(totals.monthly, userProfile?.currency || 'USD')}</p>
+                            
+                            <div className="h-px bg-white/10 w-full my-8"></div>
+                            
+                            <p className="text-xs font-bold text-emerald-500 uppercase tracking-widest mb-2">Proyección Anual</p>
+                            <p className="text-3xl font-medium text-white tracking-tight">{convertAndFormatCurrency(totals.annual, userProfile?.currency || 'USD')}</p>
+                            
+                            <Button onClick={onJoin} className="w-full mt-10 h-14 text-sm bg-white text-black hover:bg-neutral-200 border-none shadow-none">
+                                Iniciar Plan de Carrera
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    );
+};
+
+const CatalogSection = () => (
+    <section className="py-24 px-4 bg-black border-t border-white/5">
+        <div className="max-w-7xl mx-auto">
+            <div className="text-center mb-16">
+                <h2 className="text-3xl sm:text-5xl font-medium text-white mb-6">Catálogo de Oportunidades 2026</h2>
+                <p className="text-neutral-400 text-lg max-w-2xl mx-auto font-light">
+                    Soluciones tecnológicas demandadas globalmente. Transparencia total en tus comisiones.
+                </p>
+            </div>
+
+            {/* Mobile: Grid 2x2 | Desktop: Table */}
+            <div className="md:hidden grid grid-cols-2 gap-3">
+                {commissionCatalog.map((item, i) => (
+                    <div key={i} className="bg-neutral-900/40 border border-white/5 rounded-2xl p-4 flex flex-col justify-between hover:bg-neutral-900 transition-colors">
+                        <div className="mb-4">
+                            <p className="font-bold text-white text-xs leading-snug mb-1">{item.service}</p>
+                            <p className="text-[9px] text-neutral-500 leading-tight uppercase tracking-wide">{item.note}</p>
+                        </div>
+                        <div className="pt-3 border-t border-white/5">
+                            <div className="flex justify-between items-end">
+                                <div>
+                                    <p className="text-[8px] text-neutral-500 uppercase mb-0.5">Comisión</p>
+                                    <p className="text-[10px] font-bold text-violet-400">{item.commission}</p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-[8px] text-neutral-500 uppercase mb-0.5">Ganas</p>
+                                    <p className="text-sm font-bold text-white">{item.isCustom ? 'Var.' : `$${item.profit}`}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            <div className="hidden md:block overflow-x-auto custom-scrollbar">
+                <div className="min-w-[900px] border border-white/5 rounded-3xl overflow-hidden">
+                    <div className="grid grid-cols-12 gap-4 px-8 py-5 bg-neutral-900/50 text-xs font-bold text-neutral-500 uppercase tracking-widest">
+                        <div className="col-span-5">Servicio</div>
+                        <div className="col-span-2 text-center">Valor Público</div>
+                        <div className="col-span-2 text-center">Tu %</div>
+                        <div className="col-span-3 text-right">Tu Ganancia Neta</div>
+                    </div>
+                    <div className="bg-[#050505] divide-y divide-white/5">
+                        {commissionCatalog.map((item, i) => (
+                            <div key={i} className="grid grid-cols-12 gap-4 px-8 py-5 items-center hover:bg-white/5 transition-colors group">
+                                <div className="col-span-5">
+                                    <p className="font-bold text-white text-sm group-hover:text-violet-300 transition-colors">{item.service}</p>
+                                    <p className="text-[10px] text-neutral-500 uppercase tracking-wide mt-1 font-medium">{item.note}</p>
+                                </div>
+                                <div className="col-span-2 text-center font-mono text-neutral-400 text-sm">
+                                    {item.isCustom ? 'Custom' : `$${item.price}`}
+                                </div>
+                                <div className="col-span-2 text-center">
+                                    <span className="text-xs font-bold text-violet-400 bg-violet-500/10 px-3 py-1 rounded-full">{item.commission}</span>
+                                </div>
+                                <div className="col-span-3 text-right font-bold text-white text-base">
+                                    {item.isCustom ? 'Variable' : `$${item.profit} USD`}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+);
+
+const PriceOfferSection = ({ onJoin }: { onJoin: () => void }) => (
+    <section className="py-24 px-4 bg-gradient-to-b from-[#0a0a0a] to-black border-y border-white/5 relative overflow-hidden">
+        <div className="max-w-4xl mx-auto text-center relative z-10">
+            <h2 className="text-3xl sm:text-5xl font-medium text-white mb-10 tracking-tight">Tu Pasaporte al Ecosistema</h2>
+            
+            <div className="bg-[#080808] border border-white/10 rounded-[3rem] p-10 sm:p-16 shadow-2xl relative overflow-hidden">
+                <div className="absolute top-0 right-0 bg-white text-black text-xs font-black px-8 py-3 rounded-bl-3xl uppercase tracking-widest z-10">Oferta Limitada</div>
+                
+                <div className="flex flex-col items-center gap-6 mb-10">
+                    <p className="text-neutral-400 text-lg">Membresía Operativa & Tecnológica</p>
+                    <div className="flex items-baseline gap-2">
+                        <span className="text-7xl sm:text-8xl font-medium text-white tracking-tighter">$4</span>
+                        <span className="text-2xl text-neutral-500 font-light uppercase">/Mes</span>
+                    </div>
+                    <p className="text-sm text-neutral-500 max-w-md mx-auto">
+                        Cubre costos de servidores, acceso a la academia, generación de contratos legales y uso de la plataforma de gestión.
+                    </p>
+                </div>
+                
+                <Button onClick={onJoin} className="h-16 px-16 text-lg w-full sm:w-auto shadow-xl">
+                    Activar Membresía de Socio
+                </Button>
+                
+                <div className="mt-8 flex justify-center gap-6 text-[10px] text-neutral-500 uppercase tracking-widest font-bold">
+                    <span className="flex items-center gap-2"><Icon name="shield" className="w-3 h-3"/> Sin Permanencia</span>
+                    <span className="flex items-center gap-2"><Icon name="check" className="w-3 h-3"/> Acceso Inmediato</span>
+                </div>
+            </div>
+        </div>
+    </section>
+);
+
+const Footer = () => (
+    <footer className="py-20 border-t border-white/5 text-center bg-black">
+        <div className="max-w-7xl mx-auto px-4">
+            <div className="flex flex-col items-center justify-center mb-10 gap-6">
+                <img src={LOGO_URL} alt="Goatify" className="h-10 w-auto object-contain grayscale opacity-50 hover:opacity-100 transition-opacity duration-500" />
+                <div className="flex gap-8 text-neutral-500 text-xs font-bold uppercase tracking-widest">
+                    <a href="#" className="hover:text-white transition-colors">Legal</a>
+                    <a href="#" className="hover:text-white transition-colors">Privacidad</a>
+                    <a href="#" className="hover:text-white transition-colors">Soporte</a>
+                </div>
+            </div>
+            <p className="text-neutral-600 text-xs font-medium">&copy; 2026 Goatify IA Solutions. Reservados todos los derechos.</p>
+            <p className="mt-3 text-neutral-700 text-[10px] uppercase tracking-widest">Centro Iberoamericano de Educación S.A.S.</p>
+        </div>
+    </footer>
+);
+
+// --- COMPONENTE PRINCIPAL ---
+
+const Partners: React.FC = () => {
+    const handleJoin = () => {
+        window.open(PARTNERS_LINK, '_blank');
+    };
+
+    const handleSchedule = () => {
+        window.open(CALENDLY_URL, '_blank');
+    };
+
+    return (
+        <div className="min-h-screen bg-black text-white overflow-x-hidden font-sans selection:bg-violet-500/30">
+            {/* Navbar */}
+            <nav className="fixed top-0 w-full z-50 bg-black/80 backdrop-blur-xl border-b border-white/5 transition-all duration-300">
+                <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+                    <div className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity" onClick={() => window.location.href = '/'}>
+                         <img src={LOGO_URL} alt="Goatify" className="h-9 w-auto object-contain" />
+                         <span className="font-medium text-white tracking-tight text-lg hidden sm:block">PARTNERS</span>
+                    </div>
+                    <div className="flex items-center gap-6">
+                        <button onClick={handleJoin} className="text-xs font-bold text-neutral-400 hover:text-white uppercase tracking-widest transition-colors hidden sm:block">Login</button>
+                        <Button onClick={handleJoin} className="px-6 py-2.5 text-xs rounded-lg h-auto border-none shadow-none bg-white text-black hover:bg-neutral-200">Unirme ($4)</Button>
+                    </div>
+                </div>
+            </nav>
+
+            <HeroSection onJoin={handleJoin} onSchedule={handleSchedule} />
+            <BusinessModelSection />
+            <IncomeProjectionSection onJoin={handleJoin} />
+            <EcosystemSection />
+            <PartnerCareSection />
+            <CorporateBonusesSection />
+            <EarningsSimulator onJoin={handleJoin} />
+            <AcademyPreviewSection onJoin={handleJoin} onSchedule={handleSchedule} />
+            <CatalogSection />
+            <PriceOfferSection onJoin={handleJoin} />
+            <Footer />
+
+            {/* Floating AI Agent Support Button - FIXED & IMPROVED */}
+            <a 
+                href={AGENT_SUPPORT_URL} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="fixed bottom-6 right-6 z-50 flex items-center gap-3 pl-5 pr-2 py-2 bg-violet-600 rounded-full shadow-[0_0_30px_rgba(124,58,237,0.5)] hover:bg-violet-500 transition-all duration-300 group hover:scale-105 border border-white/10"
+            >
+                <div className="absolute inset-0 bg-violet-600 rounded-full animate-pulse opacity-20 -z-10"></div>
+                <span className="text-xs font-bold text-white uppercase tracking-wider whitespace-nowrap">Atención 24/7</span>
+                <div className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center">
+                    <Icon name="message" className="w-5 h-5 text-white"/>
+                </div>
+            </a>
+        </div>
+    );
+};
+
+export default Partners;
