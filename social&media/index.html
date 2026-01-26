@@ -402,11 +402,12 @@
                 Genera ingresos pasivos, despliega Vendedores IA y usa nuestra tecnología para dominar el mercado internacional.
             </p>
 
-            <div class="flex flex-col md:flex-row justify-center gap-5 reveal" style="transition-delay: 300ms;">
-                <a href="#partners" class="btn-glow bg-gradient-to-r from-violet-600 to-indigo-600 text-white px-10 py-4 rounded-xl font-bold text-lg shadow-[0_20px_50px_-10px_rgba(124,58,237,0.4)] flex items-center justify-center gap-3 hover:translate-y-[-2px] transition-transform">
-                    <i class="fas fa-hand-holding-dollar"></i> Quiero Ser Socio y Ganar
+            <!-- FIX: BOTONES EN UNA SOLA FILA EN MOVIL (flex-row) Y TEXTO PEQUEÑO (text-xs) -->
+            <div class="flex flex-row md:flex-row justify-center gap-2 md:gap-5 reveal" style="transition-delay: 300ms;">
+                <a href="#partners" class="btn-glow bg-gradient-to-r from-violet-600 to-indigo-600 text-white px-3 py-3 md:px-10 md:py-4 rounded-xl font-bold text-xs md:text-lg shadow-[0_20px_50px_-10px_rgba(124,58,237,0.4)] flex items-center justify-center gap-2 md:gap-3 hover:translate-y-[-2px] transition-transform w-1/2 md:w-auto text-center">
+                    <i class="fas fa-hand-holding-dollar"></i> Quiero Ser Socio
                 </a>
-                <a href="#automation" class="glass-panel text-white px-10 py-4 rounded-xl font-bold text-lg hover:bg-white/10 transition-all flex items-center justify-center gap-3">
+                <a href="#automation" class="glass-panel text-white px-3 py-3 md:px-10 md:py-4 rounded-xl font-bold text-xs md:text-lg hover:bg-white/10 transition-all flex items-center justify-center gap-2 md:gap-3 w-1/2 md:w-auto text-center">
                     <i class="fas fa-robot text-emerald-400"></i> Ver Tecnología
                 </a>
             </div>
@@ -1777,16 +1778,27 @@
         });
 
 
-        // BROCHURE GENERATION LOGIC
+        // BROCHURE GENERATION LOGIC (FIX: CLONING METHOD)
         function downloadBrochure() {
-            const element = document.getElementById('brochure-template');
+            const originalElement = document.getElementById('brochure-template');
             
-            // 1. Update Date
-            document.getElementById('pdf-date').innerText = new Date().toLocaleDateString();
+            // CLONING LOGIC: Create a clone to render off-screen
+            const clone = originalElement.cloneNode(true);
+            
+            // Configure the clone
+            clone.id = 'brochure-clone'; // Avoid duplicate IDs if necessary
+            clone.style.display = 'block';
+            clone.style.position = 'absolute';
+            clone.style.left = '-10000px'; // Off-screen
+            clone.style.top = '0';
+            clone.style.width = '800px'; // Force width
+            clone.style.zIndex = '-9999';
+            
+            // Update Data inside Clone
+            clone.querySelector('#pdf-date').innerText = new Date().toLocaleDateString();
 
-            // 2. Update Prices in Brochure based on currentCurrency
-            const pdfVals = element.querySelectorAll('.pdf-val');
-            const pdfSymbols = element.querySelectorAll('.pdf-currency-symbol');
+            const pdfVals = clone.querySelectorAll('.pdf-val');
+            const pdfSymbols = clone.querySelectorAll('.pdf-currency-symbol');
             
             pdfVals.forEach(el => {
                 const basePrice = parseInt(el.getAttribute('data-base'));
@@ -1799,30 +1811,24 @@
             });
 
             pdfSymbols.forEach(el => {
-                el.innerText = currentCurrency === 'USD' ? '$' : '$'; // Both use $ symbol, could change to MX$ if needed
+                el.innerText = currentCurrency === 'USD' ? '$' : '$'; 
             });
 
-            // 3. Generate PDF - IMPROVED FIX FOR BLANK PAGE
-            // Force element to be visible and on screen for capture
-            element.style.display = 'block';
-            element.style.position = 'fixed'; // Use fixed to ensure it's in viewport reference
-            element.style.top = '0';
-            element.style.left = '0';
-            element.style.zIndex = '-9999'; // Hide behind everything else
-            
+            // Append clone to body so the browser renders it
+            document.body.appendChild(clone);
+
             const opt = {
                 margin:       0,
                 filename:     `Goatify_Alianza_Brochure_${currentCurrency}.pdf`,
                 image:        { type: 'jpeg', quality: 0.98 },
-                html2canvas:  { scale: 2, useCORS: true, scrollY: 0 },
+                html2canvas:  { scale: 2, useCORS: true, scrollY: 0, windowWidth: 800 },
                 jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' },
                 enableLinks:  true
             };
 
-            // Capture
-            html2pdf().from(element).set(opt).save().then(() => {
-                // Reset to hidden after save
-                element.style.display = 'none';
+            // Capture from Clone & Remove
+            html2pdf().from(clone).set(opt).save().then(() => {
+                document.body.removeChild(clone);
             });
         }
 
