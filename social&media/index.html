@@ -82,6 +82,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- HTML2PDF Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
     <script>
         tailwind.config = {
@@ -104,6 +106,7 @@
                         'grid-pattern': "url(\"data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23ffffff' fill-opacity='0.03' fill-rule='evenodd'%3E%3Cpath d='M0 40L40 0H20L0 20M40 40V20L20 40'/%3E%3C/g%3E%3C/svg%3E\")",
                         'mexico-gradient': 'linear-gradient(135deg, #006847 0%, #0f172a 100%)',
                         'animated-gradient': 'linear-gradient(-45deg, #0f172a, #1e1b4b, #312e81, #0f172a)',
+                        'space-gradient': 'linear-gradient(90deg, #2e0249 0%, #a21caf 50%, #0f172a 100%)',
                     },
                     animation: {
                         'gradient-x': 'gradient-x 15s ease infinite',
@@ -188,38 +191,91 @@
             background-size: 200% 200%;
             animation: gradient-x 10s ease infinite;
         }
+
+        /* Brochure PDF Styles (Fix for Blank PDF) */
+        #brochure-template {
+            display: none; /* Default hidden */
+            width: 800px; /* Approx A4 width for rendering */
+            background-color: #020617;
+            color: #fff;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            padding: 0;
+            /* When visible for PDF generation, it will be overlaid */
+            z-index: 9999;
+        }
+        .pdf-page {
+            padding: 40px;
+            min-height: 1120px; /* Approx A4 height */
+            background: radial-gradient(circle at 50% 0%, #1e1b4b 0%, #020617 60%);
+            border-bottom: 2px solid #333;
+            position: relative;
+        }
+        .pdf-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        .pdf-title { font-size: 32px; font-weight: 800; color: #fff; }
+        .pdf-subtitle { color: #7c3aed; text-transform: uppercase; letter-spacing: 2px; font-size: 12px; font-weight: bold; }
+        .pdf-section-title { font-size: 20px; font-weight: 700; color: #fff; margin-bottom: 15px; border-left: 4px solid #7c3aed; padding-left: 10px; margin-top: 30px;}
+        .pdf-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .pdf-card { background: rgba(255,255,255,0.05); padding: 15px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); }
+        .pdf-price { font-size: 24px; font-weight: 800; color: #fff; margin: 10px 0; }
+        .pdf-btn { background: #7c3aed; color: #fff; padding: 10px 20px; text-align: center; border-radius: 8px; font-weight: bold; display: block; margin-top: 10px; text-decoration: none; font-size: 12px; }
+        .pdf-footer { position: absolute; bottom: 20px; left: 40px; right: 40px; text-align: center; color: #64748b; font-size: 10px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 10px; }
     </style>
 </head>
 <body class="antialiased selection:bg-violet-500 selection:text-white">
 
     <!-- HEADER (Navigation) -->
     <nav class="fixed w-full z-50 glass-panel border-b-0 top-0 left-0 transition-all duration-300">
-        <div class="container mx-auto px-6 py-4 flex flex-col md:flex-row justify-between items-center gap-4 md:gap-0">
+        <div class="container mx-auto px-4 lg:px-6 py-4 flex flex-col xl:flex-row justify-between items-center gap-4">
             <!-- LOGO DUAL -->
-            <div class="flex items-center gap-6">
-                <div class="flex items-center gap-2">
-                    <div class="w-8 h-8 rounded bg-violet-600 flex items-center justify-center font-bold text-white">G</div>
-                    <span class="font-bold tracking-widest text-white">GOATIFY IA</span>
+            <div class="flex items-center gap-4 md:gap-6 justify-between w-full xl:w-auto">
+                <div class="flex items-center gap-6">
+                    <div class="flex items-center gap-2">
+                        <!-- LOGO GOATIFY -->
+                        <img src="Logos HD.png" alt="Goatify IA" class="w-8 h-8 object-contain">
+                        <span class="font-bold tracking-widest text-white text-sm md:text-base">GOATIFY IA</span>
+                    </div>
+                    <div class="h-6 w-px bg-slate-600"></div>
+                    <div class="flex items-center gap-2">
+                        <!-- LOGO SOCIAL -->
+                        <img src="Social.png" alt="Social & Media" class="w-8 h-8 rounded-md bg-white object-contain p-0.5">
+                        <span class="font-bold tracking-widest text-slate-300 text-xs md:text-sm">SOCIAL & MEDIA</span>
+                    </div>
                 </div>
-                <div class="h-6 w-px bg-slate-600"></div>
-                <div class="flex items-center gap-2">
-                    <div class="w-8 h-8 rounded bg-white flex items-center justify-center font-bold text-black text-xs">S&M</div>
-                    <span class="font-bold tracking-widest text-slate-300">SOCIAL & MEDIA</span>
-                </div>
+                
+                <!-- Currency Toggle (Mobile Only) -->
+                 <button id="currency-toggle-mobile" class="xl:hidden flex items-center gap-2 px-3 py-1 rounded-full bg-slate-800 border border-slate-700 hover:bg-slate-700 transition-all">
+                    <img id="currency-flag-mobile" src="https://flagcdn.com/w20/mx.png" alt="MX" class="w-5 rounded shadow-sm">
+                    <span id="currency-text-mobile" class="text-xs font-bold text-slate-300">MXN</span>
+                </button>
             </div>
 
-            <!-- MENU -->
-            <div class="hidden lg:flex gap-8 text-sm font-medium text-slate-400">
-                <a href="#about" class="hover:text-white transition-colors">Nosotros</a>
-                <a href="#benefits" class="hover:text-white transition-colors">Beneficios</a>
-                <a href="#automation" class="hover:text-white transition-colors">Automatización</a>
-                <a href="#web" class="hover:text-white transition-colors">Web Smart</a>
-                <a href="#university" class="hover:text-white transition-colors text-amber-400 font-bold">Universidad IA</a>
+            <!-- MENU (Visible Mobile small letters & Desktop) -->
+            <div class="flex flex-wrap justify-center gap-x-3 gap-y-2 lg:gap-6 text-[10px] lg:text-sm font-medium text-slate-400 w-full xl:w-auto">
+                <a href="https://www.goatify.app/inicio" class="hover:text-white transition-colors text-white">Inicio</a>
+                <a href="https://www.goatify.app/portafolio/" class="hover:text-emerald-400 transition-colors">Portafolio</a>
+                <a href="https://www.goatify.app/pricing/" class="hover:text-white transition-colors">Precios</a>
+                <a href="https://www.goatify.app/socios/" class="hover:text-white transition-colors text-amber-400">Socios</a>
+                <a href="https://www.goatify.app/productividad" class="hover:text-white transition-colors">Productividad</a>
+                
+                <span class="hidden lg:inline text-slate-700">|</span>
+                
+                <a href="#about" class="hover:text-white transition-colors hidden md:block">Nosotros</a>
+                <a href="#benefits" class="hover:text-white transition-colors hidden md:block">Beneficios</a>
+                <a href="#automation" class="hover:text-white transition-colors hidden md:block">Automatización</a>
+                <a href="#web" class="hover:text-white transition-colors hidden md:block">Web Smart</a>
+                <a href="#university" class="hover:text-white transition-colors text-amber-400 font-bold hidden md:block">Universidad IA</a>
             </div>
 
-            <!-- CTA & CURRENCY -->
-            <div class="flex items-center gap-4">
-                <!-- Currency Toggle (New) -->
+            <!-- CTA & CURRENCY (Desktop) -->
+            <div class="hidden xl:flex items-center gap-4">
+                <!-- Currency Toggle -->
                 <button id="currency-toggle" class="flex items-center gap-2 px-3 py-1 rounded-full bg-slate-800 border border-slate-700 hover:bg-slate-700 hover:border-violet-500 transition-all cursor-pointer group">
                     <img id="currency-flag" src="https://flagcdn.com/w20/mx.png" alt="MX" class="w-5 rounded shadow-sm group-hover:scale-110 transition-transform">
                     <span id="currency-text" class="text-xs font-bold text-slate-300 group-hover:text-white">MXN</span>
@@ -234,7 +290,7 @@
     </nav>
 
     <!-- HERO SECTION -->
-    <section class="relative pt-44 pb-24 overflow-hidden">
+    <section class="relative pt-48 pb-24 overflow-hidden">
         <div class="absolute inset-0 bg-hero-glow z-0"></div>
         <div class="absolute inset-0 bg-grid-pattern z-0 opacity-20"></div>
         
@@ -264,6 +320,49 @@
             </div>
         </div>
     </section>
+
+    <!-- FRANJA ESPACIAL (GOATIFY APP) -->
+    <div class="w-full bg-space-gradient border-y border-fuchsia-500/30 relative overflow-hidden group reveal">
+        <div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-30 animate-pulse"></div>
+        <div class="container mx-auto px-6 py-4 relative z-10 flex flex-col md:flex-row items-center justify-center gap-4 text-center">
+            <div class="text-white font-bold text-sm md:text-lg tracking-wide">
+                <i class="fas fa-rocket text-amber-400 mr-2"></i>
+                Prueba <span class="text-amber-400 font-extrabold">GRATIS 30 DÍAS</span> del paquete Premium. Monetiza como Socio.
+            </div>
+            <a href="https://ia.goatify.app/" target="_blank" class="px-6 py-2 bg-white text-fuchsia-900 font-extrabold rounded-full text-xs md:text-sm hover:bg-amber-400 hover:text-black transition-all shadow-lg hover:shadow-amber-400/50">
+                INGRESAR A LA APP <i class="fas fa-arrow-right ml-1"></i>
+            </a>
+        </div>
+    </div>
+
+    <!-- ACCESOS DIRECTOS DEL ECOSISTEMA (NUEVO FUNNEL) -->
+    <div class="py-12 bg-slate-900/50 border-b border-white/5 reveal">
+        <div class="container mx-auto px-6">
+            <p class="text-center text-xs font-bold text-slate-500 uppercase tracking-[0.3em] mb-8">Accesos Directos del Ecosistema</p>
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-4 max-w-5xl mx-auto">
+                <a href="https://www.goatify.app/portafolio/" class="glass-panel p-4 rounded-xl hover:bg-emerald-900/20 hover:border-emerald-500/50 transition-all text-center group">
+                    <i class="fas fa-briefcase text-2xl text-emerald-400 mb-2 group-hover:scale-110 transition-transform"></i>
+                    <div class="font-bold text-white text-sm">Portafolio</div>
+                </a>
+                <a href="https://www.goatify.app/pricing/" class="glass-panel p-4 rounded-xl hover:bg-violet-900/20 hover:border-violet-500/50 transition-all text-center group">
+                    <i class="fas fa-tags text-2xl text-violet-400 mb-2 group-hover:scale-110 transition-transform"></i>
+                    <div class="font-bold text-white text-sm">Precios</div>
+                </a>
+                <a href="https://www.goatify.app/socios/" class="glass-panel p-4 rounded-xl hover:bg-amber-900/20 hover:border-amber-500/50 transition-all text-center group">
+                    <i class="fas fa-handshake text-2xl text-amber-400 mb-2 group-hover:scale-110 transition-transform"></i>
+                    <div class="font-bold text-white text-sm">Socios</div>
+                </a>
+                <a href="https://www.goatify.app/productividad" class="glass-panel p-4 rounded-xl hover:bg-blue-900/20 hover:border-blue-500/50 transition-all text-center group">
+                    <i class="fas fa-brain text-2xl text-blue-400 mb-2 group-hover:scale-110 transition-transform"></i>
+                    <div class="font-bold text-white text-sm">Productividad</div>
+                </a>
+                <a href="https://ia.goatify.app/" class="glass-panel p-4 rounded-xl hover:bg-fuchsia-900/20 hover:border-fuchsia-500/50 transition-all text-center group border-fuchsia-500/30 bg-fuchsia-500/5">
+                    <i class="fas fa-mobile-alt text-2xl text-fuchsia-400 mb-2 group-hover:scale-110 transition-transform"></i>
+                    <div class="font-bold text-white text-sm">App IA</div>
+                </a>
+            </div>
+        </div>
+    </div>
 
     <!-- TECH STRIP -->
     <div class="py-10 border-y border-white/5 bg-black/40 backdrop-blur-sm reveal">
@@ -362,65 +461,138 @@
         </div>
     </section>
 
-    <!-- SECCIÓN BENEFICIOS -->
+    <!-- SECCIÓN BENEFICIOS (MEJORADA Y DETALLADA) -->
     <section id="benefits" class="py-32 px-6 reveal bg-black relative">
         <div class="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-violet-900 to-transparent opacity-50"></div>
         <div class="container mx-auto max-w-7xl">
             <div class="text-center mb-20">
-                <span class="text-emerald-400 font-bold tracking-[0.2em] text-xs uppercase mb-3 block">Resultados Tangibles</span>
+                <span class="text-emerald-400 font-bold tracking-[0.2em] text-xs uppercase mb-3 block">Resultados Tangibles & Reales</span>
                 <h2 class="text-4xl md:text-5xl font-bold text-white mb-6">Tu Negocio en <span class="text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-emerald-400">Piloto Automático</span></h2>
                 <p class="text-slate-400 text-lg max-w-3xl mx-auto">
-                    Transformamos el caos operativo en una máquina de ventas eficiente. No es magia, es ingeniería de procesos.
+                    No solo es tecnología, es una reingeniería total de cómo captas, conviertes y retienes a tus clientes. 
+                    Olvídate de perseguir ventas; deja que el sistema lo haga por ti.
                 </p>
             </div>
 
-            <div class="grid md:grid-cols-4 gap-6">
-                <!-- Beneficio 1 -->
-                <div class="benefit-card group rounded-3xl p-8 relative overflow-hidden">
-                    <div class="icon-glow-box w-16 h-16 rounded-2xl bg-red-500/10 flex items-center justify-center text-3xl text-red-500 mb-6 group-hover:text-white group-hover:bg-red-500 transition-all duration-500">
+            <div class="grid md:grid-cols-2 lg:grid-cols-2 gap-8">
+                <!-- Beneficio 1: Ventas (Rediseñado) -->
+                <div class="benefit-card group rounded-3xl p-10 relative overflow-hidden flex flex-col md:flex-row gap-6 items-start">
+                    <div class="icon-glow-box w-20 h-20 shrink-0 rounded-2xl bg-red-500/10 flex items-center justify-center text-4xl text-red-500 group-hover:text-white group-hover:bg-red-600 transition-all duration-500">
                         <i class="fas fa-stopwatch"></i>
                     </div>
-                    <h3 class="text-xl font-bold text-white mb-3">No Pierdas Ventas</h3>
-                    <p class="text-slate-500 text-sm leading-relaxed group-hover:text-slate-300 transition-colors">
-                        El <strong class="text-red-400">60% de los clientes</strong> se van si no respondes en 5 minutos. Nuestros Agentes IA responden en <strong class="text-white">1 segundo</strong>, 24/7.
-                    </p>
+                    <div>
+                        <h3 class="text-2xl font-bold text-white mb-3">Recuperación de Ventas Perdidas</h3>
+                        <p class="text-slate-400 text-sm leading-relaxed mb-4">
+                            ¿Sabías que el 80% de las ventas se pierden por falta de seguimiento inmediato? 
+                            Nuestro sistema <strong>detecta leads abandonados</strong>, responde en <strong class="text-white">1 segundo</strong> y reactiva conversaciones antiguas.
+                        </p>
+                        <ul class="space-y-2 text-sm text-slate-500">
+                            <li class="flex items-center gap-2"><i class="fas fa-check text-red-500"></i> Atención Inmediata 24/7 (Sin humanos).</li>
+                            <li class="flex items-center gap-2"><i class="fas fa-check text-red-500"></i> Aumento del 40% en Cierre de Ventas.</li>
+                            <li class="flex items-center gap-2"><i class="fas fa-check text-red-500"></i> Seguimiento automatizado por 30 días.</li>
+                        </ul>
+                    </div>
                     <div class="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-red-500 to-transparent transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500"></div>
                 </div>
 
-                <!-- Beneficio 2 -->
-                <div class="benefit-card group rounded-3xl p-8 relative overflow-hidden">
-                    <div class="icon-glow-box w-16 h-16 rounded-2xl bg-blue-500/10 flex items-center justify-center text-3xl text-blue-500 mb-6 group-hover:text-white group-hover:bg-blue-500 transition-all duration-500">
+                <!-- Beneficio 2: Organización (Rediseñado) -->
+                <div class="benefit-card group rounded-3xl p-10 relative overflow-hidden flex flex-col md:flex-row gap-6 items-start">
+                    <div class="icon-glow-box w-20 h-20 shrink-0 rounded-2xl bg-blue-500/10 flex items-center justify-center text-4xl text-blue-500 group-hover:text-white group-hover:bg-blue-600 transition-all duration-500">
                         <i class="fas fa-chart-pie"></i>
                     </div>
-                    <h3 class="text-xl font-bold text-white mb-3">Organización Total</h3>
-                    <p class="text-slate-500 text-sm leading-relaxed group-hover:text-slate-300 transition-colors">
-                        Elimina el caos de WhatsApps perdidos. Nuestro CRM centraliza prospectos, agenda citas y categoriza clientes automáticamente.
-                    </p>
+                    <div>
+                        <h3 class="text-2xl font-bold text-white mb-3">CRM Inteligente & Control Total</h3>
+                        <p class="text-slate-400 text-sm leading-relaxed mb-4">
+                            Deja de usar Excel y libretas. Centraliza todos tus prospectos de WhatsApp, Instagram y Facebook en un solo lugar. 
+                            <strong>Etiqueta, segmenta y filtra</strong> a tus clientes para lanzar ofertas láser.
+                        </p>
+                        <ul class="space-y-2 text-sm text-slate-500">
+                            <li class="flex items-center gap-2"><i class="fas fa-check text-blue-500"></i> Base de Datos propia y segura.</li>
+                            <li class="flex items-center gap-2"><i class="fas fa-check text-blue-500"></i> Historial completo de cada cliente.</li>
+                            <li class="flex items-center gap-2"><i class="fas fa-check text-blue-500"></i> Embudos visuales (Kanban) automáticos.</li>
+                        </ul>
+                    </div>
                     <div class="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-transparent transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500"></div>
                 </div>
 
-                <!-- Beneficio 3 -->
-                <div class="benefit-card group rounded-3xl p-8 relative overflow-hidden">
-                    <div class="icon-glow-box w-16 h-16 rounded-2xl bg-amber-500/10 flex items-center justify-center text-3xl text-amber-500 mb-6 group-hover:text-white group-hover:bg-amber-500 transition-all duration-500">
+                <!-- Beneficio 3: Ingresos (Rediseñado) -->
+                <div class="benefit-card group rounded-3xl p-10 relative overflow-hidden flex flex-col md:flex-row gap-6 items-start">
+                    <div class="icon-glow-box w-20 h-20 shrink-0 rounded-2xl bg-amber-500/10 flex items-center justify-center text-4xl text-amber-500 group-hover:text-white group-hover:bg-amber-600 transition-all duration-500">
                         <i class="fas fa-hand-holding-usd"></i>
                     </div>
-                    <h3 class="text-xl font-bold text-white mb-3">Genera Ingresos</h3>
-                    <p class="text-slate-500 text-sm leading-relaxed group-hover:text-slate-300 transition-colors">
-                        Monetiza recomendando nuestra tecnología. Como socio, ganas comisiones en dólares convertidos a moneda local.
-                    </p>
+                    <div>
+                        <h3 class="text-2xl font-bold text-white mb-3">Ecosistema de Ingresos Pasivos</h3>
+                        <p class="text-slate-400 text-sm leading-relaxed mb-4">
+                            No solo gastas, inviertes. Al usar nuestra tecnología, calificas para ser <strong>Socio Distribuidor</strong>. 
+                            Recomienda lo que usas y gana comisiones recurrentes en dólares por cada empresa que digitalices.
+                        </p>
+                        <ul class="space-y-2 text-sm text-slate-500">
+                            <li class="flex items-center gap-2"><i class="fas fa-check text-amber-500"></i> Comisiones del 30% al 50%.</li>
+                            <li class="flex items-center gap-2"><i class="fas fa-check text-amber-500"></i> Pagos directos a tu cuenta local.</li>
+                            <li class="flex items-center gap-2"><i class="fas fa-check text-amber-500"></i> Capacitación en Ventas High-Ticket incluida.</li>
+                        </ul>
+                    </div>
                     <div class="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-amber-500 to-transparent transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500"></div>
                 </div>
 
-                <!-- Beneficio 4 -->
-                <div class="benefit-card group rounded-3xl p-8 relative overflow-hidden">
-                    <div class="icon-glow-box w-16 h-16 rounded-2xl bg-violet-500/10 flex items-center justify-center text-3xl text-violet-500 mb-6 group-hover:text-white group-hover:bg-violet-500 transition-all duration-500">
+                <!-- Beneficio 4: Escala (Rediseñado) -->
+                <div class="benefit-card group rounded-3xl p-10 relative overflow-hidden flex flex-col md:flex-row gap-6 items-start">
+                    <div class="icon-glow-box w-20 h-20 shrink-0 rounded-2xl bg-violet-500/10 flex items-center justify-center text-4xl text-violet-500 group-hover:text-white group-hover:bg-violet-600 transition-all duration-500">
                         <i class="fas fa-rocket"></i>
                     </div>
-                    <h3 class="text-xl font-bold text-white mb-3">Escala Sin Límites</h3>
-                    <p class="text-slate-500 text-sm leading-relaxed group-hover:text-slate-300 transition-colors">
-                        ¿Atender a 1,000 clientes simultáneos a las 3 AM? La IA no duerme, no pide vacaciones y no comete errores humanos.
-                    </p>
+                    <div>
+                        <h3 class="text-2xl font-bold text-white mb-3">Escalabilidad & Omnicanalidad</h3>
+                        <p class="text-slate-400 text-sm leading-relaxed mb-4">
+                            ¿Quieres lanzar una campaña a 10,000 personas hoy? Hazlo. 
+                            La IA no duerme, no pide vacaciones y atiende a <strong>miles de clientes simultáneamente</strong> sin errores humanos.
+                            Domina WhatsApp, IG y Web al mismo tiempo.
+                        </p>
+                        <ul class="space-y-2 text-sm text-slate-500">
+                            <li class="flex items-center gap-2"><i class="fas fa-check text-violet-500"></i> Broadcasts masivos sin bloqueos.</li>
+                            <li class="flex items-center gap-2"><i class="fas fa-check text-violet-500"></i> Reducción de costos operativos del 70%.</li>
+                            <li class="flex items-center gap-2"><i class="fas fa-check text-violet-500"></i> Crecimiento sin contratar más personal.</li>
+                        </ul>
+                    </div>
                     <div class="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-violet-500 to-transparent transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- NUEVA SECCIÓN: LLEVAMOS TU NEGOCIO AL SIGUIENTE NIVEL -->
+    <section class="py-28 px-6 relative bg-gradient-to-b from-black via-slate-950 to-black overflow-hidden border-t border-white/5">
+        <!-- Background Effects -->
+        <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-violet-600/10 rounded-full blur-[100px] pointer-events-none"></div>
+        <div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/diagmonds-light.png')] opacity-5"></div>
+
+        <div class="container mx-auto max-w-5xl relative z-10 text-center">
+            <span class="inline-block py-1 px-3 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-300 text-xs font-bold uppercase tracking-widest mb-6 animate-pulse">
+                Nuestra Misión Global
+            </span>
+            
+            <h2 class="text-4xl md:text-6xl font-bold text-white mb-8 leading-tight">
+                Llevamos tu Negocio al <br>
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-200 to-white">Siguiente Nivel</span>
+            </h2>
+            
+            <p class="text-lg md:text-2xl text-slate-300 mb-12 font-light leading-relaxed max-w-4xl mx-auto">
+                No solo nos enfocamos en tecnología. Nos importa el <strong>desarrollo de las marcas y de las personas</strong>.
+                Escalamos negocios en México e Iberoamérica para que generes <span class="text-white font-semibold">más clientes</span>, 
+                <span class="text-white font-semibold">más ventas</span> y construyas un legado de <span class="text-white font-semibold">libertad financiera</span>.
+            </p>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mt-16 border-t border-white/10 pt-12">
+                <div class="p-6">
+                    <div class="text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-b from-white to-slate-600 mb-2">+Ingresos</div>
+                    <p class="text-sm text-slate-500">Maximizamos el valor de vida de cada cliente mediante retargeting y upsells automáticos.</p>
+                </div>
+                <div class="p-6 md:border-x border-white/10">
+                    <div class="text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-b from-white to-slate-600 mb-2">+Impacto</div>
+                    <p class="text-sm text-slate-500">Posicionamos tu marca como líder tecnológico en tu industria, generando confianza inmediata.</p>
+                </div>
+                <div class="p-6">
+                    <div class="text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-b from-white to-slate-600 mb-2">+Libertad</div>
+                    <p class="text-sm text-slate-500">Recupera tu tiempo. Deja que el sistema trabaje las 24 horas mientras tú tomas decisiones estratégicas.</p>
                 </div>
             </div>
         </div>
@@ -778,16 +950,130 @@
         </div>
     </section>
 
+    <!-- BROCHURE DOWNLOAD SECTION -->
+    <div class="bg-black py-12 flex justify-center border-t border-white/5">
+        <button onclick="downloadBrochure()" class="glass-panel px-8 py-4 rounded-xl flex items-center gap-4 hover:scale-105 transition-transform cursor-pointer group border-violet-500/50 hover:bg-violet-900/20">
+            <div class="w-12 h-12 rounded-full bg-violet-600 text-white flex items-center justify-center text-xl shadow-lg shadow-violet-600/50">
+                <i class="fas fa-file-pdf"></i>
+            </div>
+            <div class="text-left">
+                <div class="text-xs text-violet-400 font-bold uppercase tracking-widest mb-1">Documento Oficial</div>
+                <div class="text-lg font-bold text-white group-hover:text-violet-300 transition-colors">Ver Brochure Corporativo</div>
+            </div>
+            <i class="fas fa-download text-slate-500 ml-2 group-hover:text-white transition-colors"></i>
+        </button>
+    </div>
+
+    <!-- HIDDEN BROCHURE TEMPLATE (FOR PDF GENERATION) -->
+    <div id="brochure-template">
+        <!-- Page 1: Cover & Intro -->
+        <div class="pdf-page">
+            <div class="pdf-header">
+                <div class="pdf-title">GOATIFY IA <span style="font-weight: 300;">x</span> S&M</div>
+                <div class="pdf-subtitle">Alianza Tecnológica Global 2026</div>
+            </div>
+            <div style="text-align: center; padding: 60px 0;">
+                <h1 style="font-size: 48px; font-weight: 900; margin-bottom: 20px; line-height: 1.1;">ESCALANDO NEGOCIOS<br>EN IBEROAMÉRICA</h1>
+                <p style="font-size: 18px; color: #cbd5e1; max-width: 600px; margin: 0 auto;">
+                    Infraestructura de Silicon Valley tropicalizada para LATAM. 
+                    Automatización, Desarrollo Web y Educación de Alto Nivel.
+                </p>
+            </div>
+            
+            <div class="pdf-section-title">Nuestros Pilares</div>
+            <div class="pdf-grid">
+                <div class="pdf-card">
+                    <h3 style="color: #7c3aed; font-weight: bold;">Automatización IA</h3>
+                    <p style="font-size: 12px; margin-top: 5px;">Vendedores de WhatsApp 24/7 que cierran ventas, agendan citas y envían audios.</p>
+                </div>
+                <div class="pdf-card">
+                    <h3 style="color: #10b981; font-weight: bold;">Web Smart</h3>
+                    <p style="font-size: 12px; margin-top: 5px;">Sitios web y E-commerce desarrollados en código puro para máxima velocidad y SEO.</p>
+                </div>
+                <div class="pdf-card">
+                    <h3 style="color: #f59e0b; font-weight: bold;">Universidad</h3>
+                    <p style="font-size: 12px; margin-top: 5px;">Formación High-Ticket para emprendedores digitales. Aprende a facturar con IA.</p>
+                </div>
+                <div class="pdf-card">
+                    <h3 style="color: #3b82f6; font-weight: bold;">Plataforma SaaS</h3>
+                    <p style="font-size: 12px; margin-top: 5px;">Herramientas para creadores: Generación de imágenes, textos y agentes.</p>
+                </div>
+            </div>
+
+            <div class="pdf-footer">
+                Documento generado automáticamente el <span id="pdf-date"></span>. Precios sujetos a cambios.
+                <br>www.goatify.app
+            </div>
+        </div>
+
+        <!-- Page 2: Pricing & Contact -->
+        <div class="pdf-page">
+            <div class="pdf-header">
+                <div class="pdf-title">Planes & Inversión</div>
+                <div class="pdf-subtitle">Catálogo Oficial</div>
+            </div>
+
+            <div class="pdf-section-title">Agentes IA (Mensual)</div>
+            <div class="pdf-grid" style="grid-template-columns: 1fr 1fr 1fr;">
+                <div class="pdf-card" style="text-align: center;">
+                    <div>Studio</div>
+                    <div class="pdf-price"><span class="pdf-currency-symbol">$</span><span class="pdf-val" data-base="250">250</span></div>
+                    <p style="font-size: 10px;">10 Agentes Básicos</p>
+                </div>
+                <div class="pdf-card" style="text-align: center; border-color: #7c3aed;">
+                    <div style="color: #7c3aed; font-weight: bold;">Pro</div>
+                    <div class="pdf-price" style="color: #7c3aed;"><span class="pdf-currency-symbol">$</span><span class="pdf-val" data-base="950">950</span></div>
+                    <p style="font-size: 10px;">WA Business IA</p>
+                </div>
+                <div class="pdf-card" style="text-align: center;">
+                    <div>Elite</div>
+                    <div class="pdf-price"><span class="pdf-currency-symbol">$</span><span class="pdf-val" data-base="1550">1550</span></div>
+                    <p style="font-size: 10px;">Omnicanalidad</p>
+                </div>
+            </div>
+
+            <div class="pdf-section-title">Desarrollo Web (Pago Único)</div>
+            <div class="pdf-grid" style="grid-template-columns: 1fr 1fr 1fr;">
+                <div class="pdf-card" style="text-align: center;">
+                    <div>Web Smart</div>
+                    <div class="pdf-price"><span class="pdf-currency-symbol">$</span><span class="pdf-val" data-base="950">950</span></div>
+                </div>
+                <div class="pdf-card" style="text-align: center; border-color: #10b981;">
+                    <div style="color: #10b981; font-weight: bold;">Web Pro</div>
+                    <div class="pdf-price" style="color: #10b981;"><span class="pdf-currency-symbol">$</span><span class="pdf-val" data-base="1950">1950</span></div>
+                </div>
+                <div class="pdf-card" style="text-align: center;">
+                    <div>E-commerce</div>
+                    <div class="pdf-price"><span class="pdf-currency-symbol">$</span><span class="pdf-val" data-base="2950">2950</span></div>
+                </div>
+            </div>
+
+            <div style="margin-top: 50px; text-align: center; padding: 40px; background: rgba(255,255,255,0.05); border-radius: 20px;">
+                <h2 style="margin-bottom: 20px;">¿Listo para escalar?</h2>
+                <div style="display: flex; gap: 20px; justify-content: center;">
+                    <a href="https://wa.me/19125715145" class="pdf-btn" style="background: #10b981;">Contactar por WhatsApp</a>
+                    <a href="https://www.goatify.app" class="pdf-btn" style="background: #fff; color: #000;">Visitar Sitio Web</a>
+                </div>
+            </div>
+             <div class="pdf-footer">
+                &copy; 2026 Goatify IA x Social & Media. Todos los derechos reservados.
+            </div>
+        </div>
+    </div>
+
     <!-- FOOTER ALIANZA 2.0 -->
     <footer class="bg-black pt-20 pb-10 border-t border-white/10">
         <div class="container mx-auto px-6">
             <!-- ESTRUCTURA DUAL DE MARCAS -->
-            <div class="grid md:grid-cols-2 gap-12 pb-16 border-b border-white/10">
+            <div class="grid md:grid-cols-2 gap-12 pb-12 border-b-0">
                 
                 <!-- MARCA 1: GOATIFY IA -->
                 <div class="text-center md:text-left space-y-6">
                     <div class="inline-flex items-center gap-3 justify-center md:justify-start">
-                        <div class="w-12 h-12 rounded-xl bg-violet-600 flex items-center justify-center font-bold text-white text-2xl shadow-[0_0_20px_rgba(124,58,237,0.4)]">G</div>
+                        <div class="w-12 h-12 rounded-xl bg-violet-600 flex items-center justify-center font-bold text-white text-2xl shadow-[0_0_20px_rgba(124,58,237,0.4)]">
+                            <!-- LOGO GOATIFY FOOTER -->
+                            <img src="Logos HD.png" alt="Goatify IA" class="w-full h-full object-contain p-2">
+                        </div>
                         <div>
                             <h3 class="text-2xl font-bold text-white tracking-widest leading-none">GOATIFY IA</h3>
                             <span class="text-[10px] text-violet-400 font-bold uppercase tracking-[0.2em] block mt-1">Tecnología & IA</span>
@@ -816,7 +1102,10 @@
                             <h3 class="text-2xl font-bold text-white tracking-widest leading-none">SOCIAL & MEDIA</h3>
                             <span class="text-[10px] text-emerald-400 font-bold uppercase tracking-[0.2em] block mt-1">Marketing & PR</span>
                         </div>
-                        <div class="w-12 h-12 rounded-xl bg-white flex items-center justify-center font-bold text-black text-xs shadow-[0_0_20px_rgba(255,255,255,0.1)]">S&M</div>
+                        <div class="w-12 h-12 rounded-xl bg-white flex items-center justify-center font-bold text-black text-xs shadow-[0_0_20px_rgba(255,255,255,0.1)]">
+                            <!-- LOGO SOCIAL FOOTER -->
+                            <img src="Social.png" alt="Social & Media" class="w-full h-full object-contain p-1">
+                        </div>
                     </div>
                     <p class="text-slate-500 text-sm leading-relaxed max-w-sm mx-auto md:mr-0">
                         Expertos en posicionamiento de marca, expansión de mercado y relaciones públicas digitales en LATAM y Europa.
@@ -833,19 +1122,37 @@
                         </div>
                     </div>
                 </div>
-
             </div>
 
-            <!-- COPYRIGHT & LEGAL -->
-            <div class="grid md:grid-cols-2 gap-8 pt-10 items-center">
+            <!-- MENU FOOTER (NUEVO) -->
+            <div class="border-y border-white/10 py-10 mb-10">
+                <div class="flex flex-wrap justify-center gap-x-8 gap-y-4 text-xs font-bold uppercase tracking-widest text-slate-500">
+                    <a href="https://www.goatify.app/inicio" class="hover:text-white transition-colors">Inicio</a>
+                    <a href="https://www.goatify.app/portafolio/" class="hover:text-emerald-400 transition-colors">Portafolio</a>
+                    <a href="https://www.goatify.app/pricing/" class="hover:text-white transition-colors">Precios</a>
+                    <a href="https://www.goatify.app/socios/" class="hover:text-amber-400 transition-colors">Socios</a>
+                    <a href="https://www.goatify.app/productividad" class="hover:text-blue-400 transition-colors">Productividad</a>
+                    <a href="https://www.goatify.app/fundadores/" class="hover:text-fuchsia-400 transition-colors">Fundadores</a>
+                    <span class="hidden md:inline text-slate-800">|</span>
+                    <a href="#about" class="hover:text-white transition-colors">Nosotros</a>
+                    <a href="#benefits" class="hover:text-white transition-colors">Beneficios</a>
+                    <a href="#automation" class="hover:text-white transition-colors">Automatización</a>
+                    <a href="#web" class="hover:text-white transition-colors">Web Smart</a>
+                    <a href="#university" class="hover:text-amber-400 transition-colors">Universidad IA</a>
+                </div>
+            </div>
+
+            <!-- COPYRIGHT & LEGAL (MODIFICADO FUNDADORES) -->
+            <div class="grid md:grid-cols-2 gap-8 items-center">
                 <div class="text-center md:text-left text-slate-600 text-xs">
                     <p>&copy; 2026 <strong class="text-violet-500">Goatify IA</strong> x <strong class="text-white">Social & Media</strong>.</p>
                     <p class="mt-1">Alianza Estratégica Internacional.</p>
                 </div>
-                <div class="flex justify-center md:justify-end gap-6 text-xs text-slate-500 font-medium">
-                    <a href="#" class="hover:text-white transition-colors">Términos</a>
-                    <a href="#" class="hover:text-white transition-colors">Privacidad</a>
-                    <a href="#" class="hover:text-white transition-colors">Soporte</a>
+                <!-- FUNDADORES LINK (MODIFICADO: Solo texto IBERO) -->
+                <div class="flex flex-col md:items-end gap-1 text-center md:text-right">
+                    <span class="text-[10px] text-slate-500 font-medium opacity-80">
+                        Cofundado por el <strong class="text-slate-400">Centro Iberoamericano (IBERO)</strong>
+                    </span>
                 </div>
             </div>
         </div>
@@ -862,23 +1169,31 @@
         let currentCurrency = 'MXN';
         const exchangeRate = 0.05; // ~20 MXN = 1 USD (Aprox)
         
-        document.getElementById('currency-toggle').addEventListener('click', () => {
+        // Mobile Toggle Logic
+        document.getElementById('currency-toggle-mobile').addEventListener('click', toggleCurrency);
+        // Desktop Toggle Logic
+        document.getElementById('currency-toggle').addEventListener('click', toggleCurrency);
+
+        function toggleCurrency() {
             const btnText = document.getElementById('currency-text');
             const btnFlag = document.getElementById('currency-flag');
+            const btnTextMobile = document.getElementById('currency-text-mobile');
+            const btnFlagMobile = document.getElementById('currency-flag-mobile');
+            
             const priceElements = document.querySelectorAll('.dynamic-price');
-            const symbolElements = document.querySelectorAll('.price-symbol');
             const currencyLabelElements = document.querySelectorAll('.price-currency');
 
             if(currentCurrency === 'MXN') {
                 // Switch to USD
                 currentCurrency = 'USD';
-                btnText.innerText = 'USD';
-                btnFlag.src = 'https://flagcdn.com/w20/us.png';
+                if(btnText) btnText.innerText = 'USD';
+                if(btnFlag) btnFlag.src = 'https://flagcdn.com/w20/us.png';
+                if(btnTextMobile) btnTextMobile.innerText = 'USD';
+                if(btnFlagMobile) btnFlagMobile.src = 'https://flagcdn.com/w20/us.png';
                 
                 priceElements.forEach(el => {
                     const mxnVal = parseFloat(el.getAttribute('data-mxn'));
                     if(mxnVal === 0) return; // Free stays free
-                    // Convert to USD and simplify (no decimals for cleaner look generally, unless small)
                     const usdVal = mxnVal * exchangeRate;
                     el.innerText = usdVal % 1 === 0 ? usdVal : usdVal.toFixed(2);
                 });
@@ -890,12 +1205,13 @@
             } else {
                 // Switch back to MXN
                 currentCurrency = 'MXN';
-                btnText.innerText = 'MXN';
-                btnFlag.src = 'https://flagcdn.com/w20/mx.png';
+                if(btnText) btnText.innerText = 'MXN';
+                if(btnFlag) btnFlag.src = 'https://flagcdn.com/w20/mx.png';
+                if(btnTextMobile) btnTextMobile.innerText = 'MXN';
+                if(btnFlagMobile) btnFlagMobile.src = 'https://flagcdn.com/w20/mx.png';
 
                 priceElements.forEach(el => {
                     const mxnVal = el.getAttribute('data-mxn');
-                    // Format with commas for thousands
                     el.innerText = Number(mxnVal).toLocaleString();
                 });
 
@@ -906,7 +1222,7 @@
 
             // Update Addons Render
             renderAddons();
-        });
+        }
 
         // ADD-ONS DATA
         const addons = [
@@ -991,6 +1307,57 @@
             msg += `\n💰 *Inversión Total:* $${total.toLocaleString()} ${currentCurrency}\n\nQuedo atento para coordinar el pago y la implementación.`;
             window.open(`https://wa.me/19125715145?text=${encodeURIComponent(msg)}`, '_blank');
         });
+
+        // BROCHURE GENERATION LOGIC
+        function downloadBrochure() {
+            const element = document.getElementById('brochure-template');
+            
+            // 1. Update Date
+            document.getElementById('pdf-date').innerText = new Date().toLocaleDateString();
+
+            // 2. Update Prices in Brochure based on currentCurrency
+            const pdfVals = element.querySelectorAll('.pdf-val');
+            const pdfSymbols = element.querySelectorAll('.pdf-currency-symbol');
+            
+            pdfVals.forEach(el => {
+                const basePrice = parseInt(el.getAttribute('data-base'));
+                if(currentCurrency === 'USD') {
+                    let val = basePrice * exchangeRate;
+                    el.innerText = val % 1 === 0 ? val : val.toFixed(2);
+                } else {
+                    el.innerText = basePrice.toLocaleString();
+                }
+            });
+
+            pdfSymbols.forEach(el => {
+                el.innerText = currentCurrency === 'USD' ? '$' : '$'; // Both use $ symbol, could change to MX$ if needed
+            });
+
+            // 3. Generate PDF - FIX FOR BLANK PAGE
+            // We must make the element visible in the main DOM for html2canvas to capture it.
+            // We use position absolute and high z-index to overlay it briefly or hide behind content
+            
+            element.style.display = 'block'; 
+            element.style.position = 'absolute';
+            element.style.top = '0';
+            element.style.left = '0';
+            // We deliberately put it on top to ensure it's rendered, but users might see a flash.
+            // This is the most reliable way to fix "blank PDF".
+            element.style.zIndex = '10000'; 
+            
+            const opt = {
+                margin:       0,
+                filename:     `Goatify_Alianza_Brochure_${currentCurrency}.pdf`,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true, scrollY: 0 },
+                jsPDF:        { unit: 'in', format: 'a4', orientation: 'portrait' },
+                enableLinks:  true
+            };
+
+            html2pdf().from(element).set(opt).save().then(() => {
+                element.style.display = 'none'; // Hide again after download
+            });
+        }
 
         // SCROLL REVEAL
         const observer = new IntersectionObserver((entries) => {
