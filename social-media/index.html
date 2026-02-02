@@ -899,7 +899,7 @@
                 <div class="glass-panel p-1 md:p-6 rounded-lg md:rounded-2xl hover-card flex flex-col border border-white/5">
                     <h3 class="text-[10px] md:text-xl font-bold text-white text-center md:text-left truncate">E-commerce</h3>
                     <div class="text-sm md:text-3xl font-extrabold text-white my-2 md:my-4 text-center md:text-left">
-                        <span class="price-symbol">$</span><span class="dynamic-price" data-mxn="2950">2,950</span> 
+                        <span class="price-symbol">$</span><span class="dynamic-price" data-mxn="2950">2950</span> 
                         <span class="text-[8px] md:text-sm font-normal text-slate-500 price-currency leading-none block md:inline">MXN / Único</span>
                     </div>
                     <p class="hidden md:block text-slate-400 text-xs mb-6 pb-6 border-b border-white/10">Tu tienda online completa y automatizada.</p>
@@ -1395,9 +1395,27 @@
         </div>
     </div>
 
-    <!-- FLOATING BUTTONS -->
-    <div class="fixed bottom-24 right-8 z-40 flex flex-col gap-3 items-end">
-         <a href="https://ia.goatify.app/#/agent/cVsZW8ZM9oHUnKNIXtFc" target="_blank" class="group flex items-center gap-2">
+    <!-- FLOATING BUTTONS (REORDERED & SINGLE COLUMN) -->
+    <div class="fixed bottom-8 right-8 z-50 flex flex-col gap-3 items-end">
+        <!-- 1. Cart (Top Priority according to request "Primero el carrito") -->
+        <!-- Note: User said "primero el carrito... luego whatsapp... final asistente". 
+             In a visual list reading top-down, this means Cart is Top. 
+             If stacked bottom-up, Cart is Bottom. Given typical FABs stack upwards, 
+             but lists read downwards, I'm placing Cart at the TOP of the visual stack 
+             to strictly follow "Primero=Top, Final=Bottom" reading order. -->
+        
+        <div id="cart-fab" class="bg-violet-600 hover:bg-emerald-500 w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center shadow-[0_0_30px_rgba(124,58,237,0.5)] cursor-pointer hover:scale-110 transition-all text-white group relative">
+            <i class="fas fa-shopping-bag text-xs md:text-sm group-hover:rotate-12 transition-transform"></i>
+            <span id="cart-count" class="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center hidden border-2 border-slate-900">0</span>
+        </div>
+
+        <!-- 2. WhatsApp (Middle) -->
+        <a href="https://wa.me/19125715145?text=Hola,%20quiero%20m%C3%A1s%20informaci%C3%B3n%20sobre%20la%20Alianza%20Global." target="_blank" class="w-8 h-8 md:w-10 md:h-10 bg-[#25D366] rounded-full flex items-center justify-center shadow-lg shadow-green-900/50 hover:scale-110 transition-transform border border-white/20 z-50">
+            <i class="fab fa-whatsapp text-white text-lg md:text-xl"></i>
+        </a>
+
+        <!-- 3. Assistant (Last/Bottom) -->
+        <a href="https://ia.goatify.app/#/agent/cVsZW8ZM9oHUnKNIXtFc" target="_blank" class="group flex items-center gap-2 justify-end">
              <div class="bg-white/10 backdrop-blur-md text-white text-[10px] font-bold px-3 py-1.5 rounded-lg border border-white/20 shadow-lg pointer-events-auto">
                 Asistente IA 24/7
              </div>
@@ -1405,15 +1423,6 @@
                 <img src="Social.png" alt="Asistente IA" class="w-full h-full object-cover p-1">
              </div>
          </a>
-        <a href="https://wa.me/19125715145?text=Hola,%20quiero%20m%C3%A1s%20informaci%C3%B3n%20sobre%20la%20Alianza%20Global." target="_blank" class="w-8 h-8 md:w-10 md:h-10 bg-[#25D366] rounded-full flex items-center justify-center shadow-lg shadow-green-900/50 hover:scale-110 transition-transform border border-white/20 z-50">
-            <i class="fab fa-whatsapp text-white text-lg md:text-xl"></i>
-        </a>
-    </div>
-
-    <!-- CART FAB -->
-    <div id="cart-fab" class="fixed bottom-8 right-8 z-40 bg-violet-600 hover:bg-emerald-500 w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center shadow-[0_0_30px_rgba(124,58,237,0.5)] cursor-pointer hover:scale-110 transition-all text-white group">
-        <i class="fas fa-shopping-bag text-xs md:text-sm group-hover:rotate-12 transition-transform"></i>
-        <span id="cart-count" class="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center hidden border-2 border-slate-900">0</span>
     </div>
 
     <!-- PROMO POP-UP -->
@@ -1467,12 +1476,13 @@
 
         function runDemoStep() {
             if(scriptIndex >= conversationScript.length) {
-                // REINICIO AUTOMÁTICO INMEDIATO (300ms para que se note el cierre pero reinicie ya)
+                // REINICIO AUTOMÁTICO INMEDIATO
+                // Se llama recursivamente sin depender del estado externo para asegurar el bucle
                 demoTimeout = setTimeout(() => {
                     resetDemoUI();
                     scriptIndex = 0;
                     runDemoStep(); 
-                }, 300); 
+                }, 500); // 0.5s restart delay
                 return;
             }
 
@@ -1489,6 +1499,8 @@
             } else if (action.type === 'win') {
                 triggerWin();
                 scriptIndex++;
+                // Llama al siguiente paso inmediatamente para entrar al bloque de reinicio
+                runDemoStep();
             }
         }
 
@@ -1506,29 +1518,38 @@
         }
 
         function updatePipeline(stepIndex) {
+            // Limpiar todos los estilos primero
             document.querySelectorAll('#pipeline-steps > div').forEach(el => {
-                const baseClasses = "p-1.5 md:p-2 rounded bg-white border border-slate-200 text-[9px] md:text-xs text-slate-400 transition-all duration-300 flex flex-col md:flex-row items-center justify-center md:justify-start gap-1";
-                
+                // Restaurar estilos base
                 if(el.classList.contains('step-4')) { 
                     el.className = "mt-auto p-1 md:p-3 rounded-lg bg-slate-100 border border-slate-200 text-center transition-all duration-500 step-4 flex flex-col justify-center items-center h-12 md:h-auto";
                     el.querySelector('.font-bold').className = "font-bold text-slate-300 text-[8px] md:text-xs";
                 } else {
-                    const stepNum = el.classList[el.classList.length-1].split('-')[1]; // get number if mixed
-                    // simplified class reset logic
-                    if (el.classList.toString().includes('step-0')) el.className = baseClasses + " step-0";
-                    if (el.classList.toString().includes('step-1')) el.className = baseClasses + " step-1";
-                    if (el.classList.toString().includes('step-2')) el.className = baseClasses + " step-2";
-                    if (el.classList.toString().includes('step-3')) el.className = baseClasses + " step-3";
+                    // Limpiar clases activas de pasos 1-3
+                    const baseClasses = "p-1.5 md:p-2 rounded bg-white border border-slate-200 text-[9px] md:text-xs text-slate-400 transition-all duration-300 flex flex-col md:flex-row items-center justify-center md:justify-start gap-1";
+                    
+                    // Mantener solo la clase identificadora (step-0, step-1, etc)
+                    const classes = el.className.split(' ');
+                    const stepClass = classes.find(c => c.startsWith('step-'));
+                    el.className = baseClasses + " " + stepClass;
                 }
             });
 
+            // Si es -1 (reset), terminamos aquí
+            if(stepIndex === -1) return;
+
+            // Aplicar estilo activo
             if(stepIndex < 4) {
                 const activeEl = document.querySelector(`.step-${stepIndex}`);
-                if(activeEl) activeEl.className = `p-1.5 md:p-2 rounded bg-emerald-50 border border-emerald-500 text-[9px] md:text-xs text-emerald-600 font-bold transition-all duration-300 flex flex-col md:flex-row items-center justify-center md:justify-start gap-1 step-${stepIndex} scale-105 shadow-sm animate-pulse`;
+                if(activeEl) {
+                    activeEl.className = `p-1.5 md:p-2 rounded bg-emerald-50 border border-emerald-500 text-[9px] md:text-xs text-emerald-600 font-bold transition-all duration-300 flex flex-col md:flex-row items-center justify-center md:justify-start gap-1 step-${stepIndex} scale-105 shadow-sm animate-pulse`;
+                }
             } else {
                 const closedEl = document.querySelector('.step-4');
-                closedEl.className = "mt-auto p-1 md:p-3 rounded-lg bg-emerald-500 border border-emerald-600 text-center shadow-lg shadow-emerald-500/30 scale-110 transition-all duration-500 step-4 flex flex-col justify-center items-center h-12 md:h-auto animate-bounce-slow";
-                closedEl.querySelector('.font-bold').className = "font-bold text-white text-[8px] md:text-xs";
+                if(closedEl) {
+                    closedEl.className = "mt-auto p-1 md:p-3 rounded-lg bg-emerald-500 border border-emerald-600 text-center shadow-lg shadow-emerald-500/30 scale-110 transition-all duration-500 step-4 flex flex-col justify-center items-center h-12 md:h-auto animate-bounce-slow";
+                    closedEl.querySelector('.font-bold').className = "font-bold text-white text-[8px] md:text-xs";
+                }
             }
         }
 
@@ -1548,7 +1569,7 @@
         function resetDemoUI() {
             document.getElementById('chatbox').innerHTML = '';
             document.getElementById('win-overlay').classList.add('opacity-0', 'pointer-events-none');
-            updatePipeline(-1); 
+            updatePipeline(-1); // Reset visual pipeline
         }
 
         const demoObserver = new IntersectionObserver((entries) => {
