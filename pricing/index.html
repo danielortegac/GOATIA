@@ -232,14 +232,18 @@ body {
     filter: blur(0);
 }
 
-/* --- HOVER EFFECTS (FLOATING CARDS) --- */
+/* --- HOVER EFFECTS (FLOATING CARDS) + AUTO SCANNER --- */
 .hover-float {
-    transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.4s ease;
+    transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.4s ease, border-color 0.4s ease;
 }
-.hover-float:hover {
+
+/* APLICADO TANTO AL HOVER MANUAL COMO A LA CLASE ACTIVA AUTOMÁTICA */
+.hover-float:hover, 
+.hover-float.auto-hover-active {
     transform: translateY(-12px) scale(1.02);
     box-shadow: 0 25px 50px -12px rgba(124, 58, 237, 0.15);
-    border-color: rgba(124, 58, 237, 0.3);
+    border-color: rgba(124, 58, 237, 0.5) !important; /* Force border color */
+    z-index: 10; /* Bring to front */
 }
 
 /* --- PULSING BUTTONS --- */
@@ -333,7 +337,7 @@ body {
     background: radial-gradient(circle, rgba(124, 58, 237, 0.05) 0%, transparent 70%);
 }
 
-/* --- PREMIUM ADDONS CARDS (IMPROVED) --- */
+/* --- PREMIUM ADDONS CARDS (IMPROVED + AUTO FLASH) --- */
 .addon-card-premium {
     background: rgba(255, 255, 255, 0.95);
     backdrop-filter: blur(12px);
@@ -349,15 +353,22 @@ body {
 .addon-card-premium i {
     transition: transform 0.3s ease, color 0.3s ease;
 }
-.addon-card-premium:hover {
+
+/* ESTADOS ACTIVOS (Hover Manual + Auto) */
+.addon-card-premium:hover, 
+.addon-card-premium.auto-hover-active {
     border-color: var(--primary);
     box-shadow: 0 20px 40px -10px rgba(124, 58, 237, 0.15);
+    transform: translateY(-5px) scale(1.02); /* Slight lift */
 }
-.addon-card-premium:hover i {
+
+.addon-card-premium:hover i,
+.addon-card-premium.auto-hover-active i {
     transform: scale(1.25) rotate(-5deg);
     color: var(--primary);
 }
-/* Efecto de destello/sheen al hacer hover */
+
+/* Efecto de destello/sheen al hacer hover o auto-active */
 .addon-card-premium::after {
     content: '';
     position: absolute;
@@ -369,7 +380,10 @@ body {
     transform: skewX(-25deg);
     transition: 0s;
 }
-.addon-card-premium:hover::after {
+
+/* Trigger del destello */
+.addon-card-premium:hover::after,
+.addon-card-premium.auto-hover-active::after {
     left: 150%;
     transition: 0.7s ease-in-out;
 }
@@ -1655,10 +1669,16 @@ body {
         infoModal.onclick = (e) => { if (e.target === infoModal) closeInfoModal(); };
 
         refreshAll();
+        // Initialize Auto-Wave Effect after items are rendered
+        autoHoverManager.init();
+
         document.getElementById('currency-selector').addEventListener('change', (e) => {
             currentCurrency = e.target.value;
             document.getElementById('currency-selector-mob').value = currentCurrency;
             refreshAll();
+            // Re-init wave if content changed significantly
+            autoHoverManager.stopAll();
+            autoHoverManager.init();
         });
         const mobSelector = document.getElementById('currency-selector-mob');
         if(mobSelector){
@@ -1666,11 +1686,11 @@ body {
                 currentCurrency = e.target.value;
                 document.getElementById('currency-selector').value = currentCurrency;
                 refreshAll();
+                autoHoverManager.stopAll();
+                autoHoverManager.init();
             });
         }
         
-        // Removed automation-toggle listener
-
         const modal = document.getElementById('cart-modal');
         const sidebar = document.getElementById('cart-sidebar');
         const openCart = () => { modal.classList.remove('hidden'); setTimeout(()=>sidebar.classList.remove('translate-x-full'),10); };
@@ -1696,6 +1716,95 @@ body {
         document.getElementById('toggle-comparison').onclick = toggleTable;
         document.getElementById('toggle-comparison-2').onclick = toggleTable;
     });
+
+    // --- LOGIC FOR AUTO-WAVE EFFECT ---
+    const autoHoverManager = {
+        intervals: {},
+        observer: null,
+        // Configuración de velocidades por contenedor
+        speeds: {
+            'addons-container': 700,         // Rápido para los addons (muchos items, efecto escáner)
+            'automation-plans-container': 3500, // Lento para leer (Planes)
+            'web-plans-container': 3500,        // Lento para leer (Planes)
+            'ai-plans-container': 3500          // Lento para leer (Planes)
+        },
+
+        init: function() {
+            // Observer to trigger only when visible
+            this.observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    const id = entry.target.id;
+                    if (entry.isIntersecting) {
+                        // Obtener velocidad específica o default
+                        const speed = this.speeds[id] || 2500;
+                        this.startWave(id, speed);
+                    } else {
+                        this.stopWave(id);
+                    }
+                });
+            }, { threshold: 0.1, rootMargin: "0px 0px -100px 0px" });
+
+            // Targets
+            const targets = ['automation-plans-container', 'web-plans-container', 'ai-plans-container', 'addons-container'];
+            targets.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) this.observer.observe(el);
+            });
+        },
+
+        startWave: function(containerId, speed) {
+            if (this.intervals[containerId]) return; // Already running
+
+            const container = document.getElementById(containerId);
+            if (!container) return;
+
+            // Target elements that have the hover effect class
+            const cards = container.querySelectorAll('.hover-float'); 
+            if (cards.length === 0) return;
+
+            let currentIndex = 0;
+            
+            // Initial highlight
+            this.highlight(cards, currentIndex);
+
+            this.intervals[containerId] = setInterval(() => {
+                // Remove active from current
+                if(cards[currentIndex]) cards[currentIndex].classList.remove('auto-hover-active');
+                
+                // Move next
+                currentIndex = (currentIndex + 1) % cards.length;
+                
+                // Add active to next
+                if(cards[currentIndex]) this.highlight(cards, currentIndex);
+                
+            }, speed); // Usar la velocidad dinámica
+        },
+
+        highlight: function(cards, index) {
+            // Safety cleanup just in case
+            cards.forEach(c => c.classList.remove('auto-hover-active'));
+            // Activate current
+            if(cards[index]) cards[index].classList.add('auto-hover-active');
+        },
+
+        stopWave: function(containerId) {
+            if (this.intervals[containerId]) {
+                clearInterval(this.intervals[containerId]);
+                delete this.intervals[containerId];
+                
+                // Cleanup visuals
+                const container = document.getElementById(containerId);
+                if (container) {
+                        const cards = container.querySelectorAll('.auto-hover-active');
+                        cards.forEach(c => c.classList.remove('auto-hover-active'));
+                }
+            }
+        },
+
+        stopAll: function() {
+            Object.keys(this.intervals).forEach(key => this.stopWave(key));
+        }
+    };
 
     const currencyRates = { USD: { r: 1, s: '$' }, EUR: { r: 0.92, s: '€' }, MXN: { r: 17.5, s: '$' }, COP: { r: 4000, s: '$' } };
     let currentCurrency = 'USD';
@@ -1947,7 +2056,7 @@ body {
     function updateCartUI() {
         const count = document.getElementById('cart-count'); const list = document.getElementById('cart-items');
         count.textContent = cart.length; count.classList.toggle('hidden', cart.length === 0);
-        if(cart.length === 0) { list.innerHTML = `<div class="flex flex-col items-center justify-center py-12 text-center text-slate-400"><i class="fas fa-shopping-basket text-4xl mb-4 opacity-30"></i><p>Tu carrito está vacío.</p></div>`; }
+        if(cart.length === 0) { list.innerHTML = `<div class="flex flex-col items-center justify-center py-12 text-center text-slate-400\"><i class="fas fa-shopping-basket text-4xl mb-4 opacity-30"></i><p>Tu carrito está vacío.</p></div>`; }
         else { list.innerHTML = cart.map((item, idx) => `<div class="flex justify-between items-center bg-white border border-slate-100 p-3 rounded-lg shadow-sm hover:shadow-md transition-shadow"><div class="flex items-center gap-3"><div class="w-8 h-8 rounded-full bg-violet-50 text-violet-500 flex items-center justify-center text-xs font-bold">${item.type === 'Web' ? '<i class="fas fa-laptop"></i>' : item.type === 'Auto' ? '<i class="fas fa-bolt"></i>' : item.type === 'Edu' ? '<i class="fas fa-graduation-cap"></i>' : '<i class="fas fa-star"></i>'}</div><div><div class="font-bold text-slate-800 text-sm">${item.name}</div><div class="text-xs text-slate-500\">${formatCartPrice(item.price)}</div></div></div><button onclick=\"removeFromCart(${idx})\" class=\"w-8 h-8 rounded-full hover:bg-red-50 text-slate-300 hover:text-red-500 transition-colors"><i class="fas fa-trash-alt"></i></button></div>`).join(''); }
         updateCartTotal();
     }
