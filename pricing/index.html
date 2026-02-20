@@ -1,7 +1,8 @@
 <!DOCTYPE html>
 <html lang="es-419" class="scroll-smooth">
 <head>
-  <meta charset="UTF-8" />
+  <script>document.documentElement.classList.add('js');</script>
+<meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 
   <!-- =========================
@@ -214,22 +215,37 @@ body {
     100% { background-position: 100% 50%; }
 }
 
-/* --- CINEMATIC SCROLL REVEAL (UP & DOWN) --- */
+/* --- SOFT SCROLL REVEAL (FAST + NO LATE LOAD) --- */
+/* Objetivo: conservar “un poquito” de efecto sin que se demore siglos ni rompa mobile. */
 .reveal {
-    opacity: 0;
-    transform: translateY(80px) scale(0.92);
-    filter: blur(8px);
-    transition: 
-        opacity 1s cubic-bezier(0.19, 1, 0.22, 1),
-        transform 1s cubic-bezier(0.19, 1, 0.22, 1),
-        filter 1s ease;
-    will-change: opacity, transform, filter;
+    opacity: 1;
+    transform: none;
+    filter: none;
 }
 
-.reveal.active {
+/* Solo aplicamos el estado "oculto" si JS está activo (para no dejar la página vacía si falla JS). */
+html.js .reveal {
+    opacity: 0;
+    transform: translateY(18px);
+    transition:
+        opacity 0.45s cubic-bezier(0.19, 1, 0.22, 1),
+        transform 0.45s cubic-bezier(0.19, 1, 0.22, 1);
+    will-change: opacity, transform;
+}
+
+html.js .reveal.active {
     opacity: 1;
-    transform: translateY(0) scale(1);
-    filter: blur(0);
+    transform: none;
+}
+
+/* Si el usuario prefiere menos movimiento, lo respetamos */
+@media (prefers-reduced-motion: reduce) {
+    html.js .reveal {
+        opacity: 1;
+        transform: none;
+        transition: none;
+        will-change: auto;
+    }
 }
 
 /* --- HOVER EFFECTS (FLOATING CARDS) + AUTO SCANNER --- */
@@ -2443,25 +2459,50 @@ body {
 
 <script>
     document.addEventListener('DOMContentLoaded', () => {
-        // --- IMPROVED BI-DIRECTIONAL SCROLL REVEAL ---
-        const observerOptions = { threshold: 0.15, rootMargin: "0px 0px -50px 0px" };
-        
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    entry.target.classList.add('active');
-                } else {
-                    // Only reset animation if element is below viewport (scrolling up to reveal again)
-                    if (entry.boundingClientRect.y > 0) { 
-                         entry.target.classList.remove('active');
-                    }
-                }
-            });
-        }, observerOptions);
-        
-        document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+        // --- SOFT SCROLL REVEAL (FAST + EARLY TRIGGER) ---
+// Querías conservar un poquito de FX, pero sin ese “aparece después de mucho”.
+// Esto revela temprano (rootMargin grande) y luego deja de observar para ahorrar CPU.
+(() => {
+    const els = Array.from(document.querySelectorAll('.reveal'));
+    if (!els.length) return;
 
-        // --- SCROLL TO TOP LOGIC ---
+    const activate = (el) => el.classList.add('active');
+
+    // Fallback: si no hay soporte, mostramos todo de una
+    if (!('IntersectionObserver' in window)) {
+        els.forEach(activate);
+        return;
+    }
+
+    const obs = new IntersectionObserver((entries, observer) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                activate(entry.target);
+                observer.unobserve(entry.target);
+            }
+        });
+    }, {
+        threshold: 0.06,
+        // Expande el viewport: revela ANTES de que el bloque entre completo en pantalla (desktop + mobile)
+        rootMargin: "220px 0px 160px 0px"
+    });
+
+    els.forEach(el => obs.observe(el));
+
+    // Blindaje: lo que ya está cerca del viewport se activa súper rápido al cargar.
+    const fastPass = () => {
+        const buffer = 260;
+        els.forEach(el => {
+            if (el.classList.contains('active')) return;
+            const r = el.getBoundingClientRect();
+            if (r.top < (window.innerHeight + buffer) && r.bottom > -buffer) activate(el);
+        });
+    };
+
+    fastPass();
+    window.addEventListener('load', fastPass, { once: true });
+})();
+// --- SCROLL TO TOP LOGIC ---
         const scrollBtn = document.getElementById('scrollTopBtn');
         window.addEventListener('scroll', () => {
             if (window.scrollY > 300) scrollBtn.classList.add('visible');
