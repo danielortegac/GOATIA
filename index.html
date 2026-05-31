@@ -5856,10 +5856,9 @@ img,svg,video,canvas{max-width:100%;}
 
 </style>
 
-<style id="goatify-main-mobile-carousels-v3">
-/* === MJ FIX FINAL: main carousels always animate on mobile ===
-   Causa real: patches previos apagaban la animación con animation:none en celular.
-   Solución: mantener el mismo movimiento CSS del escritorio también en mobile. */
+<style id="goatify-main-mobile-carousels-v4">
+/* === MJ FIX V4: autoplay real y estable en móvil para carruseles del Main ===
+   No cambia diseño ni contenido: solo controla el movimiento con JS para evitar conflictos de Safari/iPhone. */
 @media(max-width:780px){
   .goat-visual-rail,
   .brand-marquee{
@@ -5872,51 +5871,106 @@ img,svg,video,canvas{max-width:100%;}
     touch-action:pan-y!important;
   }
   .goat-visual-rail::-webkit-scrollbar,
-  .brand-marquee::-webkit-scrollbar{
-    width:0!important;
-    height:0!important;
-    display:none!important;
-  }
+  .brand-marquee::-webkit-scrollbar{width:0!important;height:0!important;display:none!important;}
   .goat-visual-track,
   .brand-track{
     display:flex!important;
     width:max-content!important;
     min-width:max-content!important;
-    transform:translate3d(0,0,0);
     will-change:transform!important;
     backface-visibility:hidden!important;
-    animation-play-state:running!important;
+    transform:translate3d(var(--mj-loop-x,0px),0,0)!important;
+    animation:none!important;
   }
-  .goat-visual-track{
-    animation:goatVisualSlide 34s linear infinite!important;
-  }
-  .brand-track{
-    animation:brandSlide 22s linear infinite!important;
-  }
-  .goat-visual-card,
-  .brand-pill{
-    flex-shrink:0!important;
-  }
-  .goat-visual-card{
-    flex:0 0 min(86vw,360px)!important;
-  }
-  .brand-pill{
-    flex:0 0 auto!important;
-  }
-  .goat-visual-rail:hover .goat-visual-track,
-  .brand-marquee:hover .brand-track{
-    animation-play-state:running!important;
-  }
-}
-@media(max-width:480px){
-  .goat-visual-track{animation-duration:32s!important;}
-  .brand-track{animation-duration:20s!important;}
+  .goat-visual-card,.brand-pill{flex-shrink:0!important;}
+  .goat-visual-card{flex:0 0 min(86vw,360px)!important;}
+  .brand-pill{flex:0 0 auto!important;}
 }
 </style>
-<script id="goatify-main-mobile-carousel-patch">
+<script id="goatify-main-mobile-carousel-autoplay-v4">
 (function(){
-  // Mobile carousels are handled by CSS transform animations.
-  // This script intentionally does not force scrollLeft, avoiding Safari/mobile conflicts.
+  var mq = window.matchMedia('(max-width: 780px)');
+  var configs = [
+    { wrap: '.goat-visual-rail', track: '.goat-visual-track', speed: 0.030 },
+    { wrap: '.brand-marquee', track: '.brand-track', speed: 0.046 }
+  ];
+  var loops = [];
+
+  function ready(fn){
+    if(document.readyState !== 'loading') fn();
+    else document.addEventListener('DOMContentLoaded', fn);
+  }
+
+  function stopLoops(){
+    loops.forEach(function(loop){ if(loop && loop.stop) loop.stop(); });
+    loops = [];
+  }
+
+  function ensureEnoughLoop(track, wrap){
+    if(track.dataset.mjLoopReady === '1') return;
+    var base = Array.prototype.slice.call(track.children);
+    if(!base.length) return;
+    var guard = 0;
+    while(track.scrollWidth < (wrap.clientWidth * 2.4) && guard < 4){
+      base.forEach(function(node){ track.appendChild(node.cloneNode(true)); });
+      guard++;
+    }
+    track.dataset.mjLoopReady = '1';
+  }
+
+  function startLoop(config){
+    var wrap = document.querySelector(config.wrap);
+    var track = document.querySelector(config.track);
+    if(!wrap || !track) return null;
+
+    ensureEnoughLoop(track, wrap);
+
+    var offset = 0;
+    var last = performance.now();
+    var frame = 0;
+    var pausedUntil = 0;
+
+    function loopWidth(){
+      // Los dos carruseles ya vienen duplicados: usamos media pista para reinicio invisible.
+      return Math.max(1, track.scrollWidth / 2);
+    }
+
+    function pauseBriefly(){ pausedUntil = performance.now() + 1400; }
+    ['touchstart','pointerdown'].forEach(function(ev){ wrap.addEventListener(ev, pauseBriefly, {passive:true}); });
+    ['touchend','pointerup','pointercancel'].forEach(function(ev){ wrap.addEventListener(ev, pauseBriefly, {passive:true}); });
+
+    function tick(now){
+      var dt = Math.min(64, now - last || 16);
+      last = now;
+
+      if(mq.matches && document.visibilityState !== 'hidden' && now > pausedUntil){
+        var max = loopWidth();
+        offset = (offset + (config.speed * dt)) % max;
+        track.style.setProperty('--mj-loop-x', (-offset).toFixed(2) + 'px');
+      } else if(!mq.matches){
+        track.style.removeProperty('--mj-loop-x');
+      }
+
+      frame = requestAnimationFrame(tick);
+    }
+
+    frame = requestAnimationFrame(tick);
+    return { stop: function(){ cancelAnimationFrame(frame); track.style.removeProperty('--mj-loop-x'); } };
+  }
+
+  function init(){
+    stopLoops();
+    configs.forEach(function(config){
+      var loop = startLoop(config);
+      if(loop) loops.push(loop);
+    });
+  }
+
+  var resizeTimer = 0;
+  window.addEventListener('resize', function(){ clearTimeout(resizeTimer); resizeTimer = setTimeout(init, 180); }, {passive:true});
+  if(mq.addEventListener) mq.addEventListener('change', init);
+  else if(mq.addListener) mq.addListener(init);
+  ready(function(){ setTimeout(init, 80); });
 })();
 </script>
 

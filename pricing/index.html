@@ -1038,31 +1038,115 @@ img,svg,video,canvas{max-width:100%;}
 </style>
 
 
-<style id="goatify-pricing-mobile-carousel-patch">
+<style id="goatify-pricing-mobile-carousel-patch-v2">
+/* === MJ FIX V2: precios en móvil con carrusel automático + deslizable manual === */
 @media(max-width:767px){
-  #automation-plans-container,#web-plans-container,#ai-plans-container{display:flex!important;grid-template-columns:none!important;overflow-x:auto!important;overflow-y:visible!important;gap:14px!important;scroll-snap-type:x mandatory!important;-webkit-overflow-scrolling:touch!important;padding:10px 16px 24px!important;margin-left:-16px!important;margin-right:-16px!important;}
+  #automation-plans-container,#web-plans-container,#ai-plans-container{
+    display:flex!important;
+    grid-template-columns:none!important;
+    overflow-x:auto!important;
+    overflow-y:visible!important;
+    gap:14px!important;
+    scroll-snap-type:x mandatory!important;
+    scroll-behavior:smooth!important;
+    -webkit-overflow-scrolling:touch!important;
+    overscroll-behavior-x:contain!important;
+    touch-action:pan-x pan-y!important;
+    padding:10px 16px 24px!important;
+    margin-left:-16px!important;
+    margin-right:-16px!important;
+    scrollbar-width:none!important;
+  }
   #automation-plans-container::-webkit-scrollbar,#web-plans-container::-webkit-scrollbar,#ai-plans-container::-webkit-scrollbar{height:0!important;display:none!important;}
-  #automation-plans-container > *,#web-plans-container > *,#ai-plans-container > *{flex:0 0 min(86vw,380px)!important;min-width:min(86vw,380px)!important;max-width:min(86vw,380px)!important;scroll-snap-align:center!important;}
+  #automation-plans-container > *,#web-plans-container > *,#ai-plans-container > *{
+    flex:0 0 min(86vw,380px)!important;
+    min-width:min(86vw,380px)!important;
+    max-width:min(86vw,380px)!important;
+    scroll-snap-align:center!important;
+    scroll-snap-stop:always!important;
+  }
   #addons-container{gap:10px!important;}
   .card-description-mobile{font-size:.72rem!important;line-height:1.35!important;}
   #automation-plans-container .check-list,#web-plans-container .check-list,#ai-plans-container .check-list{font-size:.72rem!important;line-height:1.35!important;}
   #automation-plans-container h3,#web-plans-container h3,#ai-plans-container h3{font-size:1.05rem!important;}
 }
 </style>
-<script id="goatify-pricing-swipe-carousel-patch">
+<script id="goatify-pricing-mobile-carousel-autoplay-v2">
 (function(){
+  var ids = ['automation-plans-container','web-plans-container','ai-plans-container'];
+  var mq = window.matchMedia('(max-width: 767px)');
+  var timers = {};
+
   function ready(fn){ if(document.readyState !== 'loading') fn(); else document.addEventListener('DOMContentLoaded', fn); }
-  ready(function(){
-    if(!window.matchMedia('(max-width: 767px)').matches) return;
-    ['automation-plans-container','web-plans-container','ai-plans-container'].forEach(function(id){
-      var el = document.getElementById(id); if(!el) return;
-      el.setAttribute('aria-label','Carrusel deslizable de planes');
-      var isDown=false,startX=0,startLeft=0;
-      el.addEventListener('pointerdown',function(e){isDown=true;startX=e.clientX;startLeft=el.scrollLeft;el.setPointerCapture && el.setPointerCapture(e.pointerId);},{passive:true});
-      el.addEventListener('pointermove',function(e){if(!isDown) return; el.scrollLeft = startLeft - (e.clientX-startX);},{passive:true});
-      ['pointerup','pointercancel','pointerleave'].forEach(function(ev){el.addEventListener(ev,function(){isDown=false;},{passive:true});});
+
+  function cleanup(id){
+    if(timers[id]){
+      clearInterval(timers[id].interval);
+      timers[id] = null;
+    }
+  }
+
+  function cardLeft(container, card){
+    var pad = parseFloat(getComputedStyle(container).paddingLeft) || 0;
+    return Math.max(0, card.offsetLeft - pad);
+  }
+
+  function nearestIndex(container, cards){
+    var left = container.scrollLeft;
+    var best = 0;
+    var bestDist = Infinity;
+    cards.forEach(function(card, i){
+      var dist = Math.abs(cardLeft(container, card) - left);
+      if(dist < bestDist){ bestDist = dist; best = i; }
     });
+    return best;
+  }
+
+  function setup(id){
+    cleanup(id);
+    var el = document.getElementById(id);
+    if(!el) return;
+    el.setAttribute('aria-label','Carrusel automático y deslizable de planes');
+    if(!mq.matches) return;
+
+    var pauseUntil = 0;
+    function pause(){ pauseUntil = Date.now() + 5200; }
+    ['touchstart','pointerdown','wheel'].forEach(function(ev){ el.addEventListener(ev, pause, {passive:true}); });
+
+    timers[id] = {
+      interval: setInterval(function(){
+        if(!mq.matches || document.visibilityState === 'hidden' || Date.now() < pauseUntil) return;
+        var cards = Array.prototype.slice.call(el.children).filter(function(node){ return node.offsetWidth > 0; });
+        if(cards.length < 2) return;
+        var current = nearestIndex(el, cards);
+        var next = (current + 1) % cards.length;
+        el.scrollTo({ left: cardLeft(el, cards[next]), behavior: 'smooth' });
+      }, 3400)
+    };
+  }
+
+  function initAll(){ ids.forEach(setup); }
+
+  function wrapRefreshAll(){
+    if(typeof window.refreshAll !== 'function' || window.refreshAll.__mjPricingCarouselWrapped) return;
+    var original = window.refreshAll;
+    window.refreshAll = function(){
+      var result = original.apply(this, arguments);
+      setTimeout(initAll, 120);
+      return result;
+    };
+    window.refreshAll.__mjPricingCarouselWrapped = true;
+  }
+
+  ready(function(){
+    wrapRefreshAll();
+    setTimeout(initAll, 260);
+    setTimeout(initAll, 900);
   });
+  window.addEventListener('load', function(){ wrapRefreshAll(); setTimeout(initAll, 200); }, {once:true});
+  window.addEventListener('resize', function(){ clearTimeout(window.__mjPricingResizeTimer); window.__mjPricingResizeTimer = setTimeout(initAll, 220); }, {passive:true});
+  if(mq.addEventListener) mq.addEventListener('change', initAll);
+  else if(mq.addListener) mq.addListener(initAll);
 })();
 </script>
 
