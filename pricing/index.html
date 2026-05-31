@@ -996,7 +996,7 @@ html.js .reveal.active {
 .pricing-visual-card b{display:block;font-size:1rem;color:#fff;margin-bottom:4px;}
 .pricing-visual-card span{display:block;font-size:.78rem;line-height:1.42;color:#dbeafe;font-weight:700;}
 @keyframes pricingVisualSlide{from{transform:translateX(0)}to{transform:translateX(-50%)}}
-@media(max-width:780px){.pricing-visual-head{align-items:flex-start;flex-direction:column}.pricing-visual-cta{justify-content:flex-start}.pricing-visual-track{animation-duration:60s}.pricing-visual-card{min-height:210px;flex-basis:85vw;}}
+@media(max-width:780px){.pricing-visual-head{align-items:flex-start;flex-direction:column}.pricing-visual-cta{justify-content:flex-start}.pricing-visual-rail{touch-action:pan-y;overscroll-behavior-x:contain;cursor:grab;user-select:none;-webkit-user-select:none}.pricing-visual-rail.goatify-dragging,.pricing-visual-rail.goatify-dragging *{cursor:grabbing!important}.pricing-visual-track{animation-duration:60s}.pricing-visual-card{min-height:210px;flex-basis:85vw;}}
 
 </style>
 
@@ -1038,115 +1038,331 @@ img,svg,video,canvas{max-width:100%;}
 </style>
 
 
-<style id="goatify-pricing-mobile-carousel-patch-v2">
-/* === MJ FIX V2: precios en móvil con carrusel automático + deslizable manual === */
+<style id="goatify-pricing-mobile-carousel-patch-v9">
 @media(max-width:767px){
-  #automation-plans-container,#web-plans-container,#ai-plans-container{
-    display:flex!important;
-    grid-template-columns:none!important;
-    overflow-x:auto!important;
-    overflow-y:visible!important;
-    gap:14px!important;
-    scroll-snap-type:x mandatory!important;
-    scroll-behavior:smooth!important;
-    -webkit-overflow-scrolling:touch!important;
-    overscroll-behavior-x:contain!important;
-    touch-action:pan-x pan-y!important;
-    padding:10px 16px 24px!important;
-    margin-left:-16px!important;
-    margin-right:-16px!important;
-    scrollbar-width:none!important;
-  }
+  #automation-plans-container,#web-plans-container,#ai-plans-container{display:flex!important;grid-template-columns:none!important;overflow-x:auto!important;overflow-y:visible!important;gap:14px!important;scroll-snap-type:x mandatory!important;-webkit-overflow-scrolling:touch!important;padding:10px 16px 24px!important;margin-left:-16px!important;margin-right:-16px!important;touch-action:pan-y!important;overscroll-behavior-x:contain!important;cursor:grab!important;user-select:none!important;-webkit-user-select:none!important;}
   #automation-plans-container::-webkit-scrollbar,#web-plans-container::-webkit-scrollbar,#ai-plans-container::-webkit-scrollbar{height:0!important;display:none!important;}
-  #automation-plans-container > *,#web-plans-container > *,#ai-plans-container > *{
-    flex:0 0 min(86vw,380px)!important;
-    min-width:min(86vw,380px)!important;
-    max-width:min(86vw,380px)!important;
-    scroll-snap-align:center!important;
-    scroll-snap-stop:always!important;
-  }
+  #automation-plans-container > *,#web-plans-container > *,#ai-plans-container > *{flex:0 0 min(86vw,380px)!important;min-width:min(86vw,380px)!important;max-width:min(86vw,380px)!important;scroll-snap-align:center!important;}
+  #automation-plans-container.goatify-plans-dragging,#web-plans-container.goatify-plans-dragging,#ai-plans-container.goatify-plans-dragging{cursor:grabbing!important;}
+  #automation-plans-container.goatify-plans-dragging *,#web-plans-container.goatify-plans-dragging *,#ai-plans-container.goatify-plans-dragging *{cursor:grabbing!important;}
+  #automation-plans-container.goatify-plans-dragging a,#web-plans-container.goatify-plans-dragging a,#ai-plans-container.goatify-plans-dragging a,#automation-plans-container.goatify-plans-dragging button,#web-plans-container.goatify-plans-dragging button,#ai-plans-container.goatify-plans-dragging button{pointer-events:none!important;}
   #addons-container{gap:10px!important;}
   .card-description-mobile{font-size:.72rem!important;line-height:1.35!important;}
   #automation-plans-container .check-list,#web-plans-container .check-list,#ai-plans-container .check-list{font-size:.72rem!important;line-height:1.35!important;}
   #automation-plans-container h3,#web-plans-container h3,#ai-plans-container h3{font-size:1.05rem!important;}
 }
 </style>
-<script id="goatify-pricing-mobile-carousel-autoplay-v2">
+<script id="goatify-pricing-mobile-autoplay-carousel-v9">
 (function(){
-  var ids = ['automation-plans-container','web-plans-container','ai-plans-container'];
+  var timers = [];
+  var rafs = [];
+  var observers = [];
   var mq = window.matchMedia('(max-width: 767px)');
-  var timers = {};
 
-  function ready(fn){ if(document.readyState !== 'loading') fn(); else document.addEventListener('DOMContentLoaded', fn); }
-
-  function cleanup(id){
-    if(timers[id]){
-      clearInterval(timers[id].interval);
-      timers[id] = null;
-    }
+  function ready(fn){
+    if(document.readyState !== 'loading') fn();
+    else document.addEventListener('DOMContentLoaded', fn);
   }
 
-  function cardLeft(container, card){
-    var pad = parseFloat(getComputedStyle(container).paddingLeft) || 0;
-    return Math.max(0, card.offsetLeft - pad);
+  function point(e){
+    var t = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]);
+    if(t) return {x:t.clientX || 0, y:t.clientY || 0, id:null};
+    return {x:e.clientX || 0, y:e.clientY || 0, id:e.pointerId};
   }
 
-  function nearestIndex(container, cards){
-    var left = container.scrollLeft;
-    var best = 0;
-    var bestDist = Infinity;
-    cards.forEach(function(card, i){
-      var dist = Math.abs(cardLeft(container, card) - left);
-      if(dist < bestDist){ bestDist = dist; best = i; }
+  function stopAll(){
+    timers.forEach(function(t){ clearInterval(t); });
+    timers = [];
+    observers.forEach(function(o){ if(o && o.disconnect) o.disconnect(); });
+    observers = [];
+    rafs.forEach(function(r){
+      if(r.id) cancelAnimationFrame(r.id);
+      if(r.rail) r.rail._goatifyPricingMarqueeStateV9 = null;
+      if(r.track){
+        r.track.style.removeProperty('transform');
+        r.track.style.removeProperty('animation');
+      }
     });
-    return best;
+    rafs = [];
   }
 
-  function setup(id){
-    cleanup(id);
+  function setupDrag(el){
+    if(el.dataset.goatifyDragReadyV9 === '1') return;
+    el.dataset.goatifyDragReadyV9 = '1';
+    el.setAttribute('aria-label','Carrusel deslizable de planes');
+    var drag = {active:false,id:null,startX:0,startY:0,startLeft:0,moved:false,horizontal:false};
+
+    function pause(ms){ el.dataset.goatifyPausedUntil = String(Date.now() + (ms || 1800)); }
+    function setSnap(enabled){
+      if(enabled) el.style.removeProperty('scroll-snap-type');
+      else el.style.setProperty('scroll-snap-type','none','important');
+    }
+    function snapToNearest(){
+      var cards = Array.prototype.slice.call(el.children).filter(function(child){ return child.offsetWidth > 0; });
+      if(cards.length < 2) return;
+      var current = el.scrollLeft;
+      var best = cards[0];
+      var bestDist = Infinity;
+      cards.forEach(function(card){
+        var left = Math.max(0, card.offsetLeft - 16);
+        var dist = Math.abs(left - current);
+        if(dist < bestDist){ bestDist = dist; best = card; }
+      });
+      var target = Math.max(0, best.offsetLeft - 16);
+      try{ el.scrollTo({left:target, behavior:'smooth'}); }catch(e){ el.scrollLeft = target; }
+    }
+
+    function down(e){
+      if(e.button !== undefined && e.button !== 0) return;
+      if(!mq.matches) return;
+      var p = point(e);
+      drag.active = true;
+      drag.id = p.id;
+      drag.startX = p.x;
+      drag.startY = p.y;
+      drag.startLeft = el.scrollLeft;
+      drag.moved = false;
+      drag.horizontal = false;
+      el.classList.add('goatify-plans-dragging');
+      setSnap(false);
+      pause(5000);
+      if(e.pointerId !== undefined && el.setPointerCapture){
+        try{ el.setPointerCapture(e.pointerId); }catch(err){}
+      }
+    }
+
+    function move(e){
+      if(!drag.active) return;
+      if(drag.id !== null && e.pointerId !== undefined && e.pointerId !== drag.id) return;
+      var p = point(e);
+      var dx = p.x - drag.startX;
+      var dy = p.y - drag.startY;
+      if(Math.abs(dx) > 4 || Math.abs(dy) > 4) drag.moved = true;
+      if(!drag.horizontal && Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy) * 1.05) drag.horizontal = true;
+      if(drag.horizontal && e.cancelable) e.preventDefault();
+      el.scrollLeft = drag.startLeft - dx;
+      pause(4200);
+    }
+
+    function up(e){
+      if(!drag.active) return;
+      drag.active = false;
+      el.classList.remove('goatify-plans-dragging');
+      setSnap(true);
+      pause(drag.moved ? 2600 : 900);
+      if(drag.moved) el.dataset.goatifySuppressClickUntil = String(Date.now()+420);
+      if(e && e.pointerId !== undefined && el.releasePointerCapture){
+        try{ el.releasePointerCapture(e.pointerId); }catch(err){}
+      }
+      if(drag.horizontal) setTimeout(snapToNearest, 30);
+    }
+
+    el.addEventListener('pointerdown', down, {passive:true});
+    el.addEventListener('pointermove', move, {passive:false});
+    el.addEventListener('pointerup', up, {passive:true});
+    el.addEventListener('pointercancel', up, {passive:true});
+    el.addEventListener('pointerleave', up, {passive:true});
+
+    if(!window.PointerEvent){
+      el.addEventListener('touchstart', down, {passive:true});
+      el.addEventListener('touchmove', move, {passive:false});
+      el.addEventListener('touchend', up, {passive:true});
+      el.addEventListener('touchcancel', up, {passive:true});
+    }
+
+    el.addEventListener('wheel', function(){ pause(1800); }, {passive:true});
+    el.addEventListener('focusin', function(){ pause(2200); }, {passive:true});
+    el.addEventListener('click', function(e){
+      var until = parseInt(el.dataset.goatifySuppressClickUntil || '0', 10);
+      if(Date.now() < until){
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    }, true);
+  }
+
+  function setupSnapAutoplay(id, delay){
     var el = document.getElementById(id);
     if(!el) return;
-    el.setAttribute('aria-label','Carrusel automático y deslizable de planes');
-    if(!mq.matches) return;
+    setupDrag(el);
 
-    var pauseUntil = 0;
-    function pause(){ pauseUntil = Date.now() + 5200; }
-    ['touchstart','pointerdown','wheel'].forEach(function(ev){ el.addEventListener(ev, pause, {passive:true}); });
+    var isVisible = true;
+    if('IntersectionObserver' in window){
+      var io = new IntersectionObserver(function(entries){
+        entries.forEach(function(entry){ isVisible = entry.isIntersecting; });
+      }, {threshold:0.08});
+      io.observe(el);
+      observers.push(io);
+    }
 
-    timers[id] = {
-      interval: setInterval(function(){
-        if(!mq.matches || document.visibilityState === 'hidden' || Date.now() < pauseUntil) return;
-        var cards = Array.prototype.slice.call(el.children).filter(function(node){ return node.offsetWidth > 0; });
-        if(cards.length < 2) return;
-        var current = nearestIndex(el, cards);
-        var next = (current + 1) % cards.length;
-        el.scrollTo({ left: cardLeft(el, cards[next]), behavior: 'smooth' });
-      }, 3400)
-    };
+    var timer = setInterval(function(){
+      if(!mq.matches || document.hidden || !isVisible) return;
+      var pausedUntil = parseInt(el.dataset.goatifyPausedUntil || '0', 10);
+      if(Date.now() < pausedUntil) return;
+
+      var cards = Array.prototype.slice.call(el.children).filter(function(child){ return child.offsetWidth > 0; });
+      if(cards.length < 2) return;
+
+      var maxLeft = Math.max(0, el.scrollWidth - el.clientWidth);
+      if(maxLeft < 12) return;
+
+      var currentLeft = el.scrollLeft;
+      var nextCard = cards.find(function(card){ return card.offsetLeft > currentLeft + 12; });
+      var nextLeft = nextCard ? nextCard.offsetLeft - 16 : 0;
+      if(currentLeft >= maxLeft - 24 || nextLeft > maxLeft) nextLeft = 0;
+
+      try { el.scrollTo({left: Math.max(0, nextLeft), behavior: 'smooth'}); }
+      catch(e) { el.scrollLeft = Math.max(0, nextLeft); }
+    }, delay || 3500);
+    timers.push(timer);
   }
 
-  function initAll(){ ids.forEach(setup); }
+  function normalizeX(x, loopWidth){
+    if(loopWidth <= 8) return x;
+    while(x > 0) x -= loopWidth;
+    while(x <= -loopWidth) x += loopWidth;
+    return x;
+  }
 
-  function wrapRefreshAll(){
-    if(typeof window.refreshAll !== 'function' || window.refreshAll.__mjPricingCarouselWrapped) return;
-    var original = window.refreshAll;
-    window.refreshAll = function(){
-      var result = original.apply(this, arguments);
-      setTimeout(initAll, 120);
-      return result;
-    };
-    window.refreshAll.__mjPricingCarouselWrapped = true;
+  function loopWidth(state){
+    var w = state.track.scrollWidth || state.track.getBoundingClientRect().width || 0;
+    return w > 0 ? (w / 2) : 0;
+  }
+
+  function applyTransform(state){
+    state.track.style.transform = 'translate3d(' + state.x.toFixed(2) + 'px,0,0)';
+  }
+
+  function bindInfiniteDrag(state){
+    var rail = state.rail;
+    rail._goatifyPricingMarqueeStateV9 = state;
+    if(rail.dataset.goatifyPricingDragReadyV9 === '1') return;
+    rail.dataset.goatifyPricingDragReadyV9 = '1';
+    rail.setAttribute('aria-roledescription','carrusel deslizable');
+    var drag = {active:false,id:null,startX:0,startY:0,startTrackX:0,moved:false,horizontal:false};
+
+    function pause(ms){
+      var st = rail._goatifyPricingMarqueeStateV9;
+      if(st) st.pausedUntil = Date.now() + (ms || 1200);
+    }
+    function down(e){
+      if(e.button !== undefined && e.button !== 0) return;
+      var st = rail._goatifyPricingMarqueeStateV9;
+      if(!st || !mq.matches) return;
+      var p = point(e);
+      drag.active = true;
+      drag.id = p.id;
+      drag.startX = p.x;
+      drag.startY = p.y;
+      drag.startTrackX = st.x;
+      drag.moved = false;
+      drag.horizontal = false;
+      st.last = 0;
+      pause(2600);
+      rail.classList.add('goatify-dragging');
+      if(e.pointerId !== undefined && rail.setPointerCapture){ try{ rail.setPointerCapture(e.pointerId); }catch(err){} }
+    }
+    function move(e){
+      if(!drag.active) return;
+      var st = rail._goatifyPricingMarqueeStateV9;
+      if(!st || !mq.matches) return;
+      if(drag.id !== null && e.pointerId !== undefined && e.pointerId !== drag.id) return;
+      var p = point(e);
+      var dx = p.x - drag.startX;
+      var dy = p.y - drag.startY;
+      if(Math.abs(dx) > 4 || Math.abs(dy) > 4) drag.moved = true;
+      if(!drag.horizontal && Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy) * 1.05) drag.horizontal = true;
+      if(drag.horizontal && e.cancelable) e.preventDefault();
+      var w = loopWidth(st);
+      st.x = normalizeX(drag.startTrackX + dx, w);
+      st.pausedUntil = Date.now() + 1500;
+      st.last = 0;
+      applyTransform(st);
+    }
+    function up(e){
+      if(!drag.active) return;
+      var st = rail._goatifyPricingMarqueeStateV9;
+      drag.active = false;
+      rail.classList.remove('goatify-dragging');
+      if(st){
+        st.pausedUntil = Date.now() + (drag.moved ? 1100 : 500);
+        if(drag.moved) st.suppressClickUntil = Date.now()+420;
+      }
+      if(e && e.pointerId !== undefined && rail.releasePointerCapture){ try{ rail.releasePointerCapture(e.pointerId); }catch(err){} }
+    }
+
+    rail.addEventListener('pointerdown', down, {passive:true});
+    rail.addEventListener('pointermove', move, {passive:false});
+    rail.addEventListener('pointerup', up, {passive:true});
+    rail.addEventListener('pointercancel', up, {passive:true});
+    rail.addEventListener('pointerleave', up, {passive:true});
+    if(!window.PointerEvent){
+      rail.addEventListener('touchstart', down, {passive:true});
+      rail.addEventListener('touchmove', move, {passive:false});
+      rail.addEventListener('touchend', up, {passive:true});
+      rail.addEventListener('touchcancel', up, {passive:true});
+    }
+    rail.addEventListener('wheel', function(){ pause(1400); }, {passive:true});
+    rail.addEventListener('focusin', function(){ pause(1800); }, {passive:true});
+    rail.addEventListener('click', function(e){
+      var st = rail._goatifyPricingMarqueeStateV9;
+      if(st && st.suppressClickUntil && Date.now() < st.suppressClickUntil){ e.preventDefault(); e.stopPropagation(); }
+    }, true);
+  }
+
+  function setupInfiniteTrack(trackSelector, railSelector, speed){
+    var track = document.querySelector(trackSelector);
+    var rail = document.querySelector(railSelector);
+    if(!track || !rail) return;
+    track.style.setProperty('animation','none','important');
+    track.style.setProperty('will-change','transform','important');
+    track.style.transform = 'translate3d(0,0,0)';
+
+    var state = {track:track, rail:rail, id:0, x:0, last:0, pausedUntil:0, suppressClickUntil:0};
+    rafs.push(state);
+    bindInfiniteDrag(state);
+
+    function tick(ts){
+      if(!mq.matches){ state.id = requestAnimationFrame(tick); return; }
+      if(!state.last) state.last = ts;
+      var dt = Math.min((ts - state.last) / 1000, 0.05);
+      state.last = ts;
+      var w = loopWidth(state);
+      if(w > 8 && Date.now() > state.pausedUntil && !document.hidden){
+        state.x = normalizeX(state.x - speed * dt, w);
+        applyTransform(state);
+      }
+      state.id = requestAnimationFrame(tick);
+    }
+    state.id = requestAnimationFrame(tick);
+  }
+
+  function boot(){
+    stopAll();
+    if(!mq.matches) return;
+    setupInfiniteTrack('.pricing-visual-track', '.pricing-visual-rail', 28);
+    setupSnapAutoplay('automation-plans-container', 3500);
+    setupSnapAutoplay('web-plans-container', 3500);
+    setupSnapAutoplay('ai-plans-container', 3500);
   }
 
   ready(function(){
-    wrapRefreshAll();
-    setTimeout(initAll, 260);
-    setTimeout(initAll, 900);
+    boot();
+    window.addEventListener('load', function(){ setTimeout(boot, 450); }, {once:true});
+    var resizeTimer;
+    window.addEventListener('resize', function(){ clearTimeout(resizeTimer); resizeTimer = setTimeout(boot, 220); }, {passive:true});
+    if(mq.addEventListener) mq.addEventListener('change', boot);
+    else if(mq.addListener) mq.addListener(boot);
+
+    if('MutationObserver' in window){
+      ['web-plans-container','ai-plans-container','automation-plans-container'].forEach(function(id){
+        var el = document.getElementById(id);
+        if(!el) return;
+        var mo = new MutationObserver(function(){ setTimeout(boot, 120); });
+        mo.observe(el, {childList:true});
+      });
+    }
   });
-  window.addEventListener('load', function(){ wrapRefreshAll(); setTimeout(initAll, 200); }, {once:true});
-  window.addEventListener('resize', function(){ clearTimeout(window.__mjPricingResizeTimer); window.__mjPricingResizeTimer = setTimeout(initAll, 220); }, {passive:true});
-  if(mq.addEventListener) mq.addEventListener('change', initAll);
-  else if(mq.addListener) mq.addListener(initAll);
 })();
 </script>
 
