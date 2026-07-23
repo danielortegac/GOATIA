@@ -1,0 +1,19 @@
+(function(){
+'use strict';
+var CK='goatify_geo_country_v42',TK='goatify_geo_country_ts_v42',MK='goatify_currency_manual_v40',CCK='goatify_currency_country_v42',TTL=21600000;
+var MAP={MX:'MXN',PE:'PEN',CO:'COP',CL:'CLP',AR:'ARS',EC:'USD',US:'USD',CA:'USD',ES:'EUR',DE:'EUR',FR:'EUR',IT:'EUR',PT:'EUR',NL:'EUR',BE:'EUR',IE:'EUR'};
+var originals=new WeakMap(),country='OTHER';
+function g(k){try{return localStorage.getItem(k)||'';}catch(e){return''}} function s(k,v){try{localStorage.setItem(k,v)}catch(e){}} function d(k){try{localStorage.removeItem(k)}catch(e){}}
+function nc(v){v=String(v||'').trim().toUpperCase();return /^[A-Z]{2}$/.test(v)?v:'OTHER'}
+function isv(t){return /(?:\+\s*IVA|m[aá]s\s+IVA(?:\s+de\s+Desarrollo)?)/i.test(t||'')}
+function strip(t){return String(t||'').replace(/\s*(?:[\/·|]\s*)?(?:\+\s*IVA|m[aá]s\s+IVA(?:\s+de\s+Desarrollo)?)(?:\s*\([^)]*\))?/gi,'').replace(/\s{2,}/g,' ').trim()}
+function skip(n){var p=n.parentElement;return !p||/^(SCRIPT|STYLE|NOSCRIPT|TEXTAREA)$/i.test(p.tagName)}
+function apply(root){if(!root)return;root.querySelectorAll&&root.querySelectorAll('.goatify-vat-label,.goatify-vat-note').forEach(function(el){el.style.display=country==='EC'?'':'none'});var w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,{acceptNode:function(n){return !skip(n)&&isv(originals.get(n)||n.nodeValue)?NodeFilter.FILTER_ACCEPT:NodeFilter.FILTER_REJECT}}),a=[],n;while((n=w.nextNode()))a.push(n);a.forEach(function(t){if(!originals.has(t))originals.set(t,t.nodeValue);t.nodeValue=country==='EC'?originals.get(t):strip(originals.get(t))})}
+function setCountry(cc){country=nc(cc);window.GOATIFY_COUNTRY=country;window.GOATIFY_VAT_APPLIES=country==='EC';document.documentElement.setAttribute('data-goatify-country',country);document.documentElement.setAttribute('data-goatify-vat-country',country==='EC'?'EC':'OTHER');apply(document.body)}
+function setCurrency(cc){var cur=MAP[cc];if(!cur)return;var prev=g(CCK),manual=g(MK);if(prev&&prev!==cc){d(MK);d('goatify_currency_manual');manual=''}s(CCK,cc);if(manual)return;document.querySelectorAll('select[id*="currency"],select.currency-select,select.currency-selector').forEach(function(sel){if(sel.value!==cur){sel.value=cur;sel.dispatchEvent(new Event('change',{bubbles:true}))}});document.querySelectorAll('[data-currency="'+cur+'"]').forEach(function(btn){if(!btn.classList.contains('active'))btn.click()})}
+function use(cc){cc=nc(cc);s(CK,cc);s(TK,String(Date.now()));setCountry(cc);setCurrency(cc)} function cached(){var cc=nc(g(CK)),ts=Number(g(TK)||0);return cc!=='OTHER'&&Date.now()-ts<TTL?cc:''}
+function detect(){var q=new URLSearchParams(location.search).get('country');if(q){use(q);return}fetch('https://ipwho.is/?fields=success,country_code',{cache:'no-store'}).then(function(r){return r.json()}).then(function(x){use(x&&x.success!==false?x.country_code:'OTHER')}).catch(function(){use(cached()||'OTHER')})}
+window.GOATIFY_SANITIZE_TAX_TEXT=function(t){return country==='EC'?String(t||''):strip(t||'')};window.GOATIFY_SET_COUNTRY=use;
+function init(){['goatify_user_country','goatify_ip_country_v33','goatify_country','goatify_geo_country_v41','goatify_geo_country_ts_v41'].forEach(d);setCountry('OTHER');new MutationObserver(function(ms){ms.forEach(function(m){m.addedNodes.forEach(function(n){if(n.nodeType===1)apply(n);else if(n.nodeType===3&&n.parentNode)apply(n.parentNode)})})}).observe(document.body,{childList:true,subtree:true});var c=cached();if(c){setCountry(c);setCurrency(c)}detect()}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
+})();

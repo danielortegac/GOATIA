@@ -1,4 +1,4 @@
-const VERSION = 'goatify-cache-v20260531-footer-slim-franjas-v11';
+const VERSION = 'goatify-cache-v20260723-web-price-hierarchy-v44';
 const PAGE_CACHE = `pages-${VERSION}`;
 const ASSET_CACHE = `assets-${VERSION}`;
 const RUNTIME_CACHE = `runtime-${VERSION}`;
