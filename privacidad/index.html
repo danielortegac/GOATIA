@@ -180,9 +180,6 @@ img,svg,video,canvas{max-width:100%;}
 <meta content="Privacidad, Términos y Seguridad | Goatify" name="twitter:title"/>
 <meta content="Centro legal de Goatify con política de privacidad, términos de servicio, seguridad, tratamiento de datos y solicitudes de eliminación de cuenta." name="twitter:description"/>
 <link href="https://www.goatify.app/privacidad/" rel="canonical"/><link href="https://www.goatify.app/privacidad/" hreflang="es-419" rel="alternate"/><link href="https://www.goatify.app/en/privacy/" hreflang="en" rel="alternate"/><link href="https://www.goatify.app/en/privacy/" hreflang="en-US" rel="alternate"/><link href="https://www.goatify.app/en/privacy/" hreflang="x-default" rel="alternate"/>
-
-
-
 <link href="/llms.txt" rel="alternate" title="Goatify LLM summary" type="text/plain"/>
 <link href="/llms-full.txt" rel="alternate" title="Goatify full LLM profile" type="text/plain"/>
 <link href="/goatify-entity.jsonld" rel="alternate" title="Goatify entity data" type="application/ld+json"/>
@@ -308,7 +305,6 @@ img,svg,video,canvas{max-width:100%;}
 </style>
 <style id="goatify-vat-visibility-v42">html:not([data-goatify-vat-country="EC"]) .goatify-vat-label,html:not([data-goatify-vat-country="EC"]) .goatify-vat-note{display:none!important}</style></head>
 <body class="text-slate-600 flex flex-col min-h-screen">
-<!-- GOATIFY GLOBAL IP LANGUAGE V33: ES/EN por IP en todas las páginas, con override manual -->
 <div aria-label="Selector de idioma Goatify" class="gfy-language-toggle-v33 notranslate" id="gfy-language-toggle-v33" translate="no">
 <button aria-pressed="false" data-gfy-lang="es" translate="no" type="button">ES</button>
 <button aria-pressed="false" data-gfy-lang="en" translate="no" type="button">EN</button>
@@ -363,7 +359,7 @@ img,svg,video,canvas{max-width:100%;}
     .gfy-language-toggle-v33 button{font-size:10px!important;min-width:30px!important;padding:5px 7px!important;}
   }
 </style>
-<script id="gfy-language-toggle-script-v33">
+<script id="gfy-language-toggle-script-v46">
 (function(){
   'use strict';
 
@@ -372,44 +368,33 @@ img,svg,video,canvas{max-width:100%;}
   var SOURCE_LANG = (htmlLang.indexOf('en') === 0 || path.indexOf('/en/') === 0 || path === '/en') ? 'en' : 'es';
   var TARGET_LANGS = ['es','en'];
   var COOKIE_DAYS = 365;
-  var MANUAL_KEY = 'goatify_lang_manual_v37';
-  var AUTO_KEY = 'goatify_lang_auto_v33';
-  var COUNTRY_KEY = 'goatify_ip_country_v33';
-  var LEGACY_MANUAL_KEY = 'goatify_lang_manual_v9';
-  var LEGACY_KEY = 'goatify_lang_v7';
-  var RELOAD_GUARD_KEY = 'goatify_lang_reload_guard_v37';
+  var MANUAL_KEY = 'goatify_lang_manual_v45';
+  var MANUAL_COOKIE = 'goatify_lang_manual_v45';
+  var AUTO_KEY = 'goatify_lang_auto_v45';
+  var COUNTRY_KEY = 'goatify_ip_country_v45';
+  var LEGACY_MANUAL_KEYS = ['goatify_lang_manual_v37','goatify_lang_manual_v33','goatify_lang_manual_v9'];
+  var LEGACY_GENERAL_KEY = 'goatify_lang_v7';
 
-  // Regla pedida: IP manda por encima del idioma del navegador/computadora.
-  // Ecuador, Colombia, México, LatAm y España => ES. Estados Unidos y resto no LatAm => EN.
-  // Botón manual ES/EN manda por encima de IP y se guarda en el navegador.
   var SPANISH_IP_COUNTRIES = {
     AR:1, BO:1, BR:1, BZ:1, CL:1, CO:1, CR:1, CU:1, DO:1, EC:1, ES:1,
     GT:1, HN:1, MX:1, NI:1, PA:1, PE:1, PR:1, PY:1, SV:1, UY:1, VE:1
   };
 
-  function validLang(lang){ return TARGET_LANGS.indexOf(lang) >= 0 ? lang : SOURCE_LANG; }
+  function validLang(lang){ return TARGET_LANGS.indexOf(lang) >= 0 ? lang : null; }
+  function sourceOr(lang){ return validLang(lang) || SOURCE_LANG; }
+  function getStorage(key){ try{ return localStorage.getItem(key); }catch(e){ return null; } }
+  function setStorage(key, value){ try{ localStorage.setItem(key, value); }catch(e){} }
+  function removeStorage(key){ try{ localStorage.removeItem(key); }catch(e){} }
 
-  function unique(list){
-    var out = [];
-    list.forEach(function(item){ if(item !== undefined && item !== null && out.indexOf(item) < 0) out.push(item); });
-    return out;
-  }
-
-  function cookieDomains(){
-    var host = location.hostname || '';
-    var list = [''];
-    if(host && host !== 'localhost' && host.indexOf('.') > -1 && !/^\d+\.\d+\.\d+\.\d+$/.test(host)){
-      list.push(host);
-      var parts = host.split('.');
-      if(parts.length >= 2) list.push('.' + parts.slice(-2).join('.'));
-      if(parts.length >= 3 && parts[0] !== 'www') list.push('.' + parts.slice(-3).join('.'));
-    }
-    return unique(list);
+  function cookieDomain(){
+    var host = String(location.hostname || '').toLowerCase();
+    if(host === 'goatify.app' || /\.goatify\.app$/.test(host)) return '.goatify.app';
+    return '';
   }
 
   function setCookie(name, value, domain){
     var expires = new Date(Date.now() + COOKIE_DAYS*24*60*60*1000).toUTCString();
-    var cookie = name + '=' + value + '; expires=' + expires + '; path=/; SameSite=Lax';
+    var cookie = name + '=' + encodeURIComponent(value) + '; expires=' + expires + '; path=/; SameSite=Lax';
     if(location.protocol === 'https:') cookie += '; Secure';
     if(domain) cookie += '; domain=' + domain;
     document.cookie = cookie;
@@ -422,70 +407,56 @@ img,svg,video,canvas{max-width:100%;}
     document.cookie = cookie;
   }
 
-  function hasGoogTrans(){ return /(?:^|;\s*)googtrans=/.test(document.cookie || ''); }
-
-  function clearGoogTrans(){
-    cookieDomains().forEach(function(domain){ clearCookie('googtrans', domain); });
-    clearCookie('googtrans');
+  function readCookie(name){
+    var match = document.cookie.match(new RegExp('(?:^|;\\s*)' + name + '=([^;]*)'));
+    if(!match) return null;
+    try{ return decodeURIComponent(match[1]); }catch(e){ return match[1] || null; }
   }
 
-  function setGoogTrans(lang){
-    lang = validLang(lang);
-    clearGoogTrans();
-    if(lang !== SOURCE_LANG){
-      var value = '/' + SOURCE_LANG + '/' + lang;
-      cookieDomains().forEach(function(domain){ setCookie('googtrans', value, domain); });
-      setCookie('googtrans', value);
-    }
-  }
-
-  function readGoogTransLang(){
-    var match = document.cookie.match(/(?:^|;\s*)googtrans=([^;]+)/);
-    if(!match) return SOURCE_LANG;
-    var value = '';
-    try{ value = decodeURIComponent(match[1]); }catch(e){ value = match[1] || ''; }
-    if(value.indexOf('/en/es') >= 0) return 'es';
-    if(value.indexOf('/es/en') >= 0) return 'en';
-    var parts = value.split('/').filter(Boolean);
-    return validLang(parts.length ? parts[parts.length - 1] : SOURCE_LANG);
-  }
-
-  function getStorage(key){ try{ return localStorage.getItem(key); }catch(e){ return null; } }
-  function setStorage(key, value){ try{ localStorage.setItem(key, value); }catch(e){} }
-  function removeStorage(key){ try{ localStorage.removeItem(key); }catch(e){} }
-
-  function clearLegacyLanguageStateForNativeEnglish(){
-    if(SOURCE_LANG !== 'en') return;
-    // V37: native /en/ URLs must load in English by default.
-    // Old V33/V9/V7 manual values and old googtrans cookies could force Spanish from prior tests.
-    if(getStorage(MANUAL_KEY)) return;
-    removeStorage('goatify_lang_manual_v33');
-    removeStorage('goatify_lang_auto_v33');
-    removeStorage(LEGACY_MANUAL_KEY);
-    removeStorage(LEGACY_KEY);
-    clearGoogTrans();
+  function persistManual(lang){
+    lang = sourceOr(lang);
+    setStorage(MANUAL_KEY, lang);
+    setStorage('goatify_lang_manual_v37', lang);
+    setStorage('goatify_lang_manual_v9', lang);
+    setStorage(LEGACY_GENERAL_KEY, lang);
+    setCookie(MANUAL_COOKIE, lang, cookieDomain());
+    setCookie(MANUAL_COOKIE, lang, '');
   }
 
   function getManualLang(){
-    var lang = getStorage(MANUAL_KEY);
-    if(TARGET_LANGS.indexOf(lang) >= 0) return lang;
-    if(SOURCE_LANG === 'en') return null;
-    lang = getStorage('goatify_lang_manual_v33') || getStorage(LEGACY_MANUAL_KEY);
-    return TARGET_LANGS.indexOf(lang) >= 0 ? lang : null;
+    var candidates = [getStorage(MANUAL_KEY), readCookie(MANUAL_COOKIE)];
+    LEGACY_MANUAL_KEYS.forEach(function(key){ candidates.push(getStorage(key)); });
+    for(var i=0;i<candidates.length;i++){
+      var lang = validLang(candidates[i]);
+      if(lang){ persistManual(lang); return lang; }
+    }
+    return null;
   }
 
-  function desiredLang(){
-    var manual = getManualLang();
-    if(manual) return manual;
-    if(SOURCE_LANG === 'en') return 'en';
-    return readGoogTransLang() || SOURCE_LANG;
+  function googDomains(){
+    var domains = [''];
+    var root = cookieDomain();
+    if(root) domains.push(root);
+    return domains;
+  }
+
+  function clearGoogTrans(){
+    googDomains().forEach(function(domain){ clearCookie('googtrans', domain); });
+  }
+
+  function setGoogTrans(lang){
+    lang = sourceOr(lang);
+    clearGoogTrans();
+    if(lang === SOURCE_LANG) return;
+    var value = '/' + SOURCE_LANG + '/' + lang;
+    googDomains().forEach(function(domain){ setCookie('googtrans', value, domain); });
   }
 
   function mark(lang){
-    lang = validLang(lang);
+    lang = sourceOr(lang);
     document.documentElement.setAttribute('data-goatify-lang', lang);
     document.documentElement.setAttribute('data-goatify-source-lang', SOURCE_LANG);
-    document.documentElement.setAttribute('lang', lang === 'en' ? 'en' : 'es');
+    document.documentElement.setAttribute('lang', lang);
     document.querySelectorAll('#gfy-language-toggle-v33 [data-gfy-lang]').forEach(function(btn){
       var active = btn.getAttribute('data-gfy-lang') === lang;
       btn.classList.toggle('active', active);
@@ -495,69 +466,69 @@ img,svg,video,canvas{max-width:100%;}
   }
 
   function useGoogleCombo(lang){
-    lang = validLang(lang);
     var combo = document.querySelector('.goog-te-combo');
     if(!combo) return false;
-    combo.value = lang === SOURCE_LANG ? '' : lang;
-    combo.dispatchEvent(new Event('change'));
+    lang = sourceOr(lang);
+    var wanted = lang === SOURCE_LANG ? '' : lang;
+    if(combo.value !== wanted) combo.value = wanted;
+    try{ combo.dispatchEvent(new Event('change', {bubbles:true})); }
+    catch(e){
+      var evt = document.createEvent('HTMLEvents');
+      evt.initEvent('change', true, false);
+      combo.dispatchEvent(evt);
+    }
     return true;
   }
 
-  function guardedReload(){
-    var now = Date.now();
-    try{
-      var last = Number(sessionStorage.getItem(RELOAD_GUARD_KEY) || 0);
-      if(now - last < 3500) return;
-      sessionStorage.setItem(RELOAD_GUARD_KEY, String(now));
-    }catch(e){}
-    setTimeout(function(){ window.location.reload(); }, 90);
-  }
-
-  function syncLang(lang, reloadWhenCookieChanges){
-    lang = validLang(lang);
-    var before = readGoogTransLang();
-    var hadCookie = hasGoogTrans();
+  function applyLanguage(lang){
+    lang = sourceOr(lang);
     mark(lang);
     setGoogTrans(lang);
-    if(reloadWhenCookieChanges && (before !== lang || (hadCookie && lang === SOURCE_LANG))){
-      guardedReload();
-      return;
-    }
-    if(window.google && window.google.translate){
+    if(document.querySelector('.goog-te-combo')){
+      useGoogleCombo(lang);
       setTimeout(function(){ useGoogleCombo(lang); mark(lang); }, 250);
       setTimeout(function(){ useGoogleCombo(lang); mark(lang); }, 900);
     }
   }
 
+  function desiredLang(){
+    var manual = getManualLang();
+    if(manual) return manual;
+    var cached = validLang(getStorage(AUTO_KEY));
+    if(cached) return cached;
+    return SOURCE_LANG;
+  }
+
   function applyManualLang(lang){
-    lang = validLang(lang);
-    setStorage(MANUAL_KEY, lang);
-    setStorage(LEGACY_MANUAL_KEY, lang);
-    setStorage(LEGACY_KEY, lang);
+    lang = sourceOr(lang);
+    var current = validLang(document.documentElement.getAttribute('data-goatify-lang')) || desiredLang();
+    persistManual(lang);
     removeStorage(AUTO_KEY);
-    mark(lang);
     setGoogTrans(lang);
-    guardedReload();
+    mark(lang);
+    if(current === lang){ applyLanguage(lang); return; }
+    try{ sessionStorage.setItem('goatify_lang_scroll_v46', String(window.scrollY || 0)); }catch(e){}
+    window.location.reload();
   }
 
   window.googleTranslateElementInit = function(){
     try{
       new google.translate.TranslateElement({
         pageLanguage: SOURCE_LANG,
-        includedLanguages: SOURCE_LANG === 'es' ? 'en' : 'es',
+        includedLanguages: 'es,en',
         autoDisplay: false,
         multilanguagePage: true
       }, 'google_translate_element');
-      setTimeout(function(){ useGoogleCombo(desiredLang()); mark(desiredLang()); }, 300);
-      setTimeout(function(){ useGoogleCombo(desiredLang()); mark(desiredLang()); }, 1000);
-      setTimeout(function(){ useGoogleCombo(desiredLang()); mark(desiredLang()); }, 2200);
+      [120,420,1100,2200].forEach(function(delay){
+        setTimeout(function(){ var lang = desiredLang(); useGoogleCombo(lang); mark(lang); }, delay);
+      });
     }catch(e){}
   };
 
   function ensureGoogleScript(){
-    if(document.getElementById('google-translate-api-v33')) return;
+    if(document.getElementById('google-translate-api-v45')) return;
     var script = document.createElement('script');
-    script.id = 'google-translate-api-v33';
+    script.id = 'google-translate-api-v45';
     script.src = 'https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';
     script.async = true;
     document.head.appendChild(script);
@@ -566,87 +537,107 @@ img,svg,video,canvas{max-width:100%;}
   function countryToLang(countryCode){
     var cc = String(countryCode || '').trim().toUpperCase();
     if(!cc) return SOURCE_LANG;
-    if(SPANISH_IP_COUNTRIES[cc]) return 'es';
-    if(cc === 'US') return 'en';
-    return 'en';
+    return SPANISH_IP_COUNTRIES[cc] ? 'es' : 'en';
   }
 
   function fetchWithTimeout(url, ms){
     var controller = window.AbortController ? new AbortController() : null;
-    var timer = setTimeout(function(){ if(controller) controller.abort(); }, ms || 2500);
-    return fetch(url, { cache: 'no-store', signal: controller ? controller.signal : undefined })
+    var timer = setTimeout(function(){ if(controller) controller.abort(); }, ms || 2200);
+    return fetch(url, {cache:'no-store', signal:controller ? controller.signal : undefined})
       .finally(function(){ clearTimeout(timer); });
   }
 
   function detectCountry(){
-    return fetchWithTimeout('https://ipwho.is/?fields=success,country_code', 2500)
+    return fetchWithTimeout('https://ipwho.is/?fields=success,country_code', 2200)
       .then(function(response){ if(!response.ok) throw new Error('ipwho'); return response.json(); })
       .then(function(data){ if(data && data.success !== false && data.country_code) return data.country_code; throw new Error('ipwho-empty'); })
       .catch(function(){
-        return fetchWithTimeout('https://get.geojs.io/v1/ip/country.json', 2500)
+        return fetchWithTimeout('https://get.geojs.io/v1/ip/country.json', 2200)
           .then(function(response){ if(!response.ok) throw new Error('geojs'); return response.json(); })
           .then(function(data){ return data && (data.country || data.country_code || data.countryCode); });
-      })
-      .catch(function(){
-        return fetchWithTimeout('https://ipapi.co/json/', 2500)
-          .then(function(response){ if(!response.ok) throw new Error('ipapi'); return response.json(); })
-          .then(function(data){ return data && (data.country_code || data.country || data.countryCode); });
       })
       .catch(function(){ return null; });
   }
 
-  function applyIpLanguage(){
+  function applyAutomaticLanguageOnce(){
     if(getManualLang()) return;
+    var cached = validLang(getStorage(AUTO_KEY));
+    if(cached){ applyLanguage(cached); return; }
+    if(SOURCE_LANG === 'en'){
+      setStorage(AUTO_KEY, 'en');
+      applyLanguage('en');
+      return;
+    }
     detectCountry().then(function(countryCode){
-      // V35: las URLs nativas en inglés (/en/...) se mantienen en inglés por defecto.
-      // La traducción automática por IP se usa como fallback UX principalmente en páginas fuente ES;
-      // el cambio manual ES/EN sigue mandando por encima de la IP.
-      var lang = SOURCE_LANG === 'en' ? 'en' : countryToLang(countryCode);
+      if(getManualLang()) return;
+      var lang = countryToLang(countryCode);
       setStorage(AUTO_KEY, lang);
-      setStorage(LEGACY_KEY, lang);
       setStorage(COUNTRY_KEY, countryCode ? String(countryCode).toUpperCase() : 'UNKNOWN');
-      syncLang(lang, true);
+      setStorage(LEGACY_GENERAL_KEY, lang);
+      applyLanguage(lang);
     });
   }
 
   function bindButtons(){
     document.querySelectorAll('#gfy-language-toggle-v33 [data-gfy-lang]').forEach(function(btn){
+      if(btn.dataset.goatifyLanguageBoundV45 === '1') return;
+      btn.dataset.goatifyLanguageBoundV45 = '1';
       btn.addEventListener('click', function(event){
         event.preventDefault();
+        event.stopPropagation();
         applyManualLang(btn.getAttribute('data-gfy-lang') || SOURCE_LANG);
       });
     });
+  }
+
+  function restoreScrollAfterLanguageSwitch(){
+    var y = null;
+    try{ y = sessionStorage.getItem('goatify_lang_scroll_v46'); sessionStorage.removeItem('goatify_lang_scroll_v46'); }catch(e){}
+    if(y === null) return;
+    var top = Math.max(0, parseInt(y,10) || 0);
+    [0,120,350,800].forEach(function(delay){ setTimeout(function(){ window.scrollTo(0, top); }, delay); });
   }
 
   function init(){
     var toggle = document.getElementById('gfy-language-toggle-v33');
     if(toggle){
       toggle.classList.add('notranslate');
-      toggle.setAttribute('translate', 'no');
+      toggle.setAttribute('translate','no');
     }
-    clearLegacyLanguageStateForNativeEnglish();
-    var manual = getManualLang();
-    if(!manual) removeStorage(LEGACY_KEY);
-    var initial = manual || (SOURCE_LANG === 'en' ? 'en' : readGoogTransLang()) || SOURCE_LANG;
-    if(manual) syncLang(initial, true);
-    else mark(initial);
-    ensureGoogleScript();
+    var holder = document.getElementById('google_translate_element');
+    if(holder){ holder.classList.add('notranslate'); holder.setAttribute('translate','no'); }
     bindButtons();
-    applyIpLanguage();
+    var initial = desiredLang();
+    applyLanguage(initial);
+    ensureGoogleScript();
+    applyAutomaticLanguageOnce();
+    restoreScrollAfterLanguageSwitch();
   }
 
-  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, {once:true});
   else init();
+
+  window.addEventListener('pageshow', function(){
+    bindButtons();
+    applyLanguage(desiredLang());
+  });
+
+  window.addEventListener('storage', function(event){
+    if(event.key === MANUAL_KEY || LEGACY_MANUAL_KEYS.indexOf(event.key) >= 0){
+      var manual = getManualLang();
+      if(manual) applyLanguage(manual);
+    }
+  });
 })();
 </script>
-<details class="gfy-eco-menu-v26" id="gfy-eco-menu-v26"><summary aria-label="Explorar el ecosistema Goatify">Explorar Goatify <span aria-hidden="true" class="gfy-eco-arrow-v26">▾</span></summary><nav aria-label="Productos, servicios, industrias y páginas principales de Goatify" class="gfy-eco-panel-v26"><div class="gfy-eco-head-v26"><div><b>Productos y Ecosistema Goatify</b><span>38 accesos directos: plataforma, productos, servicios especializados, industrias y empresa.</span></div><a class="gfy-eco-count-v26" href="/ecosistema/">89 páginas indexables</a></div><div class="gfy-eco-grid-v26">
-<div class="gfy-eco-group-v26 gfy-eco-platform-v26"><strong>Plataforma Goatify <em>9 accesos</em></strong><div class="gfy-eco-links-v26"><a href="/portal/"><i>01</i>Portal Goatify</a><a href="/crm/"><i>02</i>CRM Goatify</a><a href="/gestion-de-clientes/"><i>03</i>Gestión de clientes</a><a href="/pipeline-de-ventas/"><i>04</i>Pipeline de ventas</a><a href="/tareas-y-proyectos/"><i>05</i>Tareas y proyectos</a><a href="/agenda-y-citas/"><i>06</i>Agenda y citas</a><a href="/propuestas-contratos-prefacturas/"><i>07</i>Propuestas y contratos</a><a href="/dashboard-empresarial/"><i>08</i>Dashboard empresarial</a><a href="/pos-para-negocios/"><i>09</i>Punto de venta POS</a></div></div>
+<details class="gfy-eco-menu-v26" id="gfy-eco-menu-v26"><summary aria-label="Explorar el ecosistema Goatify">Explorar <span class="notranslate gfy-brand-lock-v46" translate="no">Goatify</span> <span aria-hidden="true" class="gfy-eco-arrow-v26">▾</span></summary><nav aria-label="Productos, servicios, industrias y páginas principales de Goatify" class="gfy-eco-panel-v26"><div class="gfy-eco-head-v26"><div><b>Productos y Ecosistema <span class="notranslate gfy-brand-lock-v46" translate="no">Goatify</span></b><span>38 accesos directos: plataforma, productos, servicios especializados, industrias y empresa.</span></div><a class="gfy-eco-count-v26" href="/ecosistema/">89 páginas indexables</a></div><div class="gfy-eco-grid-v26">
+<div class="gfy-eco-group-v26 gfy-eco-platform-v26"><strong><span class="notranslate gfy-brand-lock-v46" translate="no">Plataforma Goatify</span> <em>9 accesos</em></strong><div class="gfy-eco-links-v26"><a href="/portal/"><i>01</i><span class="notranslate gfy-brand-lock-v46" translate="no">Portal Goatify</span></a><a href="/crm/"><i>02</i><span class="notranslate gfy-brand-lock-v46" translate="no">CRM Goatify</span></a><a href="/gestion-de-clientes/"><i>03</i>Gestión de clientes</a><a href="/pipeline-de-ventas/"><i>04</i>Pipeline de ventas</a><a href="/tareas-y-proyectos/"><i>05</i>Tareas y proyectos</a><a href="/agenda-y-citas/"><i>06</i>Agenda y citas</a><a href="/propuestas-contratos-prefacturas/"><i>07</i>Propuestas y contratos</a><a href="/dashboard-empresarial/"><i>08</i>Dashboard empresarial</a><a href="/pos-para-negocios/"><i>09</i>Punto de venta POS</a></div></div>
 <div class="gfy-eco-group-v26"><strong>Soluciones principales <em>6 accesos</em></strong><div class="gfy-eco-links-v26"><a href="/productividad/"><i>10</i>Productividad</a><a href="/automatizaciones/"><i>11</i>Automatizaciones</a><a href="/industrias/"><i>12</i>Industrias</a><a href="/portafolio/"><i>13</i>Portafolio</a><a href="/social-media/"><i>14</i>Social Media</a><a href="/mailing/"><i>15</i>Mailing</a></div></div>
 <div class="gfy-eco-group-v26 gfy-eco-services-v26"><strong>Servicios especializados <em>9 accesos</em></strong><div class="gfy-eco-links-v26"><a href="/paginas-web-para-empresas/"><i>25</i>Páginas web</a><a href="/desarrollo-de-aplicaciones/"><i>26</i>Desarrollo de apps</a><a href="/software-a-medida/"><i>27</i>Software a medida</a><a href="/automatizacion-whatsapp/"><i>28</i>Automatización WhatsApp</a><a href="/llamadas-ia/"><i>29</i>Llamadas IA</a><a href="/portales-empresariales/"><i>30</i>Portales empresariales</a><a href="/integraciones-apis/"><i>31</i>Integraciones y APIs</a><a href="/pwa-apps-instalables/"><i>32</i>PWA y apps instalables</a><a href="/consultoria-transformacion-digital/"><i>33</i>Consultoría digital</a></div></div>
 <div class="gfy-eco-group-v26"><strong>Soluciones por industria <em>5 accesos</em></strong><div class="gfy-eco-links-v26"><a href="/soluciones-para-restaurantes-y-hoteles/"><i>34</i>Restaurantes y hoteles</a><a href="/software-para-educacion-y-academias/"><i>35</i>Educación y academias</a><a href="/crm-para-constructoras/"><i>36</i>Constructoras</a><a href="/tecnologia-para-turismo-y-hosteleria/"><i>37</i>Turismo y hostelería</a><a href="/crm-para-consultores-y-servicios-profesionales/"><i>38</i>Consultores y servicios</a></div></div>
-<div class="gfy-eco-group-v26"><strong>Productos propios <em>4 accesos</em></strong><div class="gfy-eco-links-v26"><a href="/qlase/"><i>16</i>QLASE</a><a href="/fit/"><i>17</i>GoatiFIT</a><a href="/flow/"><i>18</i>GoatiFLOW</a><a href="/meet/"><i>19</i>GoatiMEET</a></div></div>
+<div class="gfy-eco-group-v26"><strong>Productos propios <em>4 accesos</em></strong><div class="gfy-eco-links-v26"><a href="/qlase/"><i>16</i><span class="notranslate gfy-brand-lock-v46" translate="no">QLASE</span></a><a href="/fit/"><i>17</i><span class="notranslate gfy-brand-lock-v46" translate="no">GoatiFIT</span></a><a href="/flow/"><i>18</i><span class="notranslate gfy-brand-lock-v46" translate="no">GoatiFLOW</span></a><a href="/meet/"><i>19</i><span class="notranslate gfy-brand-lock-v46" translate="no">GoatiMEET</span></a></div></div>
 <div class="gfy-eco-group-v26"><strong>Marca y empresa <em>5 accesos</em></strong><div class="gfy-eco-links-v26"><a href="/"><i>20</i>Inicio</a><a href="/pricing/"><i>21</i>Precios</a><a href="/socios/"><i>22</i>Socios</a><a href="/fundadores/"><i>23</i>Fundadores</a><a href="/privacidad/"><i>24</i>Privacidad</a></div></div>
-</div><a class="gfy-eco-full-v26" href="/ecosistema/"><div>Ver ecosistema completo<span>Buscador, filtros y las 89 URLs indexables de Goatify</span></div><b aria-hidden="true">→</b></a></nav></details><script id="gfy-eco-menu-script-v26">(function(){var d=document.getElementById('gfy-eco-menu-v26');if(!d)return;var panel=d.querySelector('.gfy-eco-panel-v26');d.querySelectorAll('a').forEach(function(a){a.addEventListener('click',function(){d.open=false})});document.addEventListener('click',function(e){if(d.open&&!d.contains(e.target))d.open=false});document.addEventListener('keydown',function(e){if(e.key==='Escape'&&d.open){d.open=false;d.querySelector('summary').focus()}});function applyMobileSide(){if(window.innerWidth>760){d.style.left='';d.style.right='';d.style.top='';d.style.bottom='';if(panel){panel.style.left='';panel.style.right='';panel.style.top='';panel.style.bottom='';panel.style.width='';panel.style.maxHeight='';}return;}var selector=['.advisor-fab','.whatsapp-float','.back-to-top','#backToTopBtn','.cart-fab','.float-stack','.float-btn','.to-top','.gfy-public-menu-v4'];var candidates=[];selector.forEach(function(sel){document.querySelectorAll(sel).forEach(function(el){if(el&&el!==d&&!d.contains(el)&&!candidates.includes(el))candidates.push(el);});});var viewportH=window.innerHeight||document.documentElement.clientHeight||0;var leftOccupied=0,rightOccupied=0;candidates.forEach(function(el){var st=window.getComputedStyle(el);if(st.display==='none'||st.visibility==='hidden'||parseFloat(st.opacity||'1')===0)return;var rect=el.getBoundingClientRect();if(!rect.width||!rect.height)return;if(rect.bottom<viewportH*0.45)return;if(rect.width>220||rect.height>220)return;var occ=Math.max(0,viewportH-rect.top);var center=rect.left+(rect.width/2);if(center<window.innerWidth/2){leftOccupied=Math.max(leftOccupied,occ);}else{rightOccupied=Math.max(rightOccupied,occ);}});var side=(leftOccupied>rightOccupied)?'right':'left';var selectedOcc=side==='left'?leftOccupied:rightOccupied;var baseBottom=72;var bottom=Math.max(baseBottom,Math.ceil(selectedOcc)+14);d.style.top='auto';d.style.bottom='max('+bottom+'px,calc(env(safe-area-inset-bottom) + '+bottom+'px))';if(side==='left'){d.style.left='12px';d.style.right='auto';if(panel){panel.style.left='0';panel.style.right='auto';}}else{d.style.right='12px';d.style.left='auto';if(panel){panel.style.right='0';panel.style.left='auto';}}if(panel){panel.style.top='auto';panel.style.bottom='calc(100% + 10px)';panel.style.width='min(calc(100vw - 24px),360px)';panel.style.maxHeight='70vh';}}applyMobileSide();window.addEventListener('resize',applyMobileSide,{passive:true});window.addEventListener('orientationchange',applyMobileSide,{passive:true});setTimeout(applyMobileSide,120);setTimeout(applyMobileSide,800);})();</script>
+</div><a class="gfy-eco-full-v26" href="/ecosistema/"><div>Ver ecosistema completo<span>Buscador, filtros y las 89 URLs indexables de <span class="notranslate gfy-brand-lock-v46" translate="no">Goatify</span></span></div><b aria-hidden="true">→</b></a></nav></details><script id="gfy-eco-menu-script-v26">(function(){var d=document.getElementById('gfy-eco-menu-v26');if(!d)return;var panel=d.querySelector('.gfy-eco-panel-v26');d.querySelectorAll('a').forEach(function(a){a.addEventListener('click',function(){d.open=false})});document.addEventListener('click',function(e){if(d.open&&!d.contains(e.target))d.open=false});document.addEventListener('keydown',function(e){if(e.key==='Escape'&&d.open){d.open=false;d.querySelector('summary').focus()}});function applyMobileSide(){if(window.innerWidth>760){d.style.left='';d.style.right='';d.style.top='';d.style.bottom='';if(panel){panel.style.left='';panel.style.right='';panel.style.top='';panel.style.bottom='';panel.style.width='';panel.style.maxHeight='';}return;}var selector=['.advisor-fab','.whatsapp-float','.back-to-top','#backToTopBtn','.cart-fab','.float-stack','.float-btn','.to-top','.gfy-public-menu-v4'];var candidates=[];selector.forEach(function(sel){document.querySelectorAll(sel).forEach(function(el){if(el&&el!==d&&!d.contains(el)&&!candidates.includes(el))candidates.push(el);});});var viewportH=window.innerHeight||document.documentElement.clientHeight||0;var leftOccupied=0,rightOccupied=0;candidates.forEach(function(el){var st=window.getComputedStyle(el);if(st.display==='none'||st.visibility==='hidden'||parseFloat(st.opacity||'1')===0)return;var rect=el.getBoundingClientRect();if(!rect.width||!rect.height)return;if(rect.bottom<viewportH*0.45)return;if(rect.width>220||rect.height>220)return;var occ=Math.max(0,viewportH-rect.top);var center=rect.left+(rect.width/2);if(center<window.innerWidth/2){leftOccupied=Math.max(leftOccupied,occ);}else{rightOccupied=Math.max(rightOccupied,occ);}});var side=(leftOccupied>rightOccupied)?'right':'left';var selectedOcc=side==='left'?leftOccupied:rightOccupied;var baseBottom=72;var bottom=Math.max(baseBottom,Math.ceil(selectedOcc)+14);d.style.top='auto';d.style.bottom='max('+bottom+'px,calc(env(safe-area-inset-bottom) + '+bottom+'px))';if(side==='left'){d.style.left='12px';d.style.right='auto';if(panel){panel.style.left='0';panel.style.right='auto';}}else{d.style.right='12px';d.style.left='auto';if(panel){panel.style.right='0';panel.style.left='auto';}}if(panel){panel.style.top='auto';panel.style.bottom='calc(100% + 10px)';panel.style.width='min(calc(100vw - 24px),360px)';panel.style.maxHeight='70vh';}}applyMobileSide();window.addEventListener('resize',applyMobileSide,{passive:true});window.addEventListener('orientationchange',applyMobileSide,{passive:true});setTimeout(applyMobileSide,120);setTimeout(applyMobileSide,800);})();</script>
 <!-- HEADER / NAVBAR -->
 <header class="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-50 transition-all duration-300">
 <div class="container mx-auto px-4 lg:px-8">
@@ -660,7 +651,7 @@ img,svg,video,canvas{max-width:100%;}
 <i class="fa-solid fa-goat"></i>
 </div>
 </div>
-<span class="font-bold text-xl tracking-tight text-slate-900 group-hover:text-brand-600 transition-colors hidden sm:block">Goatify</span>
+<span class="font-bold text-xl tracking-tight text-slate-900 group-hover:text-brand-600 transition-colors hidden sm:block"><span class="notranslate gfy-brand-lock-v46" translate="no">Goatify</span></span>
 </div>
 </div>
 <nav class="flex flex-wrap justify-center md:justify-end gap-x-3 gap-y-2 w-full md:w-auto text-[11px] md:text-sm font-medium text-slate-600 pb-2 md:pb-0">
@@ -771,7 +762,7 @@ img,svg,video,canvas{max-width:100%;}
                             1. Introducción y Compromiso
                         </h3>
 <p>
-                            Goatify APP ("Nosotros", "La Plataforma") se compromete a proteger su privacidad con un enfoque de <strong>"Security First"</strong>. Esta política detalla exhaustivamente la recopilación, uso y protección de la información. Al utilizar Goatify, usted acepta las prácticas descritas en este documento legal.
+                            <span class="notranslate gfy-brand-lock-v46" translate="no">Goatify</span> APP ("Nosotros", "La Plataforma") se compromete a proteger su privacidad con un enfoque de <strong>"Security First"</strong>. Esta política detalla exhaustivamente la recopilación, uso y protección de la información. Al utilizar <span class="notranslate gfy-brand-lock-v46" translate="no">Goatify</span>, usted acepta las prácticas descritas en este documento legal.
                         </p>
 <!-- 2. DATOS (2 COLUMNAS EN MÓVIL) -->
 <h3 class="text-xl font-bold text-slate-900 mt-10 flex items-center gap-2">
@@ -802,7 +793,7 @@ img,svg,video,canvas{max-width:100%;}
 <span class="w-8 h-8 rounded-lg bg-brand-100 text-brand-600 flex items-center justify-center text-sm"><i class="fa-solid fa-key"></i></span>
                             3. Uso de Permisos de Google (Scopes)
                         </h3>
-<p>Goatify solicita permisos específicos ("scopes") para automatizar su agenda:</p>
+<p><span class="notranslate gfy-brand-lock-v46" translate="no">Goatify</span> solicita permisos específicos ("scopes") para automatizar su agenda:</p>
 <div class="my-6 rounded-lg border border-slate-200 shadow-sm overflow-hidden">
 <table class="w-full divide-y divide-slate-200">
 <thead class="bg-slate-50">
@@ -833,10 +824,10 @@ img,svg,video,canvas{max-width:100%;}
 <i class="fa-brands fa-google"></i> Cumplimiento con la Política de Google API
                             </h4>
 <p class="text-blue-800 text-sm mt-0 mb-4 leading-relaxed">
-                                El uso de Goatify APP y la transferencia a cualquier otra aplicación de la información recibida de las API de Google se adherirá estrictamente a la <a class="font-bold underline" href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank">Política de Datos de Usuario de los Servicios de API de Google</a>, incluidos los requisitos de Uso Limitado.
+                                El uso de <span class="notranslate gfy-brand-lock-v46" translate="no">Goatify</span> APP y la transferencia a cualquier otra aplicación de la información recibida de las API de Google se adherirá estrictamente a la <a class="font-bold underline" href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank">Política de Datos de Usuario de los Servicios de API de Google</a>, incluidos los requisitos de Uso Limitado.
                             </p>
 <p class="text-blue-900 text-xs mt-0 mb-0 font-medium italic border-t border-blue-200 pt-3">
-                                "Goatify's use and transfer to any other app of information received from Google APIs will adhere to <a class="underline" href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank">Google API Services User Data Policy</a>, including the Limited Use requirements."
+                                "<span class="notranslate gfy-brand-lock-v46" translate="no">Goatify</span>'s use and transfer to any other app of information received from Google APIs will adhere to <a class="underline" href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank">Google API Services User Data Policy</a>, including the Limited Use requirements."
                             </p>
 </div>
 <!-- 4. IA ÉTICA -->
@@ -889,7 +880,7 @@ img,svg,video,canvas{max-width:100%;}
 <i class="fa-solid fa-key"></i> Permisos y Consentimiento (OAuth)
                             </h5>
 <p class="text-sm text-brand-900 m-0 leading-relaxed">
-                                Cuando conectas tu cuenta de Google, Goatify solicita permisos a través de la <strong>pantalla oficial de consentimiento de Google</strong>. Tú decides si aceptas o rechazas esos permisos. Si no los aceptas, la integración con Google no se activa, pero la app sigue funcionando.
+                                Cuando conectas tu cuenta de Google, <span class="notranslate gfy-brand-lock-v46" translate="no">Goatify</span> solicita permisos a través de la <strong>pantalla oficial de consentimiento de Google</strong>. Tú decides si aceptas o rechazas esos permisos. Si no los aceptas, la integración con Google no se activa, pero la app sigue funcionando.
                             </p>
 <ul class="list-disc pl-5 text-sm text-brand-900 mt-3 space-y-1">
 <li><strong>calendar.readonly</strong>: Para leer disponibilidad y evitar conflictos.</li>
@@ -914,7 +905,7 @@ img,svg,video,canvas{max-width:100%;}
 <i class="fa-solid fa-triangle-exclamation"></i> Principio de Mínimo Acceso
                             </h5>
 <p class="text-slate-700 text-xs m-0 leading-relaxed">
-                                Solicitamos solo los permisos estrictamente necesarios. Si no conectas tu cuenta Google, Goatify funciona sin acceder a datos de Calendar.
+                                Solicitamos solo los permisos estrictamente necesarios. Si no conectas tu cuenta Google, <span class="notranslate gfy-brand-lock-v46" translate="no">Goatify</span> funciona sin acceder a datos de Calendar.
                             </p>
 </div>
 <h4 class="text-lg font-bold text-slate-900 mt-8">7.2 Data Sharing (Compartición de datos)</h4>
@@ -1011,14 +1002,14 @@ img,svg,video,canvas{max-width:100%;}
                                 10. Términos de Servicio y EULA
                             </h3>
 <p class="text-sm text-slate-500 italic mb-8 bg-slate-50 p-3 rounded border border-slate-200">
-<strong>AVISO LEGAL:</strong> Estos términos constituyen un acuerdo vinculante entre usted ("Usuario") y Goatify Inc. Al descargar, acceder o utilizar la aplicación, usted confirma que ha leído, entendido y aceptado estar sujeto a estos términos. Si no está de acuerdo, no utilice la aplicación.
+<strong>AVISO LEGAL:</strong> Estos términos constituyen un acuerdo vinculante entre usted ("Usuario") y <span class="notranslate gfy-brand-lock-v46" translate="no">Goatify</span> Inc. Al descargar, acceder o utilizar la aplicación, usted confirma que ha leído, entendido y aceptado estar sujeto a estos términos. Si no está de acuerdo, no utilice la aplicación.
                             </p>
 <div class="space-y-8 not-prose font-sans">
 <!-- Bloque 10.1 -->
 <div class="pl-4 border-l-4 border-slate-300 hover:border-brand-500 transition-colors">
 <h6 class="font-bold text-slate-900 text-base mb-2">10.1 Licencia de Uso Limitada</h6>
 <p class="text-sm text-slate-600 leading-relaxed text-justify">
-                                        Goatify otorga una licencia personal, no exclusiva, intransferible y revocable para utilizar el software únicamente con fines empresariales legítimos. Queda estrictamente prohibida la ingeniería inversa, descompilación, o la creación de trabajos derivados. Todos los derechos de propiedad intelectual pertenecen exclusivamente a Goatify Inc.
+                                        <span class="notranslate gfy-brand-lock-v46" translate="no">Goatify</span> otorga una licencia personal, no exclusiva, intransferible y revocable para utilizar el software únicamente con fines empresariales legítimos. Queda estrictamente prohibida la ingeniería inversa, descompilación, o la creación de trabajos derivados. Todos los derechos de propiedad intelectual pertenecen exclusivamente a <span class="notranslate gfy-brand-lock-v46" translate="no">Goatify</span> Inc.
                                     </p>
 </div>
 <!-- Bloque 10.2 -->
@@ -1030,28 +1021,28 @@ img,svg,video,canvas{max-width:100%;}
 <ul class="list-disc pl-5 text-sm text-slate-600 space-y-1">
 <li>Generar contenido ilegal, difamatorio, fraudulento o sexualmente explícito.</li>
 <li>Realizar llamadas automatizadas (spam) en violación de las leyes locales.</li>
-<li>Intentar vulnerar la seguridad de la infraestructura de Goatify.</li>
+<li>Intentar vulnerar la seguridad de la infraestructura de <span class="notranslate gfy-brand-lock-v46" translate="no">Goatify</span>.</li>
 </ul>
 </div>
 <!-- Bloque 10.3 -->
 <div class="pl-4 border-l-4 border-slate-300 hover:border-brand-500 transition-colors">
 <h6 class="font-bold text-slate-900 text-base mb-2">10.3 Pagos, Suscripciones y Reembolsos</h6>
 <p class="text-sm text-slate-600 leading-relaxed text-justify">
-                                        Las transacciones realizadas a través de Apple App Store o Google Play Store están sujetas a los términos de dichas plataformas. Goatify no procesa directamente datos de tarjetas de crédito en la app móvil y no puede emitir reembolsos directos por compras In-App; estos deben gestionarse con el proveedor de la tienda. Las suscripciones se renuevan automáticamente salvo cancelación 24h antes.
+                                        Las transacciones realizadas a través de Apple App Store o Google Play Store están sujetas a los términos de dichas plataformas. <span class="notranslate gfy-brand-lock-v46" translate="no">Goatify</span> no procesa directamente datos de tarjetas de crédito en la app móvil y no puede emitir reembolsos directos por compras In-App; estos deben gestionarse con el proveedor de la tienda. Las suscripciones se renuevan automáticamente salvo cancelación 24h antes.
                                     </p>
 </div>
 <!-- Bloque 10.4 -->
 <div class="pl-4 border-l-4 border-slate-300 hover:border-brand-500 transition-colors">
 <h6 class="font-bold text-slate-900 text-base mb-2">10.4 Renuncia de Garantías</h6>
 <p class="text-sm text-slate-600 leading-relaxed text-justify">
-                                        El servicio se proporciona "tal cual" (as-is). Goatify no garantiza resultados específicos comerciales (como aumento de ventas) derivados del uso de la IA, ni garantiza un servicio libre de errores o ininterrumpido.
+                                        El servicio se proporciona "tal cual" (as-is). <span class="notranslate gfy-brand-lock-v46" translate="no">Goatify</span> no garantiza resultados específicos comerciales (como aumento de ventas) derivados del uso de la IA, ni garantiza un servicio libre de errores o ininterrumpido.
                                     </p>
 </div>
 <!-- Bloque 10.5 -->
 <div class="pl-4 border-l-4 border-slate-300 hover:border-brand-500 transition-colors">
 <h6 class="font-bold text-slate-900 text-base mb-2">10.5 Limitación de Responsabilidad</h6>
 <p class="text-sm text-slate-600 leading-relaxed text-justify">
-                                        En la medida máxima permitida por la ley, Goatify Inc. no será responsable por daños indirectos, incidentales o consecuentes, incluyendo pérdida de datos o beneficios, resultantes del uso del servicio.
+                                        En la medida máxima permitida por la ley, <span class="notranslate gfy-brand-lock-v46" translate="no">Goatify</span> Inc. no será responsable por daños indirectos, incidentales o consecuentes, incluyendo pérdida de datos o beneficios, resultantes del uso del servicio.
                                     </p>
 </div>
 <!-- Bloque 10.6 -->
@@ -1065,14 +1056,14 @@ img,svg,video,canvas{max-width:100%;}
 <div class="pl-4 border-l-4 border-slate-300 hover:border-brand-500 transition-colors">
 <h6 class="font-bold text-slate-900 text-base mb-2">10.7 Alcance del Servicio y Factores Externos</h6>
 <p class="text-sm text-slate-600 leading-relaxed text-justify">
-                                        Goatify cumple estrictamente con la provisión de la infraestructura tecnológica y las herramientas de IA descritas en este acuerdo. Sin embargo, no asumimos responsabilidad alguna por factores externos fuera de nuestro control directo, incluyendo pero no limitado a: interrupciones de proveedores de internet, cambios en las políticas de terceros (como Google o Apple), agendas comerciales de socios externos, o el mal uso de la información generada por la IA. El usuario reconoce que Goatify es un proveedor de tecnología y no un socio estratégico garante de resultados comerciales, y que nuestra responsabilidad se limita a la operatividad técnica de la plataforma bajo nuestro control.
+                                        <span class="notranslate gfy-brand-lock-v46" translate="no">Goatify</span> cumple estrictamente con la provisión de la infraestructura tecnológica y las herramientas de IA descritas en este acuerdo. Sin embargo, no asumimos responsabilidad alguna por factores externos fuera de nuestro control directo, incluyendo pero no limitado a: interrupciones de proveedores de internet, cambios en las políticas de terceros (como Google o Apple), agendas comerciales de socios externos, o el mal uso de la información generada por la IA. El usuario reconoce que <span class="notranslate gfy-brand-lock-v46" translate="no">Goatify</span> es un proveedor de tecnología y no un socio estratégico garante de resultados comerciales, y que nuestra responsabilidad se limita a la operatividad técnica de la plataforma bajo nuestro control.
                                     </p>
 </div>
 <!-- Bloque 10.8 -->
 <div class="pl-4 border-l-4 border-slate-300 hover:border-brand-500 transition-colors">
 <h6 class="font-bold text-slate-900 text-base mb-2">10.8 Ley Gobernable y Divisibilidad</h6>
 <p class="text-sm text-slate-600 leading-relaxed text-justify">
-                                        Estos términos se rigen por las leyes vigentes en la jurisdicción de la sede principal de Goatify. Si alguna disposición de estos términos se considera inválida, las disposiciones restantes permanecerán en pleno vigor y efecto.
+                                        Estos términos se rigen por las leyes vigentes en la jurisdicción de la sede principal de <span class="notranslate gfy-brand-lock-v46" translate="no">Goatify</span>. Si alguna disposición de estos términos se considera inválida, las disposiciones restantes permanecerán en pleno vigor y efecto.
                                     </p>
 </div>
 </div>
@@ -1113,7 +1104,7 @@ img,svg,video,canvas{max-width:100%;}
 <div class="w-10 h-10 bg-brand-100 text-brand-600 rounded-lg flex items-center justify-center mb-4">
 <i class="fa-solid fa-handshake text-lg"></i>
 </div>
-<h3 class="font-bold text-slate-900 text-lg">Socios Goatify</h3>
+<h3 class="font-bold text-slate-900 text-lg">Socios <span class="notranslate gfy-brand-lock-v46" translate="no">Goatify</span></h3>
 <p class="text-sm text-slate-500 mt-2 mb-4">
                                 Transforma tu red de contactos en ingresos recurrentes comercializando nuestra tecnología.
                             </p>
@@ -1193,10 +1184,9 @@ img,svg,video,canvas{max-width:100%;}
 </div>
 </section>
 <!-- FOOTER PRO -->
-<!-- GOATIFY FOOTER CONVERSION BLOCK: formulario + agenda universal -->
 <section aria-label="Contacto y agenda Goatify" class="goatify-footer-conversion goatify-footer-conversion-v2">
 <div class="goatify-footer-conversion-head">
-<span class="goatify-footer-kicker">Goatify · atención directa</span>
+<span class="goatify-footer-kicker"><span class="notranslate gfy-brand-lock-v46" translate="no">Goatify</span> · atención directa</span>
 <h2>Conversemos y activamos tu ruta digital.</h2>
 <p>Dos caminos claros: deja tus datos para que te contactemos o agenda una cita directa en calendario.</p>
 </div>
@@ -1324,8 +1314,7 @@ img,svg,video,canvas{max-width:100%;}
 </form>
 </div>
 </section>
-<!-- /GOATIFY FOOTER CONVERSION BLOCK -->
-<section aria-labelledby="gfy-global-title-v17" id="gfy-global-v17"><div class="gfy-v17-inner"><div><span class="gfy-v17-kicker">Goatify · tecnología empresarial internacional</span><h2 id="gfy-global-title-v17">Información legal y de seguridad del ecosistema Goatify.</h2><p>Consulta políticas, términos, tratamiento de datos y canales oficiales antes de utilizar las plataformas y servicios de Goatify.</p><nav aria-label="Soluciones principales de Goatify" class="gfy-v17-links"><a href="/crm/">CRM para empresas</a><a href="/automatizaciones/">Agentes IA y respuestas automáticas</a><a href="/portafolio/">Páginas web y apps</a><a href="/portal/">Portal gratuito de productividad</a><a href="/pricing/">Planes y precios</a><a href="/es/">Resumen completo</a><a href="/en/">English overview</a></nav><p class="gfy-v17-regions">Atención remota para empresas de toda Latinoamérica, Estados Unidos y España.</p></div><a class="gfy-v17-cta" href="https://ia.goatify.app/" rel="noopener" target="_blank">Probar Portal Goatify gratis</a></div></section>
+<section aria-labelledby="gfy-global-title-v17" id="gfy-global-v17"><div class="gfy-v17-inner"><div><span class="gfy-v17-kicker"><span class="notranslate gfy-brand-lock-v46" translate="no">Goatify</span> · tecnología empresarial internacional</span><h2 id="gfy-global-title-v17">Información legal y de seguridad del ecosistema <span class="notranslate gfy-brand-lock-v46" translate="no">Goatify</span>.</h2><p>Consulta políticas, términos, tratamiento de datos y canales oficiales antes de utilizar las plataformas y servicios de <span class="notranslate gfy-brand-lock-v46" translate="no">Goatify</span>.</p><nav aria-label="Soluciones principales de Goatify" class="gfy-v17-links"><a href="/crm/">CRM para empresas</a><a href="/automatizaciones/">Agentes IA y respuestas automáticas</a><a href="/portafolio/">Páginas web y apps</a><a href="/portal/">Portal gratuito de productividad</a><a href="/pricing/">Planes y precios</a><a href="/es/">Resumen completo</a><a href="/en/">English overview</a></nav><p class="gfy-v17-regions">Atención remota para empresas de toda Latinoamérica, Estados Unidos y España.</p></div><a class="gfy-v17-cta" href="https://ia.goatify.app/" rel="noopener" target="_blank">Probar <span class="notranslate gfy-brand-lock-v46" translate="no">Portal Goatify</span> gratis</a></div></section>
 <footer class="bg-slate-900 text-slate-300 py-12 border-t border-slate-800">
 <div class="container mx-auto px-4 lg:px-8">
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10">
@@ -1336,7 +1325,7 @@ img,svg,video,canvas{max-width:100%;}
 <div class="w-8 h-8 bg-brand-600 rounded-lg flex items-center justify-center text-white" id="footer-fallback-logo" style="display:none;">
 <i class="fa-solid fa-goat"></i>
 </div>
-<span class="font-bold text-xl text-white tracking-tight">Goatify</span>
+<span class="font-bold text-xl text-white tracking-tight"><span class="notranslate gfy-brand-lock-v46" translate="no">Goatify</span></span>
 </div>
 <p class="text-sm leading-relaxed text-slate-400 mb-6">
                         El ecosistema definitivo de productividad e Inteligencia Artificial. Automatiza, gestiona y escala tu negocio con seguridad de grado empresarial.
@@ -1383,10 +1372,10 @@ img,svg,video,canvas{max-width:100%;}
 </div>
 </div>
 <div class="border-t border-slate-800 mt-12 pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-slate-500">
-<p>© 2026 Goatify Inc. Todos los derechos reservados.</p>
+<p>© 2026 <span class="notranslate gfy-brand-lock-v46" translate="no">Goatify</span> Inc. Todos los derechos reservados.</p>
 <div class="flex gap-6 items-center">
 <img alt="Goatify Logo Footer" class="h-6 w-auto opacity-50 grayscale hover:grayscale-0 transition-all" onerror="this.style.display='none';" src="Logos HD.png"/>
-<span class="text-slate-400 font-semibold">Desarrollado por Goatify Inc. &amp; Centro Iberoamericano.</span>
+<span class="text-slate-400 font-semibold">Desarrollado por <span class="notranslate gfy-brand-lock-v46" translate="no">Goatify</span> Inc. &amp; Centro Iberoamericano.</span>
 </div>
 </div>
 </div>
@@ -1440,5 +1429,5 @@ img,svg,video,canvas{max-width:100%;}
 </script>
 <script defer="" src="https://ia.goatify.app/embed/goatify-form.js"></script>
 <script defer="" src="https://ia.goatify.app/embed/goatify-scheduler.js"></script>
-<script src="/goatify-geo-vat-v42.js" defer></script></body>
+<script defer="" src="/goatify-geo-vat-v42.js"></script></body>
 </html>

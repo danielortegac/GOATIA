@@ -54,9 +54,6 @@
 <meta content="CRM para Empresas, Ventas y Clientes | Goatify" name="twitter:title"/>
 <meta content="CRM Goatify para gestionar clientes, prospectos, ventas, WhatsApp, llamadas, tareas, propuestas, contratos, pre-facturas y automatizaciones." name="twitter:description"/>
 <link href="https://www.goatify.app/crm/" rel="canonical"/><link href="https://www.goatify.app/crm/" hreflang="es-419" rel="alternate"/><link href="https://www.goatify.app/en/crm/" hreflang="en" rel="alternate"/><link href="https://www.goatify.app/en/crm/" hreflang="en-US" rel="alternate"/><link href="https://www.goatify.app/en/crm/" hreflang="x-default" rel="alternate"/>
-
-
-
 <link href="/llms.txt" rel="alternate" title="Goatify LLM summary" type="text/plain"/>
 <link href="/llms-full.txt" rel="alternate" title="Goatify full LLM profile" type="text/plain"/>
 <link href="/goatify-entity.jsonld" rel="alternate" title="Goatify entity data" type="application/ld+json"/>
@@ -202,7 +199,6 @@
 </style>
 <style id="goatify-vat-visibility-v42">html:not([data-goatify-vat-country="EC"]) .goatify-vat-label,html:not([data-goatify-vat-country="EC"]) .goatify-vat-note{display:none!important}</style></head>
 <body>
-<!-- GOATIFY GLOBAL IP LANGUAGE V33: ES/EN por IP en todas las páginas, con override manual -->
 <div aria-label="Selector de idioma Goatify" class="gfy-language-toggle-v33 notranslate" id="gfy-language-toggle-v33" translate="no">
 <button aria-pressed="false" data-gfy-lang="es" translate="no" type="button">ES</button>
 <button aria-pressed="false" data-gfy-lang="en" translate="no" type="button">EN</button>
@@ -257,7 +253,7 @@
     .gfy-language-toggle-v33 button{font-size:10px!important;min-width:30px!important;padding:5px 7px!important;}
   }
 </style>
-<script id="gfy-language-toggle-script-v33">
+<script id="gfy-language-toggle-script-v46">
 (function(){
   'use strict';
 
@@ -266,44 +262,33 @@
   var SOURCE_LANG = (htmlLang.indexOf('en') === 0 || path.indexOf('/en/') === 0 || path === '/en') ? 'en' : 'es';
   var TARGET_LANGS = ['es','en'];
   var COOKIE_DAYS = 365;
-  var MANUAL_KEY = 'goatify_lang_manual_v37';
-  var AUTO_KEY = 'goatify_lang_auto_v33';
-  var COUNTRY_KEY = 'goatify_ip_country_v33';
-  var LEGACY_MANUAL_KEY = 'goatify_lang_manual_v9';
-  var LEGACY_KEY = 'goatify_lang_v7';
-  var RELOAD_GUARD_KEY = 'goatify_lang_reload_guard_v37';
+  var MANUAL_KEY = 'goatify_lang_manual_v45';
+  var MANUAL_COOKIE = 'goatify_lang_manual_v45';
+  var AUTO_KEY = 'goatify_lang_auto_v45';
+  var COUNTRY_KEY = 'goatify_ip_country_v45';
+  var LEGACY_MANUAL_KEYS = ['goatify_lang_manual_v37','goatify_lang_manual_v33','goatify_lang_manual_v9'];
+  var LEGACY_GENERAL_KEY = 'goatify_lang_v7';
 
-  // Regla pedida: IP manda por encima del idioma del navegador/computadora.
-  // Ecuador, Colombia, México, LatAm y España => ES. Estados Unidos y resto no LatAm => EN.
-  // Botón manual ES/EN manda por encima de IP y se guarda en el navegador.
   var SPANISH_IP_COUNTRIES = {
     AR:1, BO:1, BR:1, BZ:1, CL:1, CO:1, CR:1, CU:1, DO:1, EC:1, ES:1,
     GT:1, HN:1, MX:1, NI:1, PA:1, PE:1, PR:1, PY:1, SV:1, UY:1, VE:1
   };
 
-  function validLang(lang){ return TARGET_LANGS.indexOf(lang) >= 0 ? lang : SOURCE_LANG; }
+  function validLang(lang){ return TARGET_LANGS.indexOf(lang) >= 0 ? lang : null; }
+  function sourceOr(lang){ return validLang(lang) || SOURCE_LANG; }
+  function getStorage(key){ try{ return localStorage.getItem(key); }catch(e){ return null; } }
+  function setStorage(key, value){ try{ localStorage.setItem(key, value); }catch(e){} }
+  function removeStorage(key){ try{ localStorage.removeItem(key); }catch(e){} }
 
-  function unique(list){
-    var out = [];
-    list.forEach(function(item){ if(item !== undefined && item !== null && out.indexOf(item) < 0) out.push(item); });
-    return out;
-  }
-
-  function cookieDomains(){
-    var host = location.hostname || '';
-    var list = [''];
-    if(host && host !== 'localhost' && host.indexOf('.') > -1 && !/^\d+\.\d+\.\d+\.\d+$/.test(host)){
-      list.push(host);
-      var parts = host.split('.');
-      if(parts.length >= 2) list.push('.' + parts.slice(-2).join('.'));
-      if(parts.length >= 3 && parts[0] !== 'www') list.push('.' + parts.slice(-3).join('.'));
-    }
-    return unique(list);
+  function cookieDomain(){
+    var host = String(location.hostname || '').toLowerCase();
+    if(host === 'goatify.app' || /\.goatify\.app$/.test(host)) return '.goatify.app';
+    return '';
   }
 
   function setCookie(name, value, domain){
     var expires = new Date(Date.now() + COOKIE_DAYS*24*60*60*1000).toUTCString();
-    var cookie = name + '=' + value + '; expires=' + expires + '; path=/; SameSite=Lax';
+    var cookie = name + '=' + encodeURIComponent(value) + '; expires=' + expires + '; path=/; SameSite=Lax';
     if(location.protocol === 'https:') cookie += '; Secure';
     if(domain) cookie += '; domain=' + domain;
     document.cookie = cookie;
@@ -316,70 +301,56 @@
     document.cookie = cookie;
   }
 
-  function hasGoogTrans(){ return /(?:^|;\s*)googtrans=/.test(document.cookie || ''); }
-
-  function clearGoogTrans(){
-    cookieDomains().forEach(function(domain){ clearCookie('googtrans', domain); });
-    clearCookie('googtrans');
+  function readCookie(name){
+    var match = document.cookie.match(new RegExp('(?:^|;\\s*)' + name + '=([^;]*)'));
+    if(!match) return null;
+    try{ return decodeURIComponent(match[1]); }catch(e){ return match[1] || null; }
   }
 
-  function setGoogTrans(lang){
-    lang = validLang(lang);
-    clearGoogTrans();
-    if(lang !== SOURCE_LANG){
-      var value = '/' + SOURCE_LANG + '/' + lang;
-      cookieDomains().forEach(function(domain){ setCookie('googtrans', value, domain); });
-      setCookie('googtrans', value);
-    }
-  }
-
-  function readGoogTransLang(){
-    var match = document.cookie.match(/(?:^|;\s*)googtrans=([^;]+)/);
-    if(!match) return SOURCE_LANG;
-    var value = '';
-    try{ value = decodeURIComponent(match[1]); }catch(e){ value = match[1] || ''; }
-    if(value.indexOf('/en/es') >= 0) return 'es';
-    if(value.indexOf('/es/en') >= 0) return 'en';
-    var parts = value.split('/').filter(Boolean);
-    return validLang(parts.length ? parts[parts.length - 1] : SOURCE_LANG);
-  }
-
-  function getStorage(key){ try{ return localStorage.getItem(key); }catch(e){ return null; } }
-  function setStorage(key, value){ try{ localStorage.setItem(key, value); }catch(e){} }
-  function removeStorage(key){ try{ localStorage.removeItem(key); }catch(e){} }
-
-  function clearLegacyLanguageStateForNativeEnglish(){
-    if(SOURCE_LANG !== 'en') return;
-    // V37: native /en/ URLs must load in English by default.
-    // Old V33/V9/V7 manual values and old googtrans cookies could force Spanish from prior tests.
-    if(getStorage(MANUAL_KEY)) return;
-    removeStorage('goatify_lang_manual_v33');
-    removeStorage('goatify_lang_auto_v33');
-    removeStorage(LEGACY_MANUAL_KEY);
-    removeStorage(LEGACY_KEY);
-    clearGoogTrans();
+  function persistManual(lang){
+    lang = sourceOr(lang);
+    setStorage(MANUAL_KEY, lang);
+    setStorage('goatify_lang_manual_v37', lang);
+    setStorage('goatify_lang_manual_v9', lang);
+    setStorage(LEGACY_GENERAL_KEY, lang);
+    setCookie(MANUAL_COOKIE, lang, cookieDomain());
+    setCookie(MANUAL_COOKIE, lang, '');
   }
 
   function getManualLang(){
-    var lang = getStorage(MANUAL_KEY);
-    if(TARGET_LANGS.indexOf(lang) >= 0) return lang;
-    if(SOURCE_LANG === 'en') return null;
-    lang = getStorage('goatify_lang_manual_v33') || getStorage(LEGACY_MANUAL_KEY);
-    return TARGET_LANGS.indexOf(lang) >= 0 ? lang : null;
+    var candidates = [getStorage(MANUAL_KEY), readCookie(MANUAL_COOKIE)];
+    LEGACY_MANUAL_KEYS.forEach(function(key){ candidates.push(getStorage(key)); });
+    for(var i=0;i<candidates.length;i++){
+      var lang = validLang(candidates[i]);
+      if(lang){ persistManual(lang); return lang; }
+    }
+    return null;
   }
 
-  function desiredLang(){
-    var manual = getManualLang();
-    if(manual) return manual;
-    if(SOURCE_LANG === 'en') return 'en';
-    return readGoogTransLang() || SOURCE_LANG;
+  function googDomains(){
+    var domains = [''];
+    var root = cookieDomain();
+    if(root) domains.push(root);
+    return domains;
+  }
+
+  function clearGoogTrans(){
+    googDomains().forEach(function(domain){ clearCookie('googtrans', domain); });
+  }
+
+  function setGoogTrans(lang){
+    lang = sourceOr(lang);
+    clearGoogTrans();
+    if(lang === SOURCE_LANG) return;
+    var value = '/' + SOURCE_LANG + '/' + lang;
+    googDomains().forEach(function(domain){ setCookie('googtrans', value, domain); });
   }
 
   function mark(lang){
-    lang = validLang(lang);
+    lang = sourceOr(lang);
     document.documentElement.setAttribute('data-goatify-lang', lang);
     document.documentElement.setAttribute('data-goatify-source-lang', SOURCE_LANG);
-    document.documentElement.setAttribute('lang', lang === 'en' ? 'en' : 'es');
+    document.documentElement.setAttribute('lang', lang);
     document.querySelectorAll('#gfy-language-toggle-v33 [data-gfy-lang]').forEach(function(btn){
       var active = btn.getAttribute('data-gfy-lang') === lang;
       btn.classList.toggle('active', active);
@@ -389,69 +360,69 @@
   }
 
   function useGoogleCombo(lang){
-    lang = validLang(lang);
     var combo = document.querySelector('.goog-te-combo');
     if(!combo) return false;
-    combo.value = lang === SOURCE_LANG ? '' : lang;
-    combo.dispatchEvent(new Event('change'));
+    lang = sourceOr(lang);
+    var wanted = lang === SOURCE_LANG ? '' : lang;
+    if(combo.value !== wanted) combo.value = wanted;
+    try{ combo.dispatchEvent(new Event('change', {bubbles:true})); }
+    catch(e){
+      var evt = document.createEvent('HTMLEvents');
+      evt.initEvent('change', true, false);
+      combo.dispatchEvent(evt);
+    }
     return true;
   }
 
-  function guardedReload(){
-    var now = Date.now();
-    try{
-      var last = Number(sessionStorage.getItem(RELOAD_GUARD_KEY) || 0);
-      if(now - last < 3500) return;
-      sessionStorage.setItem(RELOAD_GUARD_KEY, String(now));
-    }catch(e){}
-    setTimeout(function(){ window.location.reload(); }, 90);
-  }
-
-  function syncLang(lang, reloadWhenCookieChanges){
-    lang = validLang(lang);
-    var before = readGoogTransLang();
-    var hadCookie = hasGoogTrans();
+  function applyLanguage(lang){
+    lang = sourceOr(lang);
     mark(lang);
     setGoogTrans(lang);
-    if(reloadWhenCookieChanges && (before !== lang || (hadCookie && lang === SOURCE_LANG))){
-      guardedReload();
-      return;
-    }
-    if(window.google && window.google.translate){
+    if(document.querySelector('.goog-te-combo')){
+      useGoogleCombo(lang);
       setTimeout(function(){ useGoogleCombo(lang); mark(lang); }, 250);
       setTimeout(function(){ useGoogleCombo(lang); mark(lang); }, 900);
     }
   }
 
+  function desiredLang(){
+    var manual = getManualLang();
+    if(manual) return manual;
+    var cached = validLang(getStorage(AUTO_KEY));
+    if(cached) return cached;
+    return SOURCE_LANG;
+  }
+
   function applyManualLang(lang){
-    lang = validLang(lang);
-    setStorage(MANUAL_KEY, lang);
-    setStorage(LEGACY_MANUAL_KEY, lang);
-    setStorage(LEGACY_KEY, lang);
+    lang = sourceOr(lang);
+    var current = validLang(document.documentElement.getAttribute('data-goatify-lang')) || desiredLang();
+    persistManual(lang);
     removeStorage(AUTO_KEY);
-    mark(lang);
     setGoogTrans(lang);
-    guardedReload();
+    mark(lang);
+    if(current === lang){ applyLanguage(lang); return; }
+    try{ sessionStorage.setItem('goatify_lang_scroll_v46', String(window.scrollY || 0)); }catch(e){}
+    window.location.reload();
   }
 
   window.googleTranslateElementInit = function(){
     try{
       new google.translate.TranslateElement({
         pageLanguage: SOURCE_LANG,
-        includedLanguages: SOURCE_LANG === 'es' ? 'en' : 'es',
+        includedLanguages: 'es,en',
         autoDisplay: false,
         multilanguagePage: true
       }, 'google_translate_element');
-      setTimeout(function(){ useGoogleCombo(desiredLang()); mark(desiredLang()); }, 300);
-      setTimeout(function(){ useGoogleCombo(desiredLang()); mark(desiredLang()); }, 1000);
-      setTimeout(function(){ useGoogleCombo(desiredLang()); mark(desiredLang()); }, 2200);
+      [120,420,1100,2200].forEach(function(delay){
+        setTimeout(function(){ var lang = desiredLang(); useGoogleCombo(lang); mark(lang); }, delay);
+      });
     }catch(e){}
   };
 
   function ensureGoogleScript(){
-    if(document.getElementById('google-translate-api-v33')) return;
+    if(document.getElementById('google-translate-api-v45')) return;
     var script = document.createElement('script');
-    script.id = 'google-translate-api-v33';
+    script.id = 'google-translate-api-v45';
     script.src = 'https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';
     script.async = true;
     document.head.appendChild(script);
@@ -460,91 +431,111 @@
   function countryToLang(countryCode){
     var cc = String(countryCode || '').trim().toUpperCase();
     if(!cc) return SOURCE_LANG;
-    if(SPANISH_IP_COUNTRIES[cc]) return 'es';
-    if(cc === 'US') return 'en';
-    return 'en';
+    return SPANISH_IP_COUNTRIES[cc] ? 'es' : 'en';
   }
 
   function fetchWithTimeout(url, ms){
     var controller = window.AbortController ? new AbortController() : null;
-    var timer = setTimeout(function(){ if(controller) controller.abort(); }, ms || 2500);
-    return fetch(url, { cache: 'no-store', signal: controller ? controller.signal : undefined })
+    var timer = setTimeout(function(){ if(controller) controller.abort(); }, ms || 2200);
+    return fetch(url, {cache:'no-store', signal:controller ? controller.signal : undefined})
       .finally(function(){ clearTimeout(timer); });
   }
 
   function detectCountry(){
-    return fetchWithTimeout('https://ipwho.is/?fields=success,country_code', 2500)
+    return fetchWithTimeout('https://ipwho.is/?fields=success,country_code', 2200)
       .then(function(response){ if(!response.ok) throw new Error('ipwho'); return response.json(); })
       .then(function(data){ if(data && data.success !== false && data.country_code) return data.country_code; throw new Error('ipwho-empty'); })
       .catch(function(){
-        return fetchWithTimeout('https://get.geojs.io/v1/ip/country.json', 2500)
+        return fetchWithTimeout('https://get.geojs.io/v1/ip/country.json', 2200)
           .then(function(response){ if(!response.ok) throw new Error('geojs'); return response.json(); })
           .then(function(data){ return data && (data.country || data.country_code || data.countryCode); });
-      })
-      .catch(function(){
-        return fetchWithTimeout('https://ipapi.co/json/', 2500)
-          .then(function(response){ if(!response.ok) throw new Error('ipapi'); return response.json(); })
-          .then(function(data){ return data && (data.country_code || data.country || data.countryCode); });
       })
       .catch(function(){ return null; });
   }
 
-  function applyIpLanguage(){
+  function applyAutomaticLanguageOnce(){
     if(getManualLang()) return;
+    var cached = validLang(getStorage(AUTO_KEY));
+    if(cached){ applyLanguage(cached); return; }
+    if(SOURCE_LANG === 'en'){
+      setStorage(AUTO_KEY, 'en');
+      applyLanguage('en');
+      return;
+    }
     detectCountry().then(function(countryCode){
-      // V35: las URLs nativas en inglés (/en/...) se mantienen en inglés por defecto.
-      // La traducción automática por IP se usa como fallback UX principalmente en páginas fuente ES;
-      // el cambio manual ES/EN sigue mandando por encima de la IP.
-      var lang = SOURCE_LANG === 'en' ? 'en' : countryToLang(countryCode);
+      if(getManualLang()) return;
+      var lang = countryToLang(countryCode);
       setStorage(AUTO_KEY, lang);
-      setStorage(LEGACY_KEY, lang);
       setStorage(COUNTRY_KEY, countryCode ? String(countryCode).toUpperCase() : 'UNKNOWN');
-      syncLang(lang, true);
+      setStorage(LEGACY_GENERAL_KEY, lang);
+      applyLanguage(lang);
     });
   }
 
   function bindButtons(){
     document.querySelectorAll('#gfy-language-toggle-v33 [data-gfy-lang]').forEach(function(btn){
+      if(btn.dataset.goatifyLanguageBoundV45 === '1') return;
+      btn.dataset.goatifyLanguageBoundV45 = '1';
       btn.addEventListener('click', function(event){
         event.preventDefault();
+        event.stopPropagation();
         applyManualLang(btn.getAttribute('data-gfy-lang') || SOURCE_LANG);
       });
     });
+  }
+
+  function restoreScrollAfterLanguageSwitch(){
+    var y = null;
+    try{ y = sessionStorage.getItem('goatify_lang_scroll_v46'); sessionStorage.removeItem('goatify_lang_scroll_v46'); }catch(e){}
+    if(y === null) return;
+    var top = Math.max(0, parseInt(y,10) || 0);
+    [0,120,350,800].forEach(function(delay){ setTimeout(function(){ window.scrollTo(0, top); }, delay); });
   }
 
   function init(){
     var toggle = document.getElementById('gfy-language-toggle-v33');
     if(toggle){
       toggle.classList.add('notranslate');
-      toggle.setAttribute('translate', 'no');
+      toggle.setAttribute('translate','no');
     }
-    clearLegacyLanguageStateForNativeEnglish();
-    var manual = getManualLang();
-    if(!manual) removeStorage(LEGACY_KEY);
-    var initial = manual || (SOURCE_LANG === 'en' ? 'en' : readGoogTransLang()) || SOURCE_LANG;
-    if(manual) syncLang(initial, true);
-    else mark(initial);
-    ensureGoogleScript();
+    var holder = document.getElementById('google_translate_element');
+    if(holder){ holder.classList.add('notranslate'); holder.setAttribute('translate','no'); }
     bindButtons();
-    applyIpLanguage();
+    var initial = desiredLang();
+    applyLanguage(initial);
+    ensureGoogleScript();
+    applyAutomaticLanguageOnce();
+    restoreScrollAfterLanguageSwitch();
   }
 
-  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, {once:true});
   else init();
+
+  window.addEventListener('pageshow', function(){
+    bindButtons();
+    applyLanguage(desiredLang());
+  });
+
+  window.addEventListener('storage', function(event){
+    if(event.key === MANUAL_KEY || LEGACY_MANUAL_KEYS.indexOf(event.key) >= 0){
+      var manual = getManualLang();
+      if(manual) applyLanguage(manual);
+    }
+  });
 })();
 </script>
-<details class="gfy-eco-menu-v26" id="gfy-eco-menu-v26"><summary aria-label="Explorar el ecosistema Goatify">Explorar Goatify <span aria-hidden="true" class="gfy-eco-arrow-v26">▾</span></summary><nav aria-label="Productos, servicios, industrias y páginas principales de Goatify" class="gfy-eco-panel-v26"><div class="gfy-eco-head-v26"><div><b>Productos y Ecosistema Goatify</b><span>38 accesos directos: plataforma, productos, servicios especializados, industrias y empresa.</span></div><a class="gfy-eco-count-v26" href="/ecosistema/">89 páginas indexables</a></div><div class="gfy-eco-grid-v26">
-<div class="gfy-eco-group-v26 gfy-eco-platform-v26"><strong>Plataforma Goatify <em>9 accesos</em></strong><div class="gfy-eco-links-v26"><a href="/portal/"><i>01</i>Portal Goatify</a><a href="/crm/"><i>02</i>CRM Goatify</a><a href="/gestion-de-clientes/"><i>03</i>Gestión de clientes</a><a href="/pipeline-de-ventas/"><i>04</i>Pipeline de ventas</a><a href="/tareas-y-proyectos/"><i>05</i>Tareas y proyectos</a><a href="/agenda-y-citas/"><i>06</i>Agenda y citas</a><a href="/propuestas-contratos-prefacturas/"><i>07</i>Propuestas y contratos</a><a href="/dashboard-empresarial/"><i>08</i>Dashboard empresarial</a><a href="/pos-para-negocios/"><i>09</i>Punto de venta POS</a></div></div>
+<details class="gfy-eco-menu-v26" id="gfy-eco-menu-v26"><summary aria-label="Explorar el ecosistema Goatify">Explorar <span class="notranslate gfy-brand-lock-v46" translate="no">Goatify</span> <span aria-hidden="true" class="gfy-eco-arrow-v26">▾</span></summary><nav aria-label="Productos, servicios, industrias y páginas principales de Goatify" class="gfy-eco-panel-v26"><div class="gfy-eco-head-v26"><div><b>Productos y Ecosistema <span class="notranslate gfy-brand-lock-v46" translate="no">Goatify</span></b><span>38 accesos directos: plataforma, productos, servicios especializados, industrias y empresa.</span></div><a class="gfy-eco-count-v26" href="/ecosistema/">89 páginas indexables</a></div><div class="gfy-eco-grid-v26">
+<div class="gfy-eco-group-v26 gfy-eco-platform-v26"><strong><span class="notranslate gfy-brand-lock-v46" translate="no">Plataforma Goatify</span> <em>9 accesos</em></strong><div class="gfy-eco-links-v26"><a href="/portal/"><i>01</i><span class="notranslate gfy-brand-lock-v46" translate="no">Portal Goatify</span></a><a href="/crm/"><i>02</i><span class="notranslate gfy-brand-lock-v46" translate="no">CRM Goatify</span></a><a href="/gestion-de-clientes/"><i>03</i>Gestión de clientes</a><a href="/pipeline-de-ventas/"><i>04</i>Pipeline de ventas</a><a href="/tareas-y-proyectos/"><i>05</i>Tareas y proyectos</a><a href="/agenda-y-citas/"><i>06</i>Agenda y citas</a><a href="/propuestas-contratos-prefacturas/"><i>07</i>Propuestas y contratos</a><a href="/dashboard-empresarial/"><i>08</i>Dashboard empresarial</a><a href="/pos-para-negocios/"><i>09</i>Punto de venta POS</a></div></div>
 <div class="gfy-eco-group-v26"><strong>Soluciones principales <em>6 accesos</em></strong><div class="gfy-eco-links-v26"><a href="/productividad/"><i>10</i>Productividad</a><a href="/automatizaciones/"><i>11</i>Automatizaciones</a><a href="/industrias/"><i>12</i>Industrias</a><a href="/portafolio/"><i>13</i>Portafolio</a><a href="/social-media/"><i>14</i>Social Media</a><a href="/mailing/"><i>15</i>Mailing</a></div></div>
 <div class="gfy-eco-group-v26 gfy-eco-services-v26"><strong>Servicios especializados <em>9 accesos</em></strong><div class="gfy-eco-links-v26"><a href="/paginas-web-para-empresas/"><i>25</i>Páginas web</a><a href="/desarrollo-de-aplicaciones/"><i>26</i>Desarrollo de apps</a><a href="/software-a-medida/"><i>27</i>Software a medida</a><a href="/automatizacion-whatsapp/"><i>28</i>Automatización WhatsApp</a><a href="/llamadas-ia/"><i>29</i>Llamadas IA</a><a href="/portales-empresariales/"><i>30</i>Portales empresariales</a><a href="/integraciones-apis/"><i>31</i>Integraciones y APIs</a><a href="/pwa-apps-instalables/"><i>32</i>PWA y apps instalables</a><a href="/consultoria-transformacion-digital/"><i>33</i>Consultoría digital</a></div></div>
 <div class="gfy-eco-group-v26"><strong>Soluciones por industria <em>5 accesos</em></strong><div class="gfy-eco-links-v26"><a href="/soluciones-para-restaurantes-y-hoteles/"><i>34</i>Restaurantes y hoteles</a><a href="/software-para-educacion-y-academias/"><i>35</i>Educación y academias</a><a href="/crm-para-constructoras/"><i>36</i>Constructoras</a><a href="/tecnologia-para-turismo-y-hosteleria/"><i>37</i>Turismo y hostelería</a><a href="/crm-para-consultores-y-servicios-profesionales/"><i>38</i>Consultores y servicios</a></div></div>
-<div class="gfy-eco-group-v26"><strong>Productos propios <em>4 accesos</em></strong><div class="gfy-eco-links-v26"><a href="/qlase/"><i>16</i>QLASE</a><a href="/fit/"><i>17</i>GoatiFIT</a><a href="/flow/"><i>18</i>GoatiFLOW</a><a href="/meet/"><i>19</i>GoatiMEET</a></div></div>
+<div class="gfy-eco-group-v26"><strong>Productos propios <em>4 accesos</em></strong><div class="gfy-eco-links-v26"><a href="/qlase/"><i>16</i><span class="notranslate gfy-brand-lock-v46" translate="no">QLASE</span></a><a href="/fit/"><i>17</i><span class="notranslate gfy-brand-lock-v46" translate="no">GoatiFIT</span></a><a href="/flow/"><i>18</i><span class="notranslate gfy-brand-lock-v46" translate="no">GoatiFLOW</span></a><a href="/meet/"><i>19</i><span class="notranslate gfy-brand-lock-v46" translate="no">GoatiMEET</span></a></div></div>
 <div class="gfy-eco-group-v26"><strong>Marca y empresa <em>5 accesos</em></strong><div class="gfy-eco-links-v26"><a href="/"><i>20</i>Inicio</a><a href="/pricing/"><i>21</i>Precios</a><a href="/socios/"><i>22</i>Socios</a><a href="/fundadores/"><i>23</i>Fundadores</a><a href="/privacidad/"><i>24</i>Privacidad</a></div></div>
-</div><a class="gfy-eco-full-v26" href="/ecosistema/"><div>Ver ecosistema completo<span>Buscador, filtros y las 89 URLs indexables de Goatify</span></div><b aria-hidden="true">→</b></a></nav></details><script id="gfy-eco-menu-script-v26">(function(){var d=document.getElementById('gfy-eco-menu-v26');if(!d)return;var panel=d.querySelector('.gfy-eco-panel-v26');d.querySelectorAll('a').forEach(function(a){a.addEventListener('click',function(){d.open=false})});document.addEventListener('click',function(e){if(d.open&&!d.contains(e.target))d.open=false});document.addEventListener('keydown',function(e){if(e.key==='Escape'&&d.open){d.open=false;d.querySelector('summary').focus()}});function applyMobileSide(){if(window.innerWidth>760){d.style.left='';d.style.right='';d.style.top='';d.style.bottom='';if(panel){panel.style.left='';panel.style.right='';panel.style.top='';panel.style.bottom='';panel.style.width='';panel.style.maxHeight='';}return;}var selector=['.advisor-fab','.whatsapp-float','.back-to-top','#backToTopBtn','.cart-fab','.float-stack','.float-btn','.to-top','.gfy-public-menu-v4'];var candidates=[];selector.forEach(function(sel){document.querySelectorAll(sel).forEach(function(el){if(el&&el!==d&&!d.contains(el)&&!candidates.includes(el))candidates.push(el);});});var viewportH=window.innerHeight||document.documentElement.clientHeight||0;var leftOccupied=0,rightOccupied=0;candidates.forEach(function(el){var st=window.getComputedStyle(el);if(st.display==='none'||st.visibility==='hidden'||parseFloat(st.opacity||'1')===0)return;var rect=el.getBoundingClientRect();if(!rect.width||!rect.height)return;if(rect.bottom<viewportH*0.45)return;if(rect.width>220||rect.height>220)return;var occ=Math.max(0,viewportH-rect.top);var center=rect.left+(rect.width/2);if(center<window.innerWidth/2){leftOccupied=Math.max(leftOccupied,occ);}else{rightOccupied=Math.max(rightOccupied,occ);}});var side=(leftOccupied>rightOccupied)?'right':'left';var selectedOcc=side==='left'?leftOccupied:rightOccupied;var baseBottom=72;var bottom=Math.max(baseBottom,Math.ceil(selectedOcc)+14);d.style.top='auto';d.style.bottom='max('+bottom+'px,calc(env(safe-area-inset-bottom) + '+bottom+'px))';if(side==='left'){d.style.left='12px';d.style.right='auto';if(panel){panel.style.left='0';panel.style.right='auto';}}else{d.style.right='12px';d.style.left='auto';if(panel){panel.style.right='0';panel.style.left='auto';}}if(panel){panel.style.top='auto';panel.style.bottom='calc(100% + 10px)';panel.style.width='min(calc(100vw - 24px),360px)';panel.style.maxHeight='70vh';}}applyMobileSide();window.addEventListener('resize',applyMobileSide,{passive:true});window.addEventListener('orientationchange',applyMobileSide,{passive:true});setTimeout(applyMobileSide,120);setTimeout(applyMobileSide,800);})();</script>
+</div><a class="gfy-eco-full-v26" href="/ecosistema/"><div>Ver ecosistema completo<span>Buscador, filtros y las 89 URLs indexables de <span class="notranslate gfy-brand-lock-v46" translate="no">Goatify</span></span></div><b aria-hidden="true">→</b></a></nav></details><script id="gfy-eco-menu-script-v26">(function(){var d=document.getElementById('gfy-eco-menu-v26');if(!d)return;var panel=d.querySelector('.gfy-eco-panel-v26');d.querySelectorAll('a').forEach(function(a){a.addEventListener('click',function(){d.open=false})});document.addEventListener('click',function(e){if(d.open&&!d.contains(e.target))d.open=false});document.addEventListener('keydown',function(e){if(e.key==='Escape'&&d.open){d.open=false;d.querySelector('summary').focus()}});function applyMobileSide(){if(window.innerWidth>760){d.style.left='';d.style.right='';d.style.top='';d.style.bottom='';if(panel){panel.style.left='';panel.style.right='';panel.style.top='';panel.style.bottom='';panel.style.width='';panel.style.maxHeight='';}return;}var selector=['.advisor-fab','.whatsapp-float','.back-to-top','#backToTopBtn','.cart-fab','.float-stack','.float-btn','.to-top','.gfy-public-menu-v4'];var candidates=[];selector.forEach(function(sel){document.querySelectorAll(sel).forEach(function(el){if(el&&el!==d&&!d.contains(el)&&!candidates.includes(el))candidates.push(el);});});var viewportH=window.innerHeight||document.documentElement.clientHeight||0;var leftOccupied=0,rightOccupied=0;candidates.forEach(function(el){var st=window.getComputedStyle(el);if(st.display==='none'||st.visibility==='hidden'||parseFloat(st.opacity||'1')===0)return;var rect=el.getBoundingClientRect();if(!rect.width||!rect.height)return;if(rect.bottom<viewportH*0.45)return;if(rect.width>220||rect.height>220)return;var occ=Math.max(0,viewportH-rect.top);var center=rect.left+(rect.width/2);if(center<window.innerWidth/2){leftOccupied=Math.max(leftOccupied,occ);}else{rightOccupied=Math.max(rightOccupied,occ);}});var side=(leftOccupied>rightOccupied)?'right':'left';var selectedOcc=side==='left'?leftOccupied:rightOccupied;var baseBottom=72;var bottom=Math.max(baseBottom,Math.ceil(selectedOcc)+14);d.style.top='auto';d.style.bottom='max('+bottom+'px,calc(env(safe-area-inset-bottom) + '+bottom+'px))';if(side==='left'){d.style.left='12px';d.style.right='auto';if(panel){panel.style.left='0';panel.style.right='auto';}}else{d.style.right='12px';d.style.left='auto';if(panel){panel.style.right='0';panel.style.left='auto';}}if(panel){panel.style.top='auto';panel.style.bottom='calc(100% + 10px)';panel.style.width='min(calc(100vw - 24px),360px)';panel.style.maxHeight='70vh';}}applyMobileSide();window.addEventListener('resize',applyMobileSide,{passive:true});window.addEventListener('orientationchange',applyMobileSide,{passive:true});setTimeout(applyMobileSide,120);setTimeout(applyMobileSide,800);})();</script>
 <a class="skip-link" href="#contenido">Saltar al contenido</a>
 <header class="site-header">
 <div class="container nav-inner">
-<a aria-label="Goatify - Inicio" class="brand" href="https://www.goatify.app/"><img alt="Logo Goatify" src="../logo-goatify-header.png"/><span>Goatify</span></a>
+<a aria-label="Goatify - Inicio" class="brand" href="https://www.goatify.app/"><img alt="Logo Goatify" src="../logo-goatify-header.png"/><span><span class="notranslate gfy-brand-lock-v46" translate="no">Goatify</span></span></a>
 <nav aria-label="Navegación principal CRM" class="nav-links" id="primary-nav">
 <a href="#capacidades">Capacidades</a><a href="#omnicanal">Omnicanal</a><a href="#ventas">Ventas</a><a href="#automatizacion">Automatización</a><a href="#preguntas">Preguntas</a><a href="https://www.goatify.app/pricing/">Precios</a>
 </nav>
@@ -556,22 +547,22 @@
 <section class="hero">
 <div class="container hero-grid">
 <div>
-<span class="eyebrow"><span class="eyebrow-dot"></span> CRM empresarial de Goatify</span>
+<span class="eyebrow"><span class="eyebrow-dot"></span> CRM empresarial de <span class="notranslate gfy-brand-lock-v46" translate="no">Goatify</span></span>
 <h1><span class="gradient-text">Clientes, ventas y seguimiento</span> en un solo CRM.</h1>
-<p class="hero-copy">Goatify reúne contactos, prospectos, conversaciones, llamadas, oportunidades, documentos, agenda, tareas, proyectos y automatizaciones. Tu equipo sabe quién es cada cliente, qué necesita y cuál es la próxima acción.</p>
+<p class="hero-copy"><span class="notranslate gfy-brand-lock-v46" translate="no">Goatify</span> reúne contactos, prospectos, conversaciones, llamadas, oportunidades, documentos, agenda, tareas, proyectos y automatizaciones. Tu equipo sabe quién es cada cliente, qué necesita y cuál es la próxima acción.</p>
 <div class="hero-actions"><a class="btn btn-primary" href="https://ia.goatify.app" rel="noopener" target="_blank"><i class="fa-solid fa-rocket"></i> Entrar a la plataforma</a><a class="btn btn-secondary" href="https://ia.goatify.app/s/goatify/agenda" rel="noopener" target="_blank"><i class="fa-regular fa-calendar-check"></i> Agendar demostración</a></div>
 <div class="trust-row"><span class="trust-chip">CRM 360°</span><span class="trust-chip">WhatsApp y chats</span><span class="trust-chip">Llamadas y audio</span><span class="trust-chip">Contratos y propuestas</span><span class="trust-chip">Automatización</span></div>
 </div>
 <div aria-label="Vista ilustrativa del CRM Goatify" class="crm-frame">
 <span class="floating-badge badge-one"><i class="fa-solid fa-phone"></i> Llamada registrada</span><span class="floating-badge badge-two"><i class="fa-brands fa-whatsapp"></i> Nuevo lead</span>
-<div class="crm-screen"><div class="crm-top"><span class="dot"></span><span class="dot"></span><span class="dot"></span><strong>Goatify CRM · Panel comercial</strong></div>
+<div class="crm-screen"><div class="crm-top"><span class="dot"></span><span class="dot"></span><span class="dot"></span><strong><span class="notranslate gfy-brand-lock-v46" translate="no">Goatify</span> CRM · Panel comercial</strong></div>
 <div class="crm-body"><aside aria-label="Módulos ilustrativos" class="crm-sidebar"><div class="side-item active"><i class="fa-solid fa-chart-pie"></i> Dashboard</div><div class="side-item"><i class="fa-solid fa-users"></i> Clientes</div><div class="side-item"><i class="fa-solid fa-filter-circle-dollar"></i> Pipeline</div><div class="side-item"><i class="fa-solid fa-comments"></i> Inbox</div><div class="side-item"><i class="fa-solid fa-list-check"></i> Tareas</div><div class="side-item"><i class="fa-solid fa-file-signature"></i> Documentos</div></aside>
 <section aria-label="Dashboard ilustrativo" class="dashboard"><div class="metric-row"><div class="metric"><span>Oportunidades</span><strong>148</strong><em>+18%</em></div><div class="metric"><span>Pipeline</span><strong>$42.8K</strong><em>+12%</em></div><div class="metric"><span>Conversión</span><strong>31%</strong><em>+6%</em></div></div>
 <div class="dash-title"><strong>Pipeline de ventas</strong><span>Actualizado ahora</span></div><div class="pipeline"><div class="pipe-col"><div class="pipe-head"><span>Nuevos</span><span>18</span></div><div class="deal"><b>Café Norte <span class="value">$1.2K</span></b><small>WhatsApp · hoy</small></div><div class="deal"><b>Studio 28 <span class="value">$3.8K</span></b><small>Formulario web</small></div></div><div class="pipe-col"><div class="pipe-head"><span>Propuesta</span><span>9</span></div><div class="deal"><b>RBI Academy <span class="value">$5.4K</span></b><small>Propuesta enviada</small></div><div class="deal"><b>Grupo Áurea <span class="value">$2.1K</span></b><small>Llamada agendada</small></div></div><div class="pipe-col"><div class="pipe-head"><span>Cierre</span><span>5</span></div><div class="deal"><b>Hotel Verde <span class="value">$7.2K</span></b><small>Contrato listo</small></div><div class="deal"><b>Clínica Uno <span class="value">$4.6K</span></b><small>Pre-factura</small></div></div></div>
 <div class="activity"><div class="timeline"><div class="dash-title" style="margin:0"><strong>Actividad reciente</strong><span>En vivo</span></div><div class="event"><i class="fa-brands fa-whatsapp"></i><div><b>Mensaje respondido automáticamente</b><span>Lead calificado · hace 2 min</span></div></div><div class="event"><i class="fa-solid fa-phone"></i><div><b>Resumen de llamada guardado</b><span>Próxima acción creada</span></div></div><div class="event"><i class="fa-solid fa-file-signature"></i><div><b>Contrato generado</b><span>Listo para firma</span></div></div></div><div class="profile-card"><div class="avatar">AM</div><b>Andrea Morales</b><p>Cliente activo · 4 conversaciones · propuesta abierta.</p><span class="status">Seguimiento hoy</span></div></div></section></div></div></div>
 </div></section>
-<section aria-labelledby="crm-visual-title-v23" class="section crm-visuals"><div class="container"><div class="section-head"><span class="eyebrow">Ecosistema visual Goatify</span><h2 id="crm-visual-title-v23">CRM, Portal y automatización vistos como un solo sistema.</h2><p>Estas son las mismas imágenes premium utilizadas en las páginas globales de español e inglés, ahora visibles dentro de CRM.</p></div><div class="crm-visual-shell"><div class="crm-visual-grid"><article class="crm-visual-main"><img alt="Dashboard CRM y analítica de Goatify" decoding="async" loading="eager" src="../assets/goatify-visuals/visual-10-dashboard-pro.png"/><div class="crm-visual-caption"><b>Control de clientes, pipeline y métricas.</b><span>Datos, responsables, embudos y seguimiento en un panel claro.</span></div></article><div class="crm-visual-stack"><article class="crm-visual-mini"><img alt="Portal Goatify conectado al CRM" decoding="async" loading="eager" src="../assets/goatify-visuals/visual-03-portal-pro.png"/><div class="crm-visual-caption"><b>Portal + CRM + productividad.</b><span>Ventas y ejecución sin herramientas desconectadas.</span></div></article><article class="crm-visual-mini"><img alt="Automatizaciones IA conectadas al CRM" decoding="async" loading="eager" src="../assets/goatify-visuals/visual-05-automation-pro.png"/><div class="crm-visual-caption"><b>Agentes y automatizaciones.</b><span>Respuestas, calificación, recordatorios y reactivación.</span></div></article></div></div></div></div></section>
-<section class="section section-alt" id="capacidades"><div class="container"><div class="section-head"><span class="eyebrow">Un sistema comercial completo</span><h2>Más que contactos: una operación conectada.</h2><p>El CRM de Goatify transforma conversaciones dispersas en historial, oportunidades, acciones y cierres medibles.</p></div><div class="feature-grid">
+<section aria-labelledby="crm-visual-title-v23" class="section crm-visuals"><div class="container"><div class="section-head"><span class="eyebrow">Ecosistema visual <span class="notranslate gfy-brand-lock-v46" translate="no">Goatify</span></span><h2 id="crm-visual-title-v23">CRM, Portal y automatización vistos como un solo sistema.</h2><p>Estas son las mismas imágenes premium utilizadas en las páginas globales de español e inglés, ahora visibles dentro de CRM.</p></div><div class="crm-visual-shell"><div class="crm-visual-grid"><article class="crm-visual-main"><img alt="Dashboard CRM y analítica de Goatify" decoding="async" loading="eager" src="../assets/goatify-visuals/visual-10-dashboard-pro.png"/><div class="crm-visual-caption"><b>Control de clientes, pipeline y métricas.</b><span>Datos, responsables, embudos y seguimiento en un panel claro.</span></div></article><div class="crm-visual-stack"><article class="crm-visual-mini"><img alt="Portal Goatify conectado al CRM" decoding="async" loading="eager" src="../assets/goatify-visuals/visual-03-portal-pro.png"/><div class="crm-visual-caption"><b>Portal + CRM + productividad.</b><span>Ventas y ejecución sin herramientas desconectadas.</span></div></article><article class="crm-visual-mini"><img alt="Automatizaciones IA conectadas al CRM" decoding="async" loading="eager" src="../assets/goatify-visuals/visual-05-automation-pro.png"/><div class="crm-visual-caption"><b>Agentes y automatizaciones.</b><span>Respuestas, calificación, recordatorios y reactivación.</span></div></article></div></div></div></div></section>
+<section class="section section-alt" id="capacidades"><div class="container"><div class="section-head"><span class="eyebrow">Un sistema comercial completo</span><h2>Más que contactos: una operación conectada.</h2><p>El CRM de <span class="notranslate gfy-brand-lock-v46" translate="no">Goatify</span> transforma conversaciones dispersas en historial, oportunidades, acciones y cierres medibles.</p></div><div class="feature-grid">
 <article class="feature-card"><div class="icon-box"><i class="fa-solid fa-address-card"></i></div><h3>Ficha 360° del cliente</h3><p>Datos, notas, documentos, conversaciones, compras, proyectos y próximas acciones en un único perfil.</p></article>
 <article class="feature-card" style="--glow:rgba(34,211,238,.18)"><div class="icon-box"><i class="fa-solid fa-filter-circle-dollar"></i></div><h3>Pipeline de ventas</h3><p>Visualiza cada oportunidad por etapa, valor, responsable, probabilidad y fecha estimada de cierre.</p></article>
 <article class="feature-card" style="--glow:rgba(52,211,153,.18)"><div class="icon-box"><i class="fa-solid fa-inbox"></i></div><h3>Inbox centralizado</h3><p>Ordena chats, formularios y contactos para que ningún mensaje comercial quede perdido.</p></article>
@@ -581,23 +572,23 @@
 <article class="feature-card" style="--glow:rgba(52,211,153,.18)"><div class="icon-box"><i class="fa-solid fa-calendar-check"></i></div><h3>Agenda y seguimiento</h3><p>Citas, recordatorios y próximas acciones visibles para todo el equipo comercial.</p></article>
 <article class="feature-card" style="--glow:rgba(251,191,36,.18)"><div class="icon-box"><i class="fa-solid fa-chart-line"></i></div><h3>Reportes y control</h3><p>Mide leads, conversaciones, propuestas, cierres, valor del pipeline y rendimiento del equipo.</p></article>
 </div></div></section>
-<section class="section" id="omnicanal"><div class="container split"><div><span class="eyebrow">Comunicación omnicanal</span><h2>Texto, WhatsApp, llamadas y audio unidos al cliente.</h2><p>No basta con recibir mensajes. Goatify los convierte en contexto comercial: quién escribió, desde qué canal, qué necesita, qué se prometió y cuándo hay que responder.</p><div class="list"><div class="list-item"><i class="fa-solid fa-circle-check"></i><span>Historial de conversaciones y llamadas asociado a cada contacto.</span></div><div class="list-item"><i class="fa-solid fa-circle-check"></i><span>Captura de leads desde formularios, páginas web y campañas.</span></div><div class="list-item"><i class="fa-solid fa-circle-check"></i><span>Resúmenes, etiquetas, etapas y próximas acciones sin perder contexto.</span></div><div class="list-item"><i class="fa-solid fa-circle-check"></i><span>Canales e integraciones disponibles según el plan y el proveedor contratado.</span></div></div></div><div class="channel-cloud"><div class="channel"><i class="fa-brands fa-whatsapp"></i><div><b>WhatsApp</b><span>Leads, atención y seguimiento</span></div></div><div class="channel"><i class="fa-solid fa-comment-dots"></i><div><b>Chat y texto</b><span>Web e inbox comercial</span></div></div><div class="channel"><i class="fa-solid fa-phone"></i><div><b>Llamadas de voz</b><span>Registro y próxima acción</span></div></div><div class="channel"><i class="fa-solid fa-microphone-lines"></i><div><b>Notas de audio</b><span>Contexto y resumen</span></div></div><div class="channel"><i class="fa-solid fa-envelope"></i><div><b>Correo</b><span>Seguimiento y documentos</span></div></div><div class="channel"><i class="fa-solid fa-share-nodes"></i><div><b>Redes sociales</b><span>Conexiones según integración</span></div></div></div></div></section>
+<section class="section" id="omnicanal"><div class="container split"><div><span class="eyebrow">Comunicación omnicanal</span><h2>Texto, WhatsApp, llamadas y audio unidos al cliente.</h2><p>No basta con recibir mensajes. <span class="notranslate gfy-brand-lock-v46" translate="no">Goatify</span> los convierte en contexto comercial: quién escribió, desde qué canal, qué necesita, qué se prometió y cuándo hay que responder.</p><div class="list"><div class="list-item"><i class="fa-solid fa-circle-check"></i><span>Historial de conversaciones y llamadas asociado a cada contacto.</span></div><div class="list-item"><i class="fa-solid fa-circle-check"></i><span>Captura de leads desde formularios, páginas web y campañas.</span></div><div class="list-item"><i class="fa-solid fa-circle-check"></i><span>Resúmenes, etiquetas, etapas y próximas acciones sin perder contexto.</span></div><div class="list-item"><i class="fa-solid fa-circle-check"></i><span>Canales e integraciones disponibles según el plan y el proveedor contratado.</span></div></div></div><div class="channel-cloud"><div class="channel"><i class="fa-brands fa-whatsapp"></i><div><b>WhatsApp</b><span>Leads, atención y seguimiento</span></div></div><div class="channel"><i class="fa-solid fa-comment-dots"></i><div><b>Chat y texto</b><span>Web e inbox comercial</span></div></div><div class="channel"><i class="fa-solid fa-phone"></i><div><b>Llamadas de voz</b><span>Registro y próxima acción</span></div></div><div class="channel"><i class="fa-solid fa-microphone-lines"></i><div><b>Notas de audio</b><span>Contexto y resumen</span></div></div><div class="channel"><i class="fa-solid fa-envelope"></i><div><b>Correo</b><span>Seguimiento y documentos</span></div></div><div class="channel"><i class="fa-solid fa-share-nodes"></i><div><b>Redes sociales</b><span>Conexiones según integración</span></div></div></div></div></section>
 <section class="section section-alt" id="ventas"><div class="container"><div class="section-head"><span class="eyebrow">Pipeline claro</span><h2>Del primer mensaje al cliente activo.</h2><p>Cada etapa tiene responsable, información, documento y siguiente paso.</p></div><div class="process"><article class="step"><span class="number">01 · CAPTURA</span><h3>Nuevo lead</h3><p>Entra por web, WhatsApp, campaña, llamada o registro manual.</p></article><article class="step"><span class="number">02 · CALIFICA</span><h3>Necesidad real</h3><p>Datos, presupuesto, urgencia, interés y prioridad comercial.</p></article><article class="step"><span class="number">03 · PROPONE</span><h3>Oferta y documentos</h3><p>Propuesta, alcance, contrato y pre-factura preparados.</p></article><article class="step"><span class="number">04 · CIERRA</span><h3>Seguimiento</h3><p>Recordatorios, objeciones, llamada, cita y cierre guiado.</p></article><article class="step"><span class="number">05 · ENTREGA</span><h3>Cliente y proyecto</h3><p>La venta pasa a tareas, responsables, entregables y postventa.</p></article></div></div></section>
-<section class="section"><div class="container split"><div class="document-panel"><div class="doc-row"><span class="doc-icon"><i class="fa-solid fa-file-lines"></i></span><div><b>Propuesta comercial</b><span>Datos del cliente y alcance</span></div><span class="status">Enviada</span></div><div class="doc-row"><span class="doc-icon"><i class="fa-solid fa-file-signature"></i></span><div><b>Contrato</b><span>Preparado para firma</span></div><span class="status">Listo</span></div><div class="doc-row"><span class="doc-icon"><i class="fa-solid fa-receipt"></i></span><div><b>Pre-factura</b><span>Importe y condiciones</span></div><span class="status">Generada</span></div><div class="doc-row"><span class="doc-icon"><i class="fa-solid fa-diagram-project"></i></span><div><b>Proyecto de implementación</b><span>Tareas, responsables y fechas</span></div><span class="status">Activo</span></div></div><div><span class="eyebrow">Documentos y ejecución</span><h2>Vende y empieza a trabajar sin volver a copiar todo.</h2><p>La información comercial acompaña al cliente durante todo el ciclo. Así puedes pasar de oportunidad a propuesta, contrato, pre-factura y proyecto con menos trabajo repetitivo.</p><div class="hero-actions"><a class="btn btn-primary" href="https://ia.goatify.app" rel="noopener" target="_blank">Probar Goatify</a><a class="btn btn-secondary" href="https://www.goatify.app/portal/">Ver Portal</a></div></div></div></section>
+<section class="section"><div class="container split"><div class="document-panel"><div class="doc-row"><span class="doc-icon"><i class="fa-solid fa-file-lines"></i></span><div><b>Propuesta comercial</b><span>Datos del cliente y alcance</span></div><span class="status">Enviada</span></div><div class="doc-row"><span class="doc-icon"><i class="fa-solid fa-file-signature"></i></span><div><b>Contrato</b><span>Preparado para firma</span></div><span class="status">Listo</span></div><div class="doc-row"><span class="doc-icon"><i class="fa-solid fa-receipt"></i></span><div><b>Pre-factura</b><span>Importe y condiciones</span></div><span class="status">Generada</span></div><div class="doc-row"><span class="doc-icon"><i class="fa-solid fa-diagram-project"></i></span><div><b>Proyecto de implementación</b><span>Tareas, responsables y fechas</span></div><span class="status">Activo</span></div></div><div><span class="eyebrow">Documentos y ejecución</span><h2>Vende y empieza a trabajar sin volver a copiar todo.</h2><p>La información comercial acompaña al cliente durante todo el ciclo. Así puedes pasar de oportunidad a propuesta, contrato, pre-factura y proyecto con menos trabajo repetitivo.</p><div class="hero-actions"><a class="btn btn-primary" href="https://ia.goatify.app" rel="noopener" target="_blank">Probar <span class="notranslate gfy-brand-lock-v46" translate="no">Goatify</span></a><a class="btn btn-secondary" href="https://www.goatify.app/portal/">Ver Portal</a></div></div></div></section>
 <section class="section" id="automatizacion"><div class="container"><div class="ai-banner"><div><span class="eyebrow">Automatización inteligente</span><h2>El CRM también trabaja cuando tu equipo no está conectado.</h2><p class="hero-copy">Automatiza clasificación, recordatorios, respuestas, resúmenes, reactivación de interesados y creación de próximas acciones. La inteligencia artificial ayuda; tu equipo conserva el control.</p><div class="hero-actions"><a class="btn btn-primary" href="https://www.goatify.app/automatizaciones/">Ver automatizaciones</a><a class="btn btn-secondary" href="https://ia.goatify.app/s/goatify/agenda" rel="noopener" target="_blank">Diseñar mi flujo</a></div></div><div class="automation-stack"><div class="automation-card"><i class="fa-solid fa-wand-magic-sparkles"></i><div><b>Calificación automática</b><span>Prioriza oportunidades con información real.</span></div></div><div class="automation-card"><i class="fa-solid fa-clock-rotate-left"></i><div><b>Seguimientos y reactivación</b><span>Recordatorios para leads que dejaron de responder.</span></div></div><div class="automation-card"><i class="fa-solid fa-headset"></i><div><b>Asistentes y vendedores IA</b><span>Atención, preguntas y agendamiento 24/7.</span></div></div><div class="automation-card"><i class="fa-solid fa-note-sticky"></i><div><b>Resumen y próxima acción</b><span>Convierte conversaciones en tareas concretas.</span></div></div></div></div></div></section>
 <section class="section section-alt"><div class="container"><div class="section-head"><span class="eyebrow">Hecho para empresas reales</span><h2>Un CRM adaptable a distintos equipos e industrias.</h2><p>La estructura se configura según el proceso comercial, los canales y la operación de cada empresa.</p></div><div class="industry-grid"><span class="industry">Restaurantes y hoteles</span><span class="industry">Educación y academias</span><span class="industry">Construcción</span><span class="industry">Inmobiliarias</span><span class="industry">Salud y bienestar</span><span class="industry">Agencias y consultores</span><span class="industry">Turismo</span><span class="industry">Servicios profesionales</span><span class="industry">Comercio y e-commerce</span><span class="industry">Equipos B2B</span></div></div></section>
-<section class="section" id="preguntas"><div class="container"><div class="section-head"><span class="eyebrow">Preguntas frecuentes</span><h2>Todo claro antes de implementar.</h2></div><div class="faq-wrap"><details class="faq-item"><summary>¿Qué es CRM Goatify?<span aria-hidden="true">+</span></summary><p>CRM Goatify es la plataforma comercial de Goatify para organizar clientes, prospectos, conversaciones, oportunidades, documentos, tareas y seguimiento en un solo lugar.</p></details>
+<section class="section" id="preguntas"><div class="container"><div class="section-head"><span class="eyebrow">Preguntas frecuentes</span><h2>Todo claro antes de implementar.</h2></div><div class="faq-wrap"><details class="faq-item"><summary>¿Qué es <span class="notranslate gfy-brand-lock-v46" translate="no">CRM Goatify</span>?<span aria-hidden="true">+</span></summary><p><span class="notranslate gfy-brand-lock-v46" translate="no">CRM Goatify</span> es la plataforma comercial de <span class="notranslate gfy-brand-lock-v46" translate="no">Goatify</span> para organizar clientes, prospectos, conversaciones, oportunidades, documentos, tareas y seguimiento en un solo lugar.</p></details>
 <details class="faq-item"><summary>¿Puedo manejar WhatsApp, chats y llamadas?<span aria-hidden="true">+</span></summary><p>Sí. La plataforma está diseñada para centralizar conversaciones de texto, WhatsApp, formularios web, llamadas de voz, notas de audio y otros canales según el plan y las integraciones contratadas.</p></details>
 <details class="faq-item"><summary>¿El CRM ayuda a vender y dar seguimiento?<span aria-hidden="true">+</span></summary><p>Sí. Permite ordenar el pipeline, registrar próximas acciones, automatizar recordatorios, clasificar prospectos y mantener un historial comercial para que ninguna oportunidad se pierda.</p></details>
-<details class="faq-item"><summary>¿Puedo crear propuestas, contratos y pre-facturas?<span aria-hidden="true">+</span></summary><p>Sí. Goatify permite convertir información del cliente y de la oportunidad en propuestas, contratos y pre-facturas, reduciendo tareas repetitivas y acelerando el cierre.</p></details>
+<details class="faq-item"><summary>¿Puedo crear propuestas, contratos y pre-facturas?<span aria-hidden="true">+</span></summary><p>Sí. <span class="notranslate gfy-brand-lock-v46" translate="no">Goatify</span> permite convertir información del cliente y de la oportunidad en propuestas, contratos y pre-facturas, reduciendo tareas repetitivas y acelerando el cierre.</p></details>
 <details class="faq-item"><summary>¿Sirve para equipos y proyectos?<span aria-hidden="true">+</span></summary><p>Sí. Además del CRM, incluye herramientas para tareas, responsables, proyectos, agenda, archivos, notas, formularios y coordinación de equipos.</p></details>
-<details class="faq-item"><summary>¿En qué países funciona?<span aria-hidden="true">+</span></summary><p>Goatify opera de forma remota para empresas de Ecuador, México, Colombia, Perú, Chile, Argentina, España, Estados Unidos y otros mercados de Latinoamérica.</p></details></div></div></section>
+<details class="faq-item"><summary>¿En qué países funciona?<span aria-hidden="true">+</span></summary><p><span class="notranslate gfy-brand-lock-v46" translate="no">Goatify</span> opera de forma remota para empresas de Ecuador, México, Colombia, Perú, Chile, Argentina, España, Estados Unidos y otros mercados de Latinoamérica.</p></details></div></div></section>
 <section class="section"><div class="container"><div class="final-cta"><div><h2>Convierte conversaciones en clientes.</h2><p>Agenda una demostración para definir módulos, canales, automatizaciones e integraciones según tu operación.</p></div><div class="hero-actions"><a class="btn btn-primary" href="https://ia.goatify.app/s/goatify/agenda" rel="noopener" target="_blank">Agendar demo</a><a class="btn btn-secondary" href="https://wa.me/19125715145?text=Hola%20Goatify%2C%20quiero%20informaci%C3%B3n%20sobre%20el%20CRM%20para%20mi%20empresa." rel="noopener" target="_blank">Hablar por WhatsApp</a></div></div></div></section>
 </main>
-<section aria-labelledby="gfy-global-title-v17" id="gfy-global-v17"><div class="gfy-v17-inner"><div><span class="gfy-v17-kicker">Goatify · tecnología empresarial internacional</span><h2 id="gfy-global-title-v17">Gestiona clientes, ventas, llamadas y próximas acciones sin perder contexto.</h2><p>CRM Goatify convierte conversaciones y oportunidades en seguimiento organizado, documentos comerciales, tareas, proyectos y cierres medibles.</p><nav aria-label="Soluciones principales de Goatify" class="gfy-v17-links"><a href="/crm/">CRM para empresas</a><a href="/automatizaciones/">Agentes IA y respuestas automáticas</a><a href="/portafolio/">Páginas web y apps</a><a href="/portal/">Portal gratuito de productividad</a><a href="/pricing/">Planes y precios</a><a href="/es/">Resumen completo</a><a href="/en/">English overview</a></nav><p class="gfy-v17-regions">Atención remota para empresas de toda Latinoamérica, Estados Unidos y España.</p></div><a class="gfy-v17-cta" href="https://ia.goatify.app/" rel="noopener" target="_blank">Probar Portal Goatify gratis</a></div></section>
-<section class="gfy-v23-directory"><div class="inner"><h2>Soluciones especializadas de Goatify</h2><p>Nuevas páginas detalladas para CRM, automatización, desarrollo, operaciones, industrias y casos reales.</p><nav aria-label="Soluciones especializadas" class="links"><a href="/paginas-web-para-empresas/">Páginas web que explican, posicionan y venden.</a><a href="/desarrollo-de-aplicaciones/">Aplicaciones que convierten procesos en experiencias simples.</a><a href="/software-a-medida/">Software diseñado alrededor de tu operación, no al revés.</a><a href="/automatizacion-whatsapp/">WhatsApp deja de ser un chat suelto y se convierte en un proceso comercial.</a><a href="/llamadas-ia/">Llamadas IA para atender, calificar, recordar y dar seguimiento.</a><a href="/portales-empresariales/">Un espacio privado para que clientes y equipos encuentren lo que necesitan.</a><a href="/integraciones-apis/">Conecta tus herramientas para que los datos no se copien a mano.</a><a href="/pwa-apps-instalables/">Una experiencia de app que se instala desde el navegador.</a><a href="/consultoria-transformacion-digital/">Transformación digital con prioridades, responsables y resultados medibles.</a><a href="/pos-para-negocios/">Ventas, productos, clientes y reportes en una operación más ordenada.</a><a href="/gestion-de-clientes/">Toda la relación con cada cliente en un solo lugar.</a><a href="/pipeline-de-ventas/">Un pipeline que muestra qué vender, a quién y qué hacer después.</a><a href="/tareas-y-proyectos/">La venta se convierte en tareas, responsables y entregables.</a><a href="/agenda-y-citas/">Citas con contexto, confirmaciones y seguimiento.</a><a href="/propuestas-contratos-prefacturas/">De la oportunidad al documento sin volver a copiar todo.</a><a href="/dashboard-empresarial/">Dashboards que convierten actividad en señales útiles.</a><a href="/soluciones-para-restaurantes-y-hoteles/">Tecnología para llenar mesas, habitaciones y relaciones con clientes.</a><a href="/software-para-educacion-y-academias/">Una experiencia conectada para captar, matricular, enseñar y acompañar.</a><a href="/crm-para-constructoras/">Del primer prospecto al proyecto entregado, con trazabilidad.</a><a href="/tecnologia-para-turismo-y-hosteleria/">Convierte inspiración en reservas y huéspedes recurrentes.</a><a href="/crm-para-consultores-y-servicios-profesionales/">Del contacto a la propuesta, y de la propuesta a la entrega.</a></nav></div></section><!-- GOATIFY V32 FOOTER CONVERSION BLOCK: formulario + agenda universal -->
+<section aria-labelledby="gfy-global-title-v17" id="gfy-global-v17"><div class="gfy-v17-inner"><div><span class="gfy-v17-kicker"><span class="notranslate gfy-brand-lock-v46" translate="no">Goatify</span> · tecnología empresarial internacional</span><h2 id="gfy-global-title-v17">Gestiona clientes, ventas, llamadas y próximas acciones sin perder contexto.</h2><p><span class="notranslate gfy-brand-lock-v46" translate="no">CRM Goatify</span> convierte conversaciones y oportunidades en seguimiento organizado, documentos comerciales, tareas, proyectos y cierres medibles.</p><nav aria-label="Soluciones principales de Goatify" class="gfy-v17-links"><a href="/crm/">CRM para empresas</a><a href="/automatizaciones/">Agentes IA y respuestas automáticas</a><a href="/portafolio/">Páginas web y apps</a><a href="/portal/">Portal gratuito de productividad</a><a href="/pricing/">Planes y precios</a><a href="/es/">Resumen completo</a><a href="/en/">English overview</a></nav><p class="gfy-v17-regions">Atención remota para empresas de toda Latinoamérica, Estados Unidos y España.</p></div><a class="gfy-v17-cta" href="https://ia.goatify.app/" rel="noopener" target="_blank">Probar <span class="notranslate gfy-brand-lock-v46" translate="no">Portal Goatify</span> gratis</a></div></section>
+<section class="gfy-v23-directory"><div class="inner"><h2>Soluciones especializadas de <span class="notranslate gfy-brand-lock-v46" translate="no">Goatify</span></h2><p>Nuevas páginas detalladas para CRM, automatización, desarrollo, operaciones, industrias y casos reales.</p><nav aria-label="Soluciones especializadas" class="links"><a href="/paginas-web-para-empresas/">Páginas web que explican, posicionan y venden.</a><a href="/desarrollo-de-aplicaciones/">Aplicaciones que convierten procesos en experiencias simples.</a><a href="/software-a-medida/">Software diseñado alrededor de tu operación, no al revés.</a><a href="/automatizacion-whatsapp/">WhatsApp deja de ser un chat suelto y se convierte en un proceso comercial.</a><a href="/llamadas-ia/">Llamadas IA para atender, calificar, recordar y dar seguimiento.</a><a href="/portales-empresariales/">Un espacio privado para que clientes y equipos encuentren lo que necesitan.</a><a href="/integraciones-apis/">Conecta tus herramientas para que los datos no se copien a mano.</a><a href="/pwa-apps-instalables/">Una experiencia de app que se instala desde el navegador.</a><a href="/consultoria-transformacion-digital/">Transformación digital con prioridades, responsables y resultados medibles.</a><a href="/pos-para-negocios/">Ventas, productos, clientes y reportes en una operación más ordenada.</a><a href="/gestion-de-clientes/">Toda la relación con cada cliente en un solo lugar.</a><a href="/pipeline-de-ventas/">Un pipeline que muestra qué vender, a quién y qué hacer después.</a><a href="/tareas-y-proyectos/">La venta se convierte en tareas, responsables y entregables.</a><a href="/agenda-y-citas/">Citas con contexto, confirmaciones y seguimiento.</a><a href="/propuestas-contratos-prefacturas/">De la oportunidad al documento sin volver a copiar todo.</a><a href="/dashboard-empresarial/">Dashboards que convierten actividad en señales útiles.</a><a href="/soluciones-para-restaurantes-y-hoteles/">Tecnología para llenar mesas, habitaciones y relaciones con clientes.</a><a href="/software-para-educacion-y-academias/">Una experiencia conectada para captar, matricular, enseñar y acompañar.</a><a href="/crm-para-constructoras/">Del primer prospecto al proyecto entregado, con trazabilidad.</a><a href="/tecnologia-para-turismo-y-hosteleria/">Convierte inspiración en reservas y huéspedes recurrentes.</a><a href="/crm-para-consultores-y-servicios-profesionales/">Del contacto a la propuesta, y de la propuesta a la entrega.</a></nav></div></section>  
 <section aria-label="Contacto y agenda Goatify" class="goatify-footer-conversion goatify-footer-conversion-v2">
-<div class="goatify-footer-conversion-head"><span class="goatify-footer-kicker">Goatify · atención directa</span><h2>Conversemos y activamos tu ruta digital.</h2><p>Déjanos tus datos para responder rápido. También puedes agendar una cita directa si ya quieres avanzar.</p></div>
+<div class="goatify-footer-conversion-head"><span class="goatify-footer-kicker"><span class="notranslate gfy-brand-lock-v46" translate="no">Goatify</span> · atención directa</span><h2>Conversemos y activamos tu ruta digital.</h2><p>Déjanos tus datos para responder rápido. También puedes agendar una cita directa si ya quieres avanzar.</p></div>
 <div class="goatify-footer-conversion-grid">
 <details class="goatify-slim-panel goatify-slim-lead"><summary class="goatify-slim-summary"><span class="goatify-slim-icon"><i aria-hidden="true" class="fas fa-paper-plane"></i></span><span class="goatify-slim-title"><b>Formulario rápido</b><small>Déjanos tus datos y te contactamos.</small></span><em class="goatify-slim-action">Abrir</em></summary>
 <form class="goatify-native-form goatify-footer-card goatify-lead-card" data-goatify-form-id="KzGQz2tjmRZDu2htFYld" data-goatify-form-slug="goatify" data-goatify-phone-form="lead" data-goatify-success-message="Gracias. Tu información fue enviada correctamente.">
@@ -645,8 +636,8 @@
 <option data-duration="30" value="Otra necesidad">Otra necesidad</option></select></label><label>Fecha<input name="date" required="" type="date"/></label><label>Hora<input name="time" required="" type="time"/></label><label class="goatify-field-wide">Notas<textarea name="notes" placeholder="Cuéntanos brevemente qué quieres resolver"></textarea></label></div>
 <button class="goatify-submit-btn" type="submit">Agendar cita</button><small class="goatify-form-status" data-goatify-scheduler-status=""></small></form></details>
 </div></section>
-<!-- /GOATIFY V32 FOOTER CONVERSION BLOCK -->
-<footer><div class="container footer-grid"><div><a class="brand" href="https://www.goatify.app/"><img alt="Logo Goatify" src="../logo-goatify-header.png"/><span>Goatify</span></a><p class="fine-print">Tecnología empresarial para organizar clientes, ventas, operación y crecimiento.</p></div><div><h3>Plataforma</h3><a href="https://www.goatify.app/crm/">CRM</a><a href="https://www.goatify.app/portal/">Portal</a><a href="https://www.goatify.app/productividad/">Productividad</a><a href="https://www.goatify.app/automatizaciones/">Automatizaciones</a></div><div><h3>Empresa</h3><a href="https://www.goatify.app/portafolio/">Portafolio</a><a href="https://www.goatify.app/industrias/">Industrias</a><a href="https://www.goatify.app/fundadores/">Fundadores</a><a href="https://www.goatify.app/socios/">Socios</a></div><div><h3>Contacto</h3><a href="https://www.goatify.app/pricing/">Precios</a><a href="https://ia.goatify.app/s/goatify/agenda" rel="noopener" target="_blank">Agendar</a><a href="https://www.goatify.app/privacidad/">Privacidad</a></div></div><div class="container fine-print">© 2026 Goatify. Las funciones de canales externos dependen de las integraciones y proveedores incluidos en cada plan.</div></footer>
+  
+<footer><div class="container footer-grid"><div><a class="brand" href="https://www.goatify.app/"><img alt="Logo Goatify" src="../logo-goatify-header.png"/><span><span class="notranslate gfy-brand-lock-v46" translate="no">Goatify</span></span></a><p class="fine-print">Tecnología empresarial para organizar clientes, ventas, operación y crecimiento.</p></div><div><h3>Plataforma</h3><a href="https://www.goatify.app/crm/">CRM</a><a href="https://www.goatify.app/portal/">Portal</a><a href="https://www.goatify.app/productividad/">Productividad</a><a href="https://www.goatify.app/automatizaciones/">Automatizaciones</a></div><div><h3>Empresa</h3><a href="https://www.goatify.app/portafolio/">Portafolio</a><a href="https://www.goatify.app/industrias/">Industrias</a><a href="https://www.goatify.app/fundadores/">Fundadores</a><a href="https://www.goatify.app/socios/">Socios</a></div><div><h3>Contacto</h3><a href="https://www.goatify.app/pricing/">Precios</a><a href="https://ia.goatify.app/s/goatify/agenda" rel="noopener" target="_blank">Agendar</a><a href="https://www.goatify.app/privacidad/">Privacidad</a></div></div><div class="container fine-print">© 2026 <span class="notranslate gfy-brand-lock-v46" translate="no">Goatify</span>. Las funciones de canales externos dependen de las integraciones y proveedores incluidos en cada plan.</div></footer>
 <script>
 const menuButton=document.querySelector('.menu-button');const nav=document.getElementById('primary-nav');if(menuButton&&nav){menuButton.addEventListener('click',()=>{const open=nav.classList.toggle('open');menuButton.setAttribute('aria-expanded',String(open));});nav.querySelectorAll('a').forEach(a=>a.addEventListener('click',()=>{nav.classList.remove('open');menuButton.setAttribute('aria-expanded','false');}));}
 document.querySelectorAll('.faq-item').forEach(item=>item.addEventListener('toggle',()=>{const mark=item.querySelector('summary span');if(mark)mark.textContent=item.open?'−':'+';}));
@@ -668,5 +659,5 @@ document.querySelectorAll('.faq-item').forEach(item=>item.addEventListener('togg
 </script>
 <script defer="" src="https://ia.goatify.app/embed/goatify-form.js"></script>
 <script defer="" src="https://ia.goatify.app/embed/goatify-scheduler.js"></script>
-<script src="/goatify-geo-vat-v42.js" defer></script></body>
+<script defer="" src="/goatify-geo-vat-v42.js"></script></body>
 </html>
