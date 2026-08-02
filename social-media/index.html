@@ -2997,84 +2997,59 @@ img,svg,video,canvas{max-width:100%;}
 </script>
 <script defer="" src="https://ia.goatify.app/embed/goatify-form.js"></script>
 <script defer="" src="https://ia.goatify.app/embed/goatify-scheduler.js"></script>
-<script id="GOATIFY_GEO_CURRENCY_PATCH_V48">
+<script id="GOATIFY_GEO_CURRENCY_PATCH_V6">
 (function(){
-  'use strict';
   const RATES = { USD:1, MXN:17.33, COP:4000, PEN:3.75, CLP:930, ARS:1200, EUR:0.92 };
   const OPTIONS = {
     USD:'🇺🇸 USD', MXN:'🇲🇽 MXN', COP:'🇨🇴 COP', PEN:'🇵🇪 PEN', CLP:'🇨🇱 CLP', ARS:'🇦🇷 ARS', EUR:'🇪🇺 EUR'
   };
   const LOCALES = { USD:'en-US', MXN:'es-MX', COP:'es-CO', PEN:'es-PE', CLP:'es-CL', ARS:'es-AR', EUR:'es-ES' };
-  const SYMBOLS = { USD:'$', MXN:'$', COP:'$', PEN:'S/', CLP:'$', ARS:'$', EUR:'€' };
   const COUNTRY_TO_CURRENCY = {
     MX:'MXN', CO:'COP', PE:'PEN', CL:'CLP', AR:'ARS', EC:'USD', US:'USD', CA:'USD',
     ES:'EUR', DE:'EUR', FR:'EUR', IT:'EUR', PT:'EUR', NL:'EUR', BE:'EUR', IE:'EUR'
   };
   const SUPPORTED = Object.keys(RATES);
-  const MANUAL_KEY = 'goatify_currency_manual_v40';
-  const LEGACY_MANUAL_KEY = 'goatify_currency_manual';
-  const COUNTRY_KEY = 'goatify_currency_country_v40';
   let applying = false;
-  let renderedCurrency = '';
-
-  function norm(c){ c=String(c||'USD').toUpperCase(); return RATES[c] ? c : 'USD'; }
-  function fromCountry(code){ return COUNTRY_TO_CURRENCY[String(code||'').toUpperCase()] || null; }
-  function fallbackCurrency(){ return 'USD'; }
-  function symbol(currency){ return SYMBOLS[norm(currency)] || '$'; }
-  function convertedValue(usd, currency){ return Number(usd || 0) * (RATES[norm(currency)] || 1); }
-  function decimalsFor(currency, value){
-    currency = norm(currency);
-    if ((currency === 'USD' || currency === 'EUR') && Math.abs(value - Math.round(value)) > 0.0001) return 2;
-    return 0;
+  function norm(c){ c=(c||'USD').toUpperCase(); return RATES[c] ? c : 'USD'; }
+  function browserGuess(){
+    try {
+      const locales = navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || ''];
+      for (const loc of locales) {
+        const region = (loc.split('-')[1] || '').toUpperCase();
+        if (COUNTRY_TO_CURRENCY[region]) return COUNTRY_TO_CURRENCY[region];
+      }
+    } catch(e){}
+    return 'USD';
   }
+  function fromCountry(code){ return COUNTRY_TO_CURRENCY[(code||'').toUpperCase()] || browserGuess(); }
+  function decimalsFor(currency){ return (currency === 'USD' || currency === 'EUR') ? 2 : 0; }
   function numberOnly(usd, currency){
-    currency = norm(currency);
-    const value = convertedValue(usd, currency);
-    const digits = decimalsFor(currency, value);
-    return new Intl.NumberFormat(LOCALES[currency] || 'en-US', {
-      minimumFractionDigits: digits, maximumFractionDigits: digits
-    }).format(value);
+    const rate = RATES[currency] || 1;
+    const value = Number(usd || 0) * rate;
+    return new Intl.NumberFormat(LOCALES[currency] || 'en-US', { maximumFractionDigits: decimalsFor(currency) }).format(value);
   }
   function money(usd, currency, withCode=true){
-    currency = norm(currency);
-    const prefix = currency === 'PEN' ? 'S/ ' : symbol(currency);
-    const formatted = `${prefix}${numberOnly(usd, currency)}`;
+    const rate = RATES[currency] || 1;
+    const value = Number(usd || 0) * rate;
+    const formatted = new Intl.NumberFormat(LOCALES[currency] || 'en-US', {
+      style:'currency', currency, maximumFractionDigits: decimalsFor(currency)
+    }).format(value);
     return withCode ? `${formatted} ${currency}` : formatted;
   }
+  function symbol(currency){ return currency === 'EUR' ? '€' : '$'; }
   function readUsd(el){
     const raw = el.getAttribute('data-usd') || el.getAttribute('data-price-usd') || el.getAttribute('data-goatify-usd') || el.getAttribute('data-base-price') || '0';
     const n = parseFloat(String(raw).replace(/,/g,''));
     return Number.isFinite(n) ? n : 0;
   }
-  function getLS(key){ try { return localStorage.getItem(key); } catch(e){ return null; } }
-  function setLS(key, value){ try { localStorage.setItem(key, value); } catch(e){} }
-  function removeLS(key){ try { localStorage.removeItem(key); } catch(e){} }
-  function protect(el){
-    if (!el || el.nodeType !== 1) return;
-    el.setAttribute('translate','no');
-    el.setAttribute('lang','zxx');
-    el.classList.add('notranslate','gfy-money-lock-v48');
-  }
-  function injectStyle(){
-    if (document.getElementById('gfy-currency-style-v48')) return;
-    const st=document.createElement('style');
-    st.id='gfy-currency-style-v48';
-    st.textContent='.gfy-currency-code-v48{font-size:.38em;margin-left:.35rem;font-weight:800;opacity:.78;text-transform:uppercase;white-space:nowrap}.gfy-money-lock-v48{unicode-bidi:isolate}.price-display{min-width:0}.price-display .price-val{min-width:0}';
-    document.head.appendChild(st);
-  }
-  function resetLegacyCurrencyIfUnconfirmed(){
-    if (!getLS(MANUAL_KEY)) removeLS(LEGACY_MANUAL_KEY);
-  }
   function ensureOptions(){
     document.querySelectorAll('select[id*="currency"], select.currency-select, select.currency-selector').forEach(sel => {
-      protect(sel);
-      const existing = new Set([...sel.options].map(o => String(o.value||'').toUpperCase()));
+      const existing = new Set([...sel.options].map(o => o.value));
       SUPPORTED.forEach(cur => {
         if (!existing.has(cur)) {
           const opt = document.createElement('option'); opt.value = cur; opt.textContent = OPTIONS[cur]; sel.appendChild(opt);
         }
       });
-      [...sel.options].forEach(opt => protect(opt));
     });
   }
   function setLabels(currency){
@@ -3083,110 +3058,67 @@ img,svg,video,canvas{max-width:100%;}
       if (/mes/i.test(txt)) el.textContent = `${currency}/mes`;
       else if (/año|ano/i.test(txt)) el.textContent = `${currency}/año`;
       else el.textContent = currency;
-      protect(el);
-    });
-    document.querySelectorAll('.price-symbol').forEach(el => { el.textContent = currency === 'PEN' ? 'S/' : symbol(currency); protect(el); });
-    document.querySelectorAll('.price-val[data-usd]').forEach(el => {
-      const parent=el.parentElement;
-      if (!parent) return;
-      protect(parent); protect(el);
-      const hasLabel=parent.querySelector('.currency-label,.dyn-label');
-      let code=parent.querySelector('.gfy-currency-code-v48');
-      if (hasLabel) { if(code) code.remove(); return; }
-      if(!code){ code=document.createElement('span'); code.className='gfy-currency-code-v48'; el.insertAdjacentElement('afterend',code); }
-      code.textContent=currency; protect(code);
     });
     document.querySelectorAll('.plan-period-new').forEach(el => {
       const txt = (el.textContent || '').trim();
       if (/mes/i.test(txt)) el.textContent = `${currency}/mes`;
       else if (/año|ano/i.test(txt)) el.textContent = `${currency}/año`;
       else if (/USD|MXN|COP|PEN|CLP|ARS|EUR/i.test(txt)) el.textContent = txt.replace(/USD|MXN|COP|PEN|CLP|ARS|EUR/gi, currency);
-      protect(el);
     });
     document.querySelectorAll('.plan-period').forEach(el => {
       const txt = (el.textContent || '').trim();
       if (/USD|MXN|COP|PEN|CLP|ARS|EUR/i.test(txt)) el.textContent = txt.replace(/USD|MXN|COP|PEN|CLP|ARS|EUR/gi, currency);
-      protect(el);
-    });
-  }
-  function protectPricingUI(){
-    document.querySelectorAll('[data-usd], [data-price-usd], [data-goatify-usd], [data-base-price], .price-display, .currency-label, .dyn-label, .plan-period, .plan-period-new, select[id*="currency"], select.currency-select, select.currency-selector').forEach(protect);
-    ['web-plans-container','automation-plans-container','ai-plans-container','addons-container','training-container','cart-sidebar','calculator-section','social-media-packages'].forEach(id => {
-      const el=document.getElementById(id); if(el){ el.setAttribute('translate','no'); el.classList.add('notranslate'); }
     });
   }
   function setSelectors(currency){
     ensureOptions();
-    document.querySelectorAll('select[id*="currency"], select.currency-select, select.currency-selector').forEach(sel => { sel.value = currency; protect(sel); });
+    document.querySelectorAll('select[id*="currency"], select.currency-select, select.currency-selector').forEach(sel => { sel.value = currency; });
     document.querySelectorAll('[data-currency]').forEach(btn => {
-      const active = String(btn.getAttribute('data-currency') || '').toUpperCase() === currency;
+      const active = (btn.getAttribute('data-currency') || '').toUpperCase() === currency;
       btn.classList.toggle('active', active);
       btn.setAttribute('aria-pressed', active ? 'true' : 'false');
-    });
-  }
-  function formatNodes(currency){
-    document.querySelectorAll('.dynamic-price[data-usd], .price-dynamic[data-usd], .js-currency[data-usd]').forEach(el => {
-      el.textContent = money(readUsd(el), currency, true); protect(el);
-    });
-    document.querySelectorAll('.dyn-price[data-usd]').forEach(el => {
-      const siblingLabel = el.parentElement && el.parentElement.querySelector('.dyn-label');
-      el.textContent = siblingLabel ? money(readUsd(el), currency, false) : money(readUsd(el), currency, true);
-      protect(el);
-    });
-    document.querySelectorAll('.price-val[data-usd]').forEach(el => { el.textContent = numberOnly(readUsd(el), currency); protect(el); });
-    document.querySelectorAll('[data-usd]').forEach(el => {
-      if (el.matches('.dynamic-price,.price-dynamic,.js-currency,.dyn-price,.price-val')) return;
-      if (el.children.length === 0 && /\$|USD|MXN|COP|PEN|CLP|ARS|EUR|S\//.test(el.textContent || '')) el.textContent = money(readUsd(el), currency, true);
-      protect(el);
     });
   }
   function applyCurrency(currency, source){
     currency = norm(currency);
     if (applying) return;
     applying = true;
-    const changed = window.GOATIFY_CURRENCY !== currency;
     window.GOATIFY_CURRENCY = currency;
     window.GOATIFY_BASE_CURRENCY = 'USD';
     window.GOATIFY_EXCHANGE_RATES = RATES;
-    window.GOATIFY_CURRENCY_SOURCE = source || 'auto';
     try { if (typeof currentCurrency !== 'undefined') currentCurrency = currency; } catch(e){}
     if (source === 'manual') {
-      setLS(MANUAL_KEY, currency);
-      setLS(LEGACY_MANUAL_KEY, currency);
+      try { localStorage.setItem('goatify_currency_manual', currency); } catch(e){}
     }
     setSelectors(currency);
-    formatNodes(currency);
+    document.querySelectorAll('.dynamic-price[data-usd], .price-dynamic[data-usd], .js-currency[data-usd]').forEach(el => {
+      el.textContent = money(readUsd(el), currency, true);
+    });
+    document.querySelectorAll('.dyn-price[data-usd]').forEach(el => { el.textContent = symbol(currency) + numberOnly(readUsd(el), currency); });
+    document.querySelectorAll('.price-val[data-usd]').forEach(el => { el.textContent = numberOnly(readUsd(el), currency); });
+    document.querySelectorAll('[data-usd]').forEach(el => {
+      if (el.matches('.dynamic-price,.price-dynamic,.js-currency,.dyn-price,.price-val')) return;
+      if (el.children.length === 0 && /\$|USD|MXN|COP|PEN|CLP|ARS|EUR/.test(el.textContent || '')) el.textContent = money(readUsd(el), currency, true);
+    });
     setLabels(currency);
-    protectPricingUI();
-    const cartTotal = document.getElementById('cart-total') || document.getElementById('cartTotal');
-    if (cartTotal && /\$\s*0|0\s*(USD|MXN|COP|PEN|CLP|ARS|EUR)/i.test(cartTotal.textContent || '')) { cartTotal.textContent = money(0, currency, true); protect(cartTotal); }
+    const cartTotal = document.getElementById('cart-total');
+    if (cartTotal && /\$\s*0/.test(cartTotal.textContent || '')) cartTotal.textContent = money(0, currency, true);
     applying = false;
-    if (changed || renderedCurrency !== currency || source === 'manual') {
-      renderedCurrency = currency;
-      try { if (typeof refreshAll === 'function') refreshAll(); } catch(e){}
-      try { if (typeof refreshCart === 'function') refreshCart(); } catch(e){}
-      try { if (typeof updateCartUI === 'function') updateCartUI(); } catch(e){}
-      setTimeout(() => { if(!applying){ applying=true; formatNodes(currency); setLabels(currency); protectPricingUI(); applying=false; } }, 0);
-    }
-    try { window.dispatchEvent(new CustomEvent('goatify:currencychange',{detail:{currency,source:source||'auto'}})); } catch(e){}
   }
   async function detectCurrency(){
     const q = new URLSearchParams(location.search).get('currency');
     if (q) return norm(q);
-    const manual = getLS(MANUAL_KEY);
-    if (manual) return norm(manual);
+    try { const manual = localStorage.getItem('goatify_currency_manual'); if (manual) return norm(manual); } catch(e){}
     try {
       const res = await fetch('https://ipwho.is/?fields=success,country_code,currency_code', { cache:'no-store' });
       const data = await res.json();
       if (data && data.success !== false) {
-        const country = data.country_code ? String(data.country_code).toUpperCase() : 'UNKNOWN';
-        setLS(COUNTRY_KEY, country);
-        const byCountry = fromCountry(country);
+        const byCountry = fromCountry(data.country_code);
         if (byCountry) return norm(byCountry);
-        if (data.currency_code && RATES[String(data.currency_code).toUpperCase()]) return norm(data.currency_code);
+        if (data.currency_code) return norm(data.currency_code);
       }
     } catch(e){}
-    return fallbackCurrency();
+    return norm(browserGuess());
   }
   document.addEventListener('change', function(e){
     const sel = e.target && e.target.closest && e.target.closest('select[id*="currency"], select.currency-select, select.currency-selector');
@@ -3196,21 +3128,14 @@ img,svg,video,canvas{max-width:100%;}
     const btn = e.target && e.target.closest && e.target.closest('[data-currency]');
     if (btn) { e.preventDefault(); applyCurrency(btn.getAttribute('data-currency'), 'manual'); }
   }, true);
-  window.GOATIFY_APPLY_CURRENCY_V48 = applyCurrency;
-  window.GOATIFY_FORMAT_MONEY_V48 = function(usd,currency,withCode){ return money(usd,norm(currency || window.GOATIFY_CURRENCY || 'USD'),withCode !== false); };
-  window.GOATIFY_CURRENCY_SYMBOL_V48 = function(currency){ return symbol(norm(currency || window.GOATIFY_CURRENCY || 'USD')); };
   function boot(){
-    injectStyle();
-    resetLegacyCurrencyIfUnconfirmed();
-    protectPricingUI();
-    applyCurrency('USD', 'initial');
     detectCurrency().then(cur => {
       applyCurrency(cur, 'auto');
       [80,250,700,1400,2600,4200].forEach(ms => setTimeout(() => applyCurrency(window.GOATIFY_CURRENCY || cur, 'auto'), ms));
       try {
         new MutationObserver(() => {
-          if (!applying) clearTimeout(window.__goatifyCurrencyTimerV48);
-          window.__goatifyCurrencyTimerV48 = setTimeout(() => applyCurrency(window.GOATIFY_CURRENCY || cur, 'auto'), 120);
+          if (!applying) clearTimeout(window.__goatifyCurrencyTimer);
+          window.__goatifyCurrencyTimer = setTimeout(() => applyCurrency(window.GOATIFY_CURRENCY || cur, 'auto'), 120);
         }).observe(document.body, { childList:true, subtree:true });
       } catch(e){}
     });
@@ -3249,89 +3174,5 @@ img,svg,video,canvas{max-width:100%;}
   }
 }
 </style>
-
-<script id="goatify-currency-period-guard-v49">
-(function(){
-  'use strict';
-  if(window.__GOATIFY_CURRENCY_PERIOD_GUARD_V49__) return;
-  window.__GOATIFY_CURRENCY_PERIOD_GUARD_V49__=true;
-  var timer=0, running=false;
-  var ISO=/^(USD|MXN|COP|PEN|CLP|ARS|EUR)$/;
-  function ls(k){try{return localStorage.getItem(k)||'';}catch(e){return '';}}
-  function currency(){
-    var c=String(window.GOATIFY_CURRENCY||ls('goatify_currency_manual_v40')||ls('goatify_currency_manual')||'USD').toUpperCase();
-    return ISO.test(c)?c:'USD';
-  }
-  function language(){
-    var manual=String(ls('goatify_lang_manual_v45')||ls('goatify_lang_manual_v37')||ls('goatify_lang_v7')||'').toLowerCase();
-    if(manual==='en'||manual==='es') return manual;
-    var active=document.querySelector('[data-gfy-lang].active,[data-gfy-lang][aria-pressed="true"]');
-    if(active){var a=String(active.getAttribute('data-gfy-lang')||'').toLowerCase();if(a==='en'||a==='es')return a;}
-    return String(document.documentElement.lang||'es').toLowerCase().indexOf('en')===0?'en':'es';
-  }
-  function protect(el){
-    if(!el||el.nodeType!==1)return;
-    el.setAttribute('translate','no');el.setAttribute('lang','zxx');
-    el.classList.add('notranslate','gfy-money-period-lock-v49');
-  }
-  function normalizePeriods(){
-    var lang=language(), month=lang==='en'?'/month':'/mes', year=lang==='en'?'/year':'/año';
-    document.querySelectorAll('[data-gfy-period],.plan-period,.plan-period-new,.gfy-period-v49').forEach(function(el){
-      protect(el);
-      var type=String(el.getAttribute('data-gfy-period')||'').toLowerCase();
-      var txt=String(el.textContent||'').trim();
-      if(!type){
-        if(/mes|month|\/mo\b|nosotros|\/us\b/i.test(txt)) type='month';
-        else if(/año|ano|year/i.test(txt)) type='year';
-      }
-      if(type==='month'){
-        var suffix=el.getAttribute('data-gfy-period-suffix')||'';
-        var expected=month+suffix;
-        if(el.textContent!==expected)el.textContent=expected;
-      }else if(type==='year'){
-        if(el.textContent!==year)el.textContent=year;
-      }
-    });
-    document.querySelectorAll('.plan-price,.price-display,.hosting-inline-price,.eco-price-tag,.gfy-ai-price-line-v49').forEach(function(el){
-      var t=String(el.textContent||'');
-      if(/nosotros|\/us\b|\/mo\b/i.test(t)){
-        Array.prototype.slice.call(el.childNodes).forEach(function(n){
-          if(n.nodeType===3){
-            var v=n.nodeValue||'';
-            var nv=v.replace(/\/nosotros\b|\/us\b|\/mo\b/gi,month);
-            if(nv!==v)n.nodeValue=nv;
-          }
-        });
-      }
-    });
-  }
-  function normalizePrices(){
-    var cur=currency();
-    document.querySelectorAll('.dynamic-price[data-usd],.price-dynamic[data-usd],.js-currency[data-usd]').forEach(function(el){
-      protect(el);
-      var usd=parseFloat(String(el.getAttribute('data-usd')||'0').replace(/,/g,''));
-      if(!isFinite(usd))return;
-      if(typeof window.GOATIFY_FORMAT_MONEY_V48==='function'){
-        var expected=window.GOATIFY_FORMAT_MONEY_V48(usd,cur,true);
-        if(String(el.textContent||'').trim()!==expected)el.textContent=expected;
-      }
-    });
-    document.querySelectorAll('.dyn-price[data-usd]').forEach(function(el){protect(el);});
-    document.querySelectorAll('.price-val[data-usd]').forEach(function(el){protect(el);});
-    document.querySelectorAll('select[id*="currency"],select.currency-select,select.currency-selector').forEach(protect);
-  }
-  function pass(){
-    if(running)return;running=true;
-    try{normalizePrices();normalizePeriods();}finally{running=false;}
-  }
-  function schedule(ms){clearTimeout(timer);timer=setTimeout(pass,ms||40);}
-  document.addEventListener('change',function(e){if(e.target&&e.target.matches&&e.target.matches('select[id*="currency"],select.currency-select,select.currency-selector')){schedule(0);setTimeout(pass,90);setTimeout(pass,350);}},true);
-  document.addEventListener('click',function(e){var b=e.target&&e.target.closest&&e.target.closest('[data-gfy-lang],[data-currency]');if(b){schedule(0);setTimeout(pass,120);setTimeout(pass,650);}},true);
-  window.addEventListener('goatify:currencychange',function(){schedule(0);setTimeout(pass,80);});
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){pass();[80,260,700,1500,3200].forEach(function(ms){setTimeout(pass,ms);});});
-  else{pass();[80,260,700,1500,3200].forEach(function(ms){setTimeout(pass,ms);});}
-  try{new MutationObserver(function(){schedule(60);}).observe(document.documentElement,{subtree:true,childList:true,characterData:true});}catch(e){}
-})();
-</script>
 </body>
 </html>
