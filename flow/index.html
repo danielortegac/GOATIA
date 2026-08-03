@@ -477,68 +477,90 @@ body.sidebar-collapsed #main-content{width:calc(100% - 5rem)!important}
     .gfy-language-toggle-v33 button{font-size:10px!important;min-width:30px!important;padding:5px 7px!important;}
   }
 </style>
-<script id="gfy-language-toggle-script-v46">
+<script id="gfy-language-toggle-script-v54">
 (function(){
   'use strict';
 
   var htmlLang = (document.documentElement.getAttribute('lang') || '').toLowerCase();
-  var path = (location.pathname || '').toLowerCase();
+  var path = (location.pathname || '/').toLowerCase();
   var SOURCE_LANG = (htmlLang.indexOf('en') === 0 || path.indexOf('/en/') === 0 || path === '/en') ? 'en' : 'es';
   var TARGET_LANGS = ['es','en'];
   var COOKIE_DAYS = 365;
-  var MANUAL_KEY = 'goatify_lang_manual_v45';
-  var MANUAL_COOKIE = 'goatify_lang_manual_v45';
-  var AUTO_KEY = 'goatify_lang_auto_v45';
-  var COUNTRY_KEY = 'goatify_ip_country_v45';
-  var LEGACY_MANUAL_KEYS = ['goatify_lang_manual_v37','goatify_lang_manual_v33','goatify_lang_manual_v9'];
+  var MANUAL_KEY = 'goatify_lang_manual_v54';
+  var MANUAL_COOKIE = 'goatify_lang_manual_v54';
+  var AUTO_KEY = 'goatify_lang_auto_v54';
+  var COUNTRY_KEY = 'goatify_ip_country_v54';
+  var SCROLL_KEY = 'goatify_lang_scroll_v54';
+  var REFRESH_PARAM = '_gfy_lang_refresh';
+  var LEGACY_MANUAL_KEYS = ['goatify_lang_manual_v45','goatify_lang_manual_v37','goatify_lang_manual_v33','goatify_lang_manual_v9'];
   var LEGACY_GENERAL_KEY = 'goatify_lang_v7';
+  var navigationStarted = false;
+  var googleReady = false;
+  var fallbackTimer = 0;
 
   var SPANISH_IP_COUNTRIES = {
     AR:1, BO:1, BR:1, BZ:1, CL:1, CO:1, CR:1, CU:1, DO:1, EC:1, ES:1,
     GT:1, HN:1, MX:1, NI:1, PA:1, PE:1, PR:1, PY:1, SV:1, UY:1, VE:1
   };
 
-  function validLang(lang){ return TARGET_LANGS.indexOf(lang) >= 0 ? lang : null; }
-  function sourceOr(lang){ return validLang(lang) || SOURCE_LANG; }
+  function validLang(lang){
+    lang = String(lang || '').toLowerCase();
+    return TARGET_LANGS.indexOf(lang) >= 0 ? lang : null;
+  }
   function getStorage(key){ try{ return localStorage.getItem(key); }catch(e){ return null; } }
   function setStorage(key, value){ try{ localStorage.setItem(key, value); }catch(e){} }
   function removeStorage(key){ try{ localStorage.removeItem(key); }catch(e){} }
 
-  function cookieDomain(){
+  function hostDomains(){
     var host = String(location.hostname || '').toLowerCase();
-    if(host === 'goatify.app' || /\.goatify\.app$/.test(host)) return '.goatify.app';
-    return '';
+    var list = [''];
+    function add(value){ if(value && list.indexOf(value) < 0) list.push(value); }
+    if(host){ add(host); add('.' + host.replace(/^\./,'')); }
+    if(host === 'goatify.app' || /(^|\.)goatify\.app$/.test(host)){
+      add('goatify.app');
+      add('.goatify.app');
+      add('www.goatify.app');
+      add('.www.goatify.app');
+    }
+    return list;
   }
 
-  function setCookie(name, value, domain){
+  function cookiePaths(){
+    var list = ['/'];
+    var current = String(location.pathname || '/');
+    var dir = current.replace(/[^/]*$/, '');
+    [dir, '/en/', '/es/'].forEach(function(value){ if(value && list.indexOf(value) < 0) list.push(value); });
+    return list;
+  }
+
+  function writeCookie(name, value, domain, pathValue, encode){
     var expires = new Date(Date.now() + COOKIE_DAYS*24*60*60*1000).toUTCString();
-    var cookie = name + '=' + encodeURIComponent(value) + '; expires=' + expires + '; path=/; SameSite=Lax';
+    var stored = encode === false ? String(value) : encodeURIComponent(String(value));
+    var cookie = name + '=' + stored + '; expires=' + expires + '; path=' + (pathValue || '/') + '; SameSite=Lax';
     if(location.protocol === 'https:') cookie += '; Secure';
     if(domain) cookie += '; domain=' + domain;
-    document.cookie = cookie;
+    try{ document.cookie = cookie; }catch(e){}
   }
 
-  function clearCookie(name, domain){
-    var cookie = name + '=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; SameSite=Lax';
+  function expireCookie(name, domain, pathValue){
+    var cookie = name + '=; expires=Thu, 01 Jan 1970 00:00:00 GMT; Max-Age=0; path=' + (pathValue || '/') + '; SameSite=Lax';
     if(location.protocol === 'https:') cookie += '; Secure';
     if(domain) cookie += '; domain=' + domain;
-    document.cookie = cookie;
+    try{ document.cookie = cookie; }catch(e){}
   }
 
   function readCookie(name){
-    var match = document.cookie.match(new RegExp('(?:^|;\\s*)' + name + '=([^;]*)'));
+    var match = document.cookie.match(new RegExp('(?:^|;\\s*)' + name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + '=([^;]*)'));
     if(!match) return null;
     try{ return decodeURIComponent(match[1]); }catch(e){ return match[1] || null; }
   }
 
   function persistManual(lang){
-    lang = sourceOr(lang);
+    lang = validLang(lang) || SOURCE_LANG;
     setStorage(MANUAL_KEY, lang);
-    setStorage('goatify_lang_manual_v37', lang);
-    setStorage('goatify_lang_manual_v9', lang);
+    LEGACY_MANUAL_KEYS.forEach(function(key){ setStorage(key, lang); });
     setStorage(LEGACY_GENERAL_KEY, lang);
-    setCookie(MANUAL_COOKIE, lang, cookieDomain());
-    setCookie(MANUAL_COOKIE, lang, '');
+    hostDomains().forEach(function(domain){ writeCookie(MANUAL_COOKIE, lang, domain, '/', true); });
   }
 
   function getManualLang(){
@@ -546,35 +568,50 @@ body.sidebar-collapsed #main-content{width:calc(100% - 5rem)!important}
     LEGACY_MANUAL_KEYS.forEach(function(key){ candidates.push(getStorage(key)); });
     for(var i=0;i<candidates.length;i++){
       var lang = validLang(candidates[i]);
-      if(lang){ persistManual(lang); return lang; }
+      if(lang){
+        if(getStorage(MANUAL_KEY) !== lang) persistManual(lang);
+        return lang;
+      }
     }
     return null;
   }
 
-  function googDomains(){
-    var domains = [''];
-    var root = cookieDomain();
-    if(root) domains.push(root);
-    return domains;
+  function clearGoogleCookies(){
+    hostDomains().forEach(function(domain){
+      cookiePaths().forEach(function(pathValue){ expireCookie('googtrans', domain, pathValue); });
+    });
+    try{
+      document.cookie.split(';').forEach(function(part){
+        var name = part.split('=')[0].trim();
+        if(name === 'googtrans') expireCookie(name, '', '/');
+      });
+    }catch(e){}
   }
 
-  function clearGoogTrans(){
-    googDomains().forEach(function(domain){ clearCookie('googtrans', domain); });
-  }
-
-  function setGoogTrans(lang){
-    lang = sourceOr(lang);
-    clearGoogTrans();
+  function setGoogleCookie(lang){
+    clearGoogleCookies();
+    lang = validLang(lang) || SOURCE_LANG;
     if(lang === SOURCE_LANG) return;
     var value = '/' + SOURCE_LANG + '/' + lang;
-    googDomains().forEach(function(domain){ setCookie('googtrans', value, domain); });
+    hostDomains().forEach(function(domain){ writeCookie('googtrans', value, domain, '/', false); });
+  }
+
+  function removeGoogleArtifacts(){
+    clearGoogleCookies();
+    try{
+      document.documentElement.classList.remove('translated-ltr','translated-rtl');
+      if(document.body){
+        document.body.classList.remove('translated-ltr','translated-rtl');
+        document.body.style.top = '0px';
+      }
+      document.querySelectorAll('iframe.goog-te-banner-frame,.goog-te-banner-frame.skiptranslate,.goog-te-balloon-frame,#goog-gt-tt,.goog-tooltip').forEach(function(el){ el.remove(); });
+    }catch(e){}
   }
 
   function mark(lang){
-    lang = sourceOr(lang);
+    lang = validLang(lang) || SOURCE_LANG;
     document.documentElement.setAttribute('data-goatify-lang', lang);
     document.documentElement.setAttribute('data-goatify-source-lang', SOURCE_LANG);
-    document.documentElement.setAttribute('lang', lang);
     document.querySelectorAll('#gfy-language-toggle-v33 [data-gfy-lang]').forEach(function(btn){
       var active = btn.getAttribute('data-gfy-lang') === lang;
       btn.classList.toggle('active', active);
@@ -583,10 +620,82 @@ body.sidebar-collapsed #main-content{width:calc(100% - 5rem)!important}
     });
   }
 
+  function desiredLang(){
+    return getManualLang() || validLang(getStorage(AUTO_KEY)) || SOURCE_LANG;
+  }
+
+  function cleanRefreshParam(){
+    try{
+      var url = new URL(location.href);
+      if(!url.searchParams.has(REFRESH_PARAM)) return;
+      url.searchParams.delete(REFRESH_PARAM);
+      var clean = url.pathname + (url.searchParams.toString() ? '?' + url.searchParams.toString() : '') + url.hash;
+      history.replaceState(history.state, document.title, clean);
+    }catch(e){}
+  }
+
+  function rememberScroll(){
+    try{ sessionStorage.setItem(SCROLL_KEY, String(window.scrollY || 0)); }catch(e){}
+  }
+
+  function restoreScroll(){
+    var value = null;
+    try{ value = sessionStorage.getItem(SCROLL_KEY); sessionStorage.removeItem(SCROLL_KEY); }catch(e){}
+    if(value === null) return;
+    var top = Math.max(0, parseInt(value,10) || 0);
+    [0,120,420,900].forEach(function(delay){ setTimeout(function(){ window.scrollTo(0, top); }, delay); });
+  }
+
+  function hardReload(lang){
+    if(navigationStarted) return;
+    navigationStarted = true;
+    rememberScroll();
+    try{
+      var url = new URL(location.href);
+      url.searchParams.set(REFRESH_PARAM, (validLang(lang) || SOURCE_LANG) + '-' + Date.now());
+      location.replace(url.pathname + '?' + url.searchParams.toString() + url.hash);
+    }catch(e){ location.reload(); }
+  }
+
+  function nativeAlternate(lang){
+    lang = validLang(lang) || SOURCE_LANG;
+    var selectors = lang === 'en'
+      ? ['link[rel~="alternate"][hreflang="en"]','link[rel~="alternate"][hreflang="en-US"]']
+      : ['link[rel~="alternate"][hreflang="es-419"]','link[rel~="alternate"][hreflang="es"]'];
+    var link = null;
+    for(var i=0;i<selectors.length && !link;i++) link = document.querySelector(selectors[i]);
+    var href = link && link.getAttribute('href');
+    if(!href && /\/soluciones\/?$/i.test(location.pathname || '')) href = lang === 'en' ? '/en/ecosystem/' : '/ecosistema/';
+    if(!href) return null;
+    try{
+      var target = new URL(href, location.href);
+      target.protocol = location.protocol;
+      target.host = location.host;
+      if(!target.search && location.search){
+        var current = new URLSearchParams(location.search);
+        current.delete(REFRESH_PARAM);
+        target.search = current.toString() ? '?' + current.toString() : '';
+      }
+      if(!target.hash && location.hash) target.hash = location.hash;
+      return target.pathname + target.search + target.hash;
+    }catch(e){ return href; }
+  }
+
+  function goNativeFallback(lang){
+    if(navigationStarted) return;
+    var target = nativeAlternate(lang);
+    if(!target) return;
+    var currentPath = String(location.pathname || '/').replace(/\/+$/,'') || '/';
+    var targetPath = String(target).split(/[?#]/)[0].replace(/\/+$/,'') || '/';
+    if(currentPath === targetPath) return;
+    navigationStarted = true;
+    rememberScroll();
+    location.replace(target);
+  }
+
   function useGoogleCombo(lang){
     var combo = document.querySelector('.goog-te-combo');
     if(!combo) return false;
-    lang = sourceOr(lang);
     var wanted = lang === SOURCE_LANG ? '' : lang;
     if(combo.value !== wanted) combo.value = wanted;
     try{ combo.dispatchEvent(new Event('change', {bubbles:true})); }
@@ -598,35 +707,20 @@ body.sidebar-collapsed #main-content{width:calc(100% - 5rem)!important}
     return true;
   }
 
-  function applyLanguage(lang){
-    lang = sourceOr(lang);
-    mark(lang);
-    setGoogTrans(lang);
-    if(document.querySelector('.goog-te-combo')){
-      useGoogleCombo(lang);
-      setTimeout(function(){ useGoogleCombo(lang); mark(lang); }, 250);
-      setTimeout(function(){ useGoogleCombo(lang); mark(lang); }, 900);
-    }
+  function translationAppearsActive(lang){
+    if(lang === SOURCE_LANG) return true;
+    var combo = document.querySelector('.goog-te-combo');
+    var classActive = document.documentElement.classList.contains('translated-ltr') ||
+      document.documentElement.classList.contains('translated-rtl') ||
+      (document.body && (document.body.classList.contains('translated-ltr') || document.body.classList.contains('translated-rtl')));
+    return !!(combo && combo.value === lang && classActive);
   }
 
-  function desiredLang(){
-    var manual = getManualLang();
-    if(manual) return manual;
-    var cached = validLang(getStorage(AUTO_KEY));
-    if(cached) return cached;
-    return SOURCE_LANG;
-  }
-
-  function applyManualLang(lang){
-    lang = sourceOr(lang);
-    var current = validLang(document.documentElement.getAttribute('data-goatify-lang')) || desiredLang();
-    persistManual(lang);
-    removeStorage(AUTO_KEY);
-    setGoogTrans(lang);
-    mark(lang);
-    if(current === lang){ applyLanguage(lang); return; }
-    try{ sessionStorage.setItem('goatify_lang_scroll_v46', String(window.scrollY || 0)); }catch(e){}
-    window.location.reload();
+  function scheduleTranslationFallback(lang){
+    clearTimeout(fallbackTimer);
+    fallbackTimer = setTimeout(function(){
+      if(!translationAppearsActive(lang)) goNativeFallback(lang);
+    }, 10000);
   }
 
   window.googleTranslateElementInit = function(){
@@ -637,19 +731,89 @@ body.sidebar-collapsed #main-content{width:calc(100% - 5rem)!important}
         autoDisplay: false,
         multilanguagePage: true
       }, 'google_translate_element');
-      [120,420,1100,2200].forEach(function(delay){
-        setTimeout(function(){ var lang = desiredLang(); useGoogleCombo(lang); mark(lang); }, delay);
+      googleReady = true;
+      var lang = desiredLang();
+      [80,300,900,1800,3500].forEach(function(delay){
+        setTimeout(function(){ useGoogleCombo(lang); mark(lang); }, delay);
       });
-    }catch(e){}
+      scheduleTranslationFallback(lang);
+    }catch(e){
+      goNativeFallback(desiredLang());
+    }
   };
 
-  function ensureGoogleScript(){
-    if(document.getElementById('google-translate-api-v45')) return;
+  function ensureGoogleScript(lang){
+    if(lang === SOURCE_LANG) return;
+    var existing = document.getElementById('google-translate-api-v54');
+    if(existing){ scheduleTranslationFallback(lang); return; }
     var script = document.createElement('script');
-    script.id = 'google-translate-api-v45';
+    script.id = 'google-translate-api-v54';
     script.src = 'https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';
     script.async = true;
+    script.onerror = function(){ goNativeFallback(lang); };
     document.head.appendChild(script);
+    scheduleTranslationFallback(lang);
+  }
+
+  function applyLanguage(lang){
+    lang = validLang(lang) || SOURCE_LANG;
+    mark(lang);
+    if(lang === SOURCE_LANG){
+      removeGoogleArtifacts();
+      return;
+    }
+    setGoogleCookie(lang);
+    ensureGoogleScript(lang);
+    if(googleReady){
+      useGoogleCombo(lang);
+      scheduleTranslationFallback(lang);
+    }
+  }
+
+  function applyManualLang(lang){
+    lang = validLang(lang) || SOURCE_LANG;
+    persistManual(lang);
+    removeStorage(AUTO_KEY);
+    clearTimeout(fallbackTimer);
+    if(lang === SOURCE_LANG) removeGoogleArtifacts();
+    else setGoogleCookie(lang);
+    mark(lang);
+    hardReload(lang);
+  }
+
+  function bindButtons(){
+    var toggle = document.getElementById('gfy-language-toggle-v33');
+    if(!toggle || toggle.dataset.goatifyLanguageBoundV54 === '1') return;
+    toggle.dataset.goatifyLanguageBoundV54 = '1';
+    toggle.classList.add('notranslate');
+    toggle.setAttribute('translate','no');
+    toggle.addEventListener('click', function(event){
+      var btn = event.target && event.target.closest ? event.target.closest('[data-gfy-lang]') : null;
+      if(!btn || !toggle.contains(btn)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if(event.stopImmediatePropagation) event.stopImmediatePropagation();
+      applyManualLang(btn.getAttribute('data-gfy-lang'));
+    }, true);
+  }
+
+  function fetchWithTimeout(url, ms){
+    var controller = window.AbortController ? new AbortController() : null;
+    var timer = setTimeout(function(){ if(controller) controller.abort(); }, ms || 2500);
+    return fetch(url, {cache:'no-store', signal:controller ? controller.signal : undefined})
+      .finally(function(){ clearTimeout(timer); });
+  }
+
+  function detectCountry(){
+    return fetchWithTimeout('https://ipwho.is/?fields=success,country_code', 2500)
+      .then(function(response){ if(!response.ok) throw new Error('ipwho'); return response.json(); })
+      .then(function(data){ if(data && data.success !== false && data.country_code) return data.country_code; throw new Error('ipwho-empty'); })
+      .catch(function(){
+        return fetchWithTimeout('https://get.geojs.io/v1/ip/country.json', 2500)
+          .then(function(response){ if(!response.ok) throw new Error('geojs'); return response.json(); })
+          .then(function(data){ return data && (data.country || data.country_code || data.countryCode); });
+      })
+      .catch(function(){ return null; });
   }
 
   function countryToLang(countryCode){
@@ -658,96 +822,60 @@ body.sidebar-collapsed #main-content{width:calc(100% - 5rem)!important}
     return SPANISH_IP_COUNTRIES[cc] ? 'es' : 'en';
   }
 
-  function fetchWithTimeout(url, ms){
-    var controller = window.AbortController ? new AbortController() : null;
-    var timer = setTimeout(function(){ if(controller) controller.abort(); }, ms || 2200);
-    return fetch(url, {cache:'no-store', signal:controller ? controller.signal : undefined})
-      .finally(function(){ clearTimeout(timer); });
-  }
-
-  function detectCountry(){
-    return fetchWithTimeout('https://ipwho.is/?fields=success,country_code', 2200)
-      .then(function(response){ if(!response.ok) throw new Error('ipwho'); return response.json(); })
-      .then(function(data){ if(data && data.success !== false && data.country_code) return data.country_code; throw new Error('ipwho-empty'); })
-      .catch(function(){
-        return fetchWithTimeout('https://get.geojs.io/v1/ip/country.json', 2200)
-          .then(function(response){ if(!response.ok) throw new Error('geojs'); return response.json(); })
-          .then(function(data){ return data && (data.country || data.country_code || data.countryCode); });
-      })
-      .catch(function(){ return null; });
-  }
-
   function applyAutomaticLanguageOnce(){
     if(getManualLang()) return;
     var cached = validLang(getStorage(AUTO_KEY));
     if(cached){ applyLanguage(cached); return; }
-    if(SOURCE_LANG === 'en'){
-      setStorage(AUTO_KEY, 'en');
-      applyLanguage('en');
-      return;
-    }
     detectCountry().then(function(countryCode){
-      if(getManualLang()) return;
+      if(getManualLang() || navigationStarted) return;
       var lang = countryToLang(countryCode);
       setStorage(AUTO_KEY, lang);
       setStorage(COUNTRY_KEY, countryCode ? String(countryCode).toUpperCase() : 'UNKNOWN');
       setStorage(LEGACY_GENERAL_KEY, lang);
-      applyLanguage(lang);
+      if(lang === SOURCE_LANG) applyLanguage(lang);
+      else{
+        setGoogleCookie(lang);
+        mark(lang);
+        hardReload(lang);
+      }
     });
-  }
-
-  function bindButtons(){
-    document.querySelectorAll('#gfy-language-toggle-v33 [data-gfy-lang]').forEach(function(btn){
-      if(btn.dataset.goatifyLanguageBoundV45 === '1') return;
-      btn.dataset.goatifyLanguageBoundV45 = '1';
-      btn.addEventListener('click', function(event){
-        event.preventDefault();
-        event.stopPropagation();
-        applyManualLang(btn.getAttribute('data-gfy-lang') || SOURCE_LANG);
-      });
-    });
-  }
-
-  function restoreScrollAfterLanguageSwitch(){
-    var y = null;
-    try{ y = sessionStorage.getItem('goatify_lang_scroll_v46'); sessionStorage.removeItem('goatify_lang_scroll_v46'); }catch(e){}
-    if(y === null) return;
-    var top = Math.max(0, parseInt(y,10) || 0);
-    [0,120,350,800].forEach(function(delay){ setTimeout(function(){ window.scrollTo(0, top); }, delay); });
   }
 
   function init(){
-    var toggle = document.getElementById('gfy-language-toggle-v33');
-    if(toggle){
-      toggle.classList.add('notranslate');
-      toggle.setAttribute('translate','no');
-    }
+    cleanRefreshParam();
+    bindButtons();
     var holder = document.getElementById('google_translate_element');
     if(holder){ holder.classList.add('notranslate'); holder.setAttribute('translate','no'); }
-    bindButtons();
     var initial = desiredLang();
     applyLanguage(initial);
-    ensureGoogleScript();
     applyAutomaticLanguageOnce();
-    restoreScrollAfterLanguageSwitch();
+    restoreScroll();
   }
 
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, {once:true});
   else init();
 
-  window.addEventListener('pageshow', function(){
+  window.addEventListener('pageshow', function(event){
     bindButtons();
-    applyLanguage(desiredLang());
+    var lang = desiredLang();
+    if(event.persisted && lang === SOURCE_LANG &&
+      (document.documentElement.classList.contains('translated-ltr') || (document.body && document.body.classList.contains('translated-ltr')))){
+      hardReload(lang);
+      return;
+    }
+    applyLanguage(lang);
   });
 
   window.addEventListener('storage', function(event){
     if(event.key === MANUAL_KEY || LEGACY_MANUAL_KEYS.indexOf(event.key) >= 0){
-      var manual = getManualLang();
-      if(manual) applyLanguage(manual);
+      var lang = getManualLang();
+      if(lang) hardReload(lang);
     }
   });
 })();
 </script>
+
+
 <details class="gfy-eco-menu-v26" id="gfy-eco-menu-v26"><summary aria-label="Explorar el ecosistema Goatify">Explorar <span class="notranslate gfy-brand-lock-v46" translate="no">Goatify</span> <span aria-hidden="true" class="gfy-eco-arrow-v26">▾</span></summary><nav aria-label="Productos, servicios, industrias y páginas principales de Goatify" class="gfy-eco-panel-v26"><div class="gfy-eco-head-v26"><div><b>Productos y Ecosistema <span class="notranslate gfy-brand-lock-v46" translate="no">Goatify</span></b><span>38 accesos directos: plataforma, productos, servicios especializados, industrias y empresa.</span></div><a class="gfy-eco-count-v26" href="/ecosistema/">89 páginas indexables</a></div><div class="gfy-eco-grid-v26">
 <div class="gfy-eco-group-v26 gfy-eco-platform-v26"><strong><span class="notranslate gfy-brand-lock-v46" translate="no">Plataforma Goatify</span> <em>9 accesos</em></strong><div class="gfy-eco-links-v26"><a href="/portal/"><i>01</i><span class="notranslate gfy-brand-lock-v46" translate="no">Portal Goatify</span></a><a href="/crm/"><i>02</i><span class="notranslate gfy-brand-lock-v46" translate="no">CRM Goatify</span></a><a href="/gestion-de-clientes/"><i>03</i>Gestión de clientes</a><a href="/pipeline-de-ventas/"><i>04</i>Pipeline de ventas</a><a href="/tareas-y-proyectos/"><i>05</i>Tareas y proyectos</a><a href="/agenda-y-citas/"><i>06</i>Agenda y citas</a><a href="/propuestas-contratos-prefacturas/"><i>07</i>Propuestas y contratos</a><a href="/dashboard-empresarial/"><i>08</i>Dashboard empresarial</a><a href="/pos-para-negocios/"><i>09</i>Punto de venta POS</a></div></div>
 <div class="gfy-eco-group-v26"><strong>Soluciones principales <em>6 accesos</em></strong><div class="gfy-eco-links-v26"><a href="/productividad/"><i>10</i>Productividad</a><a href="/automatizaciones/"><i>11</i>Automatizaciones</a><a href="/industrias/"><i>12</i>Industrias</a><a href="/portafolio/"><i>13</i>Portafolio</a><a href="/social-media/"><i>14</i>Social Media</a><a href="/mailing/"><i>15</i>Mailing</a></div></div>
@@ -1808,59 +1936,84 @@ function removeBoardMember(role) {
   });
 })();
 </script>
-<script id="GOATIFY_GEO_CURRENCY_PATCH_V6">
+<script id="GOATIFY_GEO_CURRENCY_PATCH_V48">
 (function(){
+  'use strict';
   const RATES = { USD:1, MXN:17.33, COP:4000, PEN:3.75, CLP:930, ARS:1200, EUR:0.92 };
   const OPTIONS = {
     USD:'🇺🇸 USD', MXN:'🇲🇽 MXN', COP:'🇨🇴 COP', PEN:'🇵🇪 PEN', CLP:'🇨🇱 CLP', ARS:'🇦🇷 ARS', EUR:'🇪🇺 EUR'
   };
   const LOCALES = { USD:'en-US', MXN:'es-MX', COP:'es-CO', PEN:'es-PE', CLP:'es-CL', ARS:'es-AR', EUR:'es-ES' };
+  const SYMBOLS = { USD:'$', MXN:'$', COP:'$', PEN:'S/', CLP:'$', ARS:'$', EUR:'€' };
   const COUNTRY_TO_CURRENCY = {
     MX:'MXN', CO:'COP', PE:'PEN', CL:'CLP', AR:'ARS', EC:'USD', US:'USD', CA:'USD',
     ES:'EUR', DE:'EUR', FR:'EUR', IT:'EUR', PT:'EUR', NL:'EUR', BE:'EUR', IE:'EUR'
   };
   const SUPPORTED = Object.keys(RATES);
+  const MANUAL_KEY = 'goatify_currency_manual_v40';
+  const LEGACY_MANUAL_KEY = 'goatify_currency_manual';
+  const COUNTRY_KEY = 'goatify_currency_country_v40';
   let applying = false;
-  function norm(c){ c=(c||'USD').toUpperCase(); return RATES[c] ? c : 'USD'; }
-  function browserGuess(){
-    try {
-      const locales = navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || ''];
-      for (const loc of locales) {
-        const region = (loc.split('-')[1] || '').toUpperCase();
-        if (COUNTRY_TO_CURRENCY[region]) return COUNTRY_TO_CURRENCY[region];
-      }
-    } catch(e){}
-    return 'USD';
+  let renderedCurrency = '';
+
+  function norm(c){ c=String(c||'USD').toUpperCase(); return RATES[c] ? c : 'USD'; }
+  function fromCountry(code){ return COUNTRY_TO_CURRENCY[String(code||'').toUpperCase()] || null; }
+  function fallbackCurrency(){ return 'USD'; }
+  function symbol(currency){ return SYMBOLS[norm(currency)] || '$'; }
+  function convertedValue(usd, currency){ return Number(usd || 0) * (RATES[norm(currency)] || 1); }
+  function decimalsFor(currency, value){
+    currency = norm(currency);
+    if ((currency === 'USD' || currency === 'EUR') && Math.abs(value - Math.round(value)) > 0.0001) return 2;
+    return 0;
   }
-  function fromCountry(code){ return COUNTRY_TO_CURRENCY[(code||'').toUpperCase()] || browserGuess(); }
-  function decimalsFor(currency){ return (currency === 'USD' || currency === 'EUR') ? 2 : 0; }
   function numberOnly(usd, currency){
-    const rate = RATES[currency] || 1;
-    const value = Number(usd || 0) * rate;
-    return new Intl.NumberFormat(LOCALES[currency] || 'en-US', { maximumFractionDigits: decimalsFor(currency) }).format(value);
+    currency = norm(currency);
+    const value = convertedValue(usd, currency);
+    const digits = decimalsFor(currency, value);
+    return new Intl.NumberFormat(LOCALES[currency] || 'en-US', {
+      minimumFractionDigits: digits, maximumFractionDigits: digits
+    }).format(value);
   }
   function money(usd, currency, withCode=true){
-    const rate = RATES[currency] || 1;
-    const value = Number(usd || 0) * rate;
-    const formatted = new Intl.NumberFormat(LOCALES[currency] || 'en-US', {
-      style:'currency', currency, maximumFractionDigits: decimalsFor(currency)
-    }).format(value);
+    currency = norm(currency);
+    const prefix = currency === 'PEN' ? 'S/ ' : symbol(currency);
+    const formatted = `${prefix}${numberOnly(usd, currency)}`;
     return withCode ? `${formatted} ${currency}` : formatted;
   }
-  function symbol(currency){ return currency === 'EUR' ? '€' : '$'; }
   function readUsd(el){
     const raw = el.getAttribute('data-usd') || el.getAttribute('data-price-usd') || el.getAttribute('data-goatify-usd') || el.getAttribute('data-base-price') || '0';
     const n = parseFloat(String(raw).replace(/,/g,''));
     return Number.isFinite(n) ? n : 0;
   }
+  function getLS(key){ try { return localStorage.getItem(key); } catch(e){ return null; } }
+  function setLS(key, value){ try { localStorage.setItem(key, value); } catch(e){} }
+  function removeLS(key){ try { localStorage.removeItem(key); } catch(e){} }
+  function protect(el){
+    if (!el || el.nodeType !== 1) return;
+    el.setAttribute('translate','no');
+    el.setAttribute('lang','zxx');
+    el.classList.add('notranslate','gfy-money-lock-v48');
+  }
+  function injectStyle(){
+    if (document.getElementById('gfy-currency-style-v48')) return;
+    const st=document.createElement('style');
+    st.id='gfy-currency-style-v48';
+    st.textContent='.gfy-currency-code-v48{font-size:.38em;margin-left:.35rem;font-weight:800;opacity:.78;text-transform:uppercase;white-space:nowrap}.gfy-money-lock-v48{unicode-bidi:isolate}.price-display{min-width:0}.price-display .price-val{min-width:0}';
+    document.head.appendChild(st);
+  }
+  function resetLegacyCurrencyIfUnconfirmed(){
+    if (!getLS(MANUAL_KEY)) removeLS(LEGACY_MANUAL_KEY);
+  }
   function ensureOptions(){
     document.querySelectorAll('select[id*="currency"], select.currency-select, select.currency-selector').forEach(sel => {
-      const existing = new Set([...sel.options].map(o => o.value));
+      protect(sel);
+      const existing = new Set([...sel.options].map(o => String(o.value||'').toUpperCase()));
       SUPPORTED.forEach(cur => {
         if (!existing.has(cur)) {
           const opt = document.createElement('option'); opt.value = cur; opt.textContent = OPTIONS[cur]; sel.appendChild(opt);
         }
       });
+      [...sel.options].forEach(opt => protect(opt));
     });
   }
   function setLabels(currency){
@@ -1869,67 +2022,110 @@ function removeBoardMember(role) {
       if (/mes/i.test(txt)) el.textContent = `${currency}/mes`;
       else if (/año|ano/i.test(txt)) el.textContent = `${currency}/año`;
       else el.textContent = currency;
+      protect(el);
+    });
+    document.querySelectorAll('.price-symbol').forEach(el => { el.textContent = currency === 'PEN' ? 'S/' : symbol(currency); protect(el); });
+    document.querySelectorAll('.price-val[data-usd]').forEach(el => {
+      const parent=el.parentElement;
+      if (!parent) return;
+      protect(parent); protect(el);
+      const hasLabel=parent.querySelector('.currency-label,.dyn-label');
+      let code=parent.querySelector('.gfy-currency-code-v48');
+      if (hasLabel) { if(code) code.remove(); return; }
+      if(!code){ code=document.createElement('span'); code.className='gfy-currency-code-v48'; el.insertAdjacentElement('afterend',code); }
+      code.textContent=currency; protect(code);
     });
     document.querySelectorAll('.plan-period-new').forEach(el => {
       const txt = (el.textContent || '').trim();
       if (/mes/i.test(txt)) el.textContent = `${currency}/mes`;
       else if (/año|ano/i.test(txt)) el.textContent = `${currency}/año`;
       else if (/USD|MXN|COP|PEN|CLP|ARS|EUR/i.test(txt)) el.textContent = txt.replace(/USD|MXN|COP|PEN|CLP|ARS|EUR/gi, currency);
+      protect(el);
     });
     document.querySelectorAll('.plan-period').forEach(el => {
       const txt = (el.textContent || '').trim();
       if (/USD|MXN|COP|PEN|CLP|ARS|EUR/i.test(txt)) el.textContent = txt.replace(/USD|MXN|COP|PEN|CLP|ARS|EUR/gi, currency);
+      protect(el);
+    });
+  }
+  function protectPricingUI(){
+    document.querySelectorAll('[data-usd], [data-price-usd], [data-goatify-usd], [data-base-price], .price-display, .currency-label, .dyn-label, .plan-period, .plan-period-new, select[id*="currency"], select.currency-select, select.currency-selector').forEach(protect);
+    ['web-plans-container','automation-plans-container','ai-plans-container','addons-container','training-container','cart-sidebar','calculator-section','social-media-packages'].forEach(id => {
+      const el=document.getElementById(id); if(el){ el.setAttribute('translate','no'); el.classList.add('notranslate'); }
     });
   }
   function setSelectors(currency){
     ensureOptions();
-    document.querySelectorAll('select[id*="currency"], select.currency-select, select.currency-selector').forEach(sel => { sel.value = currency; });
+    document.querySelectorAll('select[id*="currency"], select.currency-select, select.currency-selector').forEach(sel => { sel.value = currency; protect(sel); });
     document.querySelectorAll('[data-currency]').forEach(btn => {
-      const active = (btn.getAttribute('data-currency') || '').toUpperCase() === currency;
+      const active = String(btn.getAttribute('data-currency') || '').toUpperCase() === currency;
       btn.classList.toggle('active', active);
       btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
+  }
+  function formatNodes(currency){
+    document.querySelectorAll('.dynamic-price[data-usd], .price-dynamic[data-usd], .js-currency[data-usd]').forEach(el => {
+      el.textContent = money(readUsd(el), currency, true); protect(el);
+    });
+    document.querySelectorAll('.dyn-price[data-usd]').forEach(el => {
+      const siblingLabel = el.parentElement && el.parentElement.querySelector('.dyn-label');
+      el.textContent = siblingLabel ? money(readUsd(el), currency, false) : money(readUsd(el), currency, true);
+      protect(el);
+    });
+    document.querySelectorAll('.price-val[data-usd]').forEach(el => { el.textContent = numberOnly(readUsd(el), currency); protect(el); });
+    document.querySelectorAll('[data-usd]').forEach(el => {
+      if (el.matches('.dynamic-price,.price-dynamic,.js-currency,.dyn-price,.price-val')) return;
+      if (el.children.length === 0 && /\$|USD|MXN|COP|PEN|CLP|ARS|EUR|S\//.test(el.textContent || '')) el.textContent = money(readUsd(el), currency, true);
+      protect(el);
     });
   }
   function applyCurrency(currency, source){
     currency = norm(currency);
     if (applying) return;
     applying = true;
+    const changed = window.GOATIFY_CURRENCY !== currency;
     window.GOATIFY_CURRENCY = currency;
     window.GOATIFY_BASE_CURRENCY = 'USD';
     window.GOATIFY_EXCHANGE_RATES = RATES;
+    window.GOATIFY_CURRENCY_SOURCE = source || 'auto';
     try { if (typeof currentCurrency !== 'undefined') currentCurrency = currency; } catch(e){}
     if (source === 'manual') {
-      try { localStorage.setItem('goatify_currency_manual', currency); } catch(e){}
+      setLS(MANUAL_KEY, currency);
+      setLS(LEGACY_MANUAL_KEY, currency);
     }
     setSelectors(currency);
-    document.querySelectorAll('.dynamic-price[data-usd], .price-dynamic[data-usd], .js-currency[data-usd]').forEach(el => {
-      el.textContent = money(readUsd(el), currency, true);
-    });
-    document.querySelectorAll('.dyn-price[data-usd]').forEach(el => { el.textContent = symbol(currency) + numberOnly(readUsd(el), currency); });
-    document.querySelectorAll('.price-val[data-usd]').forEach(el => { el.textContent = numberOnly(readUsd(el), currency); });
-    document.querySelectorAll('[data-usd]').forEach(el => {
-      if (el.matches('.dynamic-price,.price-dynamic,.js-currency,.dyn-price,.price-val')) return;
-      if (el.children.length === 0 && /\$|USD|MXN|COP|PEN|CLP|ARS|EUR/.test(el.textContent || '')) el.textContent = money(readUsd(el), currency, true);
-    });
+    formatNodes(currency);
     setLabels(currency);
-    const cartTotal = document.getElementById('cart-total');
-    if (cartTotal && /\$\s*0/.test(cartTotal.textContent || '')) cartTotal.textContent = money(0, currency, true);
+    protectPricingUI();
+    const cartTotal = document.getElementById('cart-total') || document.getElementById('cartTotal');
+    if (cartTotal && /\$\s*0|0\s*(USD|MXN|COP|PEN|CLP|ARS|EUR)/i.test(cartTotal.textContent || '')) { cartTotal.textContent = money(0, currency, true); protect(cartTotal); }
     applying = false;
+    if (changed || renderedCurrency !== currency || source === 'manual') {
+      renderedCurrency = currency;
+      try { if (typeof refreshAll === 'function') refreshAll(); } catch(e){}
+      try { if (typeof refreshCart === 'function') refreshCart(); } catch(e){}
+      try { if (typeof updateCartUI === 'function') updateCartUI(); } catch(e){}
+      setTimeout(() => { if(!applying){ applying=true; formatNodes(currency); setLabels(currency); protectPricingUI(); applying=false; } }, 0);
+    }
+    try { window.dispatchEvent(new CustomEvent('goatify:currencychange',{detail:{currency,source:source||'auto'}})); } catch(e){}
   }
   async function detectCurrency(){
     const q = new URLSearchParams(location.search).get('currency');
     if (q) return norm(q);
-    try { const manual = localStorage.getItem('goatify_currency_manual'); if (manual) return norm(manual); } catch(e){}
+    const manual = getLS(MANUAL_KEY);
+    if (manual) return norm(manual);
     try {
       const res = await fetch('https://ipwho.is/?fields=success,country_code,currency_code', { cache:'no-store' });
       const data = await res.json();
       if (data && data.success !== false) {
-        const byCountry = fromCountry(data.country_code);
+        const country = data.country_code ? String(data.country_code).toUpperCase() : 'UNKNOWN';
+        setLS(COUNTRY_KEY, country);
+        const byCountry = fromCountry(country);
         if (byCountry) return norm(byCountry);
-        if (data.currency_code) return norm(data.currency_code);
+        if (data.currency_code && RATES[String(data.currency_code).toUpperCase()]) return norm(data.currency_code);
       }
     } catch(e){}
-    return norm(browserGuess());
+    return fallbackCurrency();
   }
   document.addEventListener('change', function(e){
     const sel = e.target && e.target.closest && e.target.closest('select[id*="currency"], select.currency-select, select.currency-selector');
@@ -1939,14 +2135,21 @@ function removeBoardMember(role) {
     const btn = e.target && e.target.closest && e.target.closest('[data-currency]');
     if (btn) { e.preventDefault(); applyCurrency(btn.getAttribute('data-currency'), 'manual'); }
   }, true);
+  window.GOATIFY_APPLY_CURRENCY_V48 = applyCurrency;
+  window.GOATIFY_FORMAT_MONEY_V48 = function(usd,currency,withCode){ return money(usd,norm(currency || window.GOATIFY_CURRENCY || 'USD'),withCode !== false); };
+  window.GOATIFY_CURRENCY_SYMBOL_V48 = function(currency){ return symbol(norm(currency || window.GOATIFY_CURRENCY || 'USD')); };
   function boot(){
+    injectStyle();
+    resetLegacyCurrencyIfUnconfirmed();
+    protectPricingUI();
+    applyCurrency('USD', 'initial');
     detectCurrency().then(cur => {
       applyCurrency(cur, 'auto');
       [80,250,700,1400,2600,4200].forEach(ms => setTimeout(() => applyCurrency(window.GOATIFY_CURRENCY || cur, 'auto'), ms));
       try {
         new MutationObserver(() => {
-          if (!applying) clearTimeout(window.__goatifyCurrencyTimer);
-          window.__goatifyCurrencyTimer = setTimeout(() => applyCurrency(window.GOATIFY_CURRENCY || cur, 'auto'), 120);
+          if (!applying) clearTimeout(window.__goatifyCurrencyTimerV48);
+          window.__goatifyCurrencyTimerV48 = setTimeout(() => applyCurrency(window.GOATIFY_CURRENCY || cur, 'auto'), 120);
         }).observe(document.body, { childList:true, subtree:true });
       } catch(e){}
     });
@@ -2023,5 +2226,89 @@ function removeBoardMember(role) {
 </script>
 <script defer="" src="https://ia.goatify.app/embed/goatify-form.js"></script>
 <script defer="" src="https://ia.goatify.app/embed/goatify-scheduler.js"></script>
-<script defer="" src="/goatify-geo-vat-v42.js"></script></body>
+<script defer="" src="/goatify-geo-vat-v42.js"></script>
+<script id="goatify-currency-period-guard-v49">
+(function(){
+  'use strict';
+  if(window.__GOATIFY_CURRENCY_PERIOD_GUARD_V49__) return;
+  window.__GOATIFY_CURRENCY_PERIOD_GUARD_V49__=true;
+  var timer=0, running=false;
+  var ISO=/^(USD|MXN|COP|PEN|CLP|ARS|EUR)$/;
+  function ls(k){try{return localStorage.getItem(k)||'';}catch(e){return '';}}
+  function currency(){
+    var c=String(window.GOATIFY_CURRENCY||ls('goatify_currency_manual_v40')||ls('goatify_currency_manual')||'USD').toUpperCase();
+    return ISO.test(c)?c:'USD';
+  }
+  function language(){
+    var manual=String(ls('goatify_lang_manual_v45')||ls('goatify_lang_manual_v37')||ls('goatify_lang_v7')||'').toLowerCase();
+    if(manual==='en'||manual==='es') return manual;
+    var active=document.querySelector('[data-gfy-lang].active,[data-gfy-lang][aria-pressed="true"]');
+    if(active){var a=String(active.getAttribute('data-gfy-lang')||'').toLowerCase();if(a==='en'||a==='es')return a;}
+    return String(document.documentElement.lang||'es').toLowerCase().indexOf('en')===0?'en':'es';
+  }
+  function protect(el){
+    if(!el||el.nodeType!==1)return;
+    el.setAttribute('translate','no');el.setAttribute('lang','zxx');
+    el.classList.add('notranslate','gfy-money-period-lock-v49');
+  }
+  function normalizePeriods(){
+    var lang=language(), month=lang==='en'?'/month':'/mes', year=lang==='en'?'/year':'/año';
+    document.querySelectorAll('[data-gfy-period],.plan-period,.plan-period-new,.gfy-period-v49').forEach(function(el){
+      protect(el);
+      var type=String(el.getAttribute('data-gfy-period')||'').toLowerCase();
+      var txt=String(el.textContent||'').trim();
+      if(!type){
+        if(/mes|month|\/mo\b|nosotros|\/us\b/i.test(txt)) type='month';
+        else if(/año|ano|year/i.test(txt)) type='year';
+      }
+      if(type==='month'){
+        var suffix=el.getAttribute('data-gfy-period-suffix')||'';
+        var expected=month+suffix;
+        if(el.textContent!==expected)el.textContent=expected;
+      }else if(type==='year'){
+        if(el.textContent!==year)el.textContent=year;
+      }
+    });
+    document.querySelectorAll('.plan-price,.price-display,.hosting-inline-price,.eco-price-tag,.gfy-ai-price-line-v49').forEach(function(el){
+      var t=String(el.textContent||'');
+      if(/nosotros|\/us\b|\/mo\b/i.test(t)){
+        Array.prototype.slice.call(el.childNodes).forEach(function(n){
+          if(n.nodeType===3){
+            var v=n.nodeValue||'';
+            var nv=v.replace(/\/nosotros\b|\/us\b|\/mo\b/gi,month);
+            if(nv!==v)n.nodeValue=nv;
+          }
+        });
+      }
+    });
+  }
+  function normalizePrices(){
+    var cur=currency();
+    document.querySelectorAll('.dynamic-price[data-usd],.price-dynamic[data-usd],.js-currency[data-usd]').forEach(function(el){
+      protect(el);
+      var usd=parseFloat(String(el.getAttribute('data-usd')||'0').replace(/,/g,''));
+      if(!isFinite(usd))return;
+      if(typeof window.GOATIFY_FORMAT_MONEY_V48==='function'){
+        var expected=window.GOATIFY_FORMAT_MONEY_V48(usd,cur,true);
+        if(String(el.textContent||'').trim()!==expected)el.textContent=expected;
+      }
+    });
+    document.querySelectorAll('.dyn-price[data-usd]').forEach(function(el){protect(el);});
+    document.querySelectorAll('.price-val[data-usd]').forEach(function(el){protect(el);});
+    document.querySelectorAll('select[id*="currency"],select.currency-select,select.currency-selector').forEach(protect);
+  }
+  function pass(){
+    if(running)return;running=true;
+    try{normalizePrices();normalizePeriods();}finally{running=false;}
+  }
+  function schedule(ms){clearTimeout(timer);timer=setTimeout(pass,ms||40);}
+  document.addEventListener('change',function(e){if(e.target&&e.target.matches&&e.target.matches('select[id*="currency"],select.currency-select,select.currency-selector')){schedule(0);setTimeout(pass,90);setTimeout(pass,350);}},true);
+  document.addEventListener('click',function(e){var b=e.target&&e.target.closest&&e.target.closest('[data-gfy-lang],[data-currency]');if(b){schedule(0);setTimeout(pass,120);setTimeout(pass,650);}},true);
+  window.addEventListener('goatify:currencychange',function(){schedule(0);setTimeout(pass,80);});
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){pass();[80,260,700,1500,3200].forEach(function(ms){setTimeout(pass,ms);});});
+  else{pass();[80,260,700,1500,3200].forEach(function(ms){setTimeout(pass,ms);});}
+  try{new MutationObserver(function(){schedule(60);}).observe(document.documentElement,{subtree:true,childList:true,characterData:true});}catch(e){}
+})();
+</script>
+</body>
 </html>
