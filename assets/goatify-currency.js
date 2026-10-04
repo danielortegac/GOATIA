@@ -197,10 +197,24 @@
     return fallbackCurrency();
   }
   document.addEventListener('change', function(e){
-    const market=e.target && e.target.closest && e.target.closest('#gfy-market-select');
-    if(market){setLS(COUNTRY_KEY,market.value);applyCurrency(fromCountry(market.value)||'USD','manual');return;}
+    const market=e.target && e.target.closest && e.target.closest('[data-gfy-market]');
+    if(market){
+      setLS(COUNTRY_KEY,market.value);
+      applyCurrency(fromCountry(market.value)||'USD','manual');
+      const regional=document.documentElement.dataset.market;
+      const destination=C.markets.find(m=>m.code===market.value);
+      if(regional && market.value!==regional && destination){location.assign('/paises/'+destination.slug+'/');return;}
+      if(!regional){
+        const url=new URL(location.href);
+        if(url.searchParams.has('country')||url.searchParams.has('currency')){
+          url.searchParams.set('country',market.value);url.searchParams.delete('currency');
+          history.replaceState(history.state,'',url);
+        }
+      }
+      return;
+    }
     const sel = e.target && e.target.closest && e.target.closest('select[id*="currency"], select.currency-select, select.currency-selector');
-    if (sel){const marketControl=document.getElementById('gfy-market-select');if(marketControl && fromCountry(marketControl.value)!==sel.value){marketControl.value='INTL';setLS(COUNTRY_KEY,'INTL');}applyCurrency(sel.value, 'manual'); setTimeout(()=>applyCurrency(sel.value,'manual'),0); }
+    if (sel){if(fromCountry(getLS(COUNTRY_KEY))!==sel.value)setLS(COUNTRY_KEY,'INTL');applyCurrency(sel.value, 'manual'); setTimeout(()=>applyCurrency(sel.value,'manual'),0); }
   }, true);
   document.addEventListener('click', function(e){
     const btn = e.target && e.target.closest && e.target.closest('[data-currency]');
@@ -209,46 +223,51 @@
   window.GOATIFY_APPLY_CURRENCY_V48 = applyCurrency;
   window.GOATIFY_FORMAT_MONEY_V48 = function(usd,currency,withCode){ return money(usd,norm(currency || window.GOATIFY_CURRENCY || 'USD'),withCode !== false); };
   window.GOATIFY_CURRENCY_SYMBOL_V48 = function(currency){ return symbol(norm(currency || window.GOATIFY_CURRENCY || 'USD')); };
-  function addMarketSwitcher(){
-    if(document.body.classList.contains('gfy-country-page')||document.getElementById('gfy-market-select'))return;
-    const nodes=Array.from(document.querySelectorAll('[data-usd], [data-base-price], [data-price-usd]'));
-    const section=document.querySelector('section#precios,section#planes,section#web-section,section#social-media-plans,section#automation-plans')||nodes.map(n=>n.closest('section')).find(s=>s && !s.closest('header,nav,[role="dialog"],#promo-modal'));
-    if(!section)return;
+  function makeCountryPicker(id){
     const english=document.documentElement.lang.startsWith('en');
-    const bar=document.createElement('div');bar.className='gfy-market-switcher';bar.setAttribute('role','region');bar.setAttribute('aria-label',english?'Prices by country':'Precios por país');
-    const countryLabel=document.createElement('label');countryLabel.textContent=english?'Your country':'Tu país';countryLabel.htmlFor='gfy-market-select';
-    const country=document.createElement('select');country.id='gfy-market-select';
+    const label=document.createElement('label');label.className='gfy-country-picker';label.htmlFor=id;
+    const caption=document.createElement('span');caption.textContent=english?'Country':'País';label.appendChild(caption);
+    const country=document.createElement('select');country.id=id;country.setAttribute('data-gfy-market','');
+    country.setAttribute('aria-label',english?'Country for prices':'País para los precios');
     C.markets.forEach(m=>{const opt=document.createElement('option');opt.value=m.code;opt.textContent=m.name;country.appendChild(opt);});
     const other=document.createElement('option');other.value='INTL';other.textContent=english?'Other country':'Otro país';country.appendChild(other);
-    countryLabel.appendChild(country);
-    const currencyLabel=document.createElement('label');currencyLabel.textContent=english?'Reference currency':'Moneda de referencia';currencyLabel.htmlFor='gfy-reference-currency';
-    const currency=document.createElement('select');currency.id='gfy-reference-currency';SUPPORTED.forEach(code=>{const opt=document.createElement('option');opt.value=code;opt.textContent=code;currency.appendChild(opt);});currencyLabel.appendChild(currency);
-    const note=document.createElement('p');note.className='gfy-fx-policy';note.textContent=english?'Billed in USD. Local amounts are indicative equivalents. FX '+C.fxDate+'.':'Cobro en USD. Los importes locales son equivalencias orientativas. FX '+C.fxDate+'.';
-    const attribution=document.createElement('a');attribution.href=C.fxSource;attribution.textContent='ExchangeRate-API';note.appendChild(document.createTextNode(' '));note.appendChild(attribution);
-    bar.appendChild(countryLabel);bar.appendChild(currencyLabel);bar.appendChild(note);section.insertBefore(bar,section.firstElementChild);
-    country.value='INTL';
+    country.value='INTL';label.appendChild(country);return label;
   }
-  function updateCountryControl(){
-    const control=document.getElementById('gfy-market-select');if(!control)return;
-    const params=new URLSearchParams(location.search);
-    const code=String((userSelected?getLS(COUNTRY_KEY):(document.documentElement.dataset.market||params.get('country')||getLS(COUNTRY_KEY)))||'INTL').toUpperCase();
-    control.value=fromCountry(code)===window.GOATIFY_CURRENCY?code:'INTL';
-  }
-  function addBillingNotes(){
-    if(document.body.classList.contains('gfy-country-page')) return;
-    const english=document.documentElement.lang.startsWith('en');
-    document.querySelectorAll('select[id*="currency"], select.currency-selector, select.currency-select').forEach(select=>{
-      if(select.closest('header,nav,.gfy-market-switcher')) return;
-      const parent=select.parentElement;
-      if(!parent || parent.querySelector('.gfy-fx-policy'))return;
-      const note=document.createElement('p'); note.className='gfy-fx-policy';
-      note.textContent=english?'Billed in USD · indicative conversion · FX '+C.fxDate:'Cobro en USD · equivalencia orientativa · FX '+C.fxDate;
-      parent.appendChild(note);
+  function addHeaderCountryPicker(){
+    if(document.querySelector('[data-gfy-market]'))return;
+    const selectors=Array.from(document.querySelectorAll('select[id*="currency"],select.currency-select,select.currency-selector'));
+    const headerSelectors=selectors.filter(sel=>sel.closest('header,nav'));
+    let count=0;
+    headerSelectors.forEach(sel=>{
+      const picker=makeCountryPicker('gfy-market-select'+(count?'-'+count:''));count++;
+      if(sel.id==='currency-selector-mob')picker.classList.add('gfy-country-picker-mobile');
+      sel.insertAdjacentElement('beforebegin',picker);
+    });
+    if(!count){
+      const header=document.querySelector('body>nav.fixed,body>header.fixed,body>header');
+      if(!header)return;
+      const row=document.createElement('div');row.className='gfy-header-country-row';
+      row.appendChild(makeCountryPicker('gfy-market-select'));header.insertBefore(row,header.firstElementChild);
+      if(getComputedStyle(header).position==='fixed')document.body.classList.add('gfy-country-row-fixed');
+    }
+    selectors.forEach(sel=>{sel.hidden=true;sel.setAttribute('data-gfy-legacy-currency','');
+      const label=sel.closest('.gfy-country-currency');if(label)label.hidden=true;
+    });
+    document.querySelectorAll('[data-currency]').forEach(btn=>{
+      const parent=btn.parentElement;
+      if(parent && Array.from(parent.children).every(child=>child.hasAttribute('data-currency'))){parent.hidden=true;parent.setAttribute('data-gfy-legacy-currency','');}
+      else{btn.hidden=true;btn.setAttribute('data-gfy-legacy-currency','');}
     });
   }
+  function updateCountryControl(){
+    const controls=document.querySelectorAll('[data-gfy-market]');if(!controls.length)return;
+    const params=new URLSearchParams(location.search);
+    const code=String((userSelected?getLS(COUNTRY_KEY):(document.documentElement.dataset.market||params.get('country')||getLS(COUNTRY_KEY)))||'INTL').toUpperCase();
+    const known=C.markets.some(m=>m.code===code);
+    controls.forEach(control=>{control.value=known && fromCountry(code)===window.GOATIFY_CURRENCY?code:'INTL';});
+  }
   function boot(){
-    addMarketSwitcher();
-    addBillingNotes();
+    addHeaderCountryPicker();
     injectStyle();
     resetLegacyCurrencyIfUnconfirmed();
     protectPricingUI();
