@@ -1,4 +1,4 @@
-const VERSION = 'goatify-v67-responsive-final-20261004';
+const VERSION = 'goatify-v68-networks-final-20261004';
 const PAGE_CACHE = `pages-${VERSION}`;
 const ASSET_CACHE = `assets-${VERSION}`;
 const RUNTIME_CACHE = `runtime-${VERSION}`;
