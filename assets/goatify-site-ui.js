@@ -8,7 +8,7 @@
       appPreview.firstElementChild?.firstElementChild?.classList.add('gfy-app-phone');
     }
     const css=document.querySelector('link[href*="/assets/goatify-markets.css"]')||document.createElement('link');
-    css.rel='stylesheet';css.href='/assets/goatify-markets.css?v=20261004-responsive-3';
+    css.rel='stylesheet';css.href='/assets/goatify-markets.css?v=20261004-responsive-4';
     if(!css.parentElement)document.body.appendChild(css);
     if(!window.GOATIFY_APPLY_CURRENCY_V48){
       const script=document.createElement('script');
