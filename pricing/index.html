@@ -1056,6 +1056,9 @@ img,svg,video,canvas{max-width:100%;}
     function down(e){
       if(e.button !== undefined && e.button !== 0) return;
       if(!mq.matches) return;
+      pause(5000);
+      var control = e.target && e.target.closest && e.target.closest('a,button,input,select,textarea,label,[role="button"],[contenteditable="true"]');
+      if(control && el.contains(control)) return;
       var p = point(e);
       drag.active = true;
       drag.id = p.id;
@@ -1064,12 +1067,6 @@ img,svg,video,canvas{max-width:100%;}
       drag.startLeft = el.scrollLeft;
       drag.moved = false;
       drag.horizontal = false;
-      el.classList.add('goatify-plans-dragging');
-      setSnap(false);
-      pause(5000);
-      if(e.pointerId !== undefined && el.setPointerCapture){
-        try{ el.setPointerCapture(e.pointerId); }catch(err){}
-      }
     }
 
     function move(e){
@@ -1078,9 +1075,17 @@ img,svg,video,canvas{max-width:100%;}
       var p = point(e);
       var dx = p.x - drag.startX;
       var dy = p.y - drag.startY;
-      if(Math.abs(dx) > 4 || Math.abs(dy) > 4) drag.moved = true;
-      if(!drag.horizontal && Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy) * 1.05) drag.horizontal = true;
-      if(drag.horizontal && e.cancelable) e.preventDefault();
+      if(!drag.horizontal){
+        if(Math.abs(dx) <= 8 || Math.abs(dx) <= Math.abs(dy) * 1.05) return;
+        drag.horizontal = true;
+        drag.moved = true;
+        el.classList.add('goatify-plans-dragging');
+        setSnap(false);
+        if(e.pointerId !== undefined && el.setPointerCapture){
+          try{ el.setPointerCapture(e.pointerId); }catch(err){}
+        }
+      }
+      if(e.cancelable) e.preventDefault();
       el.scrollLeft = drag.startLeft - dx;
       pause(4200);
     }
@@ -1091,11 +1096,12 @@ img,svg,video,canvas{max-width:100%;}
       el.classList.remove('goatify-plans-dragging');
       setSnap(true);
       pause(drag.moved ? 2600 : 900);
-      if(drag.moved) el.dataset.goatifySuppressClickUntil = String(Date.now()+420);
+      var cancelled = e && (e.type === 'pointercancel' || e.type === 'touchcancel');
+      if(drag.moved && !cancelled) el.dataset.goatifySuppressClickUntil = String(Date.now()+420);
       if(e && e.pointerId !== undefined && el.releasePointerCapture){
         try{ el.releasePointerCapture(e.pointerId); }catch(err){}
       }
-      if(drag.horizontal) setTimeout(snapToNearest, 30);
+      if(drag.horizontal && !cancelled) setTimeout(snapToNearest, 30);
     }
 
     el.addEventListener('pointerdown', down, {passive:true});
@@ -1529,7 +1535,7 @@ img,svg,video,canvas{max-width:100%;}
 <style id="goatify-web-four-grid-pricing">
 @media(max-width:767px){#web-plans-container.goatify-web-four-grid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;overflow:visible!important;gap:8px!important;padding:10px 0 20px!important;margin:0!important;scroll-snap-type:none!important;cursor:default!important;}#web-plans-container.goatify-web-four-grid>*{flex:none!important;min-width:0!important;max-width:none!important;width:auto!important;}#web-plans-container.goatify-web-four-grid .check-list li{font-size:.55rem!important;line-height:1.2!important;}#web-plans-container.goatify-web-four-grid h3{font-size:.82rem!important;}#web-plans-container.goatify-web-four-grid .card-description-mobile{font-size:.5rem!important;}#web-plans-container.goatify-web-four-grid .btn{font-size:.56rem!important;padding:8px 6px!important;}}
 </style>
-<style id="goatify-vat-visibility-v42">html:not([data-goatify-vat-country="EC"]) .goatify-vat-label,html:not([data-goatify-vat-country="EC"]) .goatify-vat-note{display:none!important}</style><script src="/assets/goatify-commercial.js?v=20261004-responsive-16"></script>
+<style id="goatify-vat-visibility-v42">html:not([data-goatify-vat-country="EC"]) .goatify-vat-label,html:not([data-goatify-vat-country="EC"]) .goatify-vat-note{display:none!important}</style><script src="/assets/goatify-commercial.js?v=20261004-responsive-17"></script>
 </head>
 <body data-gfy-page="pricing" class="antialiased selection:bg-violet-200 selection:text-violet-900">
 <div aria-label="Selector de idioma Goatify" class="gfy-language-toggle-v33 notranslate" id="gfy-language-toggle-v33" translate="no">
@@ -5232,7 +5238,7 @@ function copyFromBtn(btn){
 </script>
 <script defer="" src="https://ia.goatify.app/embed/goatify-form.js"></script>
 <script defer="" src="https://ia.goatify.app/embed/goatify-scheduler.js"></script>
-<script src="/assets/goatify-currency.js?v=20261004-responsive-16"></script>
+<script src="/assets/goatify-currency.js?v=20261004-responsive-17"></script>
 <script defer="" src="/goatify-geo-vat-v42.js"></script>
 <style id="goatify-pricing-mobile-integrity-fix-v45">
 html,body{max-width:100%;overflow-x:hidden!important;}
@@ -5565,6 +5571,6 @@ html,body{max-width:100%;overflow-x:hidden!important;}
 })();
 </script>
 <section id="gfy-market-guide" aria-labelledby="gfy-market-title"><div class="gfy-market-inner"><h2 id="gfy-market-title">GOATIFY en tu país</h2><p>El cobro es en USD. Los importes en otras monedas son equivalencias orientativas; los impuestos y las comisiones se confirman en la cotización.</p><p>FX · 2026-10-04 · <a href="https://www.exchangerate-api.com" rel="noopener">ExchangeRate-API</a></p><nav aria-label="Países de atención"><a href="/paises/mexico/" hreflang="es-MX">México</a><a href="/paises/costa-rica/" hreflang="es-CR">Costa Rica</a><a href="/paises/guatemala/" hreflang="es-GT">Guatemala</a><a href="/paises/ecuador/" hreflang="es-EC">Ecuador</a><a href="/paises/colombia/" hreflang="es-CO">Colombia</a><a href="/paises/peru/" hreflang="es-PE">Perú</a><a href="/paises/el-salvador/" hreflang="es-SV">El Salvador</a><a href="/paises/honduras/" hreflang="es-HN">Honduras</a><a href="/paises/panama/" hreflang="es-PA">Panamá</a><a href="/paises/republica-dominicana/" hreflang="es-DO">República Dominicana</a><a href="/paises/puerto-rico/" hreflang="es-PR">Puerto Rico</a><a href="/paises/chile/" hreflang="es-CL">Chile</a><a href="/paises/argentina/" hreflang="es-AR">Argentina</a><a href="/paises/uruguay/" hreflang="es-UY">Uruguay</a><a href="/paises/paraguay/" hreflang="es-PY">Paraguay</a><a href="/paises/estados-unidos/" hreflang="es-US">Estados Unidos</a><a href="/paises/espana/" hreflang="es-ES">España</a><a href="/paises/">Todos los países / Otro país</a></nav></div></section>
-<link rel="stylesheet" href="/assets/goatify-markets.css?v=20261004-responsive-16"/>
+<link rel="stylesheet" href="/assets/goatify-markets.css?v=20261004-responsive-17"/>
 </body>
 </html>
