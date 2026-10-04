@@ -2,7 +2,7 @@
   'use strict';
   function install(){
     const css=document.querySelector('link[href*="/assets/goatify-markets.css"]')||document.createElement('link');
-    css.rel='stylesheet';css.href='/assets/goatify-markets.css?v=20261004-compact-shivo';
+    css.rel='stylesheet';css.href='/assets/goatify-markets.css?v=20261004-compact-shivo-2';
     if(!css.parentElement)document.body.appendChild(css);
     if(!window.GOATIFY_APPLY_CURRENCY_V48){
       const script=document.createElement('script');
