@@ -76,6 +76,10 @@
     });
   }
   function setLabels(currency){
+    const qlasePeriod=document.getElementById('price-pro-currency');
+    if(qlasePeriod){setText(qlasePeriod,`/ MES (${currency})`);protect(qlasePeriod);}
+    const qlaseFree=document.getElementById('price-free-value');
+    if(qlaseFree){setText(qlaseFree,money(0,currency,true));protect(qlaseFree);}
     document.querySelectorAll('.currency-label, .dyn-label').forEach(el => {
       const txt = (el.textContent || '').trim();
       if (/mes/i.test(txt)) setText(el,`${currency}/mes`);
@@ -155,6 +159,7 @@
       setLS(LEGACY_MANUAL_KEY, currency);
     }
     setSelectors(currency);
+    updateCountryControl();
     formatNodes(currency);
     setLabels(currency);
     protectPricingUI();
@@ -192,8 +197,10 @@
     return fallbackCurrency();
   }
   document.addEventListener('change', function(e){
+    const market=e.target && e.target.closest && e.target.closest('#gfy-market-select');
+    if(market){setLS(COUNTRY_KEY,market.value);applyCurrency(fromCountry(market.value)||'USD','manual');return;}
     const sel = e.target && e.target.closest && e.target.closest('select[id*="currency"], select.currency-select, select.currency-selector');
-    if (sel){ applyCurrency(sel.value, 'manual'); setTimeout(()=>applyCurrency(sel.value,'manual'),0); }
+    if (sel){const marketControl=document.getElementById('gfy-market-select');if(marketControl && fromCountry(marketControl.value)!==sel.value){marketControl.value='INTL';setLS(COUNTRY_KEY,'INTL');}applyCurrency(sel.value, 'manual'); setTimeout(()=>applyCurrency(sel.value,'manual'),0); }
   }, true);
   document.addEventListener('click', function(e){
     const btn = e.target && e.target.closest && e.target.closest('[data-currency]');
@@ -202,11 +209,36 @@
   window.GOATIFY_APPLY_CURRENCY_V48 = applyCurrency;
   window.GOATIFY_FORMAT_MONEY_V48 = function(usd,currency,withCode){ return money(usd,norm(currency || window.GOATIFY_CURRENCY || 'USD'),withCode !== false); };
   window.GOATIFY_CURRENCY_SYMBOL_V48 = function(currency){ return symbol(norm(currency || window.GOATIFY_CURRENCY || 'USD')); };
+  function addMarketSwitcher(){
+    if(document.body.classList.contains('gfy-country-page')||document.getElementById('gfy-market-select'))return;
+    const node=document.querySelector('main [data-usd], main [data-base-price], main [data-price-usd]')||document.querySelector('[data-usd], [data-base-price], [data-price-usd]');
+    const section=node && node.closest('section');
+    if(!section)return;
+    const english=document.documentElement.lang.startsWith('en');
+    const bar=document.createElement('div');bar.className='gfy-market-switcher';bar.setAttribute('role','region');bar.setAttribute('aria-label',english?'Prices by country':'Precios por país');
+    const countryLabel=document.createElement('label');countryLabel.textContent=english?'Your country':'Tu país';countryLabel.htmlFor='gfy-market-select';
+    const country=document.createElement('select');country.id='gfy-market-select';
+    C.markets.forEach(m=>{const opt=document.createElement('option');opt.value=m.code;opt.textContent=m.name;country.appendChild(opt);});
+    const other=document.createElement('option');other.value='INTL';other.textContent=english?'Other country':'Otro país';country.appendChild(other);
+    countryLabel.appendChild(country);
+    const currencyLabel=document.createElement('label');currencyLabel.textContent=english?'Reference currency':'Moneda de referencia';currencyLabel.htmlFor='gfy-reference-currency';
+    const currency=document.createElement('select');currency.id='gfy-reference-currency';SUPPORTED.forEach(code=>{const opt=document.createElement('option');opt.value=code;opt.textContent=code;currency.appendChild(opt);});currencyLabel.appendChild(currency);
+    const note=document.createElement('p');note.className='gfy-fx-policy';note.textContent=english?'Billed in USD. Local amounts are indicative equivalents. FX '+C.fxDate+'.':'Cobro en USD. Los importes locales son equivalencias orientativas. FX '+C.fxDate+'.';
+    const attribution=document.createElement('a');attribution.href=C.fxSource;attribution.textContent='ExchangeRate-API';note.appendChild(document.createTextNode(' '));note.appendChild(attribution);
+    bar.appendChild(countryLabel);bar.appendChild(currencyLabel);bar.appendChild(note);section.insertBefore(bar,section.firstElementChild);
+    country.value='INTL';
+  }
+  function updateCountryControl(){
+    const control=document.getElementById('gfy-market-select');if(!control)return;
+    const params=new URLSearchParams(location.search);
+    const code=String((userSelected?getLS(COUNTRY_KEY):(document.documentElement.dataset.market||params.get('country')||getLS(COUNTRY_KEY)))||'INTL').toUpperCase();
+    control.value=fromCountry(code)===window.GOATIFY_CURRENCY?code:'INTL';
+  }
   function addBillingNotes(){
     if(document.body.classList.contains('gfy-country-page')) return;
     const english=document.documentElement.lang.startsWith('en');
     document.querySelectorAll('select[id*="currency"], select.currency-selector, select.currency-select').forEach(select=>{
-      if(select.closest('header,nav')) return;
+      if(select.closest('header,nav,.gfy-market-switcher')) return;
       const parent=select.parentElement;
       if(!parent || parent.querySelector('.gfy-fx-policy'))return;
       const note=document.createElement('p'); note.className='gfy-fx-policy';
@@ -215,6 +247,7 @@
     });
   }
   function boot(){
+    addMarketSwitcher();
     addBillingNotes();
     injectStyle();
     resetLegacyCurrencyIfUnconfirmed();
