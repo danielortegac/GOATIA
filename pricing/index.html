@@ -4311,11 +4311,11 @@ img,svg,video,canvas{max-width:100%;}
 <h3 class="text-lg font-bold text-slate-800">Tu Resumen de Pedido</h3>
 <button class="text-slate-400 hover:text-red-500 text-xl transition-colors" id="close-cart"><i class="fas fa-times"></i></button>
 </div>
-<div class="flex-grow overflow-y-auto p-6 space-y-4" id="cart-items"></div>
-<div class="p-6 bg-white border-t border-gray-100 shadow-[0_-5px_15px_rgba(0,0,0,0.05)]">
-<div class="flex justify-between items-end mb-4">
-<span class="text-sm text-gray-500">Total Estimado:</span>
-<span class="text-3xl font-extrabold text-violet-600" id="cart-total"><span class="dynamic-price" data-usd="0">$0.00 USD</span></span>
+<div class="flex-grow overflow-y-auto p-6 space-y-4" id="cart-items" style="min-height:0;min-width:0"></div>
+<div class="p-6 bg-white border-t border-gray-100 shadow-[0_-5px_15px_rgba(0,0,0,0.05)]" style="flex-shrink:0;max-height:58dvh;overflow-y:auto">
+<div class="mb-4">
+<span class="text-sm text-gray-500">Resumen de pagos</span>
+<div class="text-violet-600" id="cart-summary" style="display:grid;gap:10px;margin-top:10px;overflow-wrap:anywhere">Sin servicios seleccionados.</div>
 </div>
 <button class="w-full btn btn-primary py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 shadow-lg hover:shadow-xl" id="checkout-btn">
 <i class="fab fa-whatsapp text-2xl"></i> Finalizar Pedido
@@ -4429,13 +4429,7 @@ img,svg,video,canvas{max-width:100%;}
 
         document.getElementById('checkout-btn').onclick = () => {
             if(!cart.length) return;
-            let message = `Hola GOATIFY! 👋\n\nEstoy listo para invertir en mi negocio. Este es mi pedido:\n\n`;
-            cart.forEach(item => { 
-                const priceStr = formatCartPrice(item.price);
-                message += `🔹 *${item.name}* (${item.type}): ${priceStr}\n`; 
-            });
-            const total = document.getElementById('cart-total').textContent;
-            message += `\n💰 *Inversión Total Estimada:* ${total}\n\nConfirmar pagos únicos, mensualidades, impuestos y alcance en la cotización.`;
+            const message = buildCartQuoteMessage();
             window.open(`https://wa.me/19125715145?text=${encodeURIComponent(message)}`, '_blank');
         };
 
@@ -4606,6 +4600,42 @@ img,svg,video,canvas{max-width:100%;}
     const currencyRates = window.GOATIFY_COMMERCIAL.currencyProfiles;
     let currentCurrency = 'USD';
     let cart = [];
+    const cartBillingById = {
+        web_smart:'once', web_pro:'once', web_ecom:'once', web_app:'once',
+        goatify_pro:'month', connect_pro:'month', connect_premium:'month',
+        ai_start:'month', ai_pro:'month', ai_premium:'month',
+        add_app:'once', add_calls:'once', add_branding:'once', add_video:'once',
+        add_seo:'once', add_gateway:'once', add_payment_object:'once', add_paypal_recurring:'once', add_wl:'once',
+        tr_cons:'once', tr_team:'once', tr_aca_sem:'once', tr_aca_mo:'month',
+        add_email:'month', add_ads:'month', add_voice:'month', add_domain:'year',
+        add_social:'quote', add_reports:'quote',
+        sm_presencia:'month', sm_expansion:'month', sm_dominio_total:'month',
+        ads_facebook:'month', ads_instagram:'month', ads_meta:'month', ads_extra:'month', ads_meta_tiktok:'month',
+        mail_domain_activation:'once', mail_1_user:'month', mail_2_5_users:'month', mail_6_10_users:'month', mail_11_15_users:'month',
+        domain_only:'year', email_monthly:'month', email_extra:'once', ia_pack_7:'once', ia_pack_14:'once'
+    };
+    const cartBillingLabels = {once:'Pago único', month:'Mensual', year:'Anual', quote:'Frecuencia por confirmar'};
+    const cartBillingSuffixes = {once:'', month:' / mes', year:' / año', quote:''};
+    function getCartBillingGroups() {
+        return ['once','month','year','quote'].map(frequency => ({
+            frequency,
+            items:cart.filter(item => item.frequency === frequency),
+            total:cart.filter(item => item.frequency === frequency).reduce((sum,item) => sum + Number(item.price),0)
+        })).filter(group => group.items.length);
+    }
+    function buildCartQuoteMessage() {
+        let message = 'Hola GOATIFY! 👋\n\nQuiero cotizar estos servicios:\n';
+        for (const group of getCartBillingGroups()) {
+            message += `\n*${cartBillingLabels[group.frequency]}*\n`;
+            for (const item of group.items) message += `🔹 ${item.name}: ${formatCartPrice(item.price)}${cartBillingSuffixes[group.frequency]}\n`;
+            if (group.frequency !== 'quote') message += `*Subtotal ${cartBillingLabels[group.frequency].toLowerCase()}:* ${formatCartPrice(group.total)}${cartBillingSuffixes[group.frequency]}\n`;
+        }
+        message += '\nCobro en USD. Confirmar impuestos, consumo y alcance en la cotización.';
+        if (cart.some(item => item.frequency === 'quote')) message += ' Los importes de frecuencia pendiente se confirman por separado.';
+        if (cart.some(item => item.id === 'web_ecom')) message += '\nHosting de E-commerce: $6 USD/mes, separado del desarrollo.';
+        if (cart.some(item => item.id === 'web_app')) message += '\nHosting de Aplicación Web: desde $12 USD/mes, separado del desarrollo.';
+        return message;
+    }
 
     // --- DATOS ACTUALIZADOS ---
 
@@ -5091,18 +5121,28 @@ img,svg,video,canvas{max-width:100%;}
     function toggleFaq(element) { element.parentElement.classList.toggle('active'); }
 
     function refreshAll() { renderWeb(); renderAuto(); renderAi(); renderAddons(); renderTraining(); updateCartTotal(); updateCalculatorValues(); updateStaticCurrency(); }
-    function addToCart(id, type, price, name) { cart.push({ id, type, price, name }); updateCartUI(); document.getElementById('cart-modal').classList.remove('hidden'); setTimeout(() => document.getElementById('cart-sidebar').classList.remove('translate-x-full'), 10); }
+    function addToCart(id, type, price, name) { cart.push({ id, type, price, name, frequency:cartBillingById[id] || 'quote' }); updateCartUI(); document.getElementById('cart-modal').classList.remove('hidden'); setTimeout(() => document.getElementById('cart-sidebar').classList.remove('translate-x-full'), 10); }
     function removeFromCart(idx) { cart.splice(idx, 1); updateCartUI(); }
     function updateCartUI() {
         const count = document.getElementById('cart-count'); const list = document.getElementById('cart-items');
         count.textContent = cart.length; count.classList.toggle('hidden', cart.length === 0);
         if(cart.length === 0) { list.innerHTML = `<div class="flex flex-col items-center justify-center py-12 text-center text-slate-400\"><i class="fas fa-shopping-basket text-4xl mb-4 opacity-30"></i><p>Tu carrito está vacío.</p></div>`; }
-        else { list.innerHTML = cart.map((item, idx) => `<div class="flex justify-between items-center bg-white border border-slate-100 p-3 rounded-lg shadow-sm hover:shadow-md transition-shadow"><div class="flex items-center gap-3"><div class="w-8 h-8 rounded-full bg-violet-50 text-violet-500 flex items-center justify-center text-xs font-bold">${item.type === 'Web' ? '<i class="fas fa-laptop"></i>' : item.type === 'Auto' ? '<i class="fas fa-bolt"></i>' : item.type === 'Edu' ? '<i class="fas fa-graduation-cap"></i>' : '<i class="fas fa-star"></i>'}</div><div><div class="font-bold text-slate-800 text-sm">${item.name}</div><div class="text-xs text-slate-500\">${formatCartPrice(item.price)}</div></div></div><button onclick=\"removeFromCart(${idx})\" class=\"w-8 h-8 rounded-full hover:bg-red-50 text-slate-300 hover:text-red-500 transition-colors"><i class="fas fa-trash-alt"></i></button></div>`).join(''); }
+        else { list.innerHTML = cart.map((item, idx) => `<div class="flex justify-between items-center bg-white border border-slate-100 p-3 rounded-lg shadow-sm hover:shadow-md transition-shadow" style="gap:10px;min-width:0"><div class="flex items-center gap-3" style="min-width:0"><div class="w-8 h-8 rounded-full bg-violet-50 text-violet-500 flex items-center justify-center text-xs font-bold" style="flex-shrink:0">${item.type === 'Web' ? '<i class="fas fa-laptop"></i>' : item.type === 'Auto' ? '<i class="fas fa-bolt"></i>' : item.type === 'Edu' ? '<i class="fas fa-graduation-cap"></i>' : '<i class="fas fa-star"></i>'}</div><div style="min-width:0;overflow-wrap:anywhere"><div class="font-bold text-slate-800 text-sm">${item.name}</div><div class="text-xs text-slate-500">${formatCartPrice(item.price)}${cartBillingSuffixes[item.frequency]}</div><div class="text-xs text-slate-500">${cartBillingLabels[item.frequency]}</div></div></div><button onclick="removeFromCart(${idx})" aria-label="Quitar ${item.name}" class="w-8 h-8 rounded-full hover:bg-red-50 text-slate-300 hover:text-red-500 transition-colors" style="flex-shrink:0"><i class="fas fa-trash-alt"></i></button></div>`).join(''); }
         updateCartTotal();
     }
     function updateCartTotal() { 
-        const totalUSD = cart.reduce((acc, item) => acc + item.price, 0);
-        document.getElementById('cart-total').textContent = formatCartPrice(totalUSD); 
+        const groups=getCartBillingGroups();
+        document.getElementById('cart-summary').innerHTML = groups.length ? groups.map(group => {
+            const value=group.frequency==='quote' ? group.items.map(item => `${item.name}: ${formatCartPrice(item.price)}`).join('<br>') : `${formatCartPrice(group.total)}${cartBillingSuffixes[group.frequency]}`;
+            return `<div style="display:grid;gap:3px;min-width:0"><span style="font-size:12px;color:#64748b">${cartBillingLabels[group.frequency]}</span><strong style="font-size:16px;line-height:1.4;overflow-wrap:anywhere">${value}</strong></div>`;
+        }).join('') : 'Sin servicios seleccionados.';
+        updateCartUIPricesOnly();
+    }
+    function updateCartUIPricesOnly() {
+        const list=document.getElementById('cart-items');
+        if (!list || !cart.length) return;
+        const prices=list.querySelectorAll('.text-xs.text-slate-500');
+        cart.forEach((item,index) => { if(prices[index*2])prices[index*2].textContent=formatCartPrice(item.price)+cartBillingSuffixes[item.frequency]; });
     }
 </script>
 <script>
