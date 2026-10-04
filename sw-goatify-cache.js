@@ -1,4 +1,4 @@
-const VERSION = 'goatify-v70-navigation-final-20261004';
+const VERSION = 'goatify-v71-blue-anchor-final-20261004';
 const PAGE_CACHE = `pages-${VERSION}`;
 const ASSET_CACHE = `assets-${VERSION}`;
 const RUNTIME_CACHE = `runtime-${VERSION}`;
