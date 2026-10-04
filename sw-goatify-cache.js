@@ -1,4 +1,4 @@
-const VERSION = 'goatify-v73-cart-final-20261004';
+const VERSION = 'goatify-v74-cart-ready-20261004';
 const PAGE_CACHE = `pages-${VERSION}`;
 const ASSET_CACHE = `assets-${VERSION}`;
 const RUNTIME_CACHE = `runtime-${VERSION}`;
