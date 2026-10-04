@@ -1,4 +1,4 @@
-const VERSION = 'goatify-v54-language-es-en-hard-reset';
+const VERSION = 'goatify-v75-publish-20261004';
 const PAGE_CACHE = `pages-${VERSION}`;
 const ASSET_CACHE = `assets-${VERSION}`;
 const RUNTIME_CACHE = `runtime-${VERSION}`;
