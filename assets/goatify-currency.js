@@ -244,7 +244,7 @@
       sel.insertAdjacentElement('beforebegin',picker);
     });
     if(!count){
-      const header=document.querySelector('body>nav.fixed,body>header.fixed,body>header,header.site-header,header,nav.fixed')||document.body;
+      const header=document.querySelector('body>nav.fixed,body>nav.main-nav,body>header.fixed,body>header,header.site-header,header,nav.fixed')||document.body;
       const row=document.createElement('div');row.className='gfy-header-country-row';
       row.appendChild(makeCountryPicker('gfy-market-select'));header.insertBefore(row,header.firstElementChild);
       if(getComputedStyle(header).position==='fixed'){

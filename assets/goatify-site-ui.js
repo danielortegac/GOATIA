@@ -8,11 +8,11 @@
       appPreview.firstElementChild?.firstElementChild?.classList.add('gfy-app-phone');
     }
     const css=document.querySelector('link[href*="/assets/goatify-markets.css"]')||document.createElement('link');
-    css.rel='stylesheet';css.href='/assets/goatify-markets.css?v=20261004-responsive-9';
+    css.rel='stylesheet';css.href='/assets/goatify-markets.css?v=20261004-responsive-10';
     document.body.appendChild(css);
     if(!window.GOATIFY_APPLY_CURRENCY_V48){
       const script=document.createElement('script');
-      script.src='/assets/goatify-currency.js?v=20261004-responsive-9';script.async=false;
+      script.src='/assets/goatify-currency.js?v=20261004-responsive-10';script.async=false;
       document.head.appendChild(script);
     }
     if(document.querySelector('.gfy-shivo-assistant'))return;
@@ -33,7 +33,7 @@
     document.querySelectorAll('button[onclick*="scrollTo"],#scrollToTop,#back-to-top,#scrollTopBtn,.gfy-back-top').forEach(button=>{
       if(getComputedStyle(button).position==='fixed')button.setAttribute('data-gfy-scroll-top','');
     });
-    const headers=Array.from(document.querySelectorAll('body>header,body>nav.fixed,header.site-header,#header'));
+    const headers=Array.from(document.querySelectorAll('body>header,body>nav.fixed,body>nav.main-nav,header.site-header,#header'));
     function updateAnchorOffset(){
       const height=Math.max(0,...headers.map(header=>{
         const style=getComputedStyle(header);
