@@ -138,7 +138,7 @@
     document.querySelectorAll('.price-val[data-usd]').forEach(el => { setText(el,numberOnly(readUsd(el), currency)); protect(el); });
     document.querySelectorAll('[data-usd], [data-base-price], [data-price-usd]').forEach(el => {
       if (el.matches('.dynamic-price,.price-dynamic,.js-currency,.dyn-price,.price-val')) return;
-      if (el.children.length === 0 && /\$|USD|MXN|COP|PEN|CLP|ARS|EUR|CRC|GTQ|HNL|DOP|UYU|PYG|S\//.test(el.textContent || '')) setText(el,money(readUsd(el), currency, true));
+      if (el.children.length === 0 && (el.hasAttribute('data-base-price') || /\$|USD|MXN|COP|PEN|CLP|ARS|EUR|CRC|GTQ|HNL|DOP|UYU|PYG|S\//.test(el.textContent || ''))) setText(el,money(readUsd(el), currency, true));
       protect(el);
     });
   }
@@ -211,8 +211,8 @@
   window.GOATIFY_CURRENCY_SYMBOL_V48 = function(currency){ return symbol(norm(currency || window.GOATIFY_CURRENCY || 'USD')); };
   function addMarketSwitcher(){
     if(document.body.classList.contains('gfy-country-page')||document.getElementById('gfy-market-select'))return;
-    const node=document.querySelector('main [data-usd], main [data-base-price], main [data-price-usd]')||document.querySelector('[data-usd], [data-base-price], [data-price-usd]');
-    const section=node && node.closest('section');
+    const nodes=Array.from(document.querySelectorAll('[data-usd], [data-base-price], [data-price-usd]'));
+    const section=document.querySelector('section#precios,section#planes,section#web-section,section#social-media-plans,section#automation-plans')||nodes.map(n=>n.closest('section')).find(s=>s && !s.closest('header,nav,[role="dialog"],#promo-modal'));
     if(!section)return;
     const english=document.documentElement.lang.startsWith('en');
     const bar=document.createElement('div');bar.className='gfy-market-switcher';bar.setAttribute('role','region');bar.setAttribute('aria-label',english?'Prices by country':'Precios por país');
