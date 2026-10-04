@@ -1,6 +1,24 @@
 (function(){
   'use strict';
   function install(){
+    const homeHeader=document.querySelector('.nav-container');
+    if(homeHeader){
+      const actions=homeHeader.querySelector('.header-actions');
+      const language=document.getElementById('gfy-language-toggle-v33');
+      const portal=actions?.querySelector('.btn-header-special');
+      const menu=homeHeader.querySelector('.nav-row-external');
+      if(actions&&language)actions.appendChild(language);
+      if(portal&&menu){
+        const originalPosition=document.createComment('Portal action desktop position');
+        portal.parentNode.insertBefore(originalPosition,portal);
+        const mobile=window.matchMedia('(max-width:992px)');
+        function placePortal(){
+          if(mobile.matches)menu.insertBefore(portal,menu.firstChild);
+          else originalPosition.parentNode.insertBefore(portal,originalPosition.nextSibling);
+        }
+        placePortal();mobile.addEventListener('change',placePortal);
+      }
+    }
     const appPreview=document.querySelector('#pwa-section .grid.grid-cols-12');
     if(appPreview){
       appPreview.id='gfy-app-preview';appPreview.classList.add('gfy-app-preview');
@@ -8,11 +26,11 @@
       appPreview.firstElementChild?.firstElementChild?.classList.add('gfy-app-phone');
     }
     const css=document.querySelector('link[href*="/assets/goatify-markets.css"]')||document.createElement('link');
-    css.rel='stylesheet';css.href='/assets/goatify-markets.css?v=20261004-responsive-19';
+    css.rel='stylesheet';css.href='/assets/goatify-markets.css?v=20261004-responsive-20';
     document.body.appendChild(css);
     if(!window.GOATIFY_APPLY_CURRENCY_V48){
       const script=document.createElement('script');
-      script.src='/assets/goatify-currency.js?v=20261004-responsive-19';script.async=false;
+      script.src='/assets/goatify-currency.js?v=20261004-responsive-20';script.async=false;
       document.head.appendChild(script);
     }
     if(document.querySelector('.gfy-shivo-assistant'))return;
