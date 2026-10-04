@@ -1,8 +1,14 @@
 (function(){
   'use strict';
   function install(){
+    const appPreview=document.querySelector('#pwa-section .grid.grid-cols-12');
+    if(appPreview){
+      appPreview.id='gfy-app-preview';appPreview.classList.add('gfy-app-preview');
+      appPreview.parentElement.classList.add('gfy-app-preview-container');
+      appPreview.firstElementChild?.firstElementChild?.classList.add('gfy-app-phone');
+    }
     const css=document.querySelector('link[href*="/assets/goatify-markets.css"]')||document.createElement('link');
-    css.rel='stylesheet';css.href='/assets/goatify-markets.css?v=20261004-compact-shivo-2';
+    css.rel='stylesheet';css.href='/assets/goatify-markets.css?v=20261004-responsive-3';
     if(!css.parentElement)document.body.appendChild(css);
     if(!window.GOATIFY_APPLY_CURRENCY_V48){
       const script=document.createElement('script');
