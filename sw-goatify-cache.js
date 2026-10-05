@@ -1,4 +1,4 @@
-const VERSION = 'goatify-v75-publish-20261004';
+const VERSION = 'goatify-v76-main-preview-20261004';
 const PAGE_CACHE = `pages-${VERSION}`;
 const ASSET_CACHE = `assets-${VERSION}`;
 const RUNTIME_CACHE = `runtime-${VERSION}`;
@@ -74,6 +74,24 @@ self.addEventListener('fetch', (event) => {
           '<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Offline</title><body style="font-family:Arial,sans-serif;padding:24px;background:#0b0b0f;color:#fff"><h1>Estás offline</h1><p>La versión guardada de esta página no estuvo disponible todavía. Vuelve a abrirla cuando tengas conexión para cachearla.</p></body></html>',
           { headers: { 'Content-Type': 'text/html; charset=utf-8' } }
         );
+      }
+    })());
+    return;
+  }
+
+  // The shared UI loader selects versioned styles/scripts; refresh it before choosing a bundle.
+  if (url.origin === self.location.origin && url.pathname === '/assets/goatify-commercial.js') {
+    event.respondWith((async () => {
+      const cache = await caches.open(ASSET_CACHE);
+      try {
+        const fresh = await fetch(request);
+        if (fresh && fresh.ok) {
+          cache.put(request, fresh.clone());
+          return fresh;
+        }
+        return (await cache.match(request)) || fresh;
+      } catch (error) {
+        return (await cache.match(request)) || Response.error();
       }
     })());
     return;
