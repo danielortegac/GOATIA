@@ -1,5 +1,27 @@
 (function(){
   'use strict';
+  function installAwayTabNotice(){
+    if(document.body.dataset.gfyAwayTabInstalled)return;
+    document.body.dataset.gfyAwayTabInstalled='1';
+    let saved=null,awayIcon=null;
+    function sync(){
+      if(document.hidden){
+        if(saved)return;
+        saved={title:document.title,icons:Array.from(document.head.querySelectorAll('link[rel~="icon"]'),node=>({node,rel:node.getAttribute('rel')}))};
+        saved.icons.forEach(({node})=>node.removeAttribute('rel'));
+        awayIcon=document.createElement('link');
+        awayIcon.rel='icon';awayIcon.type='image/svg+xml';awayIcon.sizes='any';
+        awayIcon.href='/assets/shivo-favicon.svg';document.head.appendChild(awayIcon);
+        document.title=document.documentElement.lang.toLowerCase().startsWith('en')?'🐐 Shall we continue your project? | GOATIFY':'🐐 ¿Seguimos con tu proyecto? | GOATIFY';
+      }else if(saved){
+        awayIcon.remove();awayIcon=null;
+        saved.icons.forEach(({node,rel})=>node.setAttribute('rel',rel));
+        document.title=saved.title;saved=null;
+      }
+    }
+    document.addEventListener('visibilitychange',sync);
+    sync();
+  }
   function installHomeLogoCycle(header){
     if(document.body.dataset.gfyPage!=='home')return;
     const logo=header.querySelector('a.logo'),original=logo?.querySelector(':scope>img');
@@ -227,6 +249,7 @@
   function install(){
     if(document.body.dataset.gfySiteUiInstalled)return;
     document.body.dataset.gfySiteUiInstalled='1';
+    installAwayTabNotice();
     const portalHeader=document.querySelector('body[data-gfy-page="portal"] .main-nav .nav-container');
     if(portalHeader)installPortalNavigation(portalHeader);
     installServiceMobileCta();
@@ -258,16 +281,16 @@
       appPreview.firstElementChild?.firstElementChild?.classList.add('gfy-app-phone');
     }
     const css=document.querySelector('link[href*="/assets/goatify-markets.css"]')||document.createElement('link');
-    css.rel='stylesheet';css.href='/assets/goatify-markets.css?v=20261004-responsive-46';
+    css.rel='stylesheet';css.href='/assets/goatify-markets.css?v=20261004-responsive-47';
     document.body.appendChild(css);
     if(homeHeader){
       ['goatify-home-design.css','goatify-navigation.css'].forEach(file=>{
-        const sheet=document.createElement('link');sheet.rel='stylesheet';sheet.href='/assets/'+file+'?v=20261004-responsive-46';document.body.appendChild(sheet);
+        const sheet=document.createElement('link');sheet.rel='stylesheet';sheet.href='/assets/'+file+'?v=20261004-responsive-47';document.body.appendChild(sheet);
       });
     }
     if(!window.GOATIFY_APPLY_CURRENCY_V48){
       const script=document.createElement('script');
-      script.src='/assets/goatify-currency.js?v=20261004-responsive-46';script.async=false;
+      script.src='/assets/goatify-currency.js?v=20261004-responsive-47';script.async=false;
       document.head.appendChild(script);
     }
     if(document.querySelector('.gfy-shivo-assistant')){installFloatingControls();return;}
