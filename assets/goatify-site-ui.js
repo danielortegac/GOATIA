@@ -1,5 +1,41 @@
 (function(){
   'use strict';
+  function installHomeLogoCycle(header){
+    if(document.body.dataset.gfyPage!=='home')return;
+    const logo=header.querySelector('a.logo'),original=logo?.querySelector(':scope>img');
+    if(!original||logo.dataset.gfyLogoCycleInstalled)return;
+    logo.dataset.gfyLogoCycleInstalled='1';
+    const frame=document.createElement('span'),shivo=document.createElement('img');
+    frame.className='gfy-header-logo-cycle';original.classList.add('gfy-header-logo-original');
+    shivo.className='gfy-header-logo-shivo';shivo.alt='';shivo.setAttribute('aria-hidden','true');
+    shivo.decoding='async';shivo.draggable=false;
+    original.replaceWith(frame);frame.append(original,shivo);
+    const reduced=window.matchMedia('(prefers-reduced-motion:reduce)');
+    let timer=0,deadline=0,remaining=6000,showShivo=false,ready=false;
+    function stop(preserve){
+      if(!timer)return;
+      if(preserve)remaining=Math.max(0,deadline-performance.now());
+      clearTimeout(timer);timer=0;
+    }
+    function resume(){
+      if(timer||!ready||reduced.matches||document.hidden)return;
+      deadline=performance.now()+remaining;
+      timer=setTimeout(()=>{
+        timer=0;showShivo=!showShivo;
+        frame.classList.toggle('gfy-header-show-shivo',showShivo);
+        remaining=showShivo?5000:6000;resume();
+      },remaining);
+    }
+    function resetMotion(){
+      stop(false);showShivo=false;remaining=6000;
+      frame.classList.remove('gfy-header-show-shivo');resume();
+    }
+    reduced.addEventListener('change',resetMotion);
+    document.addEventListener('visibilitychange',()=>{if(document.hidden)stop(true);else resume();});
+    shivo.addEventListener('load',()=>{ready=true;resume();},{once:true});
+    shivo.addEventListener('error',()=>{ready=false;resetMotion();},{once:true});
+    shivo.src='/assets/shivo-animado-r71.svg';
+  }
   function installPortalNavigation(header){
     if(header.classList.contains('gfy-portal-navigation-ready'))return;
     const menu=header.querySelector('.nav-links'),actions=header.querySelector('.nav-buttons');
@@ -213,6 +249,7 @@
       }
       document.body.dataset.gfyPage='home';
       installHomeNavigation(homeHeader);
+      installHomeLogoCycle(homeHeader);
     }
     const appPreview=document.querySelector('#pwa-section .grid.grid-cols-12');
     if(appPreview){
@@ -221,16 +258,16 @@
       appPreview.firstElementChild?.firstElementChild?.classList.add('gfy-app-phone');
     }
     const css=document.querySelector('link[href*="/assets/goatify-markets.css"]')||document.createElement('link');
-    css.rel='stylesheet';css.href='/assets/goatify-markets.css?v=20261004-responsive-42';
+    css.rel='stylesheet';css.href='/assets/goatify-markets.css?v=20261004-responsive-43';
     document.body.appendChild(css);
     if(homeHeader){
       ['goatify-home-design.css','goatify-navigation.css'].forEach(file=>{
-        const sheet=document.createElement('link');sheet.rel='stylesheet';sheet.href='/assets/'+file+'?v=20261004-responsive-42';document.body.appendChild(sheet);
+        const sheet=document.createElement('link');sheet.rel='stylesheet';sheet.href='/assets/'+file+'?v=20261004-responsive-43';document.body.appendChild(sheet);
       });
     }
     if(!window.GOATIFY_APPLY_CURRENCY_V48){
       const script=document.createElement('script');
-      script.src='/assets/goatify-currency.js?v=20261004-responsive-42';script.async=false;
+      script.src='/assets/goatify-currency.js?v=20261004-responsive-43';script.async=false;
       document.head.appendChild(script);
     }
     if(document.querySelector('.gfy-shivo-assistant')){installFloatingControls();return;}
