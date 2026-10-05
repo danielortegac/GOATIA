@@ -1,5 +1,50 @@
 (function(){
   'use strict';
+  function installPortalNavigation(header){
+    if(header.classList.contains('gfy-portal-navigation-ready'))return;
+    const menu=header.querySelector('.nav-links'),actions=header.querySelector('.nav-buttons');
+    if(!menu||!actions)return;
+    const navigation=header.closest('.main-nav'),ticker=document.querySelector('body[data-gfy-page="portal"]>.pulse-tracker');
+    if(navigation&&ticker&&navigation.parentNode===ticker.parentNode)ticker.parentNode.insertBefore(navigation,ticker);
+    const tools=document.createElement('div');tools.className='gfy-portal-tools';
+    const country=actions.querySelector('.gfy-country-picker');
+    const language=document.getElementById('gfy-language-toggle-v33');
+    if(country)tools.appendChild(country);
+    if(language)tools.appendChild(language);
+    header.appendChild(tools);
+    menu.id=menu.id||'gfy-portal-navigation';
+    const toggle=document.createElement('button');toggle.type='button';toggle.className='gfy-portal-menu-toggle';
+    toggle.setAttribute('aria-controls',menu.id);toggle.setAttribute('aria-expanded','false');
+    toggle.innerHTML='<span aria-hidden="true">☰</span> Menú';actions.appendChild(toggle);
+    function close(restoreFocus){
+      header.classList.remove('gfy-portal-menu-open');toggle.setAttribute('aria-expanded','false');
+      if(restoreFocus)toggle.focus();
+    }
+    toggle.addEventListener('click',()=>{
+      const open=toggle.getAttribute('aria-expanded')!=='true';
+      header.classList.toggle('gfy-portal-menu-open',open);toggle.setAttribute('aria-expanded',String(open));
+    });
+    menu.addEventListener('click',event=>{if(event.target.closest('a'))close(false);});
+    document.addEventListener('keydown',event=>{if(event.key==='Escape'&&header.classList.contains('gfy-portal-menu-open'))close(true);});
+    window.matchMedia('(max-width:1100px)').addEventListener('change',()=>close(false));
+    header.classList.add('gfy-portal-navigation-ready');
+  }
+  function installServiceMobileCta(){
+    document.querySelectorAll('header.site-header').forEach(header=>{
+      const menu=header.querySelector('#nav.nav-links,#primary-nav.nav-links');
+      const toggle=header.querySelector('.menu,.menu-button'),source=header.querySelector('a.nav-cta');
+      if(!menu||!toggle||!source||menu.contains(source)||menu.querySelector('.gfy-mobile-primary-cta'))return;
+      const action=source.cloneNode(true);action.removeAttribute('id');action.classList.add('gfy-mobile-primary-cta');
+      menu.appendChild(action);
+      function close(restoreFocus){
+        menu.classList.remove('open');toggle.setAttribute('aria-expanded','false');
+        if(restoreFocus)toggle.focus();
+      }
+      menu.addEventListener('click',event=>{if(event.target.closest('a'))close(false);});
+      document.addEventListener('keydown',event=>{if(event.key==='Escape'&&menu.classList.contains('open'))close(true);});
+      window.matchMedia('(max-width:980px)').addEventListener('change',()=>close(false));
+    });
+  }
   function installHomeNavigation(header){
     const menu=header.querySelector('.nav-menu');
     if(!menu)return;
@@ -95,6 +140,9 @@
   function install(){
     if(document.body.dataset.gfySiteUiInstalled)return;
     document.body.dataset.gfySiteUiInstalled='1';
+    const portalHeader=document.querySelector('body[data-gfy-page="portal"] .main-nav .nav-container');
+    if(portalHeader)installPortalNavigation(portalHeader);
+    installServiceMobileCta();
     const homeHeader=document.querySelector('body[data-gfy-page="home"] .nav-container');
     if(homeHeader){
       const actions=homeHeader.querySelector('.header-actions');
@@ -122,16 +170,16 @@
       appPreview.firstElementChild?.firstElementChild?.classList.add('gfy-app-phone');
     }
     const css=document.querySelector('link[href*="/assets/goatify-markets.css"]')||document.createElement('link');
-    css.rel='stylesheet';css.href='/assets/goatify-markets.css?v=20261004-responsive-28';
+    css.rel='stylesheet';css.href='/assets/goatify-markets.css?v=20261004-responsive-29';
     document.body.appendChild(css);
     if(homeHeader){
       ['goatify-home-design.css','goatify-navigation.css'].forEach(file=>{
-        const sheet=document.createElement('link');sheet.rel='stylesheet';sheet.href='/assets/'+file+'?v=20261004-responsive-28';document.body.appendChild(sheet);
+        const sheet=document.createElement('link');sheet.rel='stylesheet';sheet.href='/assets/'+file+'?v=20261004-responsive-29';document.body.appendChild(sheet);
       });
     }
     if(!window.GOATIFY_APPLY_CURRENCY_V48){
       const script=document.createElement('script');
-      script.src='/assets/goatify-currency.js?v=20261004-responsive-28';script.async=false;
+      script.src='/assets/goatify-currency.js?v=20261004-responsive-29';script.async=false;
       document.head.appendChild(script);
     }
     if(document.querySelector('.gfy-shivo-assistant')){installFloatingControls();return;}
