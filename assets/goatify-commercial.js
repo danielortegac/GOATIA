@@ -5,6 +5,6 @@ window.GOATIFY_COMMERCIAL = {"version": "2026-10-04", "baseCurrency": "USD", "fx
   if(typeof document==='undefined')return;
   if(document.getElementById('gfy-shared-site-ui'))return;
   const ui=document.createElement('script');ui.id='gfy-shared-site-ui';
-  ui.src='/assets/goatify-site-ui.js?v=20261004-responsive-32';ui.async=false;
+  ui.src='/assets/goatify-site-ui.js?v=20261004-responsive-33';ui.async=false;
   document.head.appendChild(ui);
 })();
