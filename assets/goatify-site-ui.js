@@ -108,7 +108,50 @@
   function isLegacyAssistant(link){
     return link.matches('.float-btn.ai,.float.ai,.float-ai,.gfy-assistant-fab,.advisor-fab,.floating-assistant')||/asistente|assistant/i.test(link.textContent+' '+(link.getAttribute('aria-label')||'')+' '+link.title);
   }
+  function installHomeFooterDock(){
+    if(document.body.dataset.gfyPage!=='home')return null;
+    const footer=document.querySelector('footer.footer-extended'),container=footer?.querySelector(':scope > .container');
+    if(!container||footer.dataset.gfyUtilityDockInstalled)return null;
+    footer.dataset.gfyUtilityDockInstalled='1';
+    const dock=document.createElement('div');dock.className='gfy-footer-utility-dock';dock.hidden=true;
+    dock.setAttribute('role','group');dock.setAttribute('aria-label',document.documentElement.lang.startsWith('en')?'Help and navigation':'Ayuda y navegación');
+    container.appendChild(dock);
+    const positions=new Map();
+    const selector='.gfy-shivo-assistant,[data-gfy-scroll-top],[data-gfy-floating-cart],[data-gfy-floating-whatsapp]';
+    function sync(){
+      if(!footer.isConnected)return;
+      // Its top is unchanged by the dock's height. Keep controls docked below
+      // the footer too, including the country directory which follows it.
+      const active=footer.getBoundingClientRect().top<innerHeight+80;
+      if(active){
+        document.querySelectorAll(selector).forEach(node=>{
+          if(node.parentNode===dock||!isFloating(node))return;
+          const marker=document.createComment('GOATIFY floating control position');
+          node.parentNode.insertBefore(marker,node);positions.set(node,marker);
+          node.setAttribute('data-gfy-footer-docked','');dock.appendChild(node);
+        });
+        positions.forEach((marker,node)=>{if(!node.isConnected){marker.remove();positions.delete(node);}});
+      }else{
+        positions.forEach((marker,node)=>{
+          if(node.isConnected){
+            if(marker.isConnected)marker.replaceWith(node);
+            else document.body.appendChild(node);
+            node.removeAttribute('data-gfy-footer-docked');
+          }else marker.remove();
+        });
+        positions.clear();
+      }
+      dock.hidden=!active||!positions.size;
+    }
+    let frame;
+    function schedule(){if(frame)return;frame=requestAnimationFrame(()=>{frame=0;sync();});}
+    if('IntersectionObserver' in window){const observer=new IntersectionObserver(schedule,{rootMargin:'0px 0px 80px 0px',threshold:0});observer.observe(footer);}
+    window.addEventListener('scroll',schedule,{passive:true});
+    window.addEventListener('resize',schedule,{passive:true});
+    return sync;
+  }
   function installFloatingControls(){
+    const syncFooterDock=installHomeFooterDock();
     const topSelector='[data-gfy-scroll-top],#backToTopBtn,#scrollToTopBtn,#scrollTopBtn,#btnScrollTop,#back-to-top,#scrollToTop,.gfy-back-top,.to-top,a.top[href="#top"],[onclick*="scrollTo"]';
     const overlays='#freeConsultationPopup.active,#modalOverlay.active,#cartOverlay.active,#cartDrawer.active,#cart-modal:not(.hidden),#cart-sidebar:not(.translate-x-full),#cart-bar.visible,#modal-overlay:not(.hidden),#modal-container:not(.hidden),#promo-popup:not(.hidden),#promoPopup.active,#promo-modal:not(.hidden),#info-modal.show,#upgradeModal:not(.hidden),#newCommunityModal:not(.hidden),#userProfileModal:not(.hidden),#paymentModal:not(.hidden),#qrModal:not(.hidden),#userPublicProfileModal:not(.hidden),#notifModal,#truequeModal,#infoModal';
     function visible(element){
@@ -116,7 +159,7 @@
       return style.display!=='none'&&style.visibility!=='hidden'&&Number(style.opacity)!==0&&rect.width>0&&rect.height>0&&rect.right>0&&rect.bottom>0&&rect.left<innerWidth&&rect.top<innerHeight;
     }
     function refresh(){
-      const tops=Array.from(document.querySelectorAll(topSelector)).filter(isFloating);
+      const tops=Array.from(document.querySelectorAll(topSelector)).filter(element=>isFloating(element)||element.hasAttribute('data-gfy-footer-docked'));
       const legacyActive=tops.find(button=>button.id==='btnScrollTop');
       if(legacyActive){tops.splice(tops.indexOf(legacyActive),1);tops.unshift(legacyActive);}
       tops.forEach((button,i)=>{
@@ -136,6 +179,7 @@
       if(document.documentElement.style.getPropertyValue('--gfy-cart-height')!==cartHeight)document.documentElement.style.setProperty('--gfy-cart-height',cartHeight);
       const blocked=Array.from(document.querySelectorAll(overlays)).some(visible);
       document.body.toggleAttribute('data-gfy-overlay-open',blocked);
+      if(syncFooterDock)syncFooterDock();
     }
     refresh();
     let frame;
@@ -177,16 +221,16 @@
       appPreview.firstElementChild?.firstElementChild?.classList.add('gfy-app-phone');
     }
     const css=document.querySelector('link[href*="/assets/goatify-markets.css"]')||document.createElement('link');
-    css.rel='stylesheet';css.href='/assets/goatify-markets.css?v=20261004-responsive-41';
+    css.rel='stylesheet';css.href='/assets/goatify-markets.css?v=20261004-responsive-42';
     document.body.appendChild(css);
     if(homeHeader){
       ['goatify-home-design.css','goatify-navigation.css'].forEach(file=>{
-        const sheet=document.createElement('link');sheet.rel='stylesheet';sheet.href='/assets/'+file+'?v=20261004-responsive-41';document.body.appendChild(sheet);
+        const sheet=document.createElement('link');sheet.rel='stylesheet';sheet.href='/assets/'+file+'?v=20261004-responsive-42';document.body.appendChild(sheet);
       });
     }
     if(!window.GOATIFY_APPLY_CURRENCY_V48){
       const script=document.createElement('script');
-      script.src='/assets/goatify-currency.js?v=20261004-responsive-41';script.async=false;
+      script.src='/assets/goatify-currency.js?v=20261004-responsive-42';script.async=false;
       document.head.appendChild(script);
     }
     if(document.querySelector('.gfy-shivo-assistant')){installFloatingControls();return;}
