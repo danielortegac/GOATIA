@@ -152,6 +152,11 @@
     const dock=document.createElement('div');dock.className='gfy-footer-utility-dock';dock.hidden=true;
     dock.setAttribute('role','group');dock.setAttribute('aria-label',document.documentElement.lang.startsWith('en')?'Help and navigation':'Ayuda y navegación');
     container.appendChild(dock);
+    const rail=document.createElement('div'),controls=document.createElement('div');
+    rail.className='gfy-main-utility-rail';rail.hidden=true;
+    rail.setAttribute('role','group');rail.setAttribute('aria-label',dock.getAttribute('aria-label'));
+    controls.className='gfy-main-utility-controls';rail.appendChild(controls);document.body.appendChild(rail);
+    document.body.dataset.gfyUtilityRailInstalled='1';
     const positions=new Map();
     const selector='.gfy-shivo-assistant,[data-gfy-scroll-top],[data-gfy-floating-cart],[data-gfy-floating-whatsapp]';
     function sync(){
@@ -159,25 +164,19 @@
       // Its top is unchanged by the dock's height. Keep controls docked below
       // the footer too, including the country directory which follows it.
       const active=footer.getBoundingClientRect().top<innerHeight+80;
-      if(active){
-        document.querySelectorAll(selector).forEach(node=>{
-          if(node.parentNode===dock||!isFloating(node))return;
-          const marker=document.createComment('GOATIFY floating control position');
-          node.parentNode.insertBefore(marker,node);positions.set(node,marker);
-          node.setAttribute('data-gfy-footer-docked','');dock.appendChild(node);
-        });
-        positions.forEach((marker,node)=>{if(!node.isConnected){marker.remove();positions.delete(node);}});
-      }else{
-        positions.forEach((marker,node)=>{
-          if(node.isConnected){
-            if(marker.isConnected)marker.replaceWith(node);
-            else document.body.appendChild(node);
-            node.removeAttribute('data-gfy-footer-docked');
-          }else marker.remove();
-        });
-        positions.clear();
-      }
+      const target=active?dock:controls;
+      document.querySelectorAll(selector).forEach(node=>{
+        if(positions.has(node)||!isFloating(node))return;
+        const marker=document.createComment('GOATIFY original utility control position');
+        node.parentNode.insertBefore(marker,node);positions.set(node,marker);
+        node.setAttribute('data-gfy-footer-docked','');
+      });
+      positions.forEach((marker,node)=>{
+        if(!node.isConnected){marker.remove();positions.delete(node);return;}
+        if(node.parentNode!==target)target.appendChild(node);
+      });
       dock.hidden=!active||!positions.size;
+      rail.hidden=active||!positions.size;
     }
     let frame;
     function schedule(){if(frame)return;frame=requestAnimationFrame(()=>{frame=0;sync();});}
@@ -258,16 +257,16 @@
       appPreview.firstElementChild?.firstElementChild?.classList.add('gfy-app-phone');
     }
     const css=document.querySelector('link[href*="/assets/goatify-markets.css"]')||document.createElement('link');
-    css.rel='stylesheet';css.href='/assets/goatify-markets.css?v=20261004-responsive-43';
+    css.rel='stylesheet';css.href='/assets/goatify-markets.css?v=20261004-responsive-44';
     document.body.appendChild(css);
     if(homeHeader){
       ['goatify-home-design.css','goatify-navigation.css'].forEach(file=>{
-        const sheet=document.createElement('link');sheet.rel='stylesheet';sheet.href='/assets/'+file+'?v=20261004-responsive-43';document.body.appendChild(sheet);
+        const sheet=document.createElement('link');sheet.rel='stylesheet';sheet.href='/assets/'+file+'?v=20261004-responsive-44';document.body.appendChild(sheet);
       });
     }
     if(!window.GOATIFY_APPLY_CURRENCY_V48){
       const script=document.createElement('script');
-      script.src='/assets/goatify-currency.js?v=20261004-responsive-43';script.async=false;
+      script.src='/assets/goatify-currency.js?v=20261004-responsive-44';script.async=false;
       document.head.appendChild(script);
     }
     if(document.querySelector('.gfy-shivo-assistant')){installFloatingControls();return;}
