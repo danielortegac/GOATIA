@@ -299,16 +299,16 @@
       appPreview.firstElementChild?.firstElementChild?.classList.add('gfy-app-phone');
     }
     const css=document.querySelector('link[href*="/assets/goatify-markets.css"]')||document.createElement('link');
-    css.rel='stylesheet';css.href='/assets/goatify-markets.css?v=20261004-responsive-54';
+    css.rel='stylesheet';css.href='/assets/goatify-markets.css?v=20261005-responsive-55';
     document.body.appendChild(css);
     if(homeHeader){
       ['goatify-home-design.css','goatify-navigation.css'].forEach(file=>{
-        const sheet=document.createElement('link');sheet.rel='stylesheet';sheet.href='/assets/'+file+'?v=20261004-responsive-54';document.body.appendChild(sheet);
+        const sheet=document.createElement('link');sheet.rel='stylesheet';sheet.href='/assets/'+file+'?v=20261005-responsive-55';document.body.appendChild(sheet);
       });
     }
     if(!window.GOATIFY_APPLY_CURRENCY_V48){
       const script=document.createElement('script');
-      script.src='/assets/goatify-currency.js?v=20261004-responsive-54';script.async=false;
+      script.src='/assets/goatify-currency.js?v=20261005-responsive-55';script.async=false;
       document.head.appendChild(script);
     }
     if(document.querySelector('.gfy-shivo-assistant')){installFloatingControls();return;}
