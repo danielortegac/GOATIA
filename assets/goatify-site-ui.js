@@ -1,9 +1,98 @@
 (function(){
   'use strict';
+  function installHomeNavigation(header){
+    const menu=header.querySelector('.nav-menu');
+    if(!menu)return;
+    menu.id=menu.id||'gfy-home-menu';
+    const toolbar=document.createElement('div');
+    toolbar.className='gfy-mobile-toolbar';
+    const portal=document.createElement('a');
+    portal.href='https://ia.goatify.app';portal.target='_blank';portal.rel='noopener';
+    portal.className='gfy-mobile-portal';portal.textContent='Portal GOATIFY';
+    const prices=document.createElement('a');prices.href='/pricing/';prices.textContent='Precios';
+    const toggle=document.createElement('button');toggle.type='button';
+    toggle.className='gfy-menu-toggle';toggle.setAttribute('aria-controls',menu.id);
+    toggle.setAttribute('aria-expanded','false');toggle.innerHTML='<span aria-hidden="true">☰</span> Menú';
+    toolbar.append(portal,prices,toggle);header.insertBefore(toolbar,menu);
+    const external=menu.querySelector('.nav-row-external');
+    const internal=menu.querySelector('.nav-row-internal');
+    [external,internal].forEach((row,i)=>{
+      if(!row)return;
+      const title=document.createElement('span');title.className='gfy-menu-heading';
+      title.textContent=i?'Explora el inicio':'Servicios y soluciones';
+      row.insertBefore(title,row.firstChild);
+    });
+    const more=document.createElement('div');more.className='gfy-menu-more';
+    const title=document.createElement('span');title.className='gfy-menu-heading';title.textContent='GOATIFY y su ecosistema';more.appendChild(title);
+    const company=document.querySelectorAll('#gfy-eco-menu-v26 .gfy-eco-group-v26:last-child a');
+    company.forEach(source=>{
+      const link=source.cloneNode(true);link.querySelector('i')?.remove();
+      link.className='nav-link';more.appendChild(link);
+    });
+    const ecosystem=document.createElement('a');ecosystem.href='/ecosistema/';
+    ecosystem.className='nav-link';ecosystem.textContent='Todos los productos y servicios';more.appendChild(ecosystem);
+    menu.appendChild(more);
+    function close(restoreFocus){
+      header.classList.remove('gfy-menu-open');toggle.setAttribute('aria-expanded','false');
+      if(restoreFocus)toggle.focus();
+    }
+    toggle.addEventListener('click',()=>{
+      const open=toggle.getAttribute('aria-expanded')!=='true';
+      header.classList.toggle('gfy-menu-open',open);toggle.setAttribute('aria-expanded',String(open));
+      if(open)document.getElementById('gfy-eco-menu-v26')?.removeAttribute('open');
+    });
+    menu.addEventListener('click',event=>{if(event.target.closest('a'))close(false);});
+    document.addEventListener('keydown',event=>{if(event.key==='Escape'&&header.classList.contains('gfy-menu-open'))close(true);});
+    window.matchMedia('(max-width:992px)').addEventListener('change',()=>close(false));
+    header.classList.add('gfy-navigation-ready');
+  }
+  function isFloating(element){
+    if(element.closest('header,nav,[role="dialog"],.modal,.modal-overlay,#userPublicProfileModal,#freeConsultationPopup,#cartDrawer,#cart-modal,#cart-sidebar,#promo-modal,#info-modal,#promoPopup,#promo-popup,#modal-container,#modal-overlay,#upgradeModal,#newCommunityModal,#userProfileModal,#paymentModal,#qrModal,#notifModal,#truequeModal,#infoModal'))return false;
+    for(let current=element;current&&current!==document.body;current=current.parentElement){
+      if(getComputedStyle(current).position==='fixed')return true;
+    }
+    return false;
+  }
+  function installFloatingControls(){
+    const topSelector='[data-gfy-scroll-top],#backToTopBtn,#scrollToTopBtn,#scrollTopBtn,#btnScrollTop,#back-to-top,#scrollToTop,.gfy-back-top,.to-top,a.top[href="#top"],[onclick*="scrollTo"]';
+    const overlays='#freeConsultationPopup.active,#modalOverlay.active,#cartOverlay.active,#cartDrawer.active,#cart-modal:not(.hidden),#cart-sidebar:not(.translate-x-full),#cart-bar.visible,#modal-overlay:not(.hidden),#modal-container:not(.hidden),#promo-popup:not(.hidden),#promoPopup.active,#promo-modal:not(.hidden),#info-modal.show,#upgradeModal:not(.hidden),#newCommunityModal:not(.hidden),#userProfileModal:not(.hidden),#paymentModal:not(.hidden),#qrModal:not(.hidden),#userPublicProfileModal:not(.hidden),#notifModal,#truequeModal,#infoModal';
+    function visible(element){
+      const style=getComputedStyle(element),rect=element.getBoundingClientRect();
+      return style.display!=='none'&&style.visibility!=='hidden'&&Number(style.opacity)!==0&&rect.width>0&&rect.height>0&&rect.right>0&&rect.bottom>0&&rect.left<innerWidth&&rect.top<innerHeight;
+    }
+    function refresh(){
+      const tops=Array.from(document.querySelectorAll(topSelector)).filter(isFloating);
+      const legacyActive=tops.find(button=>button.id==='btnScrollTop');
+      if(legacyActive){tops.splice(tops.indexOf(legacyActive),1);tops.unshift(legacyActive);}
+      tops.forEach((button,i)=>{
+        button.setAttribute(i?'data-gfy-duplicate-top':'data-gfy-scroll-top','');
+        if(i)button.removeAttribute('data-gfy-scroll-top');
+        else {button.setAttribute('aria-label',document.documentElement.lang.startsWith('en')?'Back to top':'Volver arriba');if(button.tagName==='DIV'){button.setAttribute('role','button');button.tabIndex=0;if(!button.dataset.gfyTopKeyboard){button.dataset.gfyTopKeyboard='1';button.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();button.click();}});}}}
+      });
+      document.querySelectorAll('a[href*="ia.goatify.app"]').forEach(link=>{
+        if(!link.classList.contains('gfy-shivo-assistant')&&isFloating(link)&&/asistente\s*ia|ai\s*assistant/i.test(link.textContent+' '+(link.getAttribute('aria-label')||'')))link.setAttribute('data-gfy-original-assistant','');
+      });
+      document.querySelectorAll('a[href*="wa.me"],a[href*="api.whatsapp.com"],.whatsapp-float,.gfy-whatsapp-fab,.float-wa,.floating-whatsapp-bubble').forEach(link=>{
+        if(link.id!=='floating-cart-btn'&&isFloating(link))link.setAttribute('data-gfy-floating-whatsapp','');
+      });
+      document.querySelectorAll('.cart-fab').forEach(cart=>{if(isFloating(cart))cart.setAttribute('data-gfy-floating-cart','');});
+      const cart=document.querySelector('[data-gfy-floating-cart]');
+      const cartHeight=Math.ceil(cart?.getBoundingClientRect().height||44)+'px';
+      if(document.documentElement.style.getPropertyValue('--gfy-cart-height')!==cartHeight)document.documentElement.style.setProperty('--gfy-cart-height',cartHeight);
+      const blocked=Array.from(document.querySelectorAll(overlays)).some(visible);
+      document.body.toggleAttribute('data-gfy-overlay-open',blocked);
+    }
+    refresh();
+    let frame;
+    const observer=new MutationObserver(()=>{if(frame)return;frame=requestAnimationFrame(()=>{frame=0;refresh();});});
+    observer.observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:['class','style','aria-hidden']});
+    document.addEventListener('transitionend',event=>{if(event.target.matches(overlays))refresh();});
+    window.addEventListener('resize',refresh,{passive:true});
+  }
   function install(){
     if(document.body.dataset.gfySiteUiInstalled)return;
     document.body.dataset.gfySiteUiInstalled='1';
-    const homeHeader=document.querySelector('.nav-container');
+    const homeHeader=document.querySelector('body[data-gfy-page="home"] .nav-container');
     if(homeHeader){
       const actions=homeHeader.querySelector('.header-actions');
       const language=document.getElementById('gfy-language-toggle-v33');
@@ -20,6 +109,8 @@
         }
         placePortal();mobile.addEventListener('change',placePortal);
       }
+      document.body.dataset.gfyPage='home';
+      installHomeNavigation(homeHeader);
     }
     const appPreview=document.querySelector('#pwa-section .grid.grid-cols-12');
     if(appPreview){
@@ -28,17 +119,22 @@
       appPreview.firstElementChild?.firstElementChild?.classList.add('gfy-app-phone');
     }
     const css=document.querySelector('link[href*="/assets/goatify-markets.css"]')||document.createElement('link');
-    css.rel='stylesheet';css.href='/assets/goatify-markets.css?v=20261004-responsive-22';
+    css.rel='stylesheet';css.href='/assets/goatify-markets.css?v=20261004-responsive-23';
     document.body.appendChild(css);
+    if(homeHeader){
+      ['goatify-home-design.css','goatify-navigation.css'].forEach(file=>{
+        const sheet=document.createElement('link');sheet.rel='stylesheet';sheet.href='/assets/'+file+'?v=20261004-responsive-23';document.body.appendChild(sheet);
+      });
+    }
     if(!window.GOATIFY_APPLY_CURRENCY_V48){
       const script=document.createElement('script');
-      script.src='/assets/goatify-currency.js?v=20261004-responsive-22';script.async=false;
+      script.src='/assets/goatify-currency.js?v=20261004-responsive-23';script.async=false;
       document.head.appendChild(script);
     }
-    if(document.querySelector('.gfy-shivo-assistant'))return;
+    if(document.querySelector('.gfy-shivo-assistant')){installFloatingControls();return;}
     const existing=Array.from(document.querySelectorAll('a[href*="ia.goatify.app"]')).filter(a=>
       /asistente\s*ia|ai\s*assistant/i.test(a.textContent+' '+(a.getAttribute('aria-label')||'')) &&
-      (getComputedStyle(a).position==='fixed'||a.closest('.ai-assistant-widget,.assistant-widget,.gfy-float-right,.floating-assistant')));
+      isFloating(a));
     const english=document.documentElement.lang.startsWith('en');
     const assistant=document.createElement('a');assistant.className='gfy-shivo-assistant';
     assistant.href=existing[0]?.href||'https://ia.goatify.app/#/agent/cVsZW8ZM9oHUnKNIXtFc';
@@ -50,9 +146,7 @@
     assistant.appendChild(mascot);assistant.appendChild(text);
     existing.forEach(a=>a.setAttribute('data-gfy-original-assistant',''));
     document.body.appendChild(assistant);
-    document.querySelectorAll('button[onclick*="scrollTo"],#scrollToTop,#back-to-top,#scrollTopBtn,.gfy-back-top').forEach(button=>{
-      if(getComputedStyle(button).position==='fixed')button.setAttribute('data-gfy-scroll-top','');
-    });
+    installFloatingControls();
     const headers=Array.from(document.querySelectorAll('body>header,body>nav.fixed,body>nav.main-nav,header.site-header,#header'));
     function updateAnchorOffset(){
       const height=Math.max(0,...headers.map(header=>{
