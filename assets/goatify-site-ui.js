@@ -1,18 +1,19 @@
 (function(){
   'use strict';
   function installAwayTabNotice(){
+    if(document.body.dataset.gfyPage!=='home')return;
     if(document.body.dataset.gfyAwayTabInstalled)return;
     document.body.dataset.gfyAwayTabInstalled='1';
     let saved=null,awayIcon=null;
     function sync(){
-      if(document.hidden){
+      if(document.hidden||!document.hasFocus()){
         if(saved)return;
         saved={title:document.title,icons:Array.from(document.head.querySelectorAll('link[rel~="icon"]'),node=>({node,rel:node.getAttribute('rel')}))};
         saved.icons.forEach(({node})=>node.removeAttribute('rel'));
         awayIcon=document.createElement('link');
         awayIcon.rel='icon';awayIcon.type='image/svg+xml';awayIcon.sizes='any';
         awayIcon.href='/assets/shivo-favicon.svg';document.head.appendChild(awayIcon);
-        document.title=document.documentElement.lang.toLowerCase().startsWith('en')?'Continue?':'¿Seguimos?';
+        document.title='Seguimos';
       }else if(saved){
         awayIcon.remove();awayIcon=null;
         saved.icons.forEach(({node,rel})=>node.setAttribute('rel',rel));
@@ -20,6 +21,8 @@
       }
     }
     document.addEventListener('visibilitychange',sync);
+    window.addEventListener('blur',sync);
+    window.addEventListener('focus',sync);
     sync();
   }
   function installHomeLogoCycle(header){
@@ -299,7 +302,7 @@
       appPreview.firstElementChild?.firstElementChild?.classList.add('gfy-app-phone');
     }
     const css=document.querySelector('link[href*="/assets/goatify-markets.css"]')||document.createElement('link');
-    css.rel='stylesheet';css.href='/assets/goatify-markets.css?v=20261005-responsive-58';
+    css.rel='stylesheet';css.href='/assets/goatify-markets.css?v=20261005-responsive-63';
     document.body.appendChild(css);
     if(homeHeader){
       ['goatify-home-design.css','goatify-navigation.css'].forEach(file=>{

@@ -80,7 +80,7 @@ self.addEventListener('fetch', (event) => {
   }
 
   // The shared UI loader selects versioned styles/scripts; refresh it before choosing a bundle.
-  if (url.origin === self.location.origin && url.pathname === '/assets/goatify-commercial.js') {
+  if (url.origin === self.location.origin && ['/assets/goatify-commercial.js','/assets/goatify-site-ui.js'].includes(url.pathname)) {
     event.respondWith((async () => {
       const cache = await caches.open(ASSET_CACHE);
       try {
