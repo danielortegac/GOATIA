@@ -12,8 +12,8 @@
         saved.icons.forEach(({node})=>node.removeAttribute('rel'));
         awayIcon=document.createElement('link');
         awayIcon.rel='icon';awayIcon.type='image/svg+xml';awayIcon.sizes='any';
-        awayIcon.href='/assets/shivo-favicon.svg';document.head.appendChild(awayIcon);
-        document.title='Seguimos';
+        awayIcon.href='/assets/shivo-favicon.svg?v=20261007-large';document.head.appendChild(awayIcon);
+        document.title='Mira esto, te interesa';
       }else if(saved){
         awayIcon.remove();awayIcon=null;
         saved.icons.forEach(({node,rel})=>node.setAttribute('rel',rel));
